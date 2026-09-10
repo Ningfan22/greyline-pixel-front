@@ -1,0 +1,137 @@
+Generated using built-in image_gen.imagegen in three parallel requests.
+
+ASSET1: soldier-locomotion.png
+
+Use case: stylized-concept
+Asset type: realistic adult infantry locomotion sprite animation atlas, GREYLINE v3.
+Create a PNG sprite sheet, FOUR columns and EIGHT rows, exactly32 frames, each cell contains ONE isolated RIGHT-FACING adult rifle soldier. Requested canvas1536x3072, equal384x384 cells. Genuine transparent alpha around every sprite.
+PRIMARY REQUIREMENT: The soldier has REALISTIC NORMAL ADULT HUMAN BODY PROPORTIONS, approximately SEVEN HEADS TALL, small head and small fitted helmet, long normal arms and legs, anatomically normal hands and feet. Full-grown realistic military person, not a child, not a toy, not cartoon, not chibi. Helmet is only approximately one-seventh standing body height. No oversized head, helmet, gloves or boots. Refer stylistically to restrained cinematic 1990s military simulation pixel art.
+PIXEL ART: Person built at32x48 logical pixels, around18 muted colors olive, charcoal, tan. Enlarge with nearest-neighbor. Sharp visible discrete pixel clusters, hard edges, no gradients, no blur, no soft rendering, no painterly textures. Realistic body silhouette matters most. Small detailed-enough rifle, adult torso, narrow shoulders relative to full height. Same individual, same uniform and equipment throughout.
+LAYOUT: Invisible4-column×8-row grid. Keep each full sprite including rifle within its equal cell, with generous transparent margins; no object crosses a cell boundary. Sprite around half the height of its cell, so there is abundant whitespace for extended limbs and fallen poses. All standing sprite feet share the same baseline within a row. Keep adult body scale consistent across every pose. Every sprite wholly isolated.
+ROW1: STANDING IDLE, four frames of subtle breathing/weight shifts while holding rifle. Full-height realistic standing person.
+ROW2: WALKING, four distinctly different stride phases with natural arm/leg alternation.
+ROW3: RUNNING, four dynamic running strides, bent knees and forward lean, clearly different from walking.
+ROW4: WALL CLIMBING, four successive poses: both arms reaching up; arms pulling body upward; one knee lifted up onto imagined ledge; body shifting over imagined wall top. Render PERSON ONLY, NO WALL and no scenery in any frame.
+ROW5: CROUCHING, four low crouched-aim or crouch-step frames, knees bent naturally, compact adult pose.
+ROW6: PRONE CRAWLING, four crawling frames, adult body lying fully horizontal with rifle pointed right, elbow and knee movements. Entire elongated body and rifle fit inside its cell.
+ROW7: FIRING, four successive frames: aiming; recoil; tiny blocky muzzle flash; recovering aim. Small flash, no glow halo.
+ROW8: HIT AND DEATH, four consecutive frames: flinching; dropping to one knee; falling; lying horizontal. No blood or gore.
+ABSOLUTE CONSTRAINTS: exactly4 columns by8 rows, no text/numbers/labels, no gridlines/borders, no checkerboard texture or backdrop. GENUINE PNG alpha. Every character must retain realistic adult seven-head proportions in all32 frames. NO CHIBI. NO CUTE STYLE. NO TOY FIGURES.
+
+ASSET2: vehicle-support.png
+
+Use case: stylized-concept
+Asset type: realistic pixel-art military vehicle animation and support atlas, GREYLINE v3.
+Create an isolated sprite PNG with GENUINE TRANSPARENT ALPHA, requested2048x768, exactly FOUR columns by THREE rows, invisible equal512x256 cells. One isolated object per cell, generous transparent padding. No object crosses a cell boundary.
+STYLE: Restrained cinematic 1990s military simulation pixel art. REALISTIC long low adult-world modern vehicle proportions, accurate silhouette, small understated highlights. Logical64x32-pixel vehicle forms enlarged nearest-neighbor. Visible sharp pixel clusters, limited olive-gray, charcoal, muted tan colors. No gradients, no glow, no blur, no painterly texture, no tiny microscopic detail. Not cute, not chibi, not plastic toys, no exaggerated cartoon proportions, no bright glossy highlights.
+ROW1: four side-view frames of the SAME modern olive-gray main battle tank, right-facing. Long low hull, small low angular turret, long narrow gun barrel, realistic tracks and wheels. Stable tank/turret/body shape and position; four different track-tread phases for track motion.
+ROW2: four side-view frames of the SAME realistic olive-gray attack helicopter, right-facing. Long narrow fuselage and tail, realistically proportioned cockpit, understated military silhouette. Stable helicopter body position; four different main-rotor phases: full width horizontal, diagonal short, narrow foreshortened, opposite diagonal short. All blades fit inside the cell.
+ROW3 COLUMN1: realistic compact military command post with small antenna.
+ROW3 COLUMN2: a short low ruined concrete wall with sandbags, suitable as climbable cover, no characters.
+ROW3 COLUMN3: isolated tripod-mounted machine gun, right-facing, no people.
+ROW3 COLUMN4: isolated shoulder-fired rocket launcher, right-facing, no people.
+CONSTRAINTS: exactly12 sprites in a4x3 matrix, row and column order strictly as stated. Real PNG transparency around each. No colored backdrop, no checkerboard pattern, no text, no labels, no borders, no gridlines, no logos, no glow halos. Neutral realistic military proportions.
+
+ASSET3: battlefield-panorama.png
+
+Use case: stylized-concept
+Asset type: realistic pixel-art battlefield village panorama, GREYLINE v3.
+Create an opaque very wide3:1 panorama of an empty rural European village battlefield, intended as a2D side-scrolling modern military game background. Full scene in straight SIDE VIEW.
+STYLE: Restrained cinematic realistic pixel art, subdued colors and realistic building/tree proportions. Logical640x214-resolution pixel clusters enlarged nearest-neighbor. Clearly visible sharp stepped pixel shapes but no cute simplified toy scenery. No gradients, no blur, no painterly microscopic details. Restricted desaturated palette. Weathered buildings with realistic rectangular masonry walls and dark-gray or muted-rust roofs, understated signs of abandonment.
+SCENE: Overcast pale-gray sky with broad subtle block clouds, desaturated layered distant forest, realistic pine and birch tree silhouettes, a few modest weathered houses in lower half, abandoned and empty. Slightly somber atmosphere, soft even overcast daylight. Top40percent mostly open palegray sky. A flat grass ground baseline at84percent image height, suitable for a2D side-view game. No perspective path receding into the image.
+CONSTRAINTS: no characters, soldiers, troops, vehicles, UI, text, logos, weapons, explosions or smoke. Natural realistic scale, not cute, not toy-like. Output ideally1920x640 at3:1 aspect ratio.
+
+ASSET4: terrain-texture.png
+Mode: built-in image_gen
+
+Use case: stylized-concept
+Asset type: one horizontally seamless tileable foreground ground texture for a somber military side-scrolling pixel-art browser game.
+Primary request: A SIDE-VIEW CUTAWAY STRIP OF GROUND MATERIAL ONLY. Very wide 4:1 horizontal canvas, ideally 1536 by 384 pixels, drawn at logical 512 by 128 pixels and expanded 3x with crisp nearest-neighbor pixel clusters.
+Composition: The entire rectangular image is occupied by ground material from the very top edge to the very bottom edge. At the very top, a narrow irregular dry olive grass turf band with roots occupies approximately 12 percent of image height. The remaining 88 percent is exposed brown-gray natural soil in irregular horizontal strata, with small embedded angular stones, sparse branching roots and gravel. Soil gets progressively darker toward the bottom. A flat orthographic side view, not an aerial view or perspective.
+Palette and mood: realistic somber military pixel art; muted brown, charcoal, taupe and dusty gray soil with sparse muted dry olive grass. Detailed yet readable chunky pixel clusters, purposeful hand-placed pixel texture, no smooth airbrushing. Soil is visually rich and clearly brown-gray, NEVER a flat green surface.
+Production constraints: Seamless horizontally tileable left and right edges. Texture layers join across both edges. Must remain readable compressed into a 1440 by 120 pixel foreground strip. Bomb craters will clip away the top and expose deeper soil, so all depths must contain convincing soil texture. Ground texture fills every pixel; NO sky, NO empty space above the turf, NO aboveground objects, NO characters, NO vehicles, NO weapons, NO UI, NO letters, NO frame or borders, NO watermark. Create exactly one texture, no sheet of alternatives.
+
+
+
+V4 LOCOMOTION
+Use case: stylized-concept
+Asset type: production pixel-art game animation sprite sheet.
+Input image 1 is ONLY a character/style reference. Create ONE NEW animation sheet; do not reproduce its layout or its repetitive poses.
+
+Canvas: exactly 2048 x 1152 pixels, landscape 16:9, genuine transparent RGBA background. EXACTLY 8 equal columns and EXACTLY 3 equal rows = 24 equal 256 x 384 cells. One full-body individual per cell, separated by abundant transparent space. No panels, no gridlines, no text, no labels, no numbering, no terrain, no ground shadows, no props apart from his own kit. Every cell must be populated. No overlap or cropped heads, boots, hands or rifle. All silhouettes remain inside their own cell.
+
+Character and art invariants: the SAME modern adult infantryman as reference in EVERY cell, facing strictly RIGHT in full side view. Realistic adult approximately seven-head body proportions, normal-size helmet, long legs, slim torso. Muted olive drab fatigues, olive helmet, compact vest and backpack, elbow/knee protection, dark boots, charcoal rifle, restrained tan skin. Match the reference's gritty realistic hand-placed pixel art, hard square pixels and stepped edges; no painting, no smoothing, no blurry edges, no gradients. Use consistent approximately 180-pixel standing height in every cell, not giant cartoon heads, not chibi, not miniatures. Maintain identical body size, kit, colors and camera.
+
+CRITICAL: These are ACTUAL sequential motion keyframes. Each successive frame changes the pose. Make silhouettes visibly different, especially leg crossing and opposing legs in the walk. DO NOT draw the same forward stride eight times. Walking must show a complete left-and-right cycle. Near leg is the visible leg with clearer knee pad; far leg is darker. Distinguish which foot is leading.
+
+ROW 1, columns 1-8: complete in-place 8-frame WALK CYCLE with rifle held low-ready. Torso stays upright, head stays at virtually the same height, same foot baseline in all eight cells.
+1 left/near leg straight forward and heel contacting, right/far leg stretched backward.
+2 left/near foot flat under forward knee accepting weight, right/far heel raised behind.
+3 passing pose: legs CLOSE TOGETHER, left/near support leg nearly vertical, right/far knee bent passing beneath hips and its boot lifted.
+4 right/far leg swings forward with bent knee; left/near support leg trails slightly.
+5 opposite contact: RIGHT/FAR LEG stretched FORWARD heel contacting, LEFT/NEAR LEG stretched BACKWARD; visibly opposite to frame 1.
+6 right/far foot flat accepting weight, left/near heel raised behind.
+7 second passing pose: legs CLOSE TOGETHER, right/far support leg vertical, left/near knee bent passing beneath hips and boot lifted.
+8 left/near leg swings forward, right/far support leg trails, leading naturally to frame 1.
+The four contact/passing silhouettes must alternate WIDE, narrowing, NARROW, expanding, WIDE opposite, narrowing, NARROW opposite, expanding. Never duplicate eight generic running strides.
+
+ROW 2, columns 1-8: JUMP DOWN INTO A CRATER; show the soldier only, no crater geometry. Same full-body scale and right-facing orientation. Rifle retained safely at chest / slung.
+1 deep crouch anticipation with hips back, knees bent.
+2 forceful push-off, ankles extended and torso rising diagonally forward.
+3 clearly airborne compact tuck, both knees bent high under torso.
+4 airborne falling with thighs dropping and lower legs beginning to extend.
+5 extended feet down and slightly forward preparing for ground.
+6 initial boot contact, knees partially bent and torso pitched forward.
+7 deepest landing absorption: squat, hips very low and both knees deeply bent.
+8 recovering to upright with knees just slightly bent.
+Make crouch, compact midair, long falling legs, and landing squat dramatically different recognizable silhouettes. Keep generous room around them.
+
+ROW 3, columns 1-8: CLIMB UP A DIRT BANK, pantomimed against an invisible ledge; NO drawn terrain. Rifle slung along back/side so both hands can climb. Same consistent full-body scale, strict right-facing profile.
+1 reach both hands upward and forward to grab the ledge, body tall and feet low.
+2 arms extended with grip held, knees bend and one foot braces.
+3 elbows pulling back, upper torso rises, feet trailing below.
+4 pull chest above ledge with elbows bent, near knee lifted high.
+5 near knee plants onto the ledge level, rear leg dangles below, hands support body.
+6 weight shifts forward onto the planted knee, torso folds over thigh, rear foot comes up.
+7 both feet on top, low crouch with one supporting hand about to release.
+8 stands upright facing right and resumes low-ready rifle.
+This row must visibly progress from hanging/reaching to pulling, knee plant, weight shift, standing, not eight minor hand variations.
+
+Prioritize exact 8-by-3 structure, transparent background, consistently proportioned adult character and anatomically coherent distinct keyframes.
+
+
+V5 REINFORCEMENTS
+Use case: stylized-concept.
+Asset type: one production sprite atlas for an adult, grounded, realistic modern military side-scrolling pixel-art game.
+Create ONE PNG sprite sheet on a genuinely fully transparent alpha background. DO NOT draw any checkerboard, solid-color backdrop, gradient, ground, shadows behind the sprites, cell lines, labels, text or UI. Transparency must be real.
+Canvas and layout: wide canvas 2048 x 1024 pixels, exactly FOUR equal 512-pixel columns and TWO equal 512-pixel rows, eight equal cells total. Center one isolated asset within each cell, safely inside the cell with generous clear margins. Crisp hard-edged hand-pixel clusters, restrained desaturated olive-drab, charcoal, weathered steel, practical adult military proportions, slight worn texture. Pure side elevation viewed from the left, all directional equipment facing RIGHT. No isometric or three-quarter view, no cute toy proportions, no rounded cartoon shapes.
+FIRST ROW: four animation frames of the EXACT SAME tracked infantry fighting vehicle. Modest compact angular troop-carrying hull, lighter and smaller than a main battle tank; five or six road wheels and clearly visible continuous caterpillar tracks; compact turret with slender medium-length autocannon barrel pointing RIGHT; subtle olive armor paneling and stowage. The four frames must have IDENTICAL body position within each cell, identical silhouette, scale, turret, gun and wheels; change only the small tread-link phase to create a four-frame moving track cycle. Keep main hull horizontally level in all four.
+SECOND ROW:
+cell 1: ONE long sniper rifle with mounted compact telescopic scope, fixed stock to left, slim barrel and muzzle pointing right, isolated horizontal profile, fully contained within cell.
+cell 2: ONE small practical rectangular olive military medical satchel with closed flap, short carry handle and a small CREAM-colored cross patch. Cream cross ONLY, no red-cross emblem, no red colors.
+cell 3: ONE isolated olive mortar tube with bipod and baseplate, tube angled diagonally upward to the RIGHT, accurate recognizable field mortar silhouette, side view, no ammunition or crew.
+cell 4: ONE folded olive reconnaissance drone / optics spotter backpack, compact fabric field pack with a folded small quadcopter securely strapped on and small dark binocular/optics module, standalone clean silhouette, no person.
+The eight sprites must be separate with empty transparent space between them. No extra objects. Pixel-art quality should match serious late-1990s military tactics sprites rendered with fine intentional pixel clustering and restrained weathering, not smooth illustration or 3D.
+
+V6 reactions and identities
+Use case: style-transfer
+Asset type: production pixel-art sprite atlas for a game and its homepage.
+Edit the supplied reference into a NEW strictly organized atlas. Reference image role: soldier identity, modern military outfit, crisp hand-pixel style, realistic adult anatomy and RIGHT-facing side-profile camera only. Replace the reference's existing poses/layout/background with the following exact specification.
+
+Canvas: landscape 2048 x 1024 PNG, arranged as exactly FOUR columns by TWO rows of equal 512 x 512 cells. No visible cell borders. Exactly eight isolated full-body individuals total, one per cell. Fixed orthographic side camera; EVERY figure faces RIGHT. All bodies fully contained inside their respective cell with at least 40 pixels padding. Feet/ground baseline at 90% of each cell. Preserve identical adult body scale across all eight cells; standing humans have natural approximately seven-head-tall anatomy, modest realistic head/helmet size, long adult limbs, never chibi or toy proportions. Center subjects horizontally in each cell; leave clear empty gutters.
+
+ROW 1, columns left to right: four clearly DISTINCT surrender keyframes of the SAME reference olive/tan soldier with identical helmet, face, armor, backpack, fatigues and boots.
+1. Kneeling on one knee, torso upright, right-facing, releasing his black rifle so it drops beside the forward knee, empty open hand extended down; one separate rifle is visible near the ground. The soldier is surrendering, not fighting.
+2. Standing, both hands empty, slowly raising both forearms so OPEN PALMS are visible around shoulder level. Rifle entirely absent from this cell, including no slung weapon.
+3. Standing with both empty arms FULLY ABOVE HIS HELMET in unmistakable surrender, elbows slightly bent and OPEN PALMS visible. No weapon anywhere in the cell.
+4. Kneeling on both knees with torso upright and both empty arms raised beside/above his helmet, OPEN PALMS visible. No weapon anywhere in the cell.
+
+ROW 2, columns left to right: four isolated right-facing full-body military uniform identities, each a SINGLE individual in a quiet grounded standing pose. Same believable adult proportions and pixel-art treatment as row 1.
+1. Marine wearing olive-and-tan modern combat fatigues, ballistic helmet, practical tactical vest and boots, holding a standard black rifle at low ready.
+2. Armed police officer wearing a distinctly dark navy-blue/charcoal tactical uniform, matching helmet, compact body armor, black boots, holding a black rifle at low ready. No insignia or writing.
+3. Recon soldier wearing woodland green/brown camouflage and a light practical ghillie covering with sparse angular leaf/rag silhouettes, light webbing, slim silhouette, holding a rifle low. The person remains clearly readable, not a bush.
+4. Assault trooper wearing noticeably heavier modern dark olive/charcoal body armor, helmet and knee protection, holding a compact carbine at low ready. Human proportions, not science-fiction power armor.
+
+Rendering: strict hand-authored 2D pixel art, small controlled color clusters, hard stepped pixel edges, crisp dark outline, no blur, no smoothing, no gradients, no painterly texture, no glossy 3D. Use a coherent approximately 4 x 4 output-pixel block grid, as if drawn at 512 x 256 and enlarged by nearest neighbor. Muted olive, tan, khaki, navy/charcoal with limited flesh tones. Clear readable hand shapes. Do not add accessories, extra limbs, duplicated hands, UI, panels, card frames, labels, typography, flags, emblems, logos, explosions, terrain, shadows or scenery.
+
+CRITICAL BACKGROUND: export with actual PNG ALPHA TRANSPARENCY. All pixels outside characters and the single dropped rifle are alpha=0. Do NOT draw a checkerboard, white field, gray field, mottling or any imitation of transparency. The supplied reference's checker pattern is only a preview/background to discard, never part of the desired art.
