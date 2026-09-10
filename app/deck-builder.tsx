@@ -19,7 +19,8 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { CARDS, DECK, validDeck, copyLimit, type CardId } from '@/game/cards';
-import { SpriteArt } from '@/game/card-art';
+import { CardFace, cardStats } from '@/game/card-art';
+import { CARD_COPY } from '@/game/card-copy';
 const pool = Object.values(CARDS).sort(
   (a, b) => a.cost - b.cost || a.name.localeCompare(b.name, 'zh-CN'),
 );
@@ -351,44 +352,14 @@ export default function DeckBuilder({
                     aria-pressed={picked}
                     aria-label={`${draft.length === 20 ? '替换为' : '增加一张'}${c.name}，${c.cost} 点，${c.description}`}
                   >
-                    <div className="armory-card-cap">
-                      <b>{c.cost}</b>
-                      <span>
-                        {c.type === 'skill'
-                          ? '指令'
-                          : c.emplacement
-                            ? '火炮'
-                            : c.armored
-                              ? '装甲'
-                              : c.air
-                                ? '航空'
-                                : '步兵'}
-                      </span>
-                      <small>
-                        {picked ? (
-                          <>
-                            {countOf(c.id)} / {copyLimit(c.id)}
-                          </>
-                        ) : pending === c.id ? (
-                          '待替换'
-                        ) : (
-                          `+ 编入 / 上限 ${copyLimit(c.id)}`
-                        )}
-                      </small>
-                    </div>
-                    <SpriteArt id={c.id} className="armory-card-image" />
-                    <h3>{c.name}</h3>
-                    <p>{c.description}</p>
-                    <div className="armory-card-stats">
-                      <span>
-                        {c.members
-                          ? `${c.members} 人`
-                          : c.type === 'skill'
-                            ? c.tag.split(' · ')[0]
-                            : '1 辆 / 架'}
-                      </span>
-                      <b>{c.hp ? `${c.hp} 生命` : '战术支援'}</b>
-                    </div>
+                    <CardFace id={c.id} />
+                    <span className="armory-card-owned">
+                      {pending === c.id
+                        ? '选择旧卡替换'
+                        : picked
+                          ? `已编入 ${countOf(c.id)} / ${copyLimit(c.id)}`
+                          : `+ 编入 · 上限 ${copyLimit(c.id)} 张`}
+                    </span>
                   </button>
                   <button
                     className="armory-card-info"
@@ -458,8 +429,15 @@ export default function DeckBuilder({
                 <small>{selectedCard.cost} 指挥点</small>
               </DialogTitle>
               <DialogDescription>{selectedCard.tag}</DialogDescription>
-              <SpriteArt id={selectedCard.id} className="detail-portrait" />
+              <CardFace
+                id={selectedCard.id}
+                className="detail-card-face"
+                eager
+              />
               <p>{selectedCard.detail}</p>
+              <blockquote className="card-flavor-quote">
+                {CARD_COPY[selectedCard.id].flavor}
+              </blockquote>
               <p>
                 已编入 {countOf(selectedCard.id)} / 上限{' '}
                 {copyLimit(selectedCard.id)} 张
@@ -470,7 +448,8 @@ export default function DeckBuilder({
                     全组生命 <b>{selectedCard.hp}</b>
                   </span>
                   <span>
-                    射程 <b>{selectedCard.range}</b>
+                    {cardStats(selectedCard.id)[3][0]}{' '}
+                    <b>{cardStats(selectedCard.id)[3][1]}</b>
                   </span>
                   <span>
                     人数 <b>{selectedCard.members ?? 1}</b>

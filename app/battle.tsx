@@ -58,7 +58,8 @@ import {
   type GameState,
   type HandCard,
 } from '@/game/engine';
-import { SpriteArt } from '@/game/card-art';
+import { CardFace } from '@/game/card-art';
+import { CARD_COPY } from '@/game/card-copy';
 import { render } from '@/game/render';
 import { loadArt, type Art } from '@/game/art';
 
@@ -80,7 +81,17 @@ export default function Battle({
   const [view, setView] = useState(() => snapshot(initialGame));
   const [selected, setSelected] = useState<number | null>(null);
   const selectedRef = useRef<number | null>(null);
-  const [panel, setPanel] = useState<'guide' | 'deck' | null>(null);
+  const [panel, setPanel] = useState<'guide' | 'deck' | 'card' | null>(null);
+  const [inspectUid, setInspectUid] = useState<number | null>(null);
+  const cardHold = useRef<{
+    uid: number;
+    pointer: number;
+    x: number;
+    y: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const heldClick = useRef<number | null>(null);
+  const portraitGate = useRef(false);
   const panelPause = useRef(false);
   const [sound, setSound] = useState(false);
   const soundRef = useRef(false);
@@ -184,7 +195,7 @@ export default function Battle({
     else if (s.status === 'paused') s.status = 'playing';
     refresh();
   }, [refresh]);
-  const openPanel = (p: 'guide' | 'deck') => {
+  const openPanel = (p: 'guide' | 'deck' | 'card') => {
     panelPause.current = game.current!.status === 'playing';
     if (panelPause.current) game.current!.status = 'paused';
     setPanel(p);
@@ -192,16 +203,43 @@ export default function Battle({
   };
   const closePanel = () => {
     setPanel(null);
+    setInspectUid(null);
     if (panelPause.current && game.current!.status === 'paused')
       game.current!.status = 'playing';
     panelPause.current = false;
     refresh();
   };
+  const cancelCardHold = useCallback(() => {
+    if (cardHold.current) clearTimeout(cardHold.current.timer);
+    cardHold.current = null;
+  }, []);
+  const interruptCardHold = useCallback(() => {
+    if (cardHold.current) heldClick.current = cardHold.current.uid;
+    cancelCardHold();
+  }, [cancelCardHold]);
+  const inspectHandCard = (uid: number) => {
+    setInspectUid(uid);
+    openPanel('card');
+  };
+  useEffect(() => {
+    const cancel = () => interruptCardHold();
+    window.addEventListener('blur', cancel);
+    document.addEventListener('visibilitychange', cancel);
+    return () => {
+      cancelCardHold();
+      window.removeEventListener('blur', cancel);
+      document.removeEventListener('visibilitychange', cancel);
+    };
+  }, [cancelCardHold, interruptCardHold]);
   useEffect(() => {
     const el = canvas.current!;
     const resize = () => {
       const box = el.parentElement!.getBoundingClientRect();
-      const next = Math.max(240, Math.round((H * box.width) / box.height));
+      if (box.width <= 0 || box.height <= 0) return;
+      const next = Math.min(
+        W,
+        Math.max(240, Math.round((H * box.width) / box.height)),
+      );
       const old = viewport.current;
       viewport.current = next;
       setViewportWidth(next);
@@ -214,6 +252,15 @@ export default function Battle({
       );
       setCameraView(camera.current);
       pointerScreen.current = null;
+      portraitGate.current =
+        window.matchMedia('(pointer: coarse)').matches &&
+        window.innerHeight > window.innerWidth;
+      dragView.current = null;
+      didDrag.current = false;
+      hover.current = null;
+      setAimTarget(null);
+      if (cardHold.current) heldClick.current = cardHold.current.uid;
+      cancelCardHold();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(el.parentElement!);
@@ -226,7 +273,7 @@ export default function Battle({
       observer.disconnect();
       query.removeEventListener('change', update);
     };
-  }, []);
+  }, [cancelCardHold]);
   useEffect(() => {
     let stopped = false;
     void loadArt()
@@ -262,7 +309,7 @@ export default function Battle({
           W - viewport.current,
           camera.current + dt * 650,
         );
-      if (!document.hidden && s.status === 'playing') {
+      if (!document.hidden && !portraitGate.current && s.status === 'playing') {
         accumulator += Math.min(dt, 0.25);
         while (accumulator >= 1 / 60) {
           tick(s, 1 / 60);
@@ -518,6 +565,7 @@ export default function Battle({
     enemy = view.players[1],
     chosen = p.hand.find((h) => h.uid === selected),
     card = chosen ?? null;
+  const inspectionCard = p.hand.find((h) => h.uid === inspectUid) ?? card;
   const bounds = card ? deploymentBounds(view, 0, card.id) : [110, 440];
   const active = view.status === 'playing';
   const units = view.units.filter(
@@ -534,8 +582,6 @@ export default function Battle({
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
     if (CARDS[h.id].type === 'unit' && !CARDS[h.id].static) moveCamera(0);
-    if (touchMode && needsTarget(h.id))
-      canvas.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
     if (CARDS[h.id].static) {
       const b = deploymentBounds(view, 0, h.id);
       hover.current = Math.max(
@@ -567,7 +613,63 @@ export default function Battle({
     }
   };
   return (
-    <main className="game-shell">
+    <main
+      className={`game-shell ${touchMode ? 'touch-battle' : ''} ${view.status !== 'playing' || panel ? 'is-interrupted' : ''}`}
+    >
+      <div className="mobile-battle-hud">
+        <div className="mobile-base mobile-base-own">
+          <div>
+            <span>我方指挥部</span>
+            <strong>{Math.ceil(p.hp)}</strong>
+          </div>
+          <div
+            className="mobile-hp"
+            role="meter"
+            aria-label="我方基地生命"
+            aria-valuenow={p.hp}
+            aria-valuemin={0}
+            aria-valuemax={MAX_HP}
+          >
+            <i style={{ width: `${p.hp / 10}%` }} />
+          </div>
+          <div className="mobile-command-points">
+            <Zap size={14} />
+            <strong>{Math.floor(p.energy)}</strong>
+            <span>/ 10 指挥点</span>
+          </div>
+        </div>
+        <button
+          className="mobile-pause-control"
+          aria-label="暂停作战"
+          onClick={pause}
+          disabled={!active}
+        >
+          <Pause size={17} />
+          <span>{timeString(Math.ceil(DURATION - view.time))}</span>
+        </button>
+        <div className="mobile-base mobile-base-enemy">
+          <div>
+            <span>敌方指挥部</span>
+            <strong>{Math.ceil(enemy.hp)}</strong>
+          </div>
+          <div
+            className="mobile-hp"
+            role="meter"
+            aria-label="敌方基地生命"
+            aria-valuenow={enemy.hp}
+            aria-valuemin={0}
+            aria-valuemax={MAX_HP}
+          >
+            <i style={{ width: `${enemy.hp / 10}%` }} />
+          </div>
+        </div>
+      </div>
+      <div className="rotate-battle-hint">
+        <RotateCcw size={34} />
+        <strong>请横屏作战</strong>
+        <span>转动手机，展开战场</span>
+        <button onClick={onExit}>返回整备</button>
+      </div>
       <header className="masthead">
         <div className="brand">
           <span className="brand-symbol">
@@ -852,6 +954,21 @@ export default function Battle({
             </button>
           </div>
         )}
+        {active && touchMode && chosen && card && !needsTarget(card.id) && (
+          <div className="touch-target-controls mobile-skill-controls">
+            <button onClick={() => choose(null)}>取消</button>
+            <button
+              className="confirm-target"
+              disabled={p.energy < card.cost || card.readyIn > 0}
+              onClick={() => execute(chosen.uid)}
+            >
+              <Zap size={15} />
+              {card.readyIn > 0
+                ? `整备 ${Math.ceil(card.readyIn)}s`
+                : '下达' + card.name}
+            </button>
+          </div>
+        )}
         {p.morale > 0 && (
           <div className="buff-label">
             <Sparkles size={13} />
@@ -910,6 +1027,36 @@ export default function Battle({
                 <RotateCcw size={14} />
                 重新整备
               </button>
+              <div className="mobile-pause-options">
+                <button onClick={toggleSound}>
+                  {sound ? '关闭音效' : '开启音效'}
+                </button>
+                <button onClick={() => openPanel('deck')}>检阅牌库</button>
+                <button onClick={onExit}>返回整备</button>
+              </div>
+              <div className="mobile-pause-orders">
+                <span>步兵指令</span>
+                {(
+                  [
+                    ['hold', '驻守'],
+                    ['advance', '推进'],
+                    ['rush', '奔跑'],
+                    ['crouch', '蹲行'],
+                    ['prone', '卧倒'],
+                  ] as [Order, string][]
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    aria-pressed={p.order === value}
+                    onClick={() => {
+                      setOrder(game.current!, 0, value);
+                      refresh();
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -945,6 +1092,9 @@ export default function Battle({
               <button className="primary-button" onClick={reset}>
                 再来一局
                 <RotateCcw size={17} />
+              </button>
+              <button className="text-button mobile-exit" onClick={onExit}>
+                返回整备
               </button>
             </div>
           </div>
@@ -1163,6 +1313,12 @@ export default function Battle({
                     {card.tag}
                   </span>
                   <strong>{card.name}</strong>
+                  <button
+                    className="inspect-card-button"
+                    onClick={() => openPanel('card')}
+                  >
+                    查看卡面
+                  </button>
                 </div>
                 <p>{card.detail}</p>
                 {card.readyIn > 0 && (
@@ -1241,7 +1397,52 @@ export default function Battle({
                       } as CSSProperties
                     }
                     className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 ? 'unaffordable' : ''}`}
-                    onClick={() => selectCard(h)}
+                    onClick={() => {
+                      if (heldClick.current === h.uid) {
+                        heldClick.current = null;
+                        return;
+                      }
+                      selectCard(h);
+                    }}
+                    onPointerDown={(e) => {
+                      if (e.pointerType === 'mouse') return;
+                      if (!e.isPrimary) {
+                        if (cardHold.current)
+                          heldClick.current = cardHold.current.uid;
+                        cancelCardHold();
+                        return;
+                      }
+                      cancelCardHold();
+                      heldClick.current = null;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      cardHold.current = {
+                        uid: h.uid,
+                        pointer: e.pointerId,
+                        x: e.clientX,
+                        y: e.clientY,
+                        timer: setTimeout(() => {
+                          heldClick.current = h.uid;
+                          cardHold.current = null;
+                          inspectHandCard(h.uid);
+                        }, 450),
+                      };
+                    }}
+                    onPointerMove={(e) => {
+                      const hold = cardHold.current;
+                      if (
+                        hold?.pointer === e.pointerId &&
+                        Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 8
+                      ) {
+                        heldClick.current = h.uid;
+                        cancelCardHold();
+                      }
+                    }}
+                    onPointerUp={cancelCardHold}
+                    onPointerCancel={interruptCardHold}
+                    onLostPointerCapture={interruptCardHold}
+                    onContextMenu={(e) => {
+                      if (touchMode) e.preventDefault();
+                    }}
                     draggable={
                       active &&
                       !touchMode &&
@@ -1252,41 +1453,18 @@ export default function Battle({
                       e.dataTransfer.setData('text/plain', String(h.uid));
                       choose(h.uid);
                     }}
-                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}`}
+                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}。长按查看详情。`}
                     aria-pressed={selected === h.uid}
                   >
-                    <div className="card-top">
-                      <span className="card-cost">{c.cost}</span>
-                      <span>{c.type === 'unit' ? '部队' : '指令'}</span>
-                      <kbd>{i + 1}</kbd>
-                    </div>
-                    <div className="card-art">
-                      <SpriteArt id={c.id} />
-                      <div className="art-horizon" />
-                    </div>
-                    <div className="card-copy">
-                      <small>
+                    <CardFace id={c.id} cost={c.cost} eager />
+                    <kbd className="hand-card-key">{i + 1}</kbd>
+                    {(c.readyIn > 0 || c.returnedOnce) && (
+                      <span className="hand-card-status">
                         {c.readyIn > 0
                           ? `整备 ${Math.ceil(c.readyIn)}s`
-                          : c.returnedOnce
-                            ? '返航 · 补给费用'
-                            : c.en}
-                      </small>
-                      <strong>{c.name}</strong>
-                      <p>{c.description}</p>
-                    </div>
-                    <div className="card-bottom">
-                      <span>
-                        {c.range
-                          ? `射程 ${c.minRange ? c.minRange + '–' : ''}${c.range}`
-                          : c.tag}
+                          : '返航 · 补给费用'}
                       </span>
-                      {c.type === 'unit' ? (
-                        <Shield size={12} />
-                      ) : (
-                        <Zap size={12} />
-                      )}
-                    </div>
+                    )}
                   </button>
                 );
               })}
@@ -1294,49 +1472,49 @@ export default function Battle({
                 <div className="empty-hand">
                   <Layers3 size={30} />
                   <p>手牌已用尽</p>
-                  <span>点击右下角牌堆，消耗 2 点抽牌</span>
+                  <span>点击牌堆，消耗 2 点抽牌</span>
                 </div>
               )}
             </div>
-            <button
-              className="deck-pile"
-              onClick={drawCard}
-              disabled={
-                !active ||
-                p.energy < DRAW_COST ||
-                p.hand.length >= 6 ||
-                p.jam > 0 ||
-                p.drawIn > 0 ||
-                p.deckCount + p.discardCount === 0
-              }
-              aria-label="消耗 2 点指挥点抽一张牌"
-            >
-              <span className="deck-card-back">
-                <span className="deck-emblem">
-                  G<span>{'///'}</span>
-                </span>
-                <small>GREYLINE</small>
-              </span>
-              <span className="deck-label">抽牌 · 2 点</span>
-              <strong>
-                {p.deckCount}
-                <small> 张</small>
-              </strong>
-              <span className="deck-sub">
-                {p.jam > 0
-                  ? `受扰 ${Math.ceil(p.jam)}s`
-                  : p.drawIn > 0
-                    ? `${Math.ceil(p.drawIn)}s 冷却`
-                    : p.hand.length >= 6
-                      ? '手牌已满'
-                      : '点击抽牌 / R'}
-              </span>
-              <div className="draw-progress">
-                <i style={{ width: `${(1 - p.drawIn / DRAW_TIME) * 100}%` }} />
-              </div>
-            </button>
           </div>
         </div>
+        <button
+          className="deck-pile"
+          onClick={drawCard}
+          disabled={
+            !active ||
+            p.energy < DRAW_COST ||
+            p.hand.length >= 6 ||
+            p.jam > 0 ||
+            p.drawIn > 0 ||
+            p.deckCount + p.discardCount === 0
+          }
+          aria-label="消耗 2 点指挥点抽一张牌"
+        >
+          <span className="deck-card-back">
+            <span className="deck-emblem">
+              G<span>{'///'}</span>
+            </span>
+            <small>GREYLINE</small>
+          </span>
+          <span className="deck-label">抽牌 · 2 点</span>
+          <strong>
+            {p.deckCount}
+            <small> 张</small>
+          </strong>
+          <span className="deck-sub">
+            {p.jam > 0
+              ? `受扰 ${Math.ceil(p.jam)}s`
+              : p.drawIn > 0
+                ? `${Math.ceil(p.drawIn)}s 冷却`
+                : p.hand.length >= 6
+                  ? '手牌已满'
+                  : '点击抽牌 / R'}
+          </span>
+          <div className="draw-progress">
+            <i style={{ width: `${(1 - p.drawIn / DRAW_TIME) * 100}%` }} />
+          </div>
+        </button>
       </section>
       <footer>
         <span>
@@ -1357,17 +1535,46 @@ export default function Battle({
         }}
       >
         <DialogContent
-          className={`manual-dialog ${panel === 'deck' ? 'deck-dialog' : ''}`}
+          className={`manual-dialog ${panel === 'deck' ? 'deck-dialog' : panel === 'card' ? 'card-detail-dialog' : ''} ${panel === 'card' && touchMode ? 'mobile-card-dialog' : ''}`}
         >
           <DialogTitle className="manual-title">
-            {panel === 'deck' ? '战术牌库' : '作战手册'}
+            {panel === 'deck'
+              ? '战术牌库'
+              : panel === 'card'
+                ? inspectionCard?.name
+                : '作战手册'}
           </DialogTitle>
           <DialogDescription>
-            {panel === 'deck'
-              ? `${playerDeck.length} 张自选循环牌库 · 双方独立抽牌 · 用过的牌在牌库抽空后重新洗入。`
-              : '灰线 / 林间前线 · 单线即时卡牌对战'}
+            {panel === 'card'
+              ? inspectionCard?.tag
+              : panel === 'deck'
+                ? `${playerDeck.length} 张自选循环牌库 · 双方独立抽牌 · 用过的牌在牌库抽空后重新洗入。`
+                : '灰线 / 林间前线 · 单线即时卡牌对战'}
           </DialogDescription>
-          {panel === 'guide' ? (
+          {panel === 'card' && inspectionCard ? (
+            <div className="card-inspection-body">
+              <CardFace
+                id={inspectionCard.id}
+                cost={inspectionCard.cost}
+                className="detail-card-face"
+                eager
+              />
+              <div className="card-inspection-copy">
+                <p>{inspectionCard.detail}</p>
+                <blockquote className="card-flavor-quote">
+                  {CARD_COPY[inspectionCard.id].flavor}
+                </blockquote>
+                {inspectionCard.readyIn > 0 && (
+                  <p>
+                    整备中 · {Math.ceil(inspectionCard.readyIn)} 秒后可再次派遣
+                  </p>
+                )}
+                <button className="text-button" onClick={closePanel}>
+                  返回战场
+                </button>
+              </div>
+            </div>
+          ) : panel === 'guide' ? (
             <>
               <div className="guide-grid">
                 <div>
@@ -1425,7 +1632,7 @@ export default function Battle({
                   className={`catalog-card ${c.type}`}
                   key={`${c.id}-${index}`}
                 >
-                  <SpriteArt id={c.id} />
+                  <CardFace id={c.id} />
                   <div>
                     <h3>
                       {c.name}
@@ -1436,6 +1643,9 @@ export default function Battle({
                     </h3>
                     <span>{c.tag}</span>
                     <p>{c.detail}</p>
+                    <blockquote className="card-flavor-quote">
+                      {CARD_COPY[c.id].flavor}
+                    </blockquote>
                     {c.range && (
                       <span className="range-readout">
                         有效射程 {c.minRange ? c.minRange + '–' : ''}

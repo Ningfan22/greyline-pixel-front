@@ -1,103 +1,109 @@
 'use client';
-import { useEffect, useRef } from 'react';
-import {
-  Sparkles,
-  Crosshair,
-  Layers3,
-  CloudFog,
-  Binoculars,
-  Wrench,
-  Target,
-  Radio,
-} from 'lucide-react';
-import { CARDS, modelOf, type CardId } from './engine';
-import { loadArt, drawSprite, unitFrame, soldierEquipment } from './art';
-export function SpriteArt({
+import Image from 'next/image';
+import { CARDS, copyLimit, type CardId } from './cards';
+import { CARD_COPY } from './card-copy';
+
+export function cardStats(id: CardId, cost = CARDS[id].cost) {
+  const c = CARDS[id];
+  return c.type === 'skill'
+    ? [
+        ['类型', '指令'],
+        ['费用', String(cost)],
+        ['携带', `${copyLimit(id)}张`],
+        ['目标', c.targetGround ? '落点' : '全局'],
+      ]
+    : [
+        [
+          '编制',
+          c.members
+            ? `${c.members}人`
+            : c.emplacement
+              ? '1门'
+              : c.air
+                ? '1架'
+                : '1辆',
+        ],
+        ['生命', String(c.hp ?? '—')],
+        ['火力', String(c.damage || '—')],
+        [
+          c.range ? '射程' : '视野',
+          String(c.range || c.sight || (c.observer ? 820 : '—')),
+        ],
+      ];
+}
+
+/** One generated print frame, with live text for balance changes and accessibility. */
+export function CardFace({
   id,
+  cost,
   className = '',
+  eager = false,
 }: {
   id: CardId;
+  cost?: number;
   className?: string;
+  eager?: boolean;
 }) {
-  const ref = useRef<HTMLCanvasElement>(null),
-    card = CARDS[id];
-  useEffect(() => {
-    let live = true;
-    if (card.type === 'skill') return;
-    void loadArt()
-      .then((art) => {
-        if (!live) return;
-        const ctx = ref.current?.getContext('2d');
-        if (!ctx) return;
-        ctx.clearRect(0, 0, 240, 150);
-        ctx.imageSmoothingEnabled = false;
-        const uniform = card.uniform
-          ? ['marine', 'police', 'recon', 'assault'].indexOf(card.uniform)
-          : -1;
-        const frame =
-          uniform >= 0 ? art.reactions[1][uniform] : unitFrame(art, id);
-        if (card.members) {
-          for (const [member, x] of [90, 146].entries()) {
-            drawSprite(ctx, frame, x, 145, 140, 105);
-            const item = soldierEquipment(art, id, member);
-            if (item)
-              drawSprite(
-                ctx,
-                item,
-                x + (modelOf(id) === 'medic' ? -12 : 8),
-                modelOf(id) === 'mortar'
-                  ? 140
-                  : modelOf(id) === 'medic'
-                    ? 115
-                    : 101,
-                modelOf(id) === 'medic'
-                  ? 20
-                  : modelOf(id) === 'mortar'
-                    ? 33
-                    : 50,
-                modelOf(id) === 'medic'
-                  ? 23
-                  : modelOf(id) === 'mortar'
-                    ? 39
-                    : 21,
-              );
-          }
-        } else drawSprite(ctx, frame, 120, 140, 192, 112);
-      })
-      .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [id, card]);
-  if (card.type === 'unit')
-    return (
-      <canvas
-        aria-hidden="true"
-        className={className}
-        width="240"
-        height="150"
-        ref={ref}
-      />
-    );
-  const Icon =
-    modelOf(id) === 'morale'
-      ? Sparkles
-      : modelOf(id) === 'artillery'
-        ? Crosshair
-        : modelOf(id) === 'supply'
-          ? Layers3
-          : modelOf(id) === 'smoke'
-            ? CloudFog
-            : modelOf(id) === 'recon'
-              ? Binoculars
-              : modelOf(id) === 'repair'
-                ? Wrench
-                : modelOf(id) === 'precision'
-                  ? Target
-                  : Radio;
+  const c = CARDS[id],
+    copy = CARD_COPY[id],
+    value = cost ?? c.cost;
+  const stats = cardStats(id, value);
   return (
-    <div className={'skill-art-icon ' + className} aria-hidden="true">
-      <Icon />
-    </div>
+    <figure
+      className={`printed-card ${className}`}
+      aria-label={`${c.name}，${value}指挥点。${stats.map(([k, v]) => `${k}${v}`).join('，')}。${copy.ability}：${copy.rule} ${copy.flavor}`}
+    >
+      <Image
+        width={1024}
+        height={1536}
+        unoptimized
+        className="printed-card-frame"
+        src="/art/cards-v10/frame.webp"
+        alt=""
+        aria-hidden="true"
+        decoding="async"
+        draggable={false}
+      />
+      <Image
+        width={720}
+        height={720}
+        unoptimized
+        className="printed-card-picture"
+        src={`/art/cards-v10/${id}.webp`}
+        alt=""
+        aria-hidden="true"
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        draggable={false}
+      />
+      <span className="printed-card-cost" aria-hidden="true">
+        <span>{value}</span>
+        <span>指挥</span>
+      </span>
+      <span className="printed-card-heading" aria-hidden="true">
+        <span className="printed-card-name">{c.name}</span>
+        <span className="printed-card-english">{copy.en}</span>
+      </span>
+      <span className="printed-card-type" aria-hidden="true">
+        {copy.typeLabel}
+      </span>
+      <span className="printed-card-stats" aria-hidden="true">
+        {stats.map(([label, stat]) => (
+          <span key={label}>
+            <span>{label}</span>
+            <span>{stat}</span>
+          </span>
+        ))}
+      </span>
+      <span className="printed-card-ability" aria-hidden="true">
+        {copy.ability}
+      </span>
+      <span className="printed-card-rule" aria-hidden="true">
+        {copy.rule}
+      </span>
+      <span className="printed-card-flavor" aria-hidden="true">
+        {copy.flavor}
+      </span>
+    </figure>
   );
 }

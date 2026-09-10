@@ -4639,3 +4639,732 @@ footer button {
     font-size: 9px;
   }
 }
+
+/* Generated military print frame and promotional art, shared by the entire set. */
+.printed-card {
+  position: relative;
+  margin: 0;
+  container-type: inline-size;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  isolation: isolate;
+  color: #20221e;
+  text-align: left;
+  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+.printed-card > .printed-card-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  image-rendering: auto;
+}
+.printed-card > .printed-card-picture {
+  position: absolute;
+  left: 2.05%;
+  top: 10.68%;
+  width: 95.9%;
+  height: 58%;
+  object-fit: cover;
+  object-position: 50% 44%;
+  image-rendering: auto;
+  clip-path: polygon(
+    18% 0,
+    100% 0,
+    100% 96%,
+    96.5% 100%,
+    3.5% 100%,
+    0 96%,
+    0 5.8%,
+    14.5% 5.8%,
+    18% 1.8%
+  );
+}
+.printed-card > span {
+  position: absolute;
+  display: block;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  pointer-events: none;
+}
+.printed-card span {
+  color: inherit;
+  font-size: inherit;
+}
+.printed-card .printed-card-cost {
+  left: 2.4%;
+  top: 2.7%;
+  width: 15.5%;
+  color: #e8e1c8;
+  text-align: center;
+  line-height: 1;
+}
+.printed-card-cost > span:first-child {
+  display: block;
+  font:
+    900 13cqw / 0.95 Impact,
+    'Arial Narrow',
+    sans-serif;
+}
+.printed-card-cost > span:last-child {
+  display: block;
+  font-size: 3.2cqw;
+  font-weight: 800;
+  margin-top: 0.2cqw;
+}
+.printed-card .printed-card-heading {
+  left: 23%;
+  top: 2.45%;
+  width: 73%;
+  color: #e8e1c8;
+}
+.printed-card .printed-card-name {
+  display: block;
+  white-space: nowrap;
+  font-size: 7.15cqw;
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: -0.15cqw;
+}
+.printed-card .printed-card-english {
+  display: block;
+  margin-top: 0.4cqw;
+  font:
+    700 2.15cqw / 1.2 'Arial Narrow',
+    Arial,
+    sans-serif;
+  letter-spacing: 0.3cqw;
+}
+.printed-card .printed-card-type {
+  right: 4.5%;
+  top: 8.25%;
+  color: #e8e1c8;
+  font-size: 2.45cqw;
+  font-weight: 700;
+  letter-spacing: 0.25cqw;
+}
+.printed-card .printed-card-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  left: 3%;
+  top: 71.35%;
+  width: 94%;
+  text-align: center;
+}
+.printed-card-stats > span > span:first-child {
+  display: block;
+  font-size: 3.4cqw;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.printed-card-stats > span > span:last-child {
+  display: block;
+  margin-top: 0.85cqw;
+  font:
+    800 7.2cqw / 1 Impact,
+    'Arial Narrow',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
+.printed-card .printed-card-ability {
+  left: 6.4%;
+  top: 81.3%;
+  width: 87.2%;
+  font-size: 5cqw;
+  line-height: 1.1;
+  font-weight: 900;
+}
+.printed-card .printed-card-rule {
+  left: 6.4%;
+  top: 85%;
+  width: 87.2%;
+  font-size: 3.7cqw;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.printed-card .printed-card-flavor {
+  left: 6.4%;
+  top: 91.05%;
+  width: 87.2%;
+  font-family: 'Kaiti SC', KaiTi, 'Noto Serif CJK SC', serif;
+  font-size: 3.4cqw;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.armory .armory-card {
+  background: #20261f;
+  border: 0;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px #101b1580;
+}
+.armory .armory-card.picked {
+  box-shadow:
+    0 0 0 2px #a6b777,
+    0 4px 12px #101b1580;
+}
+.armory .armory-card.pending {
+  box-shadow: 0 0 0 3px #edcd87;
+}
+.armory .armory-card .armory-card-select {
+  display: block;
+  min-height: 0;
+  height: auto;
+  padding: 0 0 30px;
+  background: none;
+}
+.armory-card-owned {
+  display: block;
+  padding: 8px 6px;
+  text-align: center;
+  color: #d8dfb9;
+  font-size: 12px;
+  background: #243327;
+}
+.armory .armory-card-info {
+  height: 30px;
+  font-size: 12px;
+}
+.card-detail-dialog .detail-card-face {
+  width: min(100%, 380px);
+  margin: 4px auto 14px;
+}
+.card-detail-dialog > p {
+  font-size: 14px;
+}
+.card-flavor-quote {
+  border-left: 2px solid #b9a878;
+  padding: 8px 12px;
+  margin: 12px 0;
+  color: #dfd0a6;
+  font:
+    14px / 1.7 'Kaiti SC',
+    KaiTi,
+    serif;
+}
+.game-shell .tactical-card {
+  height: auto;
+  aspect-ratio: 2 / 3;
+  border: 0;
+  background: none;
+  border-radius: 5px;
+}
+.game-shell .tactical-card > .printed-card {
+  flex: none;
+}
+.hand-card-key {
+  position: absolute;
+  right: 7%;
+  top: 60%;
+  color: #eee2bc;
+  border: 1px solid #bcae82;
+  background: #1e291fd9;
+  font: 11px monospace;
+  padding: 1px 4px;
+}
+.hand-card-status {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 55%;
+  background: #252a20eb;
+  color: #f2d299;
+  padding: 5px 3px;
+  text-align: center;
+  font-size: 11px;
+}
+.selection-detail .inspect-card-button {
+  margin-left: auto;
+  border: 1px solid #9caa79;
+  padding: 4px 9px;
+  background: transparent;
+  color: #dfd1a3;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.game-shell .command-panel .selection-detail > div:has(.inspect-card-button) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+}
+.game-shell
+  .command-panel
+  .selection-detail
+  > div:has(.inspect-card-button)
+  > span {
+  grid-column: 1 / -1;
+}
+.ops-roster-preview > div {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.ops-roster-preview > div > b {
+  margin-top: 8px;
+}
+.catalog-card > .printed-card {
+  width: 180px;
+  flex: 0 0 180px;
+  align-self: start;
+}
+.catalog-card .card-flavor-quote {
+  font-size: 13px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .game-shell .tactical-card:hover {
+    transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+      translateY(-50px) rotate(0) scale(1.3);
+  }
+}
+@media (max-width: 620px) {
+  .armory .armory-card .armory-card-select {
+    padding-bottom: 32px;
+  }
+  .armory .armory-card-info {
+    height: 32px;
+  }
+  .armory-card-owned {
+    font-size: 11px;
+  }
+  .hand-card-key {
+    display: none;
+  }
+  .hand-card-status {
+    font-size: 9px;
+  }
+  .selection-detail .inspect-card-button {
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+  .catalog-card > .printed-card {
+    width: 120px;
+    flex-basis: 120px;
+  }
+}
+
+.mobile-battle-hud,
+.rotate-battle-hint,
+.mobile-pause-options,
+.mobile-pause-orders,
+.mobile-exit {
+  display: none;
+}
+.card-inspection-copy > p {
+  color: #c9d0b5;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.card-inspection-copy > button {
+  min-height: 40px;
+}
+
+/* Touch battle: one full landscape viewport with floating controls. */
+body:has(.game-shell.touch-battle) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.game-shell.touch-battle {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #28362b;
+}
+.game-shell.touch-battle > .masthead,
+.game-shell.touch-battle > .match-bar,
+.game-shell.touch-battle > .battle-ticker,
+.game-shell.touch-battle > .map-strip,
+.game-shell.touch-battle > .orders-bar,
+.game-shell.touch-battle > .casualty-readout,
+.game-shell.touch-battle > footer,
+.game-shell.touch-battle .command-panel,
+.game-shell.touch-battle .hand-heading,
+.game-shell.touch-battle .field-top,
+.game-shell.touch-battle .field-ruler,
+.game-shell.touch-battle .field-status,
+.game-shell.touch-battle .buff-label,
+.game-shell.touch-battle .recon-label {
+  display: none;
+}
+.game-shell.touch-battle .battlefield {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  aspect-ratio: auto;
+  isolation: auto;
+  z-index: auto;
+}
+.game-shell.touch-battle .battlefield > canvas {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+.game-shell.touch-battle .mobile-battle-hud {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+.mobile-base {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  width: clamp(140px, 23vw, 205px);
+  color: #f0edd7;
+  text-shadow: 0 1px 3px #142016;
+}
+.mobile-base-own {
+  left: max(14px, env(safe-area-inset-left));
+}
+.mobile-base-enemy {
+  right: max(14px, env(safe-area-inset-right));
+}
+.mobile-base > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.mobile-base > div:first-child > span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.mobile-base > div:first-child > strong {
+  font:
+    700 20px / 1 'Arial Narrow',
+    monospace;
+}
+.mobile-hp {
+  height: 7px;
+  background: #17231ee0;
+  border: 1px solid #d8d9b4a0;
+  box-shadow: 0 1px 4px #18251a99;
+}
+.mobile-hp > i {
+  display: block;
+  height: 100%;
+  background: #9dc5c6;
+  transition: width 0.2s;
+}
+.mobile-base-enemy .mobile-hp > i {
+  background: #cd836d;
+  margin-left: auto;
+}
+.mobile-command-points {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  margin-top: 7px;
+  color: #f2d291;
+}
+.mobile-command-points > strong {
+  font: 700 18px / 1 monospace;
+}
+.mobile-command-points > span {
+  font-size: 11px;
+}
+.mobile-pause-control {
+  position: absolute;
+  top: max(9px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 5px 10px;
+  border: 1px solid #d6d3ab66;
+  background: #24362bc9;
+  color: #eee6c9;
+  pointer-events: auto;
+  font: 12px monospace;
+}
+.game-shell.touch-battle .command {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.game-shell.touch-battle .hand-section {
+  position: absolute;
+  top: auto;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(65vw, 630px);
+  height: 155px;
+  padding: 0;
+  border: 0;
+  pointer-events: none;
+}
+.game-shell.touch-battle .hand-and-deck,
+.game-shell.touch-battle .hand-cards {
+  height: 100%;
+  padding: 0;
+  overflow: visible;
+}
+.game-shell.touch-battle .tactical-card {
+  --fan-step: clamp(30px, 6vw, 50px);
+  width: clamp(74px, 22dvh, 104px);
+  min-width: 0;
+  max-width: none;
+  height: auto;
+  bottom: calc(-32px + env(safe-area-inset-bottom) * 0.25);
+  transform: translateX(calc(-50% + var(--fan-index) * var(--fan-step)))
+    translateY(calc(var(--fan-y) * 0.35)) rotate(var(--fan-angle));
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  box-shadow: -3px -1px 9px #142016a0;
+}
+.game-shell.touch-battle .tactical-card.selected {
+  transform: translateX(calc(-50% + var(--fan-index) * var(--fan-step)))
+    translateY(-25px) rotate(0);
+}
+.game-shell.touch-battle .hand-card-key {
+  display: none;
+}
+.game-shell.touch-battle .hand-card-status {
+  top: 47%;
+  font-size: 9px;
+  padding: 3px 2px;
+}
+.game-shell.touch-battle .deck-pile {
+  position: absolute;
+  left: max(14px, env(safe-area-inset-left));
+  right: auto;
+  bottom: max(11px, env(safe-area-inset-bottom));
+  width: 62px;
+  min-width: 62px;
+  pointer-events: auto;
+  color: #e9dfb9;
+  text-shadow: 0 1px 3px #162015;
+}
+.game-shell.touch-battle .deck-card-back {
+  width: 54px;
+  height: 77px;
+  margin-bottom: 5px;
+}
+.game-shell.touch-battle .deck-label {
+  font-size: 11px;
+}
+.game-shell.touch-battle .deck-pile > strong {
+  font-size: 15px;
+}
+.game-shell.touch-battle .deck-sub {
+  font-size: 10px;
+}
+.game-shell.touch-battle .deck-emblem {
+  font-size: 26px;
+}
+.game-shell.touch-battle .deck-card-back > small {
+  font-size: 7px;
+}
+.game-shell.touch-battle .touch-target-controls {
+  position: absolute;
+  left: auto;
+  right: max(13px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  top: auto;
+  transform: none;
+  z-index: 41;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.game-shell.touch-battle .touch-target-controls button {
+  min-height: 37px;
+  padding: 0 11px;
+  justify-content: center;
+  font-size: 12px;
+}
+.game-shell.touch-battle .battle-toast {
+  position: absolute;
+  top: 75px;
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 65;
+  max-width: 60vw;
+  font-size: 12px;
+}
+.game-shell.touch-battle .empty-hand {
+  inset: auto 0 14px;
+  min-height: 0;
+  background: #213025aa;
+  font-size: 11px;
+  padding: 6px;
+}
+.game-shell.touch-battle .empty-hand > svg,
+.game-shell.touch-battle .empty-hand > p {
+  display: none;
+}
+.game-shell.touch-battle .pause-scrim,
+.game-shell.touch-battle .start-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 70;
+}
+.game-shell.touch-battle.is-interrupted .command,
+.game-shell.touch-battle.is-interrupted .mobile-battle-hud {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.game-shell.touch-battle .pause-card,
+.game-shell.touch-battle .result-card {
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: 18px 24px;
+}
+.game-shell.touch-battle .pause-card > svg {
+  display: none;
+}
+.game-shell.touch-battle .pause-card h2 {
+  margin: 2px 0 5px;
+  font-size: 23px;
+}
+.game-shell.touch-battle .pause-card p {
+  margin-bottom: 10px;
+}
+.game-shell.touch-battle .pause-card .primary-button {
+  min-height: 38px;
+}
+.game-shell.touch-battle .mobile-pause-options {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mobile-pause-options > button,
+.mobile-pause-orders > button {
+  padding: 7px 10px;
+  min-height: 35px;
+  border: 1px solid #7f916b;
+  background: #26392b;
+  color: #e2ddc1;
+  font-size: 12px;
+}
+.game-shell.touch-battle .mobile-pause-orders {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 12px;
+}
+.mobile-pause-orders > span {
+  flex: 0 0 100%;
+  font-size: 11px;
+  color: #a8b496;
+  margin-bottom: 4px;
+}
+.mobile-pause-orders > button[aria-pressed='true'] {
+  background: #c9bd8b;
+  color: #213323;
+}
+.game-shell.touch-battle .mobile-exit {
+  display: inline-flex;
+  margin-top: 10px;
+}
+.game-shell.touch-battle .rotate-battle-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 90;
+  background: #19271bf7;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  color: #ddd5af;
+}
+.rotate-battle-hint > strong {
+  font-size: 24px;
+}
+.rotate-battle-hint > span {
+  font-size: 14px;
+  color: #b1be9e;
+}
+.rotate-battle-hint > button {
+  margin-top: 16px;
+  background: none;
+  border: 1px solid #7f916b;
+  padding: 10px 20px;
+  color: inherit;
+}
+@media (orientation: portrait) {
+  .game-shell.touch-battle .rotate-battle-hint {
+    display: flex;
+  }
+}
+@media (orientation: landscape) {
+  .mobile-card-dialog {
+    width: min(820px, calc(100vw - 36px)) !important;
+    max-width: none !important;
+    padding: 14px 20px !important;
+    gap: 6px;
+  }
+  .mobile-card-dialog > h2 {
+    font-size: 18px;
+    padding-right: 28px;
+    margin: 0;
+  }
+  .mobile-card-dialog > p {
+    font-size: 11px;
+    margin: 0;
+  }
+  .mobile-card-dialog .card-inspection-body {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .mobile-card-dialog .detail-card-face {
+    width: min(250px, calc((100dvh - 98px) * 2 / 3));
+    margin: 0;
+  }
+  .mobile-card-dialog .card-inspection-copy {
+    max-height: calc(100dvh - 100px);
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .mobile-card-dialog .card-inspection-copy > p {
+    font-size: 14px;
+    line-height: 1.75;
+    margin: 0 0 9px;
+  }
+  .mobile-card-dialog .card-flavor-quote {
+    margin: 9px 0;
+    font-size: 14px;
+  }
+}

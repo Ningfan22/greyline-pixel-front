@@ -8,7 +8,7 @@ import {
   chooseAiDeck,
   type CardId,
 } from '@/game/engine';
-import { SpriteArt } from '@/game/card-art';
+import { CardFace } from '@/game/card-art';
 import Battle from './battle';
 import DeckBuilder from './deck-builder';
 const STORAGE = 'greyline-deck-v6';
@@ -136,7 +136,7 @@ export default function Home() {
                   .slice(0, 5)
                   .map((id) => (
                     <div key={id}>
-                      <SpriteArt id={id} />
+                      <CardFace id={id} />
                       <b>
                         {CARDS[id].name} ×{deck.filter((v) => v === id).length}
                       </b>
