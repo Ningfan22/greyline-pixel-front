@@ -49,6 +49,9 @@ export function isTracer(kind: Ammunition, shot: number) {
         ? shot % 2 === 1
         : false;
 }
+export function isCoverBullet(kind: Ammunition) {
+  return kind === 'rifle' || kind === 'machinegun' || kind === 'autocannon';
+}
 // Rasterize the line directly to integer pixels: rotated rectangles blur narrow tracers.
 function streak(
   ctx: CanvasRenderingContext2D,
@@ -234,29 +237,36 @@ export function drawBlast(
   frames: HTMLCanvasElement[][],
 ) {
   const penetration = b.kind === 'penetration',
-    row = penetration ? 0 : b.kind === 'wreck' || !b.soil ? 2 : 1;
+    grenade = b.kind === 'grenade',
+    row = penetration ? 0 : grenade ? 1 : b.kind === 'wreck' || !b.soil ? 2 : 1;
   const times = penetration
     ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
-    : row === 2
-      ? [0, 0.08, 0.2, 0.4, 0.75, 1.3, 2.3, 4]
-      : [0, 0.065, 0.14, 0.25, 0.48, 0.85, 1.6, 3];
+    : grenade
+      ? [0, 0.035, 0.075, 0.13, 0.22, 0.36, 0.58, 0.85]
+      : row === 2
+        ? [0, 0.08, 0.2, 0.4, 0.75, 1.3, 2.3, 4]
+        : [0, 0.065, 0.14, 0.25, 0.48, 0.85, 1.6, 3];
   let index = 0;
   while (index < 7 && b.age >= times[index + 1]) index++;
   const sprite = frames[row][index];
   const width = penetration
     ? 48
-    : b.kind === 'wreck'
-      ? Math.max(240, Math.min(340, b.radius * 5.2))
-      : b.kind === 'artillery'
-        ? Math.max(190, Math.min(350, b.radius * 7))
-        : Math.max(80, Math.min(260, b.radius * 5.5));
+    : grenade
+      ? Math.max(52, Math.min(76, b.radius * 1.8))
+      : b.kind === 'wreck'
+        ? Math.max(240, Math.min(340, b.radius * 5.2))
+        : b.kind === 'artillery'
+          ? Math.max(190, Math.min(350, b.radius * 7))
+          : Math.max(80, Math.min(260, b.radius * 5.5));
   const height = (width * sprite.height) / sprite.width,
     anchor = [268 / 300, 261 / 300, 263 / 300][row];
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = penetration
     ? Math.min(1, Math.max(0, (0.24 - b.age) / 0.04))
-    : Math.min(1, Math.max(0, (7 - b.age) / 3));
+    : grenade
+      ? Math.min(1, Math.max(0, (1.25 - b.age) / 0.65))
+      : Math.min(1, Math.max(0, (7 - b.age) / 3));
   ctx.translate(Math.round(b.x), Math.round(b.y));
   if (b.seed % 2) ctx.scale(-1, 1);
   ctx.drawImage(

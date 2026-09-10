@@ -2,6 +2,8 @@ import {
   damageScenery,
   obstacleBoxes,
   sceneryIntercept,
+  observationPenalty,
+  pointVisible,
 } from '../game/world.ts';
 import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
@@ -20,6 +22,8 @@ import {
   CARDS,
   craterCover,
   terrainIntercept,
+  projectileIntercept,
+  DURATION,
   W,
   MAX_HAND,
   DECK,
@@ -97,7 +101,7 @@ check('无效部署与指挥点不足不消耗卡牌或资源', () => {
     c = hand(s, 'infantry'),
     energy = p.energy,
     n = p.hand.length;
-  assert.equal(playCard(s, 0, c.uid, 900).ok, false);
+  assert.equal(playCard(s, 0, c.uid, W + 1).ok, false);
   assert.equal(playCard(s, 0, c.uid, NaN).ok, false);
   assert.equal(p.energy, energy);
   assert.equal(p.hand.length, n);
@@ -198,7 +202,7 @@ check('暂停和结算后不会继续消耗时间', () => {
 });
 check('超时平局及同帧双方归零都正确结算', () => {
   const s = fresh();
-  s.time = 239.999;
+  s.time = DURATION - 0.001;
   tick(s, 0.01);
   assert.equal(s.result, 'draw');
   const z = fresh();
@@ -554,27 +558,53 @@ check('军医只治疗存活友军步兵，抢修只作用于已有装甲', () =
   assert.equal(heli.hp, heli.maxHp - 100);
   assert(patient.hp <= patient.maxHp);
 });
-check('固定火炮部署和所有目标卡统一校验位置', () => {
+check('部队默认从两侧入场，仅烟幕和地雷需要目标位置', () => {
   const s = fresh();
   s.players[0].energy = 10;
   const h = hand(s, 'precision');
-  assert(!playCard(s, 0, h.uid).ok);
-  assert(!playCard(s, 0, h.uid, 900).ok);
-  assert(playCard(s, 0, h.uid, 320).ok);
-  assert(s.units.some((u) => u.id === 'precision'));
+  assert(playCard(s, 0, h.uid).ok);
+  const gun = s.units.find((u) => u.id === 'precision');
+  assert.equal(gun.x, 112);
   assert.equal(s.markers.length, 0);
+  s.players[0].energy = 10;
+  assert(playCard(s, 0, hand(s, 'artillery').uid, 964).ok);
+  assert.equal(s.units.find((u) => u.id === 'artillery').x, 964);
+  const enemyGun = { uid: ++s.uid, id: 'precision' };
+  s.players[1].hand.push(enemyGun);
+  s.players[1].energy = 10;
+  assert(playCard(s, 1, enemyGun.uid).ok);
+  assert.equal(s.units.at(-1).x, W - 112);
+  for (const id of ['smoke', 'antitank_mine']) assert(needsTarget(id));
   for (const id of [
-    'smoke',
     'precision',
     'artillery',
     'sniper',
     'medic',
     'mortar',
     'ifv',
-    'antitank_mine',
+    'recon',
+    'repair',
+    'supply',
   ])
-    assert(needsTarget(id));
-  for (const id of ['recon', 'repair', 'supply']) assert(!needsTarget(id));
+    assert(!needsTarget(id));
+});
+check('十分钟时限才触发按基地生命结算', () => {
+  assert.equal(DURATION, 600);
+  const s = fresh();
+  s.units = [];
+  s.time = 240;
+  tick(s, 0.02);
+  assert.equal(s.status, 'playing');
+  s.time = 599.99;
+  s.status = 'paused';
+  tick(s, 0.02);
+  assert.equal(s.time, 599.99);
+  s.status = 'playing';
+  s.players[0].hp = 800;
+  s.players[1].hp = 600;
+  tick(s, 0.02);
+  assert.equal(s.time, 600);
+  assert.equal(s.status, 'finished');
 });
 check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () => {
   const s = fresh();
@@ -1669,7 +1699,7 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     let decision = 0;
     for (
       let frame = 0;
-      frame < 240 * 60 + 1 && s.status === 'playing';
+      frame < DURATION * 60 + 2 && s.status === 'playing';
       frame++
     ) {
       if (frame >= decision) {
@@ -1933,7 +1963,7 @@ check('房屋分部受损，倒树与废墙永久形成低掩体并拦截弹道'
   );
   assert(craterCover(s, tree.x - 25, tree.x + 200) > 0.2);
 });
-check('双方视野与快照隐藏未发现敌人，树冠挡视野不挡子弹', () => {
+check('树冠缩短观察距离，中距离仍可发现敌人并交火', () => {
   const s = arena();
   spawnUnit(s, 0, 'tank', 1000);
   spawnUnit(s, 1, 'infantry', 1350);
@@ -1962,12 +1992,12 @@ check('双方视野与快照隐藏未发现敌人，树冠挡视野不挡子弹'
     },
   ];
   refreshVision(s);
-  assert(snapshot(s).units.every((u) => u.side === 0));
+  assert(snapshot(s).units.some((u) => u.side === 1));
   assert.equal(snapshot(s).players[1].hand.length, 0);
   assert.equal(snapshot(s, 1).players[0].hand.length, 0);
   tick(s, 1 / 60);
-  assert.equal(tank.shots, 0);
-  assert.equal(tank.secondaryShots, 0);
+  assert(tank.shots > 0);
+  assert(tank.secondaryShots > 0);
   assert.equal(sceneryIntercept(s, 1080, 320, 1350, 347), null);
   s.scenery = [];
   refreshVision(s);
@@ -2079,6 +2109,167 @@ check('未观察到的墙体破坏保持旧记忆，再次观察时才更新', (
   spawnUnit(s, 0, 'scout_drone', w.x - 80);
   refreshVision(s);
   assert.equal(snapshot(s).walls.find((v) => v.uid === w.uid).hp, 0);
+});
+const coverProp = (id, x, kind = 'house', split = false) => ({
+  id,
+  kind,
+  x,
+  y: 374,
+  seed: 1,
+  parts: Array.from({ length: split ? 3 : 1 }, (_, i) => ({
+    id: i,
+    kind: kind === 'tree' ? 'crown' : 'wall',
+    x: x + i * 20,
+    y: 240,
+    w: split ? 20 : 60,
+    h: 134,
+    hp: 10000,
+    maxHp: 10000,
+    brokenAt: -1,
+  })),
+});
+check('房树只扣观察距离，同物体不叠算，密集遮挡最多扣四分之一', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'tank', 1000);
+  s.scenery = [coverProp(1, 1200, 'house', true)];
+  assert.equal(observationPenalty(s, 1000, 320, 1560, 346, 570), 60);
+  assert(pointVisible(s, 0, 1350, 346));
+  assert(!pointVisible(s, 0, 1530, 346));
+  s.scenery = [];
+  assert(pointVisible(s, 0, 1530, 346));
+  s.scenery = [coverProp(1, 1200, 'tree')];
+  assert.equal(observationPenalty(s, 1000, 320, 1560, 346, 570), 25);
+  assert(!pointVisible(s, 0, 1550, 346));
+  s.scenery = Array.from({ length: 10 }, (_, i) => coverProp(i, 1050 + i * 20));
+  assert.equal(observationPenalty(s, 1000, 320, 1560, 346, 570), 570 * 0.25);
+  assert(pointVisible(s, 0, 1350, 346));
+  s.units[0].wounded = true;
+  assert(!pointVisible(s, 0, 1350, 346));
+  spawnUnit(s, 1, 'tank', 2500);
+  refreshVision(s);
+  assert(!snapshot(s).units.some((u) => u.side === 1));
+});
+check('树房普通子弹约半数通过，每栋房屋多部件和多帧只判一次', () => {
+  const s = arena();
+  s.scenery = [coverProp(7, 1200, 'house', true)];
+  const initialSeed = s.seed;
+  const results = [];
+  let survivor;
+  for (let i = 0; i < 1000; i++) {
+    const p = { ammunition: 'rifle' };
+    const hit = projectileIntercept(s, p, 1100, 320, 1300, 320);
+    results.push(!!hit);
+    if (!hit) survivor = p;
+  }
+  const intercepted = results.filter(Boolean).length;
+  assert(intercepted > 450 && intercepted < 550, `intercepted ${intercepted}`);
+  assert.deepEqual(survivor.passedCover, [7]);
+  const after = s.seed;
+  for (let x = 1200; x < 1260; x += 2)
+    assert.equal(projectileIntercept(s, survivor, x, 320, x + 2, 320), null);
+  assert.equal(s.seed, after, '同一栋房屋不得每帧重新掷骰');
+  s.scenery = [coverProp(7, 1200)];
+  s.seed = initialSeed;
+  s.fxSeed += 999;
+  const joined = Array.from(
+    { length: 1000 },
+    () =>
+      !!projectileIntercept(s, { ammunition: 'rifle' }, 1100, 320, 1300, 320),
+  );
+  assert.deepEqual(joined, results, '拆分房屋和特效随机数均不得改变拦截结果');
+  s.scenery = [coverProp(7, 1200, 'tree')];
+  s.seed = initialSeed;
+  const foliage = Array.from(
+    { length: 1000 },
+    () =>
+      !!projectileIntercept(
+        s,
+        { ammunition: 'machinegun' },
+        1100,
+        320,
+        1300,
+        320,
+      ),
+  );
+  assert.deepEqual(foliage, results, '树冠与机枪同样有一半概率掩护');
+});
+check('穿过第一个掩体仍检查第二个，炮弹与地表保持实体碰撞', () => {
+  const s = arena();
+  s.scenery = [coverProp(1, 1160), coverProp(2, 1260)];
+  let stoppedAtSecond = false;
+  for (let i = 0; i < 100; i++) {
+    const p = { ammunition: 'autocannon' };
+    const hit = projectileIntercept(s, p, 1100, 320, 1360, 320);
+    if (hit?.x >= 1260 && p.passedCover?.length === 2) stoppedAtSecond = true;
+  }
+  assert(stoppedAtSecond);
+  const seed = s.seed;
+  for (const ammunition of ['ap', 'cannon', 'rocket', 'grenade', 'mortar'])
+    assert(projectileIntercept(s, { ammunition }, 1100, 320, 1360, 320));
+  assert.equal(s.seed, seed, '重弹的硬碰撞不得消费掩体概率');
+  const p = { ammunition: 'rifle', passedCover: [1, 2] };
+  assert(projectileIntercept(s, p, 1100, 320, 1360, 390));
+});
+check('房屋后中距离步兵会开火，坦克同轴也不会被许可检查卡住', () => {
+  for (const id of ['infantry', 'tank']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 1000);
+    const u = s.units[0];
+    s.units = [u];
+    spawnUnit(s, 1, 'infantry', 1350);
+    const enemy = s.units[1];
+    s.units = [u, enemy];
+    s.scenery = [coverProp(7, 1200)];
+    u.cooldown = u.secondaryCooldown = 0;
+    u.decisionIn = 100;
+    u.tactic = 'crouch';
+    u.pose = 'idle';
+    enemy.pace = 0;
+    enemy.cooldown = 100;
+    s.players[0].order = 'hold';
+    refreshVision(s);
+    tick(s, 1 / 60);
+    assert(id === 'tank' ? u.secondaryShots > 0 : u.shots > 0, id);
+  }
+});
+check('榴弹保留相同杀伤和挖土，仅烟尘在1.25秒内散去', () => {
+  const states = ['grenade', 'he'].map((kind) => {
+    const s = arena();
+    spawnUnit(s, 1, 'infantry', 1300);
+    for (const u of s.units) {
+      u.hp = u.maxHp = 1000;
+      u.cooldown = 100;
+    }
+    explode(s, 1280, 366, 48, 16, 0, 1, 1, kind);
+    return s;
+  });
+  assert.deepEqual(
+    states[0].units.map((u) => u.hp),
+    states[1].units.map((u) => u.hp),
+  );
+  assert(states[0].units[0].hp < 1000);
+  assert.deepEqual(states[0].terrain, states[1].terrain);
+  states[0].status = 'paused';
+  advance(states[0], 1.4);
+  assert.equal(states[0].blasts[0].age, 0);
+  states[0].status = 'playing';
+  for (const s of states) advance(s, 1.4);
+  assert.equal(states[0].blasts.length, 0);
+  assert(states[1].blasts.some((b) => b.kind === 'he'));
+  const s = arena();
+  spawnUnit(s, 0, 'grenadiers', 1000);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'infantry', 1320);
+  u.cooldown = 0;
+  u.decisionIn = 100;
+  u.tactic = 'crouch';
+  s.players[0].order = 'hold';
+  refreshVision(s);
+  tick(s, 1 / 60);
+  const round = s.projectiles.find((p) => p.sourceUid === u.uid);
+  assert.equal(round?.effect, 'grenade');
+  assert.equal(round?.radius, CARDS.grenadiers.radius);
 });
 console.log(`${count} gameplay checks passed`);
 if (failures.length)

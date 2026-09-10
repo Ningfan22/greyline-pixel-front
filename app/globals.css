@@ -5368,3 +5368,49 @@ body:has(.game-shell.touch-battle) {
     font-size: 14px;
   }
 }
+
+/* Pointer-driven hand gestures work the same with mouse, pen, and touch. */
+.game-shell .tactical-card {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: grab;
+}
+.game-shell .tactical-card.is-dragging {
+  opacity: 0.16;
+  pointer-events: none;
+}
+.dragged-card {
+  position: fixed;
+  z-index: 150;
+  pointer-events: none;
+  transform: translate(-50%, -50%) rotate(-3deg);
+  filter: drop-shadow(0 12px 14px #0009);
+}
+.dragged-card.can-release {
+  filter: drop-shadow(0 0 5px #e3d39a) drop-shadow(0 12px 14px #0009);
+}
+.dragged-card.drag-blocked {
+  filter: saturate(0.55) drop-shadow(0 0 5px #b85b48);
+}
+.drag-release-label {
+  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  transform: translateX(-50%) rotate(3deg);
+  padding: 7px 11px;
+  border: 1px solid #a9aa80;
+  background: #17241fec;
+  color: #e9e1bc;
+  white-space: nowrap;
+  font:
+    600 13px/1.3 'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+}
+.drag-blocked .drag-release-label {
+  color: #f0aa8d;
+  border-color: #b85b48;
+}

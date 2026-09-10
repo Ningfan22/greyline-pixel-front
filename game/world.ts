@@ -205,9 +205,11 @@ export function sceneryIntercept(
   ty: number,
   vision = false,
   includeOrigin = false,
+  ignoreProps = false,
 ) {
   let hit: { box: Obstacle; x: number; y: number; t: number } | null = null;
   for (const box of obstacleBoxes(s)) {
+    if (ignoreProps && box.prop) continue;
     if (!vision && box.foliage) continue;
     // A soldier sheltering inside a footprint can shoot out above/along its edge.
     if (
@@ -223,6 +225,30 @@ export function sceneryIntercept(
       hit = { box, x: sx + (tx - sx) * t, y: sy + (ty - sy) * t, t };
   }
   return hit;
+}
+export function sceneryCoverHits(
+  s: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+) {
+  const hits = new Map<
+    number,
+    { id: number; x: number; y: number; t: number }
+  >();
+  for (const box of obstacleBoxes(s)) {
+    if (!box.prop) continue;
+    const t = segmentBox(sx, sy, tx, ty, box);
+    if (t !== null && t < (hits.get(box.prop.id)?.t ?? Infinity))
+      hits.set(box.prop.id, {
+        id: box.prop.id,
+        x: sx + (tx - sx) * t,
+        y: sy + (ty - sy) * t,
+        t,
+      });
+  }
+  return [...hits.values()].sort((a, b) => a.t - b.t);
 }
 export function debrisCover(s: GameState, x: number, threatX: number) {
   const y = floorAt(s, x),
@@ -250,7 +276,6 @@ export function clearSight(
   ty: number,
   throughSmoke = false,
 ) {
-  if (sceneryIntercept(s, sx, sy, tx, ty, true)) return false;
   const steps = Math.ceil(Math.abs(tx - sx) / 12);
   for (let i = 1; i < steps; i++) {
     const t = i / steps;
@@ -268,6 +293,38 @@ export function clearSight(
   )
     return false;
   return true;
+}
+export function observationPenalty(
+  s: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  range: number,
+) {
+  // One house/tree is one obstruction even when its ray crosses several parts.
+  const obstacles = new Map<string, number>();
+  for (const box of obstacleBoxes(s)) {
+    if (segmentBox(sx, sy, tx, ty, box) === null) continue;
+    const key = box.prop ? `prop:${box.prop.id}` : `wreck:${box.wreck!.id}`;
+    const loss = box.rubble ? 8 : box.prop?.kind === 'house' ? 60 : 25;
+    obstacles.set(key, Math.max(obstacles.get(key) ?? 0, loss));
+  }
+  for (const wall of s.walls) {
+    if (wall.hp <= 0) continue;
+    const box = {
+      x: wall.x - 20,
+      y: floorAt(s, wall.x) - wall.height,
+      w: 40,
+      h: wall.height,
+    };
+    if (segmentBox(sx, sy, tx, ty, box) !== null)
+      obstacles.set(`wall:${wall.uid}`, 8);
+  }
+  return Math.min(
+    range * 0.25,
+    [...obstacles.values()].reduce((sum, loss) => sum + loss, 0),
+  );
 }
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
@@ -287,33 +344,34 @@ export function sightRange(u: Unit) {
 export function pointVisible(s: GameState, side: Side, x: number, y: number) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
     return true;
-  return s.units.some(
-    (u) =>
-      u.side === side &&
-      u.hp > 0 &&
-      !u.wounded &&
-      !u.surrendered &&
-      Math.hypot(u.x - x, (u.y - 45 - y) * 0.65) <=
-        sightRange(u) * (s.players[side].recon > 0 ? 1.15 : 1) &&
-      clearSight(
-        s,
-        u.x,
-        u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48),
-        x,
-        y,
-        s.players[side].recon > 0 ||
-          (s.players[side].jam <= 0 &&
-            s.units.some(
-              (v) =>
-                v.side === side &&
-                v.hp > 0 &&
-                !v.wounded &&
-                !v.surrendered &&
-                CARDS[v.id].observer &&
-                Math.abs(v.x - u.x) <= 650,
-            )),
-      ),
-  );
+  return s.units.some((u) => {
+    if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
+      return false;
+    const range = sightRange(u) * (s.players[side].recon > 0 ? 1.15 : 1);
+    const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
+    if (distance > range) return false;
+    const eye = u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48);
+    if (distance > range - observationPenalty(s, u.x, eye, x, y, range))
+      return false;
+    return clearSight(
+      s,
+      u.x,
+      eye,
+      x,
+      y,
+      s.players[side].recon > 0 ||
+        (s.players[side].jam <= 0 &&
+          s.units.some(
+            (v) =>
+              v.side === side &&
+              v.hp > 0 &&
+              !v.wounded &&
+              !v.surrendered &&
+              CARDS[v.id].observer &&
+              Math.abs(v.x - u.x) <= 650,
+          )),
+    );
+  });
 }
 export function visibleToSide(s: GameState, side: Side, u: Unit) {
   return u.side === side || s.visible[side].includes(u.uid);

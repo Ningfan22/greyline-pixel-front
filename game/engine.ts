@@ -1,4 +1,10 @@
-import { ammunition, FLIGHT, isTracer, type Ammunition } from './ballistics';
+import {
+  ammunition,
+  FLIGHT,
+  isTracer,
+  isCoverBullet,
+  type Ammunition,
+} from './ballistics';
 import {
   obstacleBoxes,
   debrisCover,
@@ -7,6 +13,7 @@ import {
   visibleToSide,
   pointVisible,
   sceneryIntercept,
+  sceneryCoverHits,
   damageScenery,
   type Scenery,
   type Wreck,
@@ -41,7 +48,7 @@ export type Status = 'ready' | 'playing' | 'paused' | 'finished';
 export const W = 3840,
   VIEW_W = 1440,
   H = 480,
-  DURATION = 240,
+  DURATION = 600,
   MAX_HP = 1000,
   DRAW_TIME = 9,
   ENERGY_TIME = 3.6,
@@ -151,6 +158,7 @@ export interface Unit {
   destroyed: boolean;
 }
 export interface Projectile {
+  passedCover?: number[];
   uid?: number;
   guided?: boolean;
   speed?: number;
@@ -200,7 +208,7 @@ export interface Marker {
   impacts?: number[];
 }
 export interface Blast {
-  kind?: 'he' | 'artillery' | 'wreck' | 'penetration';
+  kind?: 'he' | 'artillery' | 'wreck' | 'penetration' | 'grenade';
   x: number;
   y: number;
   age: number;
@@ -615,25 +623,6 @@ function callArtillery(
     impacts,
   });
 }
-export function deploymentBounds(
-  s: Pick<GameState, 'units'>,
-  side: Side,
-  id: CardId,
-): [number, number] {
-  let front = side === 0 ? 560 : W - 560;
-  if (CARDS[id].static)
-    for (const u of s.units)
-      if (
-        u.side === side &&
-        isCombatant(u) &&
-        !CARDS[u.id].air &&
-        !CARDS[u.id].static
-      )
-        front = side === 0 ? Math.max(front, u.x) : Math.min(front, u.x);
-  return side === 0
-    ? [110, Math.min(W - 550, front - 120)]
-    : [Math.max(550, front + 120), W - 110];
-}
 export function playCard(
   s: GameState,
   side: Side,
@@ -658,12 +647,10 @@ export function playCard(
       ok: false,
       message: `还需要 ${Math.ceil(cost - p.energy)} 点指挥点`,
     };
-  const bounds = deploymentBounds(s, side, c.id);
-  if (
-    c.type === 'unit' &&
-    (x === undefined || !Number.isFinite(x) || x < bounds[0] || x > bounds[1])
-  )
-    return { ok: false, message: '请在蓝色部署区域内选择落点' };
+  // Unit x is the entry edge supplied by the view, never the card's drop point.
+  if (c.type === 'unit' && x === undefined) x = side === 0 ? 112 : W - 112;
+  if (c.type === 'unit' && (!Number.isFinite(x) || x! < 0 || x! > W))
+    return { ok: false, message: '无效的入场位置' };
   if (
     c.targetGround &&
     (x === undefined || !Number.isFinite(x) || x < 0 || x > W)
@@ -1115,8 +1102,18 @@ export function terrainIntercept(
   sy: number,
   tx: number,
   ty: number,
+  ignoreSoftCover = false,
 ) {
-  const prop = sceneryIntercept(s, sx, sy, tx, ty);
+  const prop = sceneryIntercept(
+    s,
+    sx,
+    sy,
+    tx,
+    ty,
+    false,
+    false,
+    ignoreSoftCover,
+  );
   const steps = Math.max(1, Math.ceil(Math.abs(tx - sx) / 2));
   for (let i = 1; i <= steps; i++) {
     const t = i / steps,
@@ -1128,6 +1125,29 @@ export function terrainIntercept(
         : { x, y: ground(s, x) - 1 };
   }
   return prop ? { x: prop.x, y: prop.y } : null;
+}
+export function projectileIntercept(
+  s: GameState,
+  p: Projectile,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+) {
+  if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
+    return terrainIntercept(s, sx, sy, tx, ty);
+  const hardHit = terrainIntercept(s, sx, sy, tx, ty, true);
+  const hardDistance = hardHit
+    ? Math.hypot(hardHit.x - sx, hardHit.y - sy)
+    : Infinity;
+  for (const hit of sceneryCoverHits(s, sx, sy, tx, ty)) {
+    if (Math.hypot(hit.x - sx, hit.y - sy) >= hardDistance) break;
+    if (p.passedCover?.includes(hit.id)) continue;
+    (p.passedCover ??= []).push(hit.id);
+    // A projectile rolls once per whole prop, independent of frame rate and wall pieces.
+    if (rnd(s) < 0.5) return { x: hit.x, y: hit.y };
+  }
+  return hardHit;
 }
 function retreatingFriendlyHit(
   s: GameState,
@@ -1231,7 +1251,7 @@ export function muzzlePoint(
     sn = Math.sin(angle);
   return { x: u.x + dx * c - dy * sn, y: u.y + dx * sn + dy * c };
 }
-function bodyHeight(u: Unit) {
+function bodyHeight(u: Pick<Unit, 'pose'>) {
   return u.pose === 'prone'
     ? 7
     : u.pose === 'crouch' || u.pose === 'land'
@@ -1281,12 +1301,30 @@ function firingHeight(
     sx = point.x;
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
-  if (!terrainIntercept(s, sx, point.y, tx, ty)) return height;
+  const softCover = isCoverBullet(ammunition(u.id, u.member));
+  if (!terrainIntercept(s, sx, point.y, tx, ty, softCover)) return height;
   // A crouched soldier can briefly rise to fire, rather than stall behind a slope.
-  if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty)) return 47;
+  if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty, softCover))
+    return 47;
   return null;
 }
-function seekCover(s: GameState, u: Unit, target: Pick<Unit, 'x' | 'y'>) {
+type CoverTarget = Pick<Unit, 'x' | 'y'> & Partial<Pick<Unit, 'pose'>>;
+function canFireFromCover(
+  s: GameState,
+  u: Unit,
+  x: number,
+  target: CoverTarget,
+) {
+  return (
+    firingHeight(
+      s,
+      { ...u, x, y: ground(s, x), pose: 'idle' },
+      target.x,
+      target.y - bodyHeight({ pose: target.pose ?? 'prone' }),
+    ) !== null
+  );
+}
+function seekCover(s: GameState, u: Unit, target: CoverTarget) {
   let best: number | null = null,
     score = 0;
   for (
@@ -1299,10 +1337,14 @@ function seekCover(s: GameState, u: Unit, target: Pick<Unit, 'x' | 'y'>) {
     if (
       cover < 0.25 ||
       obstacleBoxes(s).some(
-        (b) => !b.foliage && x > b.x - 10 && x < b.x + b.w + 10,
+        (b) =>
+          !b.foliage &&
+          x > b.x - (b.rubble ? 2 : 10) &&
+          x < b.x + b.w + (b.rubble ? 2 : 10),
       )
     )
       continue;
+    if (!canFireFromCover(s, u, x, target)) continue;
     if (
       s.units.some(
         (v) =>
@@ -1651,7 +1693,7 @@ function fireCoax(s: GameState, u: Unit) {
       const p = muzzlePoint(u, v.x, 42, true);
       return (
         !smokeBlocks(s, u.side, u.x, v.x) &&
-        !terrainIntercept(s, p.x, p.y, v.x, v.y - bodyHeight(v))
+        !terrainIntercept(s, p.x, p.y, v.x, v.y - bodyHeight(v), true)
       );
     });
   if (!target) return;
@@ -1777,10 +1819,6 @@ function updateAI(s: GameState) {
   }
   const c = CARDS[choice.h.id];
   let x: number | undefined;
-  if (c.type === 'unit') {
-    const b = deploymentBounds(s, 1, c.id);
-    x = c.static ? b[0] + 35 : W - 350 + rnd(s) * 120;
-  }
   if (c.type === 'skill' && modelOf(c.id) === 'smoke')
     x = own.length
       ? own.reduce((a, u) => a + u.x, 0) / own.length - 60
@@ -2073,7 +2111,8 @@ export function tick(s: GameState, dt: number) {
       if (
         u.coverGoal !== null &&
         (craterCover(s, u.coverGoal, threat.x) < 0.2 ||
-          Math.abs(threat.x - u.coverGoal) > range)
+          Math.abs(threat.x - u.coverGoal) > range ||
+          !canFireFromCover(s, u, u.coverGoal, threat))
       )
         u.coverGoal = null;
       if (u.coverGoal === null && order !== 'hold' && u.coverSearch <= 0) {
@@ -2085,7 +2124,7 @@ export function tick(s: GameState, dt: number) {
       u.cover = 0;
       u.coverGoal = null;
     }
-    const seeking = u.coverGoal !== null && Math.abs(u.coverGoal - u.x) > 3;
+    const seeking = u.coverGoal !== null && Math.abs(u.coverGoal - u.x) > 0.5;
     if (u.cover > 0.2 && !seeking) {
       // Rise just before firing, then return behind the crater lip between shots.
       u.pose = u.cooldown < 0.16 || u.fire > 0 ? 'idle' : 'crouch';
@@ -2119,7 +2158,17 @@ export function tick(s: GameState, dt: number) {
         const point = muzzlePoint(u, tx),
           sx = point.x,
           sy = point.y;
-        if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
+        if (
+          c.indirect ||
+          !terrainIntercept(
+            s,
+            sx,
+            sy,
+            tx,
+            ty,
+            isCoverBullet(ammunition(u.id, u.member)),
+          )
+        ) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
@@ -2143,7 +2192,13 @@ export function tick(s: GameState, dt: number) {
             infantryMultiplier: c.infantryMultiplier,
             baseMultiplier: c.baseMultiplier,
             shell: !!c.indirect,
-            effect: ap ? 'penetration' : c.indirect ? 'artillery' : 'he',
+            effect: ap
+              ? 'penetration'
+              : c.indirect
+                ? 'artillery'
+                : kind === 'grenade'
+                  ? 'grenade'
+                  : 'he',
             sourceUid: u.uid,
             x: sx,
             y: sy,
@@ -2185,10 +2240,7 @@ export function tick(s: GameState, dt: number) {
         bounding ||
         retreating ||
         !!closeThreat ||
-        (!target &&
-          !baseInRange &&
-          !(threat && u.cover > 0.2) &&
-          (!c.members || order !== 'hold')))
+        (!target && !baseInRange && (!c.members || order !== 'hold')))
     ) {
       if (c.members)
         u.pose =
@@ -2307,7 +2359,7 @@ export function tick(s: GameState, dt: number) {
         });
       }
     }
-    const impact = terrainIntercept(s, oldX, oldY, p.x, p.y);
+    const impact = projectileIntercept(s, p, oldX, oldY, p.x, p.y);
     const friendly = retreatingFriendlyHit(s, p, oldX, oldY, p.x, p.y);
     if (
       friendly &&
@@ -2374,7 +2426,7 @@ export function tick(s: GameState, dt: number) {
           canTakeDamage(u) &&
           Math.abs(u.x - p.tx) <
             (CARDS[u.id].armored ? 70 : CARDS[u.id].air ? 80 : 18) &&
-          !terrainIntercept(s, p.x, p.y, u.x, u.y - bodyHeight(u))
+          !projectileIntercept(s, p, p.x, p.y, u.x, u.y - bodyHeight(u))
         ) {
           const cover =
             CARDS[u.id].members && u.motion === 'ground' && !u.climbing
@@ -2469,7 +2521,9 @@ export function tick(s: GameState, dt: number) {
   );
   for (const b of s.blasts) b.age += dt;
   s.blasts = s.blasts.filter(
-    (b) => b.age < (b.kind === 'penetration' ? 0.24 : 7),
+    (b) =>
+      b.age <
+      (b.kind === 'penetration' ? 0.24 : b.kind === 'grenade' ? 1.25 : 7),
   );
   for (const p of s.particles) {
     p.life -= dt;

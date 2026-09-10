@@ -7,9 +7,9 @@ import {
   useState,
   type CSSProperties,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight,
-  ArrowUpRight,
   BookOpen,
   ChevronRight,
   Crosshair,
@@ -36,7 +36,6 @@ import {
 } from '@/components/ui/dialog';
 import {
   CARDS,
-  deploymentBounds,
   chooseAiDeck,
   needsTarget,
   createGame,
@@ -65,6 +64,29 @@ import { loadArt, type Art } from '@/game/art';
 
 const timeString = (t: number) =>
   `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+type CardGesture = {
+  uid: number;
+  pointer: number;
+  startX: number;
+  startY: number;
+  centerX: number;
+  centerY: number;
+  width: number;
+  dragging: boolean;
+  bounds: { left: number; right: number; top: number; bottom: number };
+};
+function dragPosition(gesture: CardGesture, clientX: number, clientY: number) {
+  const x = gesture.centerX + clientX - gesture.startX;
+  const y = gesture.centerY + clientY - gesture.startY;
+  const { left, right, top, bottom } = gesture.bounds;
+  return {
+    uid: gesture.uid,
+    x,
+    y,
+    width: gesture.width,
+    outside: x < left || x > right || y < top || y > bottom,
+  };
+}
 export default function Battle({
   playerDeck,
   aiDeck,
@@ -91,6 +113,15 @@ export default function Battle({
     timer: ReturnType<typeof setTimeout>;
   } | null>(null);
   const heldClick = useRef<number | null>(null);
+  const handArea = useRef<HTMLDivElement>(null);
+  const cardGesture = useRef<CardGesture | null>(null);
+  const [draggedCard, setDraggedCard] = useState<{
+    uid: number;
+    x: number;
+    y: number;
+    width: number;
+    outside: boolean;
+  } | null>(null);
   const portraitGate = useRef(false);
   const panelPause = useRef(false);
   const [sound, setSound] = useState(false);
@@ -102,7 +133,6 @@ export default function Battle({
   const viewport = useRef(VIEW_W);
   const [viewportWidth, setViewportWidth] = useState(VIEW_W);
   const [touchMode, setTouchMode] = useState(false);
-  const [aimTarget, setAimTarget] = useState<number | null>(null);
   const mapPointer = useRef<number | null>(null);
   const camera = useRef(0),
     [cameraView, setCameraView] = useState(0),
@@ -132,31 +162,19 @@ export default function Battle({
   const choose = useCallback((uid: number | null) => {
     selectedRef.current = uid;
     setSelected(uid);
-    setAimTarget(null);
     pointerScreen.current = null;
-    if (uid !== null) {
-      const h = game.current!.players[0].hand.find((h) => h.uid === uid);
-      if (h) {
-        if (CARDS[h.id].type === 'unit' && !CARDS[h.id].static) {
-          camera.current = 0;
-          setCameraView(0);
-          hover.current = 280;
-        } else if (CARDS[h.id].static) {
-          const b = deploymentBounds(game.current!, 0, h.id);
-          hover.current = Math.max(
-            b[0],
-            Math.min(b[1], camera.current + viewport.current * 0.6),
-          );
-        } else
-          hover.current = CARDS[h.id].targetGround
-            ? camera.current + viewport.current * 0.6
-            : null;
-      }
-    } else hover.current = null;
+    const h = game.current.players[0].hand.find((h) => h.uid === uid);
+    hover.current =
+      h && needsTarget(h.id) ? camera.current + viewport.current * 0.6 : null;
   }, []);
   const execute = useCallback(
     (uid: number, x?: number) => {
-      const result = playCard(game.current!, 0, uid, x);
+      const h = game.current.players[0].hand.find((h) => h.uid === uid);
+      const entryOrTarget =
+        h && CARDS[h.id].type === 'unit'
+          ? Math.min(W - 112, camera.current + 64)
+          : x;
+      const result = playCard(game.current!, 0, uid, entryOrTarget);
       if (result.ok) choose(null);
       else toast(result.message);
       refresh();
@@ -170,6 +188,17 @@ export default function Battle({
     refresh();
     return result;
   }, [refresh, toast]);
+  const cancelCardHold = useCallback(() => {
+    if (cardHold.current) clearTimeout(cardHold.current.timer);
+    cardHold.current = null;
+  }, []);
+  const interruptCardHold = useCallback(() => {
+    const uid = cardGesture.current?.uid ?? cardHold.current?.uid;
+    if (uid !== undefined) heldClick.current = uid;
+    cardGesture.current = null;
+    setDraggedCard(null);
+    cancelCardHold();
+  }, [cancelCardHold]);
   const start = useCallback(() => {
     if (!art.current) {
       toast('美术资源正在加载，请稍候');
@@ -179,6 +208,7 @@ export default function Battle({
     refresh();
   }, [refresh, toast]);
   const reset = useCallback(() => {
+    interruptCardHold();
     const nextSeed = Date.now();
     game.current = createGame(nextSeed, playerDeck, chooseAiDeck(nextSeed));
     startGame(game.current);
@@ -188,14 +218,16 @@ export default function Battle({
     setCameraView(0);
     setMessage('');
     refresh();
-  }, [choose, refresh, playerDeck]);
+  }, [choose, refresh, playerDeck, interruptCardHold]);
   const pause = useCallback(() => {
+    interruptCardHold();
     const s = game.current!;
     if (s.status === 'playing') s.status = 'paused';
     else if (s.status === 'paused') s.status = 'playing';
     refresh();
-  }, [refresh]);
+  }, [refresh, interruptCardHold]);
   const openPanel = (p: 'guide' | 'deck' | 'card') => {
+    interruptCardHold();
     panelPause.current = game.current!.status === 'playing';
     if (panelPause.current) game.current!.status = 'paused';
     setPanel(p);
@@ -209,14 +241,6 @@ export default function Battle({
     panelPause.current = false;
     refresh();
   };
-  const cancelCardHold = useCallback(() => {
-    if (cardHold.current) clearTimeout(cardHold.current.timer);
-    cardHold.current = null;
-  }, []);
-  const interruptCardHold = useCallback(() => {
-    if (cardHold.current) heldClick.current = cardHold.current.uid;
-    cancelCardHold();
-  }, [cancelCardHold]);
   const inspectHandCard = (uid: number) => {
     setInspectUid(uid);
     openPanel('card');
@@ -258,9 +282,7 @@ export default function Battle({
       dragView.current = null;
       didDrag.current = false;
       hover.current = null;
-      setAimTarget(null);
-      if (cardHold.current) heldClick.current = cardHold.current.uid;
-      cancelCardHold();
+      interruptCardHold();
     };
     const observer = new ResizeObserver(resize);
     observer.observe(el.parentElement!);
@@ -273,7 +295,7 @@ export default function Battle({
       observer.disconnect();
       query.removeEventListener('change', update);
     };
-  }, [cancelCardHold]);
+  }, [interruptCardHold]);
   useEffect(() => {
     let stopped = false;
     void loadArt()
@@ -405,19 +427,21 @@ export default function Battle({
         (e.target as HTMLElement)?.closest('[role="radiogroup"]')
       )
         return;
+      const targetCard = game.current.players[0].hand.find(
+        (h) => h.uid === selectedRef.current,
+      );
+      const targeting = targetCard ? needsTarget(targetCard.id) : false;
       if (e.key.toLowerCase() === 'a' || e.key.toLowerCase() === 'd') {
         keys.current.add(e.key.toLowerCase());
         return;
       }
-      if (
-        (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
-        selectedRef.current === null
-      ) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !targeting) {
         e.preventDefault();
         moveCamera(camera.current + (e.key === 'ArrowRight' ? 85 : -85));
         return;
       }
       if (e.key === 'Escape') {
+        interruptCardHold();
         choose(null);
         hover.current = null;
         return;
@@ -435,10 +459,7 @@ export default function Battle({
         const h = game.current!.players[0].hand[Number(e.key) - 1];
         if (h) choose(h.uid);
       }
-      if (
-        (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
-        selectedRef.current !== null
-      ) {
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && targeting) {
         e.preventDefault();
         pointerScreen.current = null;
         hover.current = Math.max(
@@ -476,7 +497,7 @@ export default function Battle({
       window.removeEventListener('keyup', onUp);
       pressedKeys.clear();
     };
-  }, [panel, choose, pause, execute, moveCamera, drawCard]);
+  }, [panel, choose, pause, execute, moveCamera, drawCard, interruptCardHold]);
   useEffect(() => {
     const context = (
       document as unknown as {
@@ -539,7 +560,7 @@ export default function Battle({
     register({
       name: 'play_battle_card',
       description:
-        '打出当前手牌。普通单位部署 x 为 110–440，固定火炮可在友方地面前线后方 120 以外部署；烟幕和地雷 x 为 0–3840；其他技能无需 x。',
+        '打出当前手牌。单位从当前视野左侧入场，无需 x；烟幕和地雷以 x 指定 0–3840 内的目标；其他技能无需 x。',
       inputSchema: {
         type: 'object',
         properties: { uid: { type: 'integer' }, x: { type: 'number' } },
@@ -566,7 +587,6 @@ export default function Battle({
     chosen = p.hand.find((h) => h.uid === selected),
     card = chosen ?? null;
   const inspectionCard = p.hand.find((h) => h.uid === inspectUid) ?? card;
-  const bounds = card ? deploymentBounds(view, 0, card.id) : [110, 440];
   const active = view.status === 'playing';
   const units = view.units.filter(
       (u) => u.side === 0 && u.hp > 0 && !u.surrendered && !u.wounded,
@@ -581,27 +601,27 @@ export default function Battle({
     }
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
-    if (CARDS[h.id].type === 'unit' && !CARDS[h.id].static) moveCamera(0);
-    if (CARDS[h.id].static) {
-      const b = deploymentBounds(view, 0, h.id);
-      hover.current = Math.max(
-        b[0],
-        Math.min(b[1], camera.current + viewport.current * 0.6),
-      );
-      return;
-    }
-    hover.current =
-      CARDS[h.id].type === 'unit'
-        ? 280
-        : CARDS[h.id].targetGround
-          ? camera.current + viewport.current * 0.6
-          : null;
   };
   const canvasX = (clientX: number) => {
     const rect = canvas.current!.getBoundingClientRect();
     return (
       ((clientX - rect.left) / rect.width) * viewport.current + camera.current
     );
+  };
+  const handBounds = () => {
+    if (!handArea.current) return null;
+    const rect = handArea.current.getBoundingClientRect();
+    const boxes = Array.from(
+      handArea.current.querySelectorAll('.tactical-card'),
+      (el) => el.getBoundingClientRect(),
+    );
+    if (!boxes.length) return null;
+    return {
+      left: Math.min(...boxes.map((b) => b.left)),
+      right: Math.max(...boxes.map((b) => b.right)),
+      top: rect.top,
+      bottom: Math.max(rect.bottom, ...boxes.map((b) => b.bottom)),
+    };
   };
   const toggleSound = () => {
     const next = !sound;
@@ -791,7 +811,7 @@ export default function Battle({
         </div>
       </section>
       <section
-        className={`battlefield ${card ? 'is-targeting' : ''}`}
+        className={`battlefield ${card?.targetGround ? 'is-targeting' : ''}`}
         aria-label="像素战场"
       >
         <canvas
@@ -799,9 +819,10 @@ export default function Battle({
           width={viewportWidth}
           height={H}
           tabIndex={0}
-          aria-label="战场。先选卡牌，点击蓝方部署区；固定火炮可随前线扩展部署区。键盘方向键移动落点，回车确认。"
+          aria-label="左右拖动战场移动视野。拖出底部手牌区并松手出牌，单位从画面左侧入场。数字键选牌，回车出牌；目标技能可用方向键调整位置。"
           onPointerDown={(e) => {
-            if (e.button !== 0) return;
+            if (e.button !== 0 || cardGesture.current) return;
+            if (e.pointerType !== 'mouse') setTouchMode(true);
             if (!e.isPrimary || dragView.current) {
               didDrag.current = true;
               return;
@@ -841,21 +862,8 @@ export default function Battle({
             const gesture = dragView.current;
             if (!gesture || gesture.id !== e.pointerId) return;
             dragView.current = null;
-            const moved =
-              didDrag.current ||
-              Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 8;
             if (e.currentTarget.hasPointerCapture(e.pointerId))
               e.currentTarget.releasePointerCapture(e.pointerId);
-            if (moved || !chosen) return;
-            if (card && needsTarget(card.id)) {
-              const x = Math.max(0, Math.min(W, canvasX(e.clientX)));
-              if (e.pointerType !== 'mouse') {
-                setTouchMode(true);
-                setAimTarget(x);
-                hover.current = x;
-                pointerScreen.current = null;
-              } else execute(chosen.uid, x);
-            } else toast('点击「立即下达」使用这张技能卡');
           }}
           onPointerCancel={(e) => {
             if (dragView.current?.id === e.pointerId) {
@@ -874,15 +882,6 @@ export default function Battle({
               hover.current = null;
               pointerScreen.current = null;
             }
-          }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            hover.current = canvasX(e.clientX);
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const uid = Number(e.dataTransfer.getData('text/plain'));
-            if (Number.isInteger(uid)) execute(uid, canvasX(e.clientX));
           }}
         />
         <div className="field-top">
@@ -910,63 +909,17 @@ export default function Battle({
         {active && (
           <div className="field-status">
             <span className="live-dot" />{' '}
-            {card
-              ? card.type === 'unit'
-                ? touchMode
-                  ? '点选蓝色区域，再确认部署'
-                  : '点击蓝色区域部署部队'
-                : card.targetGround
-                  ? touchMode
-                    ? '滑动找目标，点选后确认指令'
-                    : '点击战场，指定' + card.name + '区域'
-                  : '确认下达指令'
-              : '选择手牌下令 · 拖动查看前线'}
+            {draggedCard
+              ? draggedCard.outside
+                ? '松手使用 · 拖回手牌区取消'
+                : '拖出底部手牌区使用'
+              : '拖出手牌并松手下令 · 长按查看详情'}
             {card && (
               <button onClick={() => choose(null)} aria-label="取消选择">
                 <X size={13} />
                 取消
               </button>
             )}
-          </div>
-        )}
-        {active && touchMode && chosen && card && needsTarget(card.id) && (
-          <div className="touch-target-controls">
-            <button onClick={() => choose(null)}>取消</button>
-            <button
-              className="confirm-target"
-              disabled={
-                aimTarget === null ||
-                p.energy < card.cost ||
-                card.readyIn > 0 ||
-                (card.type === 'unit' &&
-                  (aimTarget < bounds[0] || aimTarget > bounds[1]))
-              }
-              onClick={() =>
-                aimTarget !== null && execute(chosen.uid, aimTarget)
-              }
-            >
-              <Crosshair size={16} />
-              {aimTarget === null
-                ? '先点选落点'
-                : card.type === 'unit'
-                  ? '确认部署'
-                  : '确认' + card.name}
-            </button>
-          </div>
-        )}
-        {active && touchMode && chosen && card && !needsTarget(card.id) && (
-          <div className="touch-target-controls mobile-skill-controls">
-            <button onClick={() => choose(null)}>取消</button>
-            <button
-              className="confirm-target"
-              disabled={p.energy < card.cost || card.readyIn > 0}
-              onClick={() => execute(chosen.uid)}
-            >
-              <Zap size={15} />
-              {card.readyIn > 0
-                ? `整备 ${Math.ceil(card.readyIn)}s`
-                : '下达' + card.name}
-            </button>
           </div>
         )}
         {p.morale > 0 && (
@@ -1006,7 +959,7 @@ export default function Battle({
               <div className="launch-meta">
                 <span>1 VS 1</span>
                 <i />
-                <span>4 分钟对局</span>
+                <span>10 分钟对局</span>
                 <i />
                 <span>可破坏地形</span>
               </div>
@@ -1324,24 +1277,14 @@ export default function Battle({
                 {card.readyIn > 0 && (
                   <p>整备中 · {Math.ceil(card.readyIn)} 秒后可再次派遣</p>
                 )}
-                {card.type === 'skill' && !card.targetGround ? (
-                  <button
-                    className="order-button"
-                    disabled={
-                      !active || p.energy < card.cost || card.readyIn > 0
-                    }
-                    onClick={() => execute(chosen!.uid)}
-                  >
-                    立即下达 <ArrowUpRight size={15} />
-                  </button>
-                ) : (
-                  <span className="target-hint">
-                    <Crosshair size={13} />
-                    {card.type === 'unit'
-                      ? '在蓝色区域选择部署点'
-                      : '在战场选择作用位置'}
-                  </span>
-                )}
+                <span className="target-hint">
+                  <Crosshair size={13} />
+                  {card.type === 'unit'
+                    ? '拖出手牌区松手，从画面左侧入场'
+                    : card.targetGround
+                      ? '拖出手牌区，以松手位置为目标'
+                      : '拖出手牌区松手使用'}
+                </span>
               </>
             ) : (
               <>
@@ -1382,7 +1325,7 @@ export default function Battle({
             </span>
           </div>
           <div className="hand-and-deck">
-            <div className="hand-cards">
+            <div className="hand-cards" ref={handArea}>
               {p.hand.map((h, i) => {
                 const c = h;
                 return (
@@ -1396,7 +1339,7 @@ export default function Battle({
                         zIndex: selected === h.uid ? 30 : i + 1,
                       } as CSSProperties
                     }
-                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 ? 'unaffordable' : ''}`}
+                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 ? 'unaffordable' : ''} ${draggedCard?.uid === h.uid ? 'is-dragging' : ''}`}
                     onClick={() => {
                       if (heldClick.current === h.uid) {
                         heldClick.current = null;
@@ -1405,15 +1348,40 @@ export default function Battle({
                       selectCard(h);
                     }}
                     onPointerDown={(e) => {
-                      if (e.pointerType === 'mouse') return;
-                      if (!e.isPrimary) {
-                        if (cardHold.current)
-                          heldClick.current = cardHold.current.uid;
-                        cancelCardHold();
+                      if (e.button !== 0 || !active) return;
+                      if (!e.isPrimary || cardGesture.current) {
+                        interruptCardHold();
                         return;
                       }
+                      if (e.pointerType !== 'mouse') setTouchMode(true);
                       cancelCardHold();
                       heldClick.current = null;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const handRect =
+                        handArea.current!.getBoundingClientRect();
+                      const boxes = Array.from(
+                        handArea.current!.querySelectorAll('.tactical-card'),
+                        (el) => el.getBoundingClientRect(),
+                      );
+                      cardGesture.current = {
+                        uid: h.uid,
+                        pointer: e.pointerId,
+                        startX: e.clientX,
+                        startY: e.clientY,
+                        centerX: rect.left + rect.width / 2,
+                        centerY: rect.top + rect.height / 2,
+                        width: e.currentTarget.offsetWidth,
+                        dragging: false,
+                        bounds: {
+                          left: Math.min(...boxes.map((b) => b.left)),
+                          right: Math.max(...boxes.map((b) => b.right)),
+                          top: handRect.top,
+                          bottom: Math.max(
+                            handRect.bottom,
+                            ...boxes.map((b) => b.bottom),
+                          ),
+                        },
+                      };
                       e.currentTarget.setPointerCapture(e.pointerId);
                       cardHold.current = {
                         uid: h.uid,
@@ -1428,32 +1396,69 @@ export default function Battle({
                       };
                     }}
                     onPointerMove={(e) => {
-                      const hold = cardHold.current;
+                      const gesture = cardGesture.current;
+                      if (!gesture || gesture.pointer !== e.pointerId) return;
                       if (
-                        hold?.pointer === e.pointerId &&
-                        Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > 8
-                      ) {
-                        heldClick.current = h.uid;
+                        !gesture.dragging &&
+                        Math.hypot(
+                          e.clientX - gesture.startX,
+                          e.clientY - gesture.startY,
+                        ) <= 8
+                      )
+                        return;
+                      if (!gesture.dragging) {
+                        gesture.dragging = true;
                         cancelCardHold();
+                        heldClick.current = h.uid;
+                        choose(h.uid);
+                      }
+                      gesture.bounds = handBounds() ?? gesture.bounds;
+                      setDraggedCard(
+                        dragPosition(gesture, e.clientX, e.clientY),
+                      );
+                      if (needsTarget(h.id)) {
+                        hover.current = Math.max(
+                          0,
+                          Math.min(W, canvasX(e.clientX)),
+                        );
+                        pointerScreen.current = hover.current - camera.current;
                       }
                     }}
-                    onPointerUp={cancelCardHold}
+                    onPointerUp={(e) => {
+                      const gesture = cardGesture.current;
+                      if (!gesture || gesture.pointer !== e.pointerId) return;
+                      gesture.bounds = handBounds() ?? gesture.bounds;
+                      const release = dragPosition(
+                        gesture,
+                        e.clientX,
+                        e.clientY,
+                      );
+                      cardGesture.current = null;
+                      cancelCardHold();
+                      setDraggedCard(null);
+                      if (e.currentTarget.hasPointerCapture(e.pointerId))
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                      if (!gesture.dragging) return;
+                      heldClick.current = h.uid;
+                      choose(null);
+                      if (
+                        release.outside &&
+                        !portraitGate.current &&
+                        !document.hidden
+                      ) {
+                        execute(
+                          h.uid,
+                          needsTarget(h.id)
+                            ? Math.max(0, Math.min(W, canvasX(e.clientX)))
+                            : undefined,
+                        );
+                      }
+                    }}
                     onPointerCancel={interruptCardHold}
                     onLostPointerCapture={interruptCardHold}
-                    onContextMenu={(e) => {
-                      if (touchMode) e.preventDefault();
-                    }}
-                    draggable={
-                      active &&
-                      !touchMode &&
-                      c.readyIn <= 0 &&
-                      p.energy >= c.cost
-                    }
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', String(h.uid));
-                      choose(h.uid);
-                    }}
-                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}。长按查看详情。`}
+                    onContextMenu={(e) => e.preventDefault()}
+                    draggable={false}
+                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}。拖出手牌区松手使用，长按查看详情。`}
                     aria-pressed={selected === h.uid}
                   >
                     <CardFace id={c.id} cost={c.cost} eager />
@@ -1516,13 +1521,43 @@ export default function Battle({
           </div>
         </button>
       </section>
+      {active &&
+        draggedCard &&
+        (() => {
+          const h = p.hand.find((h) => h.uid === draggedCard.uid);
+          if (!h) return null;
+          const blocked = h.readyIn > 0 || p.energy < h.cost;
+          return createPortal(
+            <div
+              className={`dragged-card ${draggedCard.outside ? 'can-release' : ''} ${blocked ? 'drag-blocked' : ''}`}
+              style={{
+                left: draggedCard.x,
+                top: draggedCard.y,
+                width: draggedCard.width,
+              }}
+              aria-hidden="true"
+            >
+              <CardFace id={h.id} cost={h.cost} eager />
+              <span className="drag-release-label">
+                {h.readyIn > 0
+                  ? `整备 ${Math.ceil(h.readyIn)}s`
+                  : p.energy < h.cost
+                    ? '指挥点不足'
+                    : draggedCard.outside
+                      ? '松手使用'
+                      : '拖出手牌区使用'}
+              </span>
+            </div>,
+            document.body,
+          );
+        })()}
       <footer>
         <span>
           GREYLINE <i /> 林间前线 · 演习版本 0.9
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
-          <kbd>Enter</kbd> 确认 <kbd>Space</kbd> 暂停
+          <kbd>Enter</kbd> 出牌 <kbd>Space</kbd> 暂停
         </span>
         <button aria-label="作战手册" onClick={() => openPanel('guide')}>
           如何作战 <ChevronRight size={13} />
@@ -1581,17 +1616,17 @@ export default function Battle({
                   <span>01 / 目标</span>
                   <h3>夺下敌方指挥部</h3>
                   <p>
-                    基地初始 1,000 生命。摧毁敌方基地立即获胜；4
+                    基地初始 1,000 生命。摧毁敌方基地立即获胜；10
                     分钟后，基地剩余生命更高的一方获胜，相同则平局。
                   </p>
                 </div>
                 <div>
                   <span>02 / 部署</span>
-                  <h3>选牌，然后选择落点</h3>
+                  <h3>拖出手牌，松手下令</h3>
                   <p>
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
-                    移动视野，也可点击小地图。选卡后点击蓝色区域部署；手机上点选落点后再按确认。固定火炮可部署在己方地面前线后方
-                    120 以外，自动瞄准已发现敌军。每个班组由 2–7
+                    移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。单位从当前画面左侧入场，固定炮兵在入场位置架设。烟幕和地雷以松手位置为目标。每个班组由
+                    2–7
                     名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。小起伏直接步行通过，较大落差才会下跳、缓冲和攀出。
                   </p>
                 </div>
@@ -1609,7 +1644,7 @@ export default function Battle({
                   <h3>用好不同兵种</h3>
                   <p>
                     坦克用穿甲弹攻击装甲、高爆弹和同轴机枪攻击步兵；标枪、反坦克炮和地雷克制重装。防空导弹追踪空军。固定炮兵周期发射，落点有散布，士兵只在炮弹临近时分散卧倒。
-                    弹坑、倒树、废墙和载具残骸可掩护步兵；未被观察到的敌人不会显示，房树和残骸会遮挡视线。飞机快速通场，存活返航后回手并整备，再次派遣费用降低；满手回弃牌，被击落恢复原价。撤退队员经过友军射线会遭受误伤。
+                    树木和房屋有约一半概率拦下普通子弹，同一物体对每发子弹只判一次。弹坑、倒树、废墙和载具残骸仍可掩护步兵。房屋、树木缩短观察距离；视野内正常彩色，视野外黑白，未发现的敌人不显示。榴弹烟尘短小，火炮保留大范围爆炸。飞机快速通场，存活返航后回手并整备，再次派遣费用降低；满手回弃牌，被击落恢复原价。撤退队员经过友军射线会遭受误伤。
                   </p>
                 </div>
               </div>

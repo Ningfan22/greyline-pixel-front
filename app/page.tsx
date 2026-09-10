@@ -152,7 +152,7 @@ export default function Home() {
             <aside className="ops-briefing">
               <Crosshair size={24} />
               <span className="ops-kicker">MISSION BRIEFING</span>
-              <h2>一条战线，四分钟。</h2>
+              <h2>一条战线，十分钟。</h2>
               <p>摧毁敌方指挥部，或在倒计时结束时保有更多基地生命。</p>
               <div>
                 <b>6</b>

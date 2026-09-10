@@ -10,15 +10,11 @@ import {
 import { modelOf, weaponModel } from './cards';
 import {
   CARDS,
-  deploymentBounds,
   ground,
   H,
   W,
   VIEW_W,
   muzzleHeight,
-  formationPositions,
-  vehicleContact,
-  AIR_ALTITUDE,
   type GameState,
   type CardId,
 } from './engine';
@@ -152,20 +148,6 @@ export function render(
       ctx.fillRect(m.x - 1, visibleGround(m.x) - 7, 2, 2);
     }
   const c = selected ? CARDS[selected] : null;
-  if (c?.type === 'unit' && s.status === 'playing') {
-    const [lo, hi] = deploymentBounds(s, 0, c.id);
-    ctx.fillStyle = '#b2d5cd30';
-    ctx.fillRect(lo, 275, hi - lo, 105);
-    ctx.strokeStyle = '#daeee3';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([8, 8]);
-    ctx.strokeRect(lo, 276, hi - lo, 104);
-    ctx.setLineDash([]);
-    ctx.font = 'bold 13px monospace';
-    ctx.fillStyle = '#edf4db';
-    ctx.textAlign = 'center';
-    ctx.fillText('↓  友方部署区  ↓', 275, 297);
-  }
   for (const side of [0, 1] as const) {
     const x = side === 0 ? 70 : W - 70,
       y = ground(s, x);
@@ -451,44 +433,19 @@ export function render(
     if (pointVisible(s, 0, b.x, b.y)) drawBlast(ctx, b, art.explosions);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p);
+  ctx.save();
+  // Saturation blending removes color while preserving the scene's luminance.
+  ctx.globalCompositeOperation = 'saturation';
+  ctx.fillStyle = '#808080';
   for (let x = Math.floor(left / 64) * 64; x < right; x += 64)
     if (!s.sight[0][Math.floor(x / 64)]) {
-      const fog = ctx.createLinearGradient(0, 210, 0, 400);
-      fog.addColorStop(0, '#172a2900');
-      fog.addColorStop(1, '#172a2920');
-      ctx.fillStyle = fog;
-      ctx.fillRect(x, 210, 64, H - 210);
+      ctx.fillRect(x, -H, 64, H * 3);
     }
+  ctx.restore();
   ctx.globalAlpha = 1;
   if (c && hover !== null && s.status === 'playing') {
     const y = visibleGround(hover);
-    if (c.type === 'unit') {
-      const [lo, hi] = deploymentBounds(s, 0, c.id);
-      const valid = hover >= lo && hover <= hi;
-      const positions = formationPositions(0, c.id, hover);
-      for (const [i, x] of positions.entries()) {
-        const contact = c.armored
-          ? vehicleContact(s, x, c.id)
-          : { y: ground(s, x), angle: 0 };
-        drawSprite(
-          ctx,
-          unitFrame(art, c.id),
-          x,
-          c.air ? (c.altitude ?? AIR_ALTITUDE) + 3 : contact.y + 3,
-          unitSize(c.id)[0],
-          unitSize(c.id)[1],
-          false,
-          valid ? (i ? 0.4 : 0.65) : 0.2,
-          contact.angle,
-        );
-      }
-      ctx.strokeStyle = valid ? '#e9eac9' : '#c85b48';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(hover - 15, y + 7);
-      ctx.lineTo(hover + 15, y + 7);
-      ctx.stroke();
-    } else if (c.targetGround) {
+    if (c.targetGround) {
       ctx.strokeStyle = '#f9e0a2';
       ctx.lineWidth = 2;
       ctx.setLineDash([7, 6]);

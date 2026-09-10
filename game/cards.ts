@@ -1104,7 +1104,7 @@ export function doctrineOf(id: CardId): Doctrine {
   );
 }
 export function needsTarget(id: CardId) {
-  return CARDS[id].type === 'unit' || !!CARDS[id].targetGround;
+  return !!CARDS[id].targetGround;
 }
 export const DECK_SIZE = 20;
 export const DECK: CardId[] = [
