@@ -1,3 +1,4 @@
+import { ammunition, FLIGHT, isTracer, type Ammunition } from './ballistics';
 import {
   CARDS,
   DECK,
@@ -58,6 +59,14 @@ export interface Unit {
   climbFrom: number;
   climbWall: number;
   passedWalls: number[];
+  shots: number;
+  secondaryShots: number;
+  muzzleX: number;
+  muzzleY: number;
+  shotAngle: number;
+  secondaryMuzzleX: number;
+  secondaryMuzzleY: number;
+  secondaryAngle: number;
   member: number;
   personalMorale: number;
   suppression: number;
@@ -116,10 +125,14 @@ export interface Projectile {
   startX: number;
   startY: number;
   arc?: number;
+  ammunition?: Ammunition;
+  tracer?: boolean;
+  trailIn?: number;
   weapon?: 'coax';
   armorMultiplier?: number;
 }
 export interface Particle {
+  kind?: 'smoke' | 'dust' | 'spark' | 'chip' | 'casing';
   x: number;
   y: number;
   vx: number;
@@ -189,11 +202,16 @@ export interface GameState {
   shake: number;
   uid: number;
   seed: number;
+  fxSeed: number;
   explosions: number;
 }
 function rnd(s: GameState) {
   s.seed = (Math.imul(1664525, s.seed) + 1013904223) >>> 0;
   return s.seed / 4294967296;
+}
+function fxRnd(s: GameState) {
+  s.fxSeed = (Math.imul(1664525, s.fxSeed) + 1013904223) >>> 0;
+  return s.fxSeed / 4294967296;
 }
 function shuffle(p: Player, list: CardId[]) {
   const out = [...list];
@@ -261,6 +279,7 @@ export function createGame(
     shake: 0,
     uid: 0,
     seed: seed >>> 0,
+    fxSeed: (seed ^ 0x7f4a7c15) >>> 0,
     explosions: 0,
   };
   for (const side of [0, 1] as Side[]) {
@@ -313,6 +332,14 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       climbFrom: 0,
       climbWall: 0,
       passedWalls: [],
+      shots: i,
+      secondaryShots: 0,
+      muzzleX: px,
+      muzzleY: ground(s, px) - 47,
+      shotAngle: 0,
+      secondaryMuzzleX: px,
+      secondaryMuzzleY: ground(s, px) - 42,
+      secondaryAngle: 0,
       member: i,
       personalMorale: c.discipline ?? 80,
       suppression: 0,
@@ -491,21 +518,138 @@ export function crater(
 function burst(s: GameState, x: number, y: number, radius: number) {
   s.explosions++;
   s.shake = Math.min(8, radius / 10);
-  for (let i = 0; i < 24; i++) {
-    const life = 0.3 + rnd(s) * 0.65;
+  const soil = y > ground(s, x) - 65;
+  for (let i = 0; i < 6; i++) {
+    const angle = fxRnd(s) * Math.PI * 2,
+      life = 0.09 + fxRnd(s) * 0.12;
     s.particles.push({
+      kind: 'spark',
       x,
       y,
-      vx: (rnd(s) - 0.5) * radius * 4,
-      vy: -rnd(s) * radius * 3,
+      vx: Math.cos(angle) * radius * 1.7,
+      vy: Math.sin(angle) * radius * 1.4,
       life,
       maxLife: life,
-      color: ['#f4dc8a', '#f1ab54', '#d87845', '#3e4437', '#9c9168'][
-        Math.floor(rnd(s) * 5)
-      ],
-      size: 3 + Math.floor(rnd(s) * 8),
+      color: i % 2 ? '#dcac6d' : '#ecdbb2',
+      size: 1,
     });
   }
+  for (let i = 0; i < 12; i++) {
+    const life = 0.3 + fxRnd(s) * 0.4;
+    s.particles.push({
+      kind: 'chip',
+      x,
+      y,
+      vx: (fxRnd(s) - 0.5) * radius * 3,
+      vy: -fxRnd(s) * radius * 2.5,
+      life,
+      maxLife: life,
+      color: soil
+        ? i % 2
+          ? '#75674d'
+          : '#4e5140'
+        : i % 2
+          ? '#626b63'
+          : '#3e4944',
+      size: 1 + Math.floor(fxRnd(s) * 2),
+    });
+  }
+  for (let i = 0; i < 8; i++) {
+    const life = 0.45 + fxRnd(s) * 0.4;
+    s.particles.push({
+      kind: soil && i < 3 ? 'dust' : 'smoke',
+      x: x + (fxRnd(s) - 0.5) * radius * 0.25,
+      y: y - 3,
+      vx: (fxRnd(s) - 0.5) * radius * 0.65,
+      vy: -12 - fxRnd(s) * 30,
+      life,
+      maxLife: life,
+      color: soil && i < 3 ? '#92846b' : i % 2 ? '#515c52' : '#8e9382',
+      size: 7 + fxRnd(s) * Math.min(14, radius * 0.2),
+    });
+  }
+}
+function muzzleParticles(
+  s: GameState,
+  u: Unit,
+  kind: Ammunition,
+  sx: number,
+  sy: number,
+  secondary = false,
+) {
+  const heavy = kind === 'cannon';
+  s.particles.push({
+    kind: 'smoke',
+    x: sx,
+    y: sy,
+    vx: u.side === 0 ? 9 : -9,
+    vy: -7,
+    life: heavy ? 0.42 : 0.22,
+    maxLife: heavy ? 0.42 : 0.22,
+    color: '#a7aa98',
+    size: heavy ? 8 : 3,
+  });
+  if (kind === 'rifle' || kind === 'machinegun' || kind === 'autocannon') {
+    const life = 0.25;
+    s.particles.push({
+      kind: 'casing',
+      x: u.x + (u.side === 0 ? 1 : -1) * (secondary ? 40 : 4),
+      y: sy + 4,
+      vx: (u.side === 0 ? -1 : 1) * (14 + fxRnd(s) * 15),
+      vy: -25 - fxRnd(s) * 12,
+      life,
+      maxLife: life,
+      color: '#a18a55',
+      size: 1,
+    });
+  }
+}
+function bulletImpact(
+  s: GameState,
+  x: number,
+  y: number,
+  material: 'soil' | 'armor' | 'cloth',
+  direction: number,
+) {
+  const count = material === 'soil' ? 5 : 3;
+  for (let i = 0; i < count; i++) {
+    const life = 0.1 + fxRnd(s) * 0.16;
+    s.particles.push({
+      kind: material === 'armor' ? 'spark' : 'chip',
+      x,
+      y,
+      vx: direction * (10 + fxRnd(s) * 38) + (fxRnd(s) - 0.5) * 20,
+      vy: -8 - fxRnd(s) * 45,
+      life,
+      maxLife: life,
+      color:
+        material === 'armor'
+          ? i
+            ? '#b7a17a'
+            : '#ddc9a1'
+          : material === 'cloth'
+            ? '#777b63'
+            : i % 2
+              ? '#71624b'
+              : '#a79571',
+      size: 1,
+    });
+  }
+  if (material === 'soil')
+    for (let i = 0; i < 3; i++) {
+      const life = 0.2 + fxRnd(s) * 0.18;
+      s.particles.push({
+        kind: 'dust',
+        x: x + (fxRnd(s) - 0.5) * 4,
+        y: y - 2,
+        vx: (fxRnd(s) - 0.5) * 16,
+        vy: -8 - fxRnd(s) * 11,
+        life,
+        maxLife: life,
+        color: '#94876b',
+        size: 3 + fxRnd(s) * 3,
+      });
+    }
 }
 function hitUnit(s: GameState, u: Unit, damage: number, side: Side, cover = 0) {
   if (!isCombatant(u)) return;
@@ -916,7 +1060,18 @@ function fireCoax(s: GameState, u: Unit) {
   if (!target) return;
   const sx = u.x + Math.sign(target.x - u.x) * 58,
     sy = u.y - 42,
-    total = Math.max(0.13, Math.abs(target.x - sx) / 2600);
+    total = Math.max(
+      FLIGHT.machinegun.minimum,
+      Math.abs(target.x - sx) / FLIGHT.machinegun.speed,
+    );
+  u.secondaryShots++;
+  u.secondaryMuzzleX = sx;
+  u.secondaryMuzzleY = sy;
+  u.secondaryAngle = Math.atan2(
+    target.y - bodyHeight(target) - sy,
+    target.x - sx,
+  );
+  muzzleParticles(s, u, 'machinegun', sx, sy, true);
   u.secondaryCooldown = 0.18;
   u.secondaryFire = 0.09;
   s.projectiles.push({
@@ -935,6 +1090,8 @@ function fireCoax(s: GameState, u: Unit) {
     startY: sy,
     arc: 0,
     weapon: 'coax',
+    ammunition: 'machinegun',
+    tracer: isTracer('machinegun', u.secondaryShots),
   });
 }
 function updateAI(s: GameState) {
@@ -1263,11 +1420,17 @@ export function tick(s: GameState, dt: number) {
         if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
-          const total = c.indirect
-            ? 1.3
-            : c.radius
-              ? Math.max(0.4, Math.abs(tx - sx) / 900)
-              : Math.max(0.13, Math.abs(tx - sx) / 2600);
+          const kind = ammunition(u.id),
+            flight = FLIGHT[kind];
+          const total = Math.max(
+            flight.minimum,
+            Math.abs(tx - sx) / flight.speed,
+          );
+          u.shots++;
+          u.muzzleX = sx;
+          u.muzzleY = sy;
+          u.shotAngle = Math.atan2(ty - sy, tx - sx);
+          muzzleParticles(s, u, kind, sx, sy);
           s.projectiles.push({
             x: sx,
             y: sy,
@@ -1286,7 +1449,10 @@ export function tick(s: GameState, dt: number) {
                 ? 0.5
                 : 1),
             armorMultiplier: c.armorMultiplier,
-            arc: c.indirect ? 170 : c.radius ? 35 : 0,
+            ammunition: kind,
+            tracer: isTracer(kind, u.shots),
+            trailIn: 0,
+            arc: flight.arc,
             radius: c.radius ?? 0,
             life: total,
             total,
@@ -1369,6 +1535,24 @@ export function tick(s: GameState, dt: number) {
       p.startY +
       (p.ty - p.startY) * t -
       Math.sin(t * Math.PI) * (p.arc ?? (p.radius ? 35 : 0));
+    if (p.ammunition === 'rocket') {
+      p.trailIn = (p.trailIn ?? 0) - dt;
+      if (p.trailIn <= 0) {
+        p.trailIn = 0.035;
+        const life = 0.22;
+        s.particles.push({
+          kind: 'smoke',
+          x: oldX,
+          y: oldY,
+          vx: 0,
+          vy: -6,
+          life,
+          maxLife: life,
+          color: '#969b8b',
+          size: 3,
+        });
+      }
+    }
     const impact = terrainIntercept(s, oldX, oldY, p.x, p.y);
     if (impact) {
       p.life = 0;
@@ -1384,16 +1568,7 @@ export function tick(s: GameState, dt: number) {
           p.armorMultiplier,
         );
       else
-        s.particles.push({
-          x: impact.x,
-          y: impact.y,
-          vx: -10,
-          vy: -25,
-          life: 0.2,
-          maxLife: 0.2,
-          color: '#b3a18a',
-          size: 2,
-        });
+        bulletImpact(s, impact.x, impact.y, 'soil', Math.sign(p.tx - p.startX));
       continue;
     }
     if (p.life <= 0) {
@@ -1421,19 +1596,13 @@ export function tick(s: GameState, dt: number) {
                     : 0.25)
               : 0;
           hitUnit(s, u, p.damage, p.side, cover);
-          for (let i = 0; i < 4; i++) {
-            const life = 0.15 + rnd(s) * 0.2;
-            s.particles.push({
-              x: p.tx,
-              y: p.ty,
-              vx: (rnd(s) - 0.5) * 50,
-              vy: -15 - rnd(s) * 30,
-              life,
-              maxLife: life,
-              color: i === 0 ? '#e4c38a' : '#a59b83',
-              size: i === 0 ? 2 : 1,
-            });
-          }
+          bulletImpact(
+            s,
+            p.tx,
+            p.ty,
+            CARDS[u.id].armored ? 'armor' : 'cloth',
+            Math.sign(p.tx - p.startX),
+          );
         }
       } else if (p.base !== null)
         s.players[p.base].hp = Math.max(0, s.players[p.base].hp - p.damage);
@@ -1448,7 +1617,14 @@ export function tick(s: GameState, dt: number) {
     p.life -= dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += 190 * dt;
+    p.vy +=
+      (p.kind === 'smoke'
+        ? -2
+        : p.kind === 'dust'
+          ? 6
+          : p.kind === 'casing'
+            ? 320
+            : 190) * dt;
   }
   s.particles = s.particles.filter((p) => p.life > 0).slice(-700);
   const [a, b] = s.players;

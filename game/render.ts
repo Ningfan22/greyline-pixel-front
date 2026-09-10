@@ -1,3 +1,9 @@
+import {
+  ammunition,
+  drawMuzzle,
+  drawProjectile,
+  drawParticle,
+} from './ballistics';
 import { modelOf } from './cards';
 import {
   CARDS,
@@ -6,7 +12,6 @@ import {
   W,
   VIEW_W,
   muzzleHeight,
-  muzzleOffset,
   AIR_ALTITUDE,
   type GameState,
   type CardId,
@@ -279,26 +284,30 @@ export function render(
       ctx.fillText('投降', u.x, u.y - 78);
       continue;
     }
-    if (u.secondaryFire > 0) {
-      const mx = u.x + (u.side === 0 ? 1 : -1) * 58;
-      ctx.fillStyle = '#ffe8ad';
-      ctx.fillRect(mx, u.y - 43, 5, 2);
-    }
+    if (u.secondaryFire > 0)
+      drawMuzzle(
+        ctx,
+        u.secondaryMuzzleX,
+        u.secondaryMuzzleY,
+        u.secondaryAngle,
+        'machinegun',
+        0.09 - u.secondaryFire,
+      );
     if (u.tactic === 'retreat') {
       ctx.fillStyle = '#e3b975';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText('撤退', u.x, u.y - 78);
     }
-    if (u.fire > 0.16 && u.motion === 'ground' && !u.climbing) {
-      const mx = u.x + (u.side === 0 ? 1 : -1) * muzzleOffset(u),
-        my = u.y - muzzleHeight(u);
-      ctx.fillStyle = '#eebc6955';
-      ctx.fillRect(mx - 3, my - 2, 8, 5);
-      ctx.fillStyle = '#ffe8ad';
-      ctx.fillRect(mx, my - 1, 4, 2);
-      ctx.fillRect(mx + 1, my - 3, 2, 6);
-    }
+    if (u.fire > 0 && u.motion === 'ground' && !u.climbing)
+      drawMuzzle(
+        ctx,
+        u.muzzleX,
+        u.muzzleY,
+        u.shotAngle,
+        ammunition(u.id),
+        0.25 - u.fire,
+      );
     if (u.healing > 0 || u.repairTime > 0) {
       ctx.fillStyle = '#e9e6b6';
       ctx.fillRect(u.x - 1, u.y - h - 15, 2, 8);
@@ -352,30 +361,7 @@ export function render(
     ctx.fillStyle = '#e7e9d1';
     ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
   }
-  for (const p of s.projectiles) {
-    const angle = Math.atan2(p.ty - p.startY, p.tx - p.startX);
-    ctx.save();
-    ctx.translate(Math.round(p.x), Math.round(p.y));
-    ctx.rotate(angle);
-    if (p.radius) {
-      ctx.fillStyle = '#b6b09b';
-      ctx.fillRect(-4, -2, 7, 4);
-      ctx.fillStyle = '#343930';
-      ctx.fillRect(2, -1, 3, 2);
-      ctx.fillStyle = '#d7ac6466';
-      ctx.fillRect(-10, -1, 6, 2);
-      ctx.fillStyle = '#7e807955';
-      ctx.fillRect(-16, -2, 6, 3);
-    } else {
-      ctx.fillStyle = '#d2ac6240';
-      ctx.fillRect(-17, 0, 8, 1);
-      ctx.fillStyle = '#edd59b99';
-      ctx.fillRect(-9, 0, 7, 1);
-      ctx.fillStyle = '#fff4c9';
-      ctx.fillRect(-2, 0, 3, 1);
-    }
-    ctx.restore();
-  }
+  for (const p of s.projectiles) drawProjectile(ctx, p);
   for (const m of s.markers) {
     const y = ground(s, m.x);
     ctx.strokeStyle = m.side === 0 ? '#e09c46' : '#d9644d';
@@ -404,11 +390,7 @@ export function render(
     ctx.textAlign = 'center';
     ctx.fillText(m.kind === 'precision' ? '精确打击' : '炮击预警', m.x, y - 65);
   }
-  for (const p of s.particles) {
-    ctx.globalAlpha = Math.min(1, (p.life / p.maxLife) * 2);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
-  }
+  for (const p of s.particles) drawParticle(ctx, p);
   ctx.globalAlpha = 1;
   if (c && hover !== null && s.status === 'playing') {
     const y = ground(s, hover);

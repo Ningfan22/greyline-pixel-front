@@ -1,3 +1,4 @@
+import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import assert from 'node:assert/strict';
 import {
   createGame,
@@ -862,6 +863,81 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
         originals[side],
       );
     }
+});
+check('枪弹、炮弹和火箭使用各自速度与弹道，曳光按射击次数间隔显示', () => {
+  assert.equal(ammunition('heavy_tank'), 'cannon');
+  assert.equal(ammunition('manpads'), 'rocket');
+  assert.equal(ammunition('grenadiers'), 'grenade');
+  assert.equal(ammunition('mortar'), 'mortar');
+  assert(FLIGHT.rifle.minimum < 0.05);
+  assert(FLIGHT.cannon.arc < 6);
+  assert(FLIGHT.mortar.arc > 100);
+  assert.deepEqual(
+    Array.from({ length: 8 }, (_, i) => isTracer('machinegun', i + 1)),
+    [true, false, false, false, true, false, false, false],
+  );
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 700);
+  spawnUnit(s, 1, 'infantry', 850);
+  s.units = [s.units[0], s.units[6]];
+  s.units[0].cooldown = 0;
+  s.units[1].cooldown = 100;
+  tick(s, 1 / 60);
+  const p = s.projectiles.find((p) => p.side === 0);
+  assert(p);
+  assert(p.total < 0.05);
+  assert.equal(p.arc, 0);
+  assert.equal(p.ammunition, 'rifle');
+  assert.equal(s.units[0].muzzleX, p.startX);
+  assert.equal(s.units[0].muzzleY, p.startY);
+});
+check('高速弹丸仍检查完整飞行段，不穿透土坡', () => {
+  const s = arena();
+  spawnUnit(s, 1, 'tank', 900);
+  const u = s.units[0],
+    hp = u.hp;
+  for (let x = 790; x < 810; x++) s.terrain[x] = 300;
+  s.projectiles.push({
+    x: 700,
+    y: 340,
+    startX: 700,
+    startY: 340,
+    tx: 900,
+    ty: 340,
+    side: 0,
+    targetUid: u.uid,
+    base: null,
+    damage: 50,
+    radius: 0,
+    life: 0.035,
+    total: 0.035,
+    arc: 0,
+    ammunition: 'rifle',
+    tracer: false,
+  });
+  tick(s, 0.05);
+  assert.equal(u.hp, hp);
+  assert.equal(s.projectiles.length, 0);
+  assert(s.particles.some((p) => p.kind === 'dust'));
+});
+check('射击与命中视觉粒子不消耗战斗或洗牌随机流', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 700);
+  spawnUnit(s, 1, 'infantry', 850);
+  s.units = [s.units[0], s.units[6]];
+  s.units[0].cooldown = 0;
+  s.units[1].cooldown = 100;
+  const seed = s.seed,
+    drawSeeds = s.players.map((p) => p.drawSeed);
+  tick(s, 1 / 60);
+  assert.equal(s.seed, seed);
+  assert.deepEqual(
+    s.players.map((p) => p.drawSeed),
+    drawSeeds,
+  );
+  const before = s.seed;
+  explode(s, 1800, ground(s, 1800) - 8, 30, 10, 0);
+  assert.equal(s.seed, before);
 });
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {
