@@ -222,7 +222,28 @@ export interface Unit {
   climbFrom: number;
   climbWall: number;
   passedWalls: number[];
-  pose: 'idle' | 'walk' | 'run' | 'climb' | 'crouch' | 'prone';
+  pose:
+    | 'idle'
+    | 'walk'
+    | 'run'
+    | 'climb'
+    | 'crouch'
+    | 'prone'
+    | 'jump'
+    | 'land';
+  motion: 'ground' | 'jump' | 'land' | 'bank';
+  motionTime: number;
+  motionDuration: number;
+  motionFromX: number;
+  motionFromY: number;
+  motionToX: number;
+  motionToY: number;
+  vx: number;
+  vy: number;
+  stepCooldown: number;
+  cover: number;
+  coverGoal: number | null;
+  coverSearch: number;
 }
 export interface Projectile {
   x: number;
@@ -420,6 +441,19 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       climbWall: 0,
       passedWalls: [],
       pose: 'idle',
+      motion: 'ground',
+      motionTime: 0,
+      motionDuration: 0,
+      motionFromX: px,
+      motionFromY: ground(s, px),
+      motionToX: px,
+      motionToY: ground(s, px),
+      vx: 0,
+      vy: 0,
+      stepCooldown: 0,
+      cover: 0,
+      coverGoal: null,
+      coverSearch: 0,
     });
   }
 }
@@ -511,7 +545,7 @@ export function crater(
     const a = (i - x) / radius,
       dy = Math.sqrt(Math.max(0, 1 - a * a)) * depth;
     s.terrain[i] = Math.min(
-      s.original[i] + 64,
+      s.original[i] + 32,
       Math.max(s.terrain[i], centerY + dy),
     );
   }
@@ -541,10 +575,10 @@ function burst(s: GameState, x: number, y: number, radius: number) {
     });
   }
 }
-function hitUnit(s: GameState, u: Unit, damage: number, side: Side) {
+function hitUnit(s: GameState, u: Unit, damage: number, side: Side, cover = 0) {
   if (u.hp <= 0) return;
   const protection = u.pose === 'prone' ? 0.7 : u.pose === 'crouch' ? 0.85 : 1;
-  u.hp -= damage * protection;
+  u.hp -= damage * protection * (1 - cover);
   u.flash = 0.16;
   if (u.hp <= 0) {
     s.players[side].kills++;
@@ -572,7 +606,11 @@ export function explode(
     )
       wall.hp = Math.max(0, wall.hp - damage);
   }
-  if (y > ground(s, x) - 80) crater(s, x, radius, radius * 0.45);
+  // Blast reach and the excavated soil footprint are deliberately separate.
+  if (y > ground(s, x) - 80) {
+    const soilRadius = Math.min(25, radius * 0.36);
+    crater(s, x, soilRadius, Math.min(18, radius * 0.27));
+  }
   for (const u of s.units) {
     if (u.side === side || u.hp <= 0) continue;
     const dist = Math.hypot(u.x - x, u.y - 20 - y);
@@ -588,6 +626,185 @@ export function explode(
         s.players[target].hp - damage * baseScale,
       );
   }
+}
+export function craterCover(s: GameState, x: number, threatX: number) {
+  const y = ground(s, x),
+    depth = y - s.original[Math.max(0, Math.min(W - 1, Math.floor(x)))];
+  if (depth < 7) return 0;
+  const dir = threatX >= x ? 1 : -1;
+  let lip = y;
+  for (let d = 8; d <= 38; d += 2) lip = Math.min(lip, ground(s, x + dir * d));
+  return Math.max(0, Math.min(1, (y - lip - 4) / 15));
+}
+export function terrainIntercept(
+  s: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+) {
+  const steps = Math.max(1, Math.ceil(Math.abs(tx - sx) / 2));
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps,
+      x = sx + (tx - sx) * t,
+      y = sy + (ty - sy) * t;
+    if (y >= ground(s, x) - 1) return { x, y: ground(s, x) - 1 };
+  }
+  return null;
+}
+export function muzzleHeight(u: Unit) {
+  return CARDS[u.id].air
+    ? 16
+    : u.id === 'tank'
+      ? 54
+      : u.pose === 'prone'
+        ? 9
+        : u.pose === 'crouch' || u.pose === 'land'
+          ? 28
+          : 47;
+}
+function bodyHeight(u: Unit) {
+  return u.pose === 'prone'
+    ? 7
+    : u.pose === 'crouch' || u.pose === 'land'
+      ? 18
+      : 27;
+}
+function seekCover(s: GameState, u: Unit, target: Unit) {
+  let best: number | null = null,
+    score = 0;
+  for (
+    let x = Math.max(125, u.x - 48);
+    x <= Math.min(W - 125, u.x + 58);
+    x += 4
+  ) {
+    if (Math.abs(target.x - x) > CARDS[u.id].range!) continue;
+    const cover = craterCover(s, x, target.x);
+    if (
+      cover < 0.25 ||
+      terrainIntercept(s, x, ground(s, x) - 47, target.x, target.y - 27)
+    )
+      continue;
+    if (
+      s.units.some(
+        (v) =>
+          v !== u &&
+          v.side === u.side &&
+          v.hp > 0 &&
+          Math.abs((v.coverGoal ?? v.x) - x) < 9,
+      )
+    )
+      continue;
+    const value = cover * 50 - Math.abs(x - u.x) * 0.4;
+    if (value > score) {
+      score = value;
+      best = x;
+    }
+  }
+  return best;
+}
+function beginDrop(u: Unit, dir: number, speed: number, falling = false) {
+  u.motion = 'jump';
+  u.motionTime = 0;
+  u.motionDuration = 0.6;
+  u.vx = dir * Math.min(45, speed);
+  u.vy = falling ? 0 : -55;
+  u.motionFromY = u.y;
+  u.pose = 'jump';
+  u.cover = 0;
+}
+function traverse(s: GameState, u: Unit, dt: number) {
+  if (u.motion === 'ground') return false;
+  u.motionTime += dt;
+  u.moving = true;
+  u.cover = 0;
+  if (u.motion === 'jump') {
+    u.pose = 'jump';
+    u.x = Math.max(55, Math.min(W - 55, u.x + u.vx * dt));
+    u.vy += 430 * dt;
+    u.y += u.vy * dt;
+    if (u.vy > 0 && u.y >= ground(s, u.x)) {
+      u.y = ground(s, u.x);
+      u.motion = 'land';
+      u.motionTime = 0;
+      u.motionDuration = 0.22;
+      u.pose = 'land';
+      u.vy = 0;
+      u.stepCooldown = 0.6;
+    }
+  } else if (u.motion === 'land') {
+    u.pose = 'land';
+    u.y = ground(s, u.x);
+    if (u.motionTime >= u.motionDuration) u.motion = 'ground';
+  } else {
+    u.pose = 'climb';
+    const t = Math.min(1, u.motionTime / u.motionDuration),
+      ease = t * t * (3 - 2 * t);
+    u.x = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
+    u.y = ground(s, u.x) - Math.sin(t * Math.PI) * 4;
+    if (t >= 1) {
+      u.motion = 'ground';
+      u.y = ground(s, u.x);
+      u.stepCooldown = 0.3;
+    }
+  }
+  return true;
+}
+function moveSoldier(
+  s: GameState,
+  u: Unit,
+  dir: number,
+  speed: number,
+  dt: number,
+) {
+  const y = ground(s, u.x),
+    ahead = ground(s, u.x + dir * 12);
+  const depth = y - s.original[Math.floor(u.x)];
+  const aheadDepth =
+    ahead -
+    s.original[Math.max(0, Math.min(W - 1, Math.floor(u.x + dir * 12)))];
+  if (u.stepCooldown <= 0 && aheadDepth > 7 && ahead - y > 5 && depth < 8) {
+    beginDrop(u, dir, speed);
+    return;
+  }
+  if (depth > 6 && y - ahead > 4) {
+    let destination = u.x + dir * 12;
+    for (let d = 12; d <= 52; d += 2) {
+      destination = Math.max(125, Math.min(W - 125, u.x + dir * d));
+      if (ground(s, destination) - s.original[Math.floor(destination)] < 3)
+        break;
+    }
+    u.motion = 'bank';
+    u.motionTime = 0;
+    u.motionDuration = 0.8;
+    u.motionFromX = u.x;
+    u.motionFromY = u.y;
+    u.motionToX = destination;
+    u.motionToY = ground(s, destination);
+    u.pose = 'climb';
+    return;
+  }
+  const wall = s.walls.find(
+    (w) =>
+      w.hp > 0 &&
+      !u.passedWalls.includes(w.uid) &&
+      (w.x - u.x) * dir > 0 &&
+      Math.abs(w.x - u.x) < w.width / 2 + 18,
+  );
+  if (wall) {
+    u.climbing = 1.2;
+    u.climbFrom = u.x;
+    u.motionToX = u.x + dir * (wall.width + 30);
+    u.climbWall = wall.uid;
+    u.pose = 'climb';
+    return;
+  }
+  const distance = speed * dt;
+  u.x = Math.max(55, Math.min(W - 55, u.x + dir * distance));
+  // Gait advances by travelled distance so feet stop when the soldier stops.
+  u.walk += distance / (u.pose === 'run' ? 8 : u.pose === 'prone' ? 4 : 6);
+  u.y = ground(s, u.x);
+  u.moving = true;
 }
 function updateAI(s: GameState) {
   const p = s.players[1],
@@ -688,6 +905,8 @@ export function tick(s: GameState, dt: number) {
     u.fire = Math.max(0, u.fire - dt);
     u.moving = false;
     const order = s.players[u.side].order;
+    u.stepCooldown = Math.max(0, u.stepCooldown - dt);
+    u.coverSearch -= dt;
     u.pose = c.members
       ? order === 'crouch'
         ? 'crouch'
@@ -696,14 +915,16 @@ export function tick(s: GameState, dt: number) {
           : 'idle'
       : 'idle';
     if (c.members && u.climbing > 0) {
+      u.cover = 0;
       const wall = s.walls.find((w) => w.uid === u.climbWall)!;
       if (wall.hp <= 0) {
         u.climbing = 0;
         u.passedWalls.push(wall.uid);
+        if (ground(s, u.x) - u.y > 3) beginDrop(u, dir, 0, true);
       } else {
         u.climbing = Math.max(0, u.climbing - dt);
         const progress = 1 - u.climbing / 1.2;
-        u.x = u.climbFrom + dir * (wall.width + 30) * progress;
+        u.x = u.climbFrom + (u.motionToX - u.climbFrom) * progress;
         u.y = ground(s, u.x) - Math.sin(progress * Math.PI) * wall.height;
         u.pose = 'climb';
         u.walk += dt * 5;
@@ -712,6 +933,13 @@ export function tick(s: GameState, dt: number) {
         continue;
       }
     }
+    if (
+      c.members &&
+      (u.motion === 'ground' || u.motion === 'bank') &&
+      ground(s, u.x) - u.y > 5
+    )
+      beginDrop(u, dir, 0, true);
+    if (c.members && traverse(s, u, dt)) continue;
     const candidates = s.units
       .filter(
         (v) =>
@@ -721,61 +949,70 @@ export function tick(s: GameState, dt: number) {
           Math.abs(v.x - u.x) <= c.range!,
       )
       .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x));
-    const target = candidates[0];
-    const baseInRange = Math.abs(baseX - u.x) <= c.range!;
-    if ((target || baseInRange) && u.cooldown <= 0) {
-      u.cooldown = c.rate!;
-      u.fire = 0.25;
-      const tx = target ? target.x : baseX,
-        ty = target
-          ? target.y -
-            (target.pose === 'prone' ? 7 : target.pose === 'crouch' ? 18 : 27)
-          : ground(s, baseX) - 25;
-      const sx = u.x + dir * 18,
-        sy =
-          u.y -
-          (c.air
-            ? 16
-            : c.id === 'tank'
-              ? 54
-              : u.pose === 'prone'
-                ? 9
-                : u.pose === 'crouch'
-                  ? 28
-                  : 47),
-        total = c.radius ? 0.48 : 0.13;
-      s.projectiles.push({
-        x: sx,
-        y: sy,
-        tx,
-        ty,
-        side: u.side,
-        targetUid: target?.uid ?? null,
-        base: target ? null : enemySide,
-        damage: (c.damage! / (c.members ?? 1)) * (morale ? 1.35 : 1),
-        radius: c.radius ?? 0,
-        life: total,
-        total,
-        startX: sx,
-        startY: sy,
-      });
-    } else if (!target && !baseInRange && (!c.members || order !== 'hold')) {
-      const wall = c.members
-        ? s.walls.find(
-            (w) =>
-              w.hp > 0 &&
-              !u.passedWalls.includes(w.uid) &&
-              (w.x - u.x) * dir > 0 &&
-              Math.abs(w.x - u.x) < w.width / 2 + 18,
-          )
-        : null;
-      if (wall) {
-        u.climbing = 1.2;
-        u.climbFrom = u.x;
-        u.climbWall = wall.uid;
-        u.pose = 'climb';
-        continue;
+    const target = candidates.find(
+      (v) =>
+        !terrainIntercept(
+          s,
+          u.x,
+          u.y - (c.members ? 47 : muzzleHeight(u)),
+          v.x,
+          v.y - bodyHeight(v),
+        ),
+    );
+    const baseInRange = !target && Math.abs(baseX - u.x) <= c.range!;
+    if (c.members && target && order !== 'rush') {
+      if (
+        u.coverGoal !== null &&
+        (craterCover(s, u.coverGoal, target.x) < 0.2 ||
+          Math.abs(target.x - u.coverGoal) > c.range!)
+      )
+        u.coverGoal = null;
+      if (u.coverGoal === null && order !== 'hold' && u.coverSearch <= 0) {
+        u.coverGoal = seekCover(s, u, target);
+        u.coverSearch = 0.7;
       }
+      u.cover = craterCover(s, u.x, target.x);
+    } else {
+      u.cover = 0;
+      u.coverGoal = null;
+    }
+    const seeking = u.coverGoal !== null && Math.abs(u.coverGoal - u.x) > 3;
+    if (u.cover > 0.2 && !seeking) {
+      // Rise just before firing, then return behind the crater lip between shots.
+      u.pose = u.cooldown < 0.16 || u.fire > 0 ? 'idle' : 'crouch';
+    }
+    if ((target || baseInRange) && !seeking) {
+      const tx = target ? target.x : baseX;
+      const ty = target ? target.y - bodyHeight(target) : ground(s, baseX) - 25;
+      if (u.cooldown <= 0) {
+        if (u.cover > 0.2) u.pose = 'idle';
+        const sx = u.x + (tx > u.x ? 1 : -1) * 18,
+          sy = u.y - muzzleHeight(u);
+        if (!terrainIntercept(s, sx, sy, tx, ty)) {
+          u.cooldown = c.rate!;
+          u.fire = 0.25;
+          const total = c.radius ? 0.48 : 0.13;
+          s.projectiles.push({
+            x: sx,
+            y: sy,
+            tx,
+            ty,
+            side: u.side,
+            targetUid: target?.uid ?? null,
+            base: target ? null : enemySide,
+            damage: (c.damage! / (c.members ?? 1)) * (morale ? 1.35 : 1),
+            radius: c.radius ?? 0,
+            life: total,
+            total,
+            startX: sx,
+            startY: sy,
+          });
+        } else if (c.members && u.pose === 'prone') u.pose = 'crouch';
+      }
+    } else if (
+      seeking ||
+      (!target && !baseInRange && (!c.members || order !== 'hold'))
+    ) {
       if (c.members)
         u.pose =
           order === 'rush'
@@ -794,23 +1031,20 @@ export function tick(s: GameState, dt: number) {
               ? 0.25
               : 1
         : 1;
-      const slope = Math.abs(ground(s, u.x + dir * 12) - ground(s, u.x));
-      u.x = Math.max(
-        55,
-        Math.min(
-          W - 55,
-          u.x +
-            dir *
-              c.speed! *
-              u.pace *
-              orderSpeed *
-              dt *
-              (morale ? 1.2 : 1) *
-              (c.air ? 1 : 1 - Math.min(0.52, slope * 0.025)),
-        ),
-      );
-      u.walk += dt * (u.pose === 'run' ? 11 : u.pose === 'prone' ? 3 : 6);
-      u.moving = true;
+      const speed = c.speed! * u.pace * orderSpeed * (morale ? 1.2 : 1);
+      const moveDir = seeking ? Math.sign(u.coverGoal! - u.x) : dir;
+      if (c.members)
+        moveSoldier(
+          s,
+          u,
+          moveDir,
+          seeking ? Math.min(speed, Math.abs(u.coverGoal! - u.x) / dt) : speed,
+          dt,
+        );
+      else {
+        u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
+        u.moving = true;
+      }
     }
     if (u.id === 'tank') {
       for (const wall of s.walls) {
@@ -820,9 +1054,12 @@ export function tick(s: GameState, dt: number) {
         }
       }
     }
-    u.y = c.air ? 232 + Math.sin(s.time * 2 + u.uid) * 6 : ground(s, u.x);
+    if (!c.members || u.motion === 'ground')
+      u.y = c.air ? 232 + Math.sin(s.time * 2 + u.uid) * 6 : ground(s, u.x);
   }
   for (const p of s.projectiles) {
+    const oldX = p.x,
+      oldY = p.y;
     p.life -= dt;
     const t = 1 - Math.max(0, p.life) / p.total;
     p.x = p.startX + (p.tx - p.startX) * t;
@@ -830,12 +1067,38 @@ export function tick(s: GameState, dt: number) {
       p.startY +
       (p.ty - p.startY) * t -
       (p.radius ? Math.sin(t * Math.PI) * 35 : 0);
+    const impact = terrainIntercept(s, oldX, oldY, p.x, p.y);
+    if (impact) {
+      p.life = 0;
+      if (p.radius) explode(s, impact.x, impact.y, p.radius, p.damage, p.side);
+      else
+        s.particles.push({
+          x: impact.x,
+          y: impact.y,
+          vx: -10,
+          vy: -25,
+          life: 0.2,
+          maxLife: 0.2,
+          color: '#b3a18a',
+          size: 2,
+        });
+      continue;
+    }
     if (p.life <= 0) {
       if (p.radius) explode(s, p.tx, p.ty, p.radius, p.damage, p.side);
       else if (p.targetUid !== null) {
         const u = s.units.find((u) => u.uid === p.targetUid);
         if (u) {
-          hitUnit(s, u, p.damage, p.side);
+          const cover =
+            CARDS[u.id].members && u.motion === 'ground' && !u.climbing
+              ? craterCover(s, u.x, p.startX) *
+                (p.startY < u.y - 100
+                  ? 0
+                  : u.pose === 'crouch' || u.pose === 'prone'
+                    ? 0.6
+                    : 0.25)
+              : 0;
+          hitUnit(s, u, p.damage, p.side, cover);
           for (let i = 0; i < 4; i++) {
             const life = 0.15 + rnd(s) * 0.2;
             s.particles.push({

@@ -4,6 +4,7 @@ import {
   H,
   W,
   VIEW_W,
+  muzzleHeight,
   type GameState,
   type CardId,
 } from './engine';
@@ -16,9 +17,10 @@ export function render(
   hover: number | null,
   reduced = false,
   camera = 0,
+  viewportWidth = VIEW_W,
 ) {
   ctx.imageSmoothingEnabled = false;
-  ctx.clearRect(0, 0, VIEW_W, H);
+  ctx.clearRect(0, 0, viewportWidth, H);
   ctx.save();
   if (s.shake > 0 && !reduced)
     ctx.translate(
@@ -26,12 +28,12 @@ export function render(
       Math.cos(s.time * 123) * s.shake * 0.4,
     );
   const parallax = (camera * 0.3) % VIEW_W;
-  ctx.drawImage(art.background, -parallax, -24, VIEW_W, H);
-  ctx.drawImage(art.background, VIEW_W - parallax, -24, VIEW_W, H);
+  for (let x = -parallax; x < viewportWidth; x += VIEW_W)
+    ctx.drawImage(art.background, x, -24, VIEW_W, H);
   ctx.translate(-Math.round(camera), 0);
   // Draw the soil material through the destructible heightfield; craters expose inner strata.
   const left = Math.max(0, Math.floor(camera / 3) * 3),
-    right = Math.min(W, Math.ceil((camera + VIEW_W) / 3) * 3);
+    right = Math.min(W, Math.ceil((camera + viewportWidth) / 3) * 3);
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(left, H + 3);
@@ -116,6 +118,7 @@ export function render(
       Number(!!CARDS[a.id].air) - Number(!!CARDS[b.id].air) || a.lane - b.lane,
   );
   for (const u of sorted) {
+    if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
       isTank = u.id === 'tank',
       isAir = !!c.air,
@@ -128,7 +131,12 @@ export function render(
       if (isDead) {
         row = 7;
         frame = Math.min(3, Math.floor((1.5 - u.deadFor) * 4));
-      } else if (u.flash > 0) {
+      } else if (
+        u.flash > 0 &&
+        !u.cover &&
+        u.motion === 'ground' &&
+        !u.climbing
+      ) {
         row = 7;
         frame = 0;
       } else if (u.pose === 'climb') {
@@ -154,9 +162,31 @@ export function render(
         frame = Math.floor(s.time * 2 + u.uid) % 4;
       }
     } else frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
-    const img = c.members
+    let img = c.members
       ? art.soldiers[row][frame]
       : art.vehicles[isTank ? 0 : 1][frame];
+    if (c.members && !isDead) {
+      if (u.motion === 'jump') {
+        const frame =
+          u.motionTime < 0.07 ? 1 : u.vy < 0 ? 2 : u.vy < 65 ? 3 : 4;
+        img = art.locomotion[1][frame];
+      } else if (u.motion === 'land')
+        img = art.locomotion[1][u.motionTime < 0.12 ? 6 : 7];
+      else if (u.motion === 'bank')
+        img =
+          art.locomotion[2][
+            [5, 6, 6, 5, 4, 4, 7, 7][
+              Math.min(7, Math.floor((u.motionTime / u.motionDuration) * 8))
+            ]
+          ];
+      else if (u.climbing > 0)
+        img =
+          art.locomotion[2][
+            Math.min(7, Math.floor((1 - u.climbing / 1.2) * 8))
+          ];
+      else if (u.pose === 'walk' && u.moving)
+        img = art.locomotion[0][Math.floor(u.walk) % 8];
+    }
     ctx.fillStyle = isAir ? '#25372b14' : '#25372b33';
     ctx.fillRect(u.x - w * 0.23, ground(s, u.x) + u.lane, w * 0.46, 3);
     const alpha = isDead ? Math.min(1, u.deadFor) : 1;
@@ -175,9 +205,15 @@ export function render(
       alpha,
     );
     if (!c.members && isDead) ctx.restore();
-    if (c.members && !isDead && u.id !== 'infantry' && u.pose !== 'climb') {
+    if (
+      c.members &&
+      !isDead &&
+      u.id !== 'infantry' &&
+      u.pose !== 'climb' &&
+      u.motion === 'ground'
+    ) {
       const weapon = art.vehicles[2][u.id === 'machinegun' ? 2 : 3];
-      const wy = u.y - (u.pose === 'prone' ? 9 : u.pose === 'crouch' ? 28 : 47);
+      const wy = u.y - muzzleHeight(u);
       drawSprite(
         ctx,
         weapon,
@@ -189,19 +225,9 @@ export function render(
       );
     }
     if (isDead) continue;
-    if (u.fire > 0.16) {
+    if (u.fire > 0.16 && u.motion === 'ground' && !u.climbing) {
       const mx = u.x + (u.side === 0 ? 1 : -1) * (c.members ? 23 : w * 0.45),
-        my =
-          u.y -
-          (isTank
-            ? 54
-            : isAir
-              ? 24
-              : u.pose === 'prone'
-                ? 9
-                : u.pose === 'crouch'
-                  ? 28
-                  : 47);
+        my = u.y - muzzleHeight(u);
       ctx.fillStyle = '#eebc6955';
       ctx.fillRect(mx - 3, my - 2, 8, 5);
       ctx.fillStyle = '#ffe8ad';
@@ -219,6 +245,13 @@ export function render(
         u.lane -
         3,
       bw = c.members ? 18 : 42;
+    if (u.cover > 0.2 && !u.moving) {
+      ctx.strokeStyle = '#c2d6c2';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(u.x - 5, by - 11, 10, 6);
+      ctx.fillStyle = '#879f88';
+      ctx.fillRect(u.x - 3, by - 9, Math.round(u.cover * 6), 2);
+    }
     ctx.fillStyle = '#23362dbb';
     ctx.fillRect(u.x - bw / 2, by, bw, 3);
     ctx.fillStyle = u.side === 0 ? '#abd5cf' : '#e59a7c';

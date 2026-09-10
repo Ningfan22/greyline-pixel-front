@@ -11,6 +11,8 @@ import {
   draw,
   spawnUnit,
   CARDS,
+  craterCover,
+  terrainIntercept,
   W,
   MAX_HAND,
 } from '../game/engine.ts';
@@ -74,7 +76,7 @@ check('重复炮击形成对称、限深且可通行的弹坑', () => {
   for (let i = 1; i < 74; i++)
     assert(Math.abs(s.terrain[720 - i] - s.terrain[720 + i]) < 0.001);
   for (let i = 0; i < 30; i++) crater(s, 720, 75, 36);
-  assert(ground(s, 720) <= 438);
+  assert(ground(s, 720) <= 406);
   for (let i = 126; i < W - 125; i++)
     assert(Math.abs(s.terrain[i] - s.terrain[i - 1]) <= 1.251);
   assert.equal(s.terrain[70], 374);
@@ -221,8 +223,144 @@ check('被炸毁的墙不再触发攀越', () => {
   spawnUnit(s, 0, 'infantry', 477);
   for (let i = 0; i < 120; i++) {
     tick(s, 1 / 60);
-    assert.notEqual(s.units[0].pose, 'climb');
+    assert.equal(s.units[0].climbing, 0);
   }
+});
+check('炮击伤害半径独立于小弹坑，连续命中保持限深', () => {
+  const s = fresh();
+  s.terrain.fill(374);
+  s.original.fill(374);
+  s.units = [];
+  explode(s, 900, 366, 68, 55, 0);
+  const changed = s.terrain.filter((y) => y > 374).length;
+  assert(changed >= 35 && changed <= 50);
+  assert(ground(s, 900) > 387 && ground(s, 900) <= 392);
+  for (let i = 0; i < 20; i++) explode(s, 900, ground(s, 900) - 8, 68, 55, 0);
+  assert(ground(s, 900) <= 406);
+});
+check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
+  for (const side of [0, 1])
+    for (const order of ['advance', 'rush', 'crouch', 'prone']) {
+      const s = fresh();
+      s.units = [];
+      s.walls = [];
+      s.terrain.fill(374);
+      s.original.fill(374);
+      crater(s, 900, 25, 18);
+      setOrder(s, side, order);
+      spawnUnit(s, side, 'infantry', side === 0 ? 856 : 944);
+      s.units = [s.units[0]];
+      const u = s.units[0],
+        seen = new Set();
+      for (let i = 0; i < 14 * 60; i++) {
+        tick(s, 1 / 60);
+        seen.add(u.motion);
+        assert(Number.isFinite(u.y));
+        assert(u.y <= ground(s, u.x) + 0.01);
+      }
+      for (const state of ['jump', 'land', 'bank', 'ground'])
+        assert(
+          seen.has(state),
+          `${side} ${order} missed ${state}: ${[...seen]}`,
+        );
+      assert(side === 0 ? u.x > 945 : u.x < 855);
+    }
+});
+check('脚下爆炸触发下落，空中驻守仍先安全落地', () => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  s.terrain.fill(374);
+  s.original.fill(374);
+  spawnUnit(s, 0, 'infantry', 900);
+  s.units = [s.units[0]];
+  explode(s, 900, 366, 68, 0, 0);
+  setOrder(s, 0, 'hold');
+  tick(s, 1 / 60);
+  const u = s.units[0];
+  assert.equal(u.motion, 'jump');
+  advance(s, 2);
+  assert.equal(u.motion, 'ground');
+  assert.equal(u.y, ground(s, u.x));
+  assert.equal(u.x, 900);
+});
+check('士兵主动进入弹坑，蹲伏掩护与探身开火交替', () => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  s.terrain.fill(374);
+  s.original.fill(374);
+  crater(s, 900, 25, 18);
+  spawnUnit(s, 0, 'infantry', 860);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'infantry', 990);
+  s.units = [u, s.units[1]];
+  for (const v of s.units) v.hp = v.maxHp = 10000;
+  setOrder(s, 1, 'hold');
+  let crouched = false,
+    fired = false;
+  for (let i = 0; i < 8 * 60; i++) {
+    tick(s, 1 / 60);
+    crouched ||= u.cover > 0.2 && u.pose === 'crouch';
+    fired ||= u.cover > 0.2 && u.fire > 0 && u.pose === 'idle';
+  }
+  assert(crouched);
+  assert(fired);
+  assert(craterCover(s, u.x, 990) > 0.2);
+  const x = u.x;
+  s.units = [u];
+  advance(s, 3);
+  assert(u.x > x + 30);
+  assert.equal(u.cover, 0);
+});
+check('坑沿阻挡射线，掩体减轻直射而不削弱落入坑内的炮击', () => {
+  const shot = (dug) => {
+    const s = fresh();
+    s.units = [];
+    s.walls = [];
+    s.terrain.fill(374);
+    s.original.fill(374);
+    if (dug) crater(s, 900, 25, 18);
+    spawnUnit(s, 0, 'infantry', 900);
+    s.units = [s.units[0]];
+    const u = s.units[0];
+    setOrder(s, 0, 'crouch');
+    u.cooldown = 100;
+    const y = u.y - 18;
+    s.projectiles.push({
+      x: 1010,
+      y: 327,
+      startX: 1010,
+      startY: 327,
+      tx: 900,
+      ty: y,
+      side: 1,
+      targetUid: u.uid,
+      base: null,
+      damage: 10,
+      radius: 0,
+      life: 1 / 60,
+      total: 1 / 60,
+    });
+    tick(s, 1 / 60);
+    return u.maxHp - u.hp;
+  };
+  assert(shot(true) < shot(false) * 0.7);
+  const s = fresh();
+  s.terrain.fill(374);
+  s.original.fill(374);
+  crater(s, 900, 25, 18);
+  assert(terrainIntercept(s, 900, 384, 990, 380));
+  assert.equal(terrainIntercept(s, 900, 340, 990, 340), null);
+  s.units = [];
+  spawnUnit(s, 0, 'infantry', 900);
+  s.units = [s.units[0]];
+  const u = s.units[0];
+  const hp = u.hp;
+  u.cover = 1;
+  explode(s, 900, u.y - 20, 20, 10, 1);
+  assert(u.hp < hp - 9);
 });
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {
@@ -263,7 +401,7 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     }
     assert(s.units.every((u) => Number.isFinite(u.x) && Number.isFinite(u.y)));
     assert(
-      s.terrain.every((y, x) => y >= s.original[x] && y <= s.original[x] + 64),
+      s.terrain.every((y, x) => y >= s.original[x] && y <= s.original[x] + 32),
     );
     console.log(
       `  seed ${seed}: ${s.result}, ${s.time.toFixed(1)}s, ${Math.round(s.players[0].hp)}:${Math.round(s.players[1].hp)}`,

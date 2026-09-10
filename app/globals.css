@@ -2190,3 +2190,356 @@ footer button {
     font-size: 8px;
   }
 }
+
+/* The backing canvas follows the field aspect ratio; narrow screens show less world. */
+.battlefield > canvas {
+  touch-action: pan-y pinch-zoom;
+}
+.touch-target-controls {
+  position: absolute;
+  bottom: 38px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 6;
+  white-space: nowrap;
+}
+.touch-target-controls button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #9ba78b;
+  background: #26372eef;
+  color: #ebebd5;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.touch-target-controls .confirm-target {
+  background: #d2c090;
+  color: #26342a;
+  font-weight: 700;
+}
+.touch-target-controls button:disabled {
+  opacity: 0.65;
+}
+.field-status button {
+  min-height: 36px;
+}
+@media (pointer: coarse) {
+  .icon-button,
+  .header-actions .text-button,
+  .map-strip > button,
+  .order-option,
+  .order-button {
+    min-height: 44px;
+  }
+  .icon-button,
+  .header-actions .text-button {
+    min-width: 44px;
+  }
+  .mini-map {
+    min-height: 44px;
+  }
+  .tactical-card {
+    touch-action: pan-x pan-y;
+  }
+  .tactical-card:hover {
+    transform: none;
+  }
+}
+@media (max-width: 620px) {
+  .game-shell {
+    padding: 0 8px max(12px, env(safe-area-inset-bottom));
+    overflow-x: clip;
+  }
+  .masthead {
+    height: 60px;
+  }
+  .brand {
+    gap: 7px;
+  }
+  .brand-meta,
+  .brand-symbol {
+    display: none;
+  }
+  .wordmark {
+    font-size: 23px;
+    letter-spacing: 1px;
+  }
+  .wordmark > span {
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+  .header-actions {
+    gap: 0;
+  }
+  .icon-button,
+  .header-actions .text-button {
+    width: 44px;
+    height: 44px;
+  }
+  .match-bar {
+    height: 70px;
+    gap: 10px;
+  }
+  .team-heading {
+    font-size: 12px;
+  }
+  .team-heading > span {
+    font-size: 12px;
+  }
+  .team-heading b {
+    font-size: 14px;
+  }
+  .match-clock > span {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+  .match-clock strong {
+    font-size: 26px;
+  }
+  .battlefield {
+    aspect-ratio: auto;
+    height: clamp(265px, 40svh, 340px);
+    min-height: 0;
+    max-height: none;
+  }
+  .field-top {
+    top: 12px;
+  }
+  .location,
+  .weather {
+    font-size: 12px;
+  }
+  .location > svg,
+  .weather {
+    display: none;
+  }
+  .field-status {
+    top: 42px;
+    font-size: 12px;
+    max-width: calc(100% - 16px);
+    padding: 4px 8px;
+  }
+  .field-status button {
+    font-size: 12px;
+    min-height: 36px;
+  }
+  .field-ruler {
+    font-size: 12px;
+    letter-spacing: 0;
+    bottom: 12px;
+  }
+  .field-ruler span:last-child {
+    display: none;
+  }
+  .launch {
+    top: 48%;
+  }
+  .launch h1 {
+    font-size: 26px;
+  }
+  .launch > p {
+    font-size: 14px;
+    line-height: 1.65;
+    max-width: 270px;
+    margin-inline: auto;
+  }
+  .launch .operation {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .launch-meta {
+    font-size: 12px;
+  }
+  .launch .primary-button {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .battle-ticker {
+    height: 32px;
+  }
+  .battle-ticker p {
+    font-size: 12px;
+  }
+  .map-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0 6px;
+    padding: 6px 0 0;
+  }
+  .mini-map {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: 36px;
+    min-height: 36px;
+  }
+  .map-strip > button,
+  .map-strip > button:nth-last-child(2) {
+    display: block;
+    min-height: 44px;
+    font-size: 12px;
+    padding: 4px;
+  }
+  .orders-bar {
+    padding: 5px 0;
+  }
+  .orders-bar > span {
+    display: none;
+  }
+  .orders-group {
+    width: 100% !important;
+    justify-content: space-between;
+  }
+  .order-option {
+    min-height: 44px;
+    flex: 1;
+    justify-content: center;
+    font-size: 14px;
+    padding: 4px;
+  }
+  .order-radio {
+    width: 10px !important;
+    height: 10px !important;
+  }
+  .command {
+    padding-top: 12px;
+    gap: 12px;
+  }
+  .command-panel {
+    grid-template-columns: 95px minmax(0, 1fr);
+    gap: 0 12px;
+  }
+  .energy-number {
+    margin: 3px 0;
+  }
+  .energy-number strong {
+    font-size: 29px;
+  }
+  .energy-number > small {
+    display: none;
+  }
+  .selection-detail {
+    padding-left: 10px;
+    min-height: 64px;
+  }
+  .command .selection-detail p {
+    font-size: 12px;
+    line-height: 1.55;
+    margin-top: 4px;
+  }
+  .selection-detail strong {
+    font-size: 14px;
+  }
+  .selection-detail > div > span {
+    display: none;
+  }
+  .panel-eyebrow,
+  .target-hint {
+    font-size: 12px;
+  }
+  .order-button {
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .hand-heading,
+  .hand-heading > span {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+  .hand-heading {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .hand-cards {
+    min-width: 0;
+    overscroll-behavior-x: contain;
+  }
+  .tactical-card {
+    min-width: 132px;
+    max-width: 132px;
+  }
+  .card-art {
+    height: 65px;
+  }
+  .card-copy small {
+    display: none;
+  }
+  .command .card-copy p {
+    font-size: 12px;
+    min-height: 36px;
+    line-height: 1.5;
+  }
+  .card-bottom {
+    font-size: 12px;
+  }
+  .deck-pile {
+    flex-basis: 48px;
+  }
+  .deck-label,
+  .deck-sub {
+    font-size: 12px;
+  }
+  .deck-card-back {
+    width: 44px;
+    height: 96px;
+  }
+  .deck-card-back small {
+    display: none;
+  }
+  .battle-toast {
+    font-size: 14px;
+  }
+  .manual-dialog {
+    max-width: calc(100vw - 20px);
+  }
+  footer,
+  footer button {
+    font-size: 12px;
+  }
+}
+@media (max-height: 500px) and (orientation: landscape) and (pointer: coarse) {
+  .masthead {
+    height: 52px;
+  }
+  .match-bar {
+    height: 64px;
+  }
+  .battlefield {
+    height: 270px;
+    min-height: 0;
+    aspect-ratio: auto;
+  }
+  .field-top {
+    top: 12px;
+  }
+  .launch {
+    top: 48%;
+  }
+  .launch h1 {
+    font-size: 26px;
+  }
+  .launch > p {
+    margin: 8px 0;
+  }
+  .launch .primary-button {
+    margin-top: 10px;
+    min-height: 44px;
+  }
+  .launch-meta {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 620px) {
+  .field-status {
+    white-space: normal;
+    width: max-content;
+    line-height: 1.5;
+  }
+  .field-status button {
+    flex-shrink: 0;
+  }
+}

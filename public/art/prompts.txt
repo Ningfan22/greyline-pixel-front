@@ -51,3 +51,50 @@ Composition: The entire rectangular image is occupied by ground material from th
 Palette and mood: realistic somber military pixel art; muted brown, charcoal, taupe and dusty gray soil with sparse muted dry olive grass. Detailed yet readable chunky pixel clusters, purposeful hand-placed pixel texture, no smooth airbrushing. Soil is visually rich and clearly brown-gray, NEVER a flat green surface.
 Production constraints: Seamless horizontally tileable left and right edges. Texture layers join across both edges. Must remain readable compressed into a 1440 by 120 pixel foreground strip. Bomb craters will clip away the top and expose deeper soil, so all depths must contain convincing soil texture. Ground texture fills every pixel; NO sky, NO empty space above the turf, NO aboveground objects, NO characters, NO vehicles, NO weapons, NO UI, NO letters, NO frame or borders, NO watermark. Create exactly one texture, no sheet of alternatives.
 
+
+
+V4 LOCOMOTION
+Use case: stylized-concept
+Asset type: production pixel-art game animation sprite sheet.
+Input image 1 is ONLY a character/style reference. Create ONE NEW animation sheet; do not reproduce its layout or its repetitive poses.
+
+Canvas: exactly 2048 x 1152 pixels, landscape 16:9, genuine transparent RGBA background. EXACTLY 8 equal columns and EXACTLY 3 equal rows = 24 equal 256 x 384 cells. One full-body individual per cell, separated by abundant transparent space. No panels, no gridlines, no text, no labels, no numbering, no terrain, no ground shadows, no props apart from his own kit. Every cell must be populated. No overlap or cropped heads, boots, hands or rifle. All silhouettes remain inside their own cell.
+
+Character and art invariants: the SAME modern adult infantryman as reference in EVERY cell, facing strictly RIGHT in full side view. Realistic adult approximately seven-head body proportions, normal-size helmet, long legs, slim torso. Muted olive drab fatigues, olive helmet, compact vest and backpack, elbow/knee protection, dark boots, charcoal rifle, restrained tan skin. Match the reference's gritty realistic hand-placed pixel art, hard square pixels and stepped edges; no painting, no smoothing, no blurry edges, no gradients. Use consistent approximately 180-pixel standing height in every cell, not giant cartoon heads, not chibi, not miniatures. Maintain identical body size, kit, colors and camera.
+
+CRITICAL: These are ACTUAL sequential motion keyframes. Each successive frame changes the pose. Make silhouettes visibly different, especially leg crossing and opposing legs in the walk. DO NOT draw the same forward stride eight times. Walking must show a complete left-and-right cycle. Near leg is the visible leg with clearer knee pad; far leg is darker. Distinguish which foot is leading.
+
+ROW 1, columns 1-8: complete in-place 8-frame WALK CYCLE with rifle held low-ready. Torso stays upright, head stays at virtually the same height, same foot baseline in all eight cells.
+1 left/near leg straight forward and heel contacting, right/far leg stretched backward.
+2 left/near foot flat under forward knee accepting weight, right/far heel raised behind.
+3 passing pose: legs CLOSE TOGETHER, left/near support leg nearly vertical, right/far knee bent passing beneath hips and its boot lifted.
+4 right/far leg swings forward with bent knee; left/near support leg trails slightly.
+5 opposite contact: RIGHT/FAR LEG stretched FORWARD heel contacting, LEFT/NEAR LEG stretched BACKWARD; visibly opposite to frame 1.
+6 right/far foot flat accepting weight, left/near heel raised behind.
+7 second passing pose: legs CLOSE TOGETHER, right/far support leg vertical, left/near knee bent passing beneath hips and boot lifted.
+8 left/near leg swings forward, right/far support leg trails, leading naturally to frame 1.
+The four contact/passing silhouettes must alternate WIDE, narrowing, NARROW, expanding, WIDE opposite, narrowing, NARROW opposite, expanding. Never duplicate eight generic running strides.
+
+ROW 2, columns 1-8: JUMP DOWN INTO A CRATER; show the soldier only, no crater geometry. Same full-body scale and right-facing orientation. Rifle retained safely at chest / slung.
+1 deep crouch anticipation with hips back, knees bent.
+2 forceful push-off, ankles extended and torso rising diagonally forward.
+3 clearly airborne compact tuck, both knees bent high under torso.
+4 airborne falling with thighs dropping and lower legs beginning to extend.
+5 extended feet down and slightly forward preparing for ground.
+6 initial boot contact, knees partially bent and torso pitched forward.
+7 deepest landing absorption: squat, hips very low and both knees deeply bent.
+8 recovering to upright with knees just slightly bent.
+Make crouch, compact midair, long falling legs, and landing squat dramatically different recognizable silhouettes. Keep generous room around them.
+
+ROW 3, columns 1-8: CLIMB UP A DIRT BANK, pantomimed against an invisible ledge; NO drawn terrain. Rifle slung along back/side so both hands can climb. Same consistent full-body scale, strict right-facing profile.
+1 reach both hands upward and forward to grab the ledge, body tall and feet low.
+2 arms extended with grip held, knees bend and one foot braces.
+3 elbows pulling back, upper torso rises, feet trailing below.
+4 pull chest above ledge with elbows bent, near knee lifted high.
+5 near knee plants onto the ledge level, rear leg dangles below, hands support body.
+6 weight shifts forward onto the planted knee, torso folds over thigh, rear foot comes up.
+7 both feet on top, low crouch with one supporting hand about to release.
+8 stands upright facing right and resumes low-ready rifle.
+This row must visibly progress from hanging/reaching to pulling, knee plant, weight shift, standing, not eight minor hand variations.
+
+Prioritize exact 8-by-3 structure, transparent background, consistently proportioned adult character and anatomically coherent distinct keyframes.

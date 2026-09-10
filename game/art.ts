@@ -3,6 +3,7 @@ export interface Art {
   terrain: HTMLImageElement;
   soldiers: HTMLCanvasElement[][];
   vehicles: HTMLCanvasElement[][];
+  locomotion: HTMLCanvasElement[][];
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -97,13 +98,68 @@ function frames(
     }),
   );
 }
+function locomotionFrames(img: HTMLImageElement) {
+  const source = surface(img.width, img.height),
+    ctx = source.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const pixels = ctx.getImageData(0, 0, img.width, img.height);
+  // The delivered sheet has a neutral pale matte. Key it during texture import.
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const r = pixels.data[i],
+      g = pixels.data[i + 1],
+      b = pixels.data[i + 2];
+    if (Math.min(r, g, b) > 155 && Math.max(r, g, b) - Math.min(r, g, b) < 28)
+      pixels.data[i + 3] = 0;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  const cw = img.width / 8,
+    ch = img.height / 3;
+  return Array.from({ length: 3 }, (_, row) =>
+    Array.from({ length: 8 }, (_, col) => {
+      let left = (col + 1) * cw,
+        right = col * cw,
+        top = (row + 1) * ch,
+        bottom = row * ch;
+      for (let y = Math.ceil(row * ch); y < Math.floor((row + 1) * ch); y++) {
+        for (let x = Math.ceil(col * cw); x < Math.floor((col + 1) * cw); x++) {
+          if (pixels.data[(y * img.width + x) * 4 + 3] > 0) {
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+        }
+      }
+      const out = surface(64, 48),
+        oc = out.getContext('2d')!;
+      oc.imageSmoothingEnabled = false;
+      // One scale for the entire cycle preserves body proportions during crouch and jump.
+      const scale = 42 / (ch * 0.74),
+        w = Math.round((right - left + 1) * scale),
+        h = Math.round((bottom - top + 1) * scale);
+      oc.drawImage(
+        source,
+        left,
+        top,
+        right - left + 1,
+        bottom - top + 1,
+        Math.round(32 - w / 2),
+        48 - h,
+        w,
+        h,
+      );
+      return out;
+    }),
+  );
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
     loadImage('/art/soldiers-v3.png'),
     loadImage('/art/vehicles-v3.png'),
     loadImage('/art/terrain-texture.png'),
-  ]).then(([bg, soldiers, vehicles, terrain]) => {
+    loadImage('/art/locomotion-v4.png'),
+  ]).then(([bg, soldiers, vehicles, terrain, locomotion]) => {
     const background = surface(640, 214),
       ctx = background.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
@@ -111,6 +167,7 @@ export function loadArt() {
     return {
       background,
       terrain,
+      locomotion: locomotionFrames(locomotion),
       soldiers: frames(soldiers, 4, 8, 64, 48, true),
       vehicles: frames(vehicles, 4, 3, 64, 32),
     };

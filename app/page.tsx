@@ -120,13 +120,23 @@ export default function Home() {
   const [assetError, setAssetError] = useState(false);
   const [message, setMessage] = useState('');
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const viewport = useRef(VIEW_W);
+  const [viewportWidth, setViewportWidth] = useState(VIEW_W);
+  const [touchMode, setTouchMode] = useState(false);
+  const [aimTarget, setAimTarget] = useState<number | null>(null);
+  const mapPointer = useRef<number | null>(null);
   const camera = useRef(0),
     [cameraView, setCameraView] = useState(0),
-    dragView = useRef<{ x: number; camera: number; id: number } | null>(null),
+    dragView = useRef<{
+      x: number;
+      y: number;
+      camera: number;
+      id: number;
+    } | null>(null),
     didDrag = useRef(false),
     keys = useRef(new Set<string>());
   const moveCamera = useCallback((x: number) => {
-    camera.current = Math.max(0, Math.min(W - VIEW_W, x));
+    camera.current = Math.max(0, Math.min(W - viewport.current, x));
     setCameraView(camera.current);
   }, []);
   const canvas = useRef<HTMLCanvasElement>(null),
@@ -143,6 +153,7 @@ export default function Home() {
   const choose = useCallback((uid: number | null) => {
     selectedRef.current = uid;
     setSelected(uid);
+    setAimTarget(null);
     pointerScreen.current = null;
     if (uid !== null) {
       const h = game.current!.players[0].hand.find((h) => h.uid === uid);
@@ -153,7 +164,9 @@ export default function Home() {
           hover.current = 280;
         } else
           hover.current =
-            h.id === 'artillery' ? camera.current + VIEW_W * 0.6 : null;
+            h.id === 'artillery'
+              ? camera.current + viewport.current * 0.6
+              : null;
       }
     } else hover.current = null;
   }, []);
@@ -204,6 +217,36 @@ export default function Home() {
     refresh();
   };
   useEffect(() => {
+    const el = canvas.current!;
+    const resize = () => {
+      const box = el.parentElement!.getBoundingClientRect();
+      const next = Math.max(240, Math.round((H * box.width) / box.height));
+      const old = viewport.current;
+      viewport.current = next;
+      setViewportWidth(next);
+      camera.current = Math.max(
+        0,
+        Math.min(
+          W - next,
+          camera.current === 0 ? 0 : camera.current + (old - next) / 2,
+        ),
+      );
+      setCameraView(camera.current);
+      pointerScreen.current = null;
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(el.parentElement!);
+    resize();
+    const query = window.matchMedia('(pointer: coarse)');
+    const update = () => setTouchMode(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => {
+      observer.disconnect();
+      query.removeEventListener('change', update);
+    };
+  }, []);
+  useEffect(() => {
     let stopped = false;
     void loadArt()
       .then((a) => {
@@ -232,7 +275,10 @@ export default function Home() {
       if (keys.current.has('a'))
         camera.current = Math.max(0, camera.current - dt * 650);
       if (keys.current.has('d'))
-        camera.current = Math.min(W - VIEW_W, camera.current + dt * 650);
+        camera.current = Math.min(
+          W - viewport.current,
+          camera.current + dt * 650,
+        );
       if (!document.hidden && s.status === 'playing') {
         accumulator += Math.min(dt, 0.25);
         while (accumulator >= 1 / 60) {
@@ -255,6 +301,7 @@ export default function Home() {
           hover.current,
           reduced,
           camera.current,
+          viewport.current,
         );
       if (s.explosions > lastExplosion && soundRef.current && audio.current) {
         const ac = audio.current;
@@ -287,7 +334,7 @@ export default function Home() {
       camera.current = Math.max(
         0,
         Math.min(
-          W - VIEW_W,
+          W - viewport.current,
           camera.current +
             (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY) *
               1.6,
@@ -361,8 +408,8 @@ export default function Home() {
             (hover.current ?? 280) + (e.key === 'ArrowRight' ? 25 : -25),
           ),
         );
-        if (hover.current > camera.current + VIEW_W - 40)
-          moveCamera(hover.current - VIEW_W + 40);
+        if (hover.current > camera.current + viewport.current - 40)
+          moveCamera(hover.current - viewport.current + 40);
         if (hover.current < camera.current + 40) moveCamera(hover.current - 40);
       }
       if (
@@ -481,16 +528,20 @@ export default function Home() {
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
     if (CARDS[h.id].type === 'unit') moveCamera(0);
+    if (touchMode && (CARDS[h.id].type === 'unit' || h.id === 'artillery'))
+      canvas.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     hover.current =
       CARDS[h.id].type === 'unit'
         ? 280
         : h.id === 'artillery'
-          ? camera.current + VIEW_W * 0.6
+          ? camera.current + viewport.current * 0.6
           : null;
   };
   const canvasX = (clientX: number) => {
     const rect = canvas.current!.getBoundingClientRect();
-    return ((clientX - rect.left) / rect.width) * VIEW_W + camera.current;
+    return (
+      ((clientX - rect.left) / rect.width) * viewport.current + camera.current
+    );
   };
   const toggleSound = () => {
     const next = !sound;
@@ -523,7 +574,11 @@ export default function Home() {
           <span className="live-label">
             <i /> 人机演习
           </span>
-          <button className="text-button" onClick={() => openPanel('guide')}>
+          <button
+            className="text-button"
+            aria-label="作战手册"
+            onClick={() => openPanel('guide')}
+          >
             <BookOpen size={16} />
             作战手册
           </button>
@@ -622,52 +677,83 @@ export default function Home() {
       >
         <canvas
           ref={canvas}
-          width={VIEW_W}
+          width={viewportWidth}
           height={H}
           tabIndex={0}
           aria-label="战场。先选卡牌，点击蓝方部署区；火炮可点击任意位置。键盘方向键移动落点，回车确认。"
           onPointerDown={(e) => {
-            if (selectedRef.current === null) {
-              dragView.current = {
-                x: e.clientX,
-                camera: camera.current,
-                id: e.pointerId,
-              };
-              didDrag.current = false;
-              e.currentTarget.setPointerCapture(e.pointerId);
+            if (e.button !== 0) return;
+            if (!e.isPrimary || dragView.current) {
+              didDrag.current = true;
+              return;
+            }
+            dragView.current = {
+              x: e.clientX,
+              y: e.clientY,
+              camera: camera.current,
+              id: e.pointerId,
+            };
+            didDrag.current = false;
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            const gesture = dragView.current;
+            if (gesture) {
+              if (gesture.id !== e.pointerId) return;
+              const dx = e.clientX - gesture.x,
+                dy = e.clientY - gesture.y;
+              if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy))
+                didDrag.current = true;
+              if (didDrag.current) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                moveCamera(
+                  gesture.camera - (dx / rect.width) * viewport.current,
+                );
+                pointerScreen.current = null;
+                return;
+              }
+            }
+            if (e.pointerType === 'mouse') {
+              hover.current = canvasX(e.clientX);
+              pointerScreen.current = hover.current - camera.current;
             }
           }}
           onPointerUp={(e) => {
+            const gesture = dragView.current;
+            if (!gesture || gesture.id !== e.pointerId) return;
             dragView.current = null;
+            const moved =
+              didDrag.current ||
+              Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 8;
             if (e.currentTarget.hasPointerCapture(e.pointerId))
               e.currentTarget.releasePointerCapture(e.pointerId);
+            if (moved || !chosen) return;
+            if (card?.type === 'unit' || card?.id === 'artillery') {
+              const x = Math.max(0, Math.min(W, canvasX(e.clientX)));
+              if (e.pointerType !== 'mouse') {
+                setTouchMode(true);
+                setAimTarget(x);
+                hover.current = x;
+                pointerScreen.current = null;
+              } else execute(chosen.uid, x);
+            } else toast('点击「立即下达」使用这张技能卡');
           }}
-          onPointerCancel={() => {
-            dragView.current = null;
-          }}
-          onPointerMove={(e) => {
-            if (dragView.current) {
-              const dx = e.clientX - dragView.current.x;
-              if (Math.abs(dx) > 4) didDrag.current = true;
-              const rect = e.currentTarget.getBoundingClientRect();
-              moveCamera(dragView.current.camera - (dx / rect.width) * VIEW_W);
+          onPointerCancel={(e) => {
+            if (dragView.current?.id === e.pointerId) {
+              dragView.current = null;
+              didDrag.current = true;
             }
-            hover.current = canvasX(e.clientX);
-            pointerScreen.current = hover.current - camera.current;
+          }}
+          onLostPointerCapture={(e) => {
+            if (dragView.current?.id === e.pointerId) {
+              dragView.current = null;
+              didDrag.current = true;
+            }
           }}
           onPointerLeave={() => {
-            hover.current = null;
-            pointerScreen.current = null;
-          }}
-          onClick={(e) => {
-            if (didDrag.current) {
-              didDrag.current = false;
-              return;
-            }
-            if (chosen) {
-              if (card?.type === 'unit' || card?.id === 'artillery')
-                execute(chosen.uid, canvasX(e.clientX));
-              else toast('点击下方「立即下达」使用这张技能卡');
+            if (!touchMode) {
+              hover.current = null;
+              pointerScreen.current = null;
             }
           }}
           onDragOver={(e) => {
@@ -693,10 +779,13 @@ export default function Home() {
           </span>
         </div>
         <div className="field-ruler">
-          <span>← 拖动 / A、D 移动视野 →</span>
+          <span>
+            {touchMode ? '← 左右滑动战场 →' : '← 拖动 / A、D 移动视野 →'}
+          </span>
           <i />
           <span>
-            {Math.round(cameraView)} — {Math.round(cameraView + VIEW_W)} / {W}
+            {Math.round(cameraView)} — {Math.round(cameraView + viewportWidth)}{' '}
+            / {W}
           </span>
         </div>
         {active && (
@@ -704,9 +793,13 @@ export default function Home() {
             <span className="live-dot" />{' '}
             {card
               ? card.type === 'unit'
-                ? '点击蓝色区域部署部队'
+                ? touchMode
+                  ? '点选蓝色区域，再确认部署'
+                  : '点击蓝色区域部署部队'
                 : card.id === 'artillery'
-                  ? '点击战场，指定火炮覆盖区域'
+                  ? touchMode
+                    ? '滑动找目标，点选后确认炮击'
+                    : '点击战场，指定火炮覆盖区域'
                   : '确认下达指令'
               : '选择手牌下令 · 拖动查看前线'}
             {card && (
@@ -717,6 +810,32 @@ export default function Home() {
             )}
           </div>
         )}
+        {active &&
+          touchMode &&
+          chosen &&
+          (card?.type === 'unit' || card?.id === 'artillery') && (
+            <div className="touch-target-controls">
+              <button onClick={() => choose(null)}>取消</button>
+              <button
+                className="confirm-target"
+                disabled={
+                  aimTarget === null ||
+                  p.energy < card.cost ||
+                  (card.type === 'unit' && (aimTarget < 110 || aimTarget > 440))
+                }
+                onClick={() =>
+                  aimTarget !== null && execute(chosen.uid, aimTarget)
+                }
+              >
+                <Crosshair size={16} />
+                {aimTarget === null
+                  ? '先点选落点'
+                  : card.type === 'unit'
+                    ? '确认部署'
+                    : '确认炮击'}
+              </button>
+            </div>
+          )}
         {p.morale > 0 && (
           <div className="buff-label">
             <Sparkles size={13} />
@@ -837,18 +956,33 @@ export default function Home() {
           tabIndex={0}
           aria-label="战场小地图，点击或拖动移动视野"
           aria-valuemin={0}
-          aria-valuemax={W - VIEW_W}
+          aria-valuemax={W - viewportWidth}
           aria-valuenow={Math.round(cameraView)}
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
             const r = e.currentTarget.getBoundingClientRect();
-            moveCamera(((e.clientX - r.left) / r.width) * W - VIEW_W / 2);
+            moveCamera(
+              ((e.clientX - r.left) / r.width) * W - viewport.current / 2,
+            );
           }}
           onPointerMove={(e) => {
-            if (e.buttons === 1) {
+            if (mapPointer.current === e.pointerId) {
               const r = e.currentTarget.getBoundingClientRect();
-              moveCamera(((e.clientX - r.left) / r.width) * W - VIEW_W / 2);
+              moveCamera(
+                ((e.clientX - r.left) / r.width) * W - viewport.current / 2,
+              );
             }
+          }}
+          onPointerUp={(e) => {
+            if (mapPointer.current === e.pointerId) mapPointer.current = null;
+            if (e.currentTarget.hasPointerCapture(e.pointerId))
+              e.currentTarget.releasePointerCapture(e.pointerId);
+          }}
+          onPointerCancel={(e) => {
+            if (mapPointer.current === e.pointerId) mapPointer.current = null;
+          }}
+          onLostPointerCapture={(e) => {
+            if (mapPointer.current === e.pointerId) mapPointer.current = null;
           }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
@@ -884,7 +1018,7 @@ export default function Home() {
             className="map-window"
             style={{
               left: `${(cameraView / W) * 100}%`,
-              width: `${(VIEW_W / W) * 100}%`,
+              width: `${(viewportWidth / W) * 100}%`,
             }}
           />
         </div>
@@ -896,12 +1030,14 @@ export default function Home() {
                 .filter((u) => u.side === 0 && u.hp > 0)
                 .map((u) => u.x),
             );
-            moveCamera(front - VIEW_W * 0.4);
+            moveCamera(front - viewport.current * 0.4);
           }}
         >
           我方前线
         </button>
-        <button onClick={() => moveCamera(W - VIEW_W)}>红方基地 →</button>
+        <button onClick={() => moveCamera(W - viewport.current)}>
+          红方基地 →
+        </button>
       </div>
       <div className="orders-bar">
         <span>
@@ -946,7 +1082,7 @@ export default function Home() {
                 ? '匍匐速度 ×0.25 · 受伤 −30%'
                 : p.order === 'hold'
                   ? '原地警戒，自动还击'
-                  : '自动前进，遇墙逐个攀越'}
+                  : '自动利用弹坑掩护 · 跳入 / 攀出'}
         </small>
       </div>
       <section className="command">
@@ -1018,7 +1154,7 @@ export default function Home() {
             ) : (
               <>
                 <span className="panel-eyebrow">指挥提示</span>
-                <p>先部署前排，再用远程火力支援。每一次炮击都会改变地面。</p>
+                <p>推进时自动寻找弹坑掩护；奔跑时不主动寻找掩护。</p>
               </>
             )}
           </div>
@@ -1052,7 +1188,7 @@ export default function Home() {
                     key={h.uid}
                     className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost ? 'unaffordable' : ''}`}
                     onClick={() => selectCard(h)}
-                    draggable={active}
+                    draggable={active && !touchMode}
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', String(h.uid));
                       choose(h.uid);
@@ -1119,13 +1255,13 @@ export default function Home() {
       </section>
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · 演习版本 0.3
+          GREYLINE <i /> 林间前线 · 演习版本 0.4
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
           <kbd>Enter</kbd> 确认 <kbd>Space</kbd> 暂停
         </span>
-        <button onClick={() => openPanel('guide')}>
+        <button aria-label="作战手册" onClick={() => openPanel('guide')}>
           如何作战 <ChevronRight size={13} />
         </button>
       </footer>
@@ -1161,10 +1297,10 @@ export default function Home() {
                   <span>02 / 部署</span>
                   <h3>选牌，然后选择落点</h3>
                   <p>
-                    战场横跨多个屏幕，拖动空白处、滚轮或 A/D
-                    移动视野，也可点击小地图。选卡后点击蓝色区域部署；炮击可指定地图任意位置。每个班组由
+                    战场横跨多个屏幕，左右拖动、滚轮或 A/D
+                    移动视野，也可点击小地图。选卡后点击蓝色区域部署；手机上点选落点后再按确认。炮击可指定任意位置。每个班组由
                     5–6
-                    名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用战场下方「步兵指令」切换行动，遇到矮墙会逐个攀越。
+                    名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。士兵会跳入弹坑、落地缓冲，再撑地攀出。
                   </p>
                 </div>
                 <div>
@@ -1180,7 +1316,8 @@ export default function Home() {
                   <h3>用好不同兵种</h3>
                   <p>
                     坦克承伤，重火力负责爆破；机枪和重火力能够对空。火炮可打击任意位置，友军免伤，对基地只造成
-                    35% 伤害。
+                    35%
+                    伤害。交火时士兵会寻找附近弹坑，蹲伏躲避、探身开火；坑沿能遮挡直射，无法挡住落入坑内的炮击。
                   </p>
                 </div>
               </div>
