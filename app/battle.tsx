@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   CARDS,
+  deploymentBounds,
   chooseAiDeck,
   needsTarget,
   createGame,
@@ -125,10 +126,16 @@ export default function Battle({
     if (uid !== null) {
       const h = game.current!.players[0].hand.find((h) => h.uid === uid);
       if (h) {
-        if (CARDS[h.id].type === 'unit') {
+        if (CARDS[h.id].type === 'unit' && !CARDS[h.id].static) {
           camera.current = 0;
           setCameraView(0);
           hover.current = 280;
+        } else if (CARDS[h.id].static) {
+          const b = deploymentBounds(game.current!, 0, h.id);
+          hover.current = Math.max(
+            b[0],
+            Math.min(b[1], camera.current + viewport.current * 0.6),
+          );
         } else
           hover.current = CARDS[h.id].targetGround
             ? camera.current + viewport.current * 0.6
@@ -279,7 +286,11 @@ export default function Battle({
           camera.current,
           viewport.current,
         );
-      if (s.explosions > lastExplosion && soundRef.current && audio.current) {
+      if (
+        s.audibleExplosions[0] > lastExplosion &&
+        soundRef.current &&
+        audio.current
+      ) {
         const ac = audio.current;
         const oscillator = ac.createOscillator(),
           gain = ac.createGain();
@@ -296,7 +307,7 @@ export default function Battle({
         oscillator.start();
         oscillator.stop(ac.currentTime + 0.24);
       }
-      lastExplosion = s.explosions;
+      lastExplosion = s.audibleExplosions[0];
       if (now - lastView > 90) {
         setView(snapshot(s));
         setCameraView(camera.current);
@@ -481,7 +492,7 @@ export default function Battle({
     register({
       name: 'play_battle_card',
       description:
-        '打出当前手牌。单位部署 x 为 110–440；烟幕、火炮、密集炮幕和精确打击 x 为 0–3840；其他技能无需 x。',
+        '打出当前手牌。普通单位部署 x 为 110–440，固定火炮可在友方地面前线后方 120 以外部署；烟幕和地雷 x 为 0–3840；其他技能无需 x。',
       inputSchema: {
         type: 'object',
         properties: { uid: { type: 'integer' }, x: { type: 'number' } },
@@ -506,7 +517,8 @@ export default function Battle({
   const p = view.players[0],
     enemy = view.players[1],
     chosen = p.hand.find((h) => h.uid === selected),
-    card = chosen ? CARDS[chosen.id] : null;
+    card = chosen ?? null;
+  const bounds = card ? deploymentBounds(view, 0, card.id) : [110, 440];
   const active = view.status === 'playing';
   const units = view.units.filter(
       (u) => u.side === 0 && u.hp > 0 && !u.surrendered && !u.wounded,
@@ -521,9 +533,17 @@ export default function Battle({
     }
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
-    if (CARDS[h.id].type === 'unit') moveCamera(0);
+    if (CARDS[h.id].type === 'unit' && !CARDS[h.id].static) moveCamera(0);
     if (touchMode && needsTarget(h.id))
       canvas.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    if (CARDS[h.id].static) {
+      const b = deploymentBounds(view, 0, h.id);
+      hover.current = Math.max(
+        b[0],
+        Math.min(b[1], camera.current + viewport.current * 0.6),
+      );
+      return;
+    }
     hover.current =
       CARDS[h.id].type === 'unit'
         ? 280
@@ -677,7 +697,7 @@ export default function Battle({
           width={viewportWidth}
           height={H}
           tabIndex={0}
-          aria-label="战场。先选卡牌，点击蓝方部署区；火炮可点击任意位置。键盘方向键移动落点，回车确认。"
+          aria-label="战场。先选卡牌，点击蓝方部署区；固定火炮可随前线扩展部署区。键盘方向键移动落点，回车确认。"
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             if (!e.isPrimary || dragView.current) {
@@ -815,7 +835,9 @@ export default function Battle({
               disabled={
                 aimTarget === null ||
                 p.energy < card.cost ||
-                (card.type === 'unit' && (aimTarget < 110 || aimTarget > 440))
+                card.readyIn > 0 ||
+                (card.type === 'unit' &&
+                  (aimTarget < bounds[0] || aimTarget > bounds[1]))
               }
               onClick={() =>
                 aimTarget !== null && execute(chosen.uid, aimTarget)
@@ -940,7 +962,11 @@ export default function Battle({
           <p>{view.notices[0]?.text ?? '部队整备完毕，等待指挥官下令。'}</p>
         </div>
         <span className="enemy-intel">
-          敌方手牌 {enemy.hand.length}
+          已发现敌军{' '}
+          {
+            view.units.filter((u) => u.side === 1 && u.hp > 0 && !u.surrendered)
+              .length
+          }
           <i />
           {enemy.jam > 0
             ? `通讯干扰 ${Math.ceil(enemy.jam)}s`
@@ -958,6 +984,7 @@ export default function Battle({
           aria-valuemax={W - viewportWidth}
           aria-valuenow={Math.round(cameraView)}
           onPointerDown={(e) => {
+            mapPointer.current = e.pointerId;
             e.currentTarget.setPointerCapture(e.pointerId);
             const r = e.currentTarget.getBoundingClientRect();
             moveCamera(
@@ -1138,10 +1165,15 @@ export default function Battle({
                   <strong>{card.name}</strong>
                 </div>
                 <p>{card.detail}</p>
+                {card.readyIn > 0 && (
+                  <p>整备中 · {Math.ceil(card.readyIn)} 秒后可再次派遣</p>
+                )}
                 {card.type === 'skill' && !card.targetGround ? (
                   <button
                     className="order-button"
-                    disabled={!active || p.energy < card.cost}
+                    disabled={
+                      !active || p.energy < card.cost || card.readyIn > 0
+                    }
                     onClick={() => execute(chosen!.uid)}
                   >
                     立即下达 <ArrowUpRight size={15} />
@@ -1196,7 +1228,7 @@ export default function Battle({
           <div className="hand-and-deck">
             <div className="hand-cards">
               {p.hand.map((h, i) => {
-                const c = CARDS[h.id];
+                const c = h;
                 return (
                   <button
                     key={h.uid}
@@ -1208,9 +1240,14 @@ export default function Battle({
                         zIndex: selected === h.uid ? 30 : i + 1,
                       } as CSSProperties
                     }
-                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost ? 'unaffordable' : ''}`}
+                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 ? 'unaffordable' : ''}`}
                     onClick={() => selectCard(h)}
-                    draggable={active && !touchMode}
+                    draggable={
+                      active &&
+                      !touchMode &&
+                      c.readyIn <= 0 &&
+                      p.energy >= c.cost
+                    }
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', String(h.uid));
                       choose(h.uid);
@@ -1228,7 +1265,13 @@ export default function Battle({
                       <div className="art-horizon" />
                     </div>
                     <div className="card-copy">
-                      <small>{c.en}</small>
+                      <small>
+                        {c.readyIn > 0
+                          ? `整备 ${Math.ceil(c.readyIn)}s`
+                          : c.returnedOnce
+                            ? '返航 · 补给费用'
+                            : c.en}
+                      </small>
                       <strong>{c.name}</strong>
                       <p>{c.description}</p>
                     </div>
@@ -1297,7 +1340,7 @@ export default function Battle({
       </section>
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · 演习版本 0.7
+          GREYLINE <i /> 林间前线 · 演习版本 0.9
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -1340,8 +1383,8 @@ export default function Battle({
                   <h3>选牌，然后选择落点</h3>
                   <p>
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
-                    移动视野，也可点击小地图。选卡后点击蓝色区域部署；手机上点选落点后再按确认。炮击可指定任意位置。每个班组由
-                    2–7
+                    移动视野，也可点击小地图。选卡后点击蓝色区域部署；手机上点选落点后再按确认。固定火炮可部署在己方地面前线后方
+                    120 以外，自动瞄准已发现敌军。每个班组由 2–7
                     名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。小起伏直接步行通过，较大落差才会下跳、缓冲和攀出。
                   </p>
                 </div>
@@ -1358,10 +1401,8 @@ export default function Battle({
                   <span>04 / 战术</span>
                   <h3>用好不同兵种</h3>
                   <p>
-                    坦克承伤，战车持续压制；狙击手优先打步兵，迫击炮曲射但怕近身，医疗组救治步兵。机枪、战车和重火力能够对空。火炮可打击任意位置，友军免伤，对基地只造成
-                    15%
-                    伤害。交火时士兵会寻找附近弹坑，蹲伏躲避、探身开火；坑沿能遮挡直射，无法挡住落入坑内的炮击。
-                    敌方炮击预警时，士兵会迅速散开并卧倒，直到最后一轮结束。撤退队员经过友军射线会遭受误伤。
+                    坦克用穿甲弹攻击装甲、高爆弹和同轴机枪攻击步兵；标枪、反坦克炮和地雷克制重装。防空导弹追踪空军。固定炮兵周期发射，落点有散布，士兵只在炮弹临近时分散卧倒。
+                    弹坑、倒树、废墙和载具残骸可掩护步兵；未被观察到的敌人不会显示，房树和残骸会遮挡视线。飞机快速通场，存活返航后回手并整备，再次派遣费用降低；满手回弃牌，被击落恢复原价。撤退队员经过友军射线会遭受误伤。
                   </p>
                 </div>
               </div>
@@ -1379,8 +1420,11 @@ export default function Battle({
             </>
           ) : (
             <div className="catalog">
-              {deckCards.map((c) => (
-                <div className={`catalog-card ${c.type}`} key={c.id}>
+              {deckCards.map((c, index) => (
+                <div
+                  className={`catalog-card ${c.type}`}
+                  key={`${c.id}-${index}`}
+                >
                   <SpriteArt id={c.id} />
                   <div>
                     <h3>

@@ -9,6 +9,8 @@ export interface Art {
   locomotion: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
   aircraft: ReturnType<typeof buildAircraft>;
+  scenery: HTMLCanvasElement[];
+  emplacements: Record<string, HTMLCanvasElement[]>;
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -325,6 +327,78 @@ function stableTracks(list: HTMLCanvasElement[], height: number) {
     return out;
   });
 }
+function buildEmplacements() {
+  return Object.fromEntries(
+    ['howitzer', 'at_gun', 'aa_gun'].map((kind) => [
+      kind,
+      [0, 1, 2, 3].map((frame) => {
+        const out = surface(80, 48),
+          c = out.getContext('2d')!;
+        const rect = (
+          x: number,
+          y: number,
+          w: number,
+          h: number,
+          color: string,
+        ) => {
+          c.fillStyle = color;
+          c.fillRect(x, y, w, h);
+        };
+        rect(8, 41, 43, 3, '#2e3930');
+        rect(12, 37, 21, 4, '#53604a');
+        rect(24, 31, 27, 5, '#5b664d');
+        for (const x of [22, 46]) {
+          rect(x, 35, 9, 10, '#252e29');
+          rect(x + 2, 37, 5, 6, '#747961');
+          rect(x + 3, 38, 3, 4, '#414c3d');
+        }
+        rect(31, 25, 16, 10, '#4c5b43');
+        rect(29, 22, 20, 4, '#899173');
+        if (kind === 'aa_gun') {
+          rect(35, 13, 11, 14, '#58664d');
+          rect(31, 8, 4, 17, '#344233');
+          rect(39, 6, 4, 19, '#344233');
+          rect(31, 8, 2, 12, '#9ca085');
+          rect(39, 6, 2, 12, '#9ca085');
+          rect(24, 19, 9, 5, '#424f3e');
+          rect(45, 20, 10, 4, '#424f3e');
+        } else {
+          const lift = kind === 'howitzer' ? 10 : 0;
+          for (let i = 0; i < 34; i++) {
+            const y = 24 - Math.round((i * lift) / 34);
+            rect(42 + i - (frame === 1 ? 2 : 0), y, 2, 4, '#364634');
+            rect(42 + i - (frame === 1 ? 2 : 0), y, 2, 1, '#969d7d');
+          }
+          rect(30, 19, 8, 17, '#657154');
+          rect(30, 19, 3, 17, '#8d9575');
+          rect(25, 34, 9, 3, '#283a2d');
+        }
+        rect(14, 42, 8, 2, '#909476');
+        rect(52, 43, 13, 2, '#5a684c');
+        return out;
+      }),
+    ]),
+  );
+}
+function sceneryFrames(img: HTMLImageElement) {
+  const source = surface(img.width, img.height),
+    ctx = source.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const pixels = ctx.getImageData(0, 0, img.width, img.height);
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const r = pixels.data[i],
+      g = pixels.data[i + 1],
+      b = pixels.data[i + 2];
+    if (r > 40 && b > 40 && g < Math.min(r, b) * 0.85) pixels.data[i + 3] = 0;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  return [
+    croppedFrame(source, [38, 146, 444, 565], 64, 80),
+    croppedFrame(source, [525, 120, 500, 592], 56, 76),
+    croppedFrame(source, [1100, 32, 362, 680], 44, 80),
+    croppedFrame(source, [1546, 516, 479, 196], 64, 28),
+  ];
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
@@ -334,6 +408,7 @@ export function loadArt() {
     loadImage('/art/locomotion-v4.png'),
     loadImage('/art/reinforcements-v5.png'),
     loadImage('/art/reactions-v6.png'),
+    loadImage('/art/destructible-scenery-v9.png'),
   ]).then(
     ([
       bg,
@@ -343,6 +418,7 @@ export function loadArt() {
       locomotion,
       reinforcement,
       reactions,
+      scenery,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -362,6 +438,8 @@ export function loadArt() {
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
         aircraft: buildAircraft(vehicleArt[1]),
+        emplacements: buildEmplacements(),
+        scenery: sceneryFrames(scenery),
       };
     },
   );
@@ -400,6 +478,7 @@ export function cardFrame(art: Art, index: number) {
 }
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
+  if (c.emplacement) return art.emplacements[c.emplacement][frame];
   if (c.airframe) return art.aircraft[c.airframe][frame];
   if (c.air) return art.vehicles[1][frame];
   if (modelOf(id) === 'tank') return art.vehicles[0][frame];
@@ -408,6 +487,7 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
+  if (c.emplacement) return [150, 90];
   if (c.airframe === 'scout_drone') return [88, 48];
   if (c.airframe === 'attack_drone') return [176, 78];
   if (c.airframe === 'loiter_drone') return [104, 52];

@@ -1,5 +1,10 @@
+import {
+  damageScenery,
+  obstacleBoxes,
+  sceneryIntercept,
+} from '../game/world.ts';
 import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
-import { weaponCard, weaponModel } from '../game/cards.ts';
+import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
 import assert from 'node:assert/strict';
 import {
   createGame,
@@ -23,7 +28,10 @@ import {
   unitRange,
   needsTarget,
   requestDraw,
-  ARTILLERY,
+  refreshVision,
+  snapshot,
+  cardCost,
+  cardReadyIn,
   DRAW_COST,
   MAX_CRATER_DEPTH,
   formationPositions,
@@ -46,6 +54,7 @@ const hand = (s, id) => {
 const fresh = () => {
   const s = createGame(37);
   startGame(s);
+  s.scenery = [];
   // Legacy battlefield scenarios explicitly stage their own initial units.
   spawnUnit(s, 0, 'infantry', 175);
   spawnUnit(s, 1, 'infantry', W - 175);
@@ -139,7 +148,7 @@ check('弃牌在牌库抽空后重新洗入', () => {
     p = s.players[0];
   p.hand = [];
   p.deck = [];
-  p.discard = ['tank', 'jam'];
+  p.discard = ['tank', 'jam'].map((id) => ({ id, uid: ++s.uid }));
   assert.equal(draw(s, 0, 2), 2);
   assert.equal(p.hand.length, 2);
   assert.equal(p.discard.length, 0);
@@ -346,7 +355,7 @@ check('士兵主动进入弹坑，蹲伏掩护与探身开火交替', () => {
   assert(craterCover(s, u.x, 990) > 0.2);
   const x = u.x;
   s.units = [u];
-  advance(s, 3);
+  advance(s, 5);
   assert(u.x > x + 30);
   assert.equal(u.cover, 0);
 });
@@ -444,6 +453,13 @@ const duel = (id, distance) => {
   target.hp = target.maxHp = 10000;
   u.cooldown = 0;
   setOrder(s, 0, 'hold');
+  spawnUnit(s, 0, 'supply_team', target.x - 100);
+  const eyes = s.units[2];
+  s.units = [u, target, eyes];
+  eyes.cooldown = 1e6;
+  eyes.pace = 0;
+  eyes.decisionIn = 1e6;
+  refreshVision(s);
   return { s, u, target };
 };
 check('所有战斗兵种在远距离开火，射程外不会误射', () => {
@@ -493,7 +509,7 @@ check('迫击炮穿烟曲射，最小射程内后撤', () => {
   tick(d.s, 1 / 60);
   assert(d.u.fire > 0);
   assert.equal(d.s.projectiles[0].arc, 170);
-  advance(d.s, 1.5);
+  advance(d.s, 2.6);
   assert(d.target.hp < d.target.maxHp);
   const near = duel('mortar', 179),
     x = near.u.x;
@@ -538,28 +554,14 @@ check('军医只治疗存活友军步兵，抢修只作用于已有装甲', () =
   assert.equal(heli.hp, heli.maxHp - 100);
   assert(patient.hp <= patient.maxHp);
 });
-check('精确打击只命中一次，新增指令统一校验落点', () => {
+check('固定火炮部署和所有目标卡统一校验位置', () => {
   const s = fresh();
-  s.units = [];
-  s.walls = [];
-  s.original.fill(374);
-  s.terrain.fill(374);
-  spawnUnit(s, 1, 'tank', 900);
-  const u = s.units[0];
-  u.cooldown = 1000;
-  u.secondaryCooldown = 1000;
-  u.pace = 0;
   s.players[0].energy = 10;
-  const p = hand(s, 'precision');
-  const before = s.explosions;
-  assert.equal(playCard(s, 0, p.uid).ok, false);
-  assert.equal(s.players[0].energy, 10);
-  assert(playCard(s, 0, p.uid, 900).ok);
-  advance(s, 2);
-  assert.equal(s.explosions, before);
-  advance(s, 1);
-  assert.equal(s.explosions, before + 1);
-  assert(u.hp < u.maxHp);
+  const h = hand(s, 'precision');
+  assert(!playCard(s, 0, h.uid).ok);
+  assert(!playCard(s, 0, h.uid, 900).ok);
+  assert(playCard(s, 0, h.uid, 320).ok);
+  assert(s.units.some((u) => u.id === 'precision'));
   assert.equal(s.markers.length, 0);
   for (const id of [
     'smoke',
@@ -569,10 +571,10 @@ check('精确打击只命中一次，新增指令统一校验落点', () => {
     'medic',
     'mortar',
     'ifv',
+    'antitank_mine',
   ])
     assert(needsTarget(id));
-  for (const id of ['recon', 'repair', 'supply'])
-    assert.equal(needsTarget(id), false);
+  for (const id of ['recon', 'repair', 'supply']) assert(!needsTarget(id));
 });
 check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () => {
   const s = fresh();
@@ -587,14 +589,16 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   setOrder(s, 0, 'prone');
   setOrder(s, 1, 'hold');
   u.cooldown = 0;
+  spawnUnit(s, 0, 'scout_drone', 1200);
+  refreshVision(s);
   tick(s, 1 / 60);
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('45种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 45);
+check('54种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 54);
   assert(validDeck(DECK));
-  assert(!validDeck([...DECK.slice(0, 19), DECK[0]]));
+  assert(validDeck([...DECK.slice(0, 19), DECK[0]]));
   assert(!validDeck([...DECK.slice(0, 19), 'unknown']));
   assert(!validDeck(DECK.slice(1)));
   for (let seed = 0; seed < 20; seed++) {
@@ -606,7 +610,7 @@ check('45种资源、合法20张自选卡组、双方真实随机起手且无免
       assert.equal(p.hand.length, 6);
       assert.equal(p.deck.length, 14);
       assert.deepEqual(
-        [...p.hand.map((h) => h.id), ...p.deck].sort(),
+        [...p.hand.map((h) => h.id), ...p.deck.map((h) => h.id)].sort(),
         [...(i ? ai : DECK)].sort(),
       );
     });
@@ -625,7 +629,7 @@ check('双方洗牌随机流隔离，原始卡组不可被战斗改写', () => {
   assert.deepEqual(a.players[0].loadout, DECK);
   for (const s of [a, b]) {
     const p = s.players[0];
-    p.discard = [...p.deck, ...p.hand.map((h) => h.id)];
+    p.discard = [...p.deck, ...p.hand];
     p.deck = [];
     p.hand = [];
   }
@@ -646,6 +650,7 @@ const arena = () => {
   startGame(s);
   s.aiIn = 1e6;
   s.walls = [];
+  s.scenery = [];
   s.terrain.fill(374);
   s.original.fill(374);
   return s;
@@ -770,7 +775,7 @@ check('防空组只瞄准空中目标，反坦克爆炸只给装甲额外伤害'
   assert.equal(1000 - a.units[0].hp, 10);
   assert.equal(1000 - a.units[1].hp, 16);
 });
-check('新增七种指令分别作用，炮幕恰好五轮且循环牌数守恒', () => {
+check('战术指令分别作用，重炮部署为静止单位', () => {
   const s = arena();
   spawnUnit(s, 0, 'infantry', 600);
   spawnUnit(s, 1, 'tank', 1500);
@@ -806,9 +811,13 @@ check('新增七种指令分别作用，炮幕恰好五轮且循环牌数守恒'
   use('ammo');
   assert.equal(p.hand.length, 3);
   s.units = [];
-  use('barrage');
+  p.energy = 10;
+  p.hand = [];
+  assert(playCard(s, 0, hand(s, 'barrage').uid, 320).ok);
   advance(s, 8);
-  assert.equal(s.explosions, 5);
+  assert.equal(s.units[0].id, 'barrage');
+  assert.equal(s.units[0].x, 320);
+  assert.equal(s.explosions, 0);
   assert.equal(s.markers.length, 0);
 });
 check('山地兵加快攀墙，工兵破墙而非原地卡住', () => {
@@ -874,7 +883,7 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
     for (const side of [0, 1]) {
       const p = s.players[side];
       p.energy = 10;
-      const h = p.hand[0];
+      const h = p.hand.find((h) => cardReadyIn(s, h) <= 0);
       if (h)
         assert(
           playCard(
@@ -886,7 +895,16 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
         );
       draw(s, side, 1);
       assert.deepEqual(
-        [...p.hand.map((h) => h.id), ...p.deck, ...p.discard].sort(),
+        [
+          ...p.hand,
+          ...p.deck,
+          ...p.discard,
+          ...s.units
+            .filter((u) => u.side === side && u.sortieCard)
+            .map((u) => u.sortieCard),
+        ]
+          .map((h) => h.id)
+          .sort(),
         originals[side],
       );
     }
@@ -901,7 +919,7 @@ check('枪弹、炮弹和火箭使用各自速度与弹道，曳光按射击次�
   assert(FLIGHT.mortar.arc > 100);
   assert.deepEqual(
     Array.from({ length: 8 }, (_, i) => isTracer('machinegun', i + 1)),
-    [true, false, false, false, true, false, false, false],
+    [true, false, true, false, true, false, true, false],
   );
   const s = arena();
   spawnUnit(s, 0, 'infantry', 700);
@@ -1004,7 +1022,7 @@ check('AI 空手及低价值技能手牌都能付费补牌并重新部署', () =
     const s = arena(),
       p = s.players[1];
     p.hand = skills.map((id) => ({ id, uid: ++s.uid }));
-    p.deck = ['infantry', 'marines'];
+    p.deck = ['infantry', 'marines'].map((id) => ({ id, uid: ++s.uid }));
     p.discard = [];
     p.energy = 10;
     p.drawIn = 0;
@@ -1130,41 +1148,40 @@ check('坦克履带跨浅坑保持支撑，宽坡倾斜且炮口跟随车身', (
     );
   }
 });
-check('火炮按预警延时分批落弹，散布在范围内且落点预先锁定', () => {
-  for (const kind of ['artillery', 'barrage', 'precision']) {
-    const s = arena(),
-      cfg = ARTILLERY[kind];
-    s.players[0].energy = 10;
-    assert(playCard(s, 0, hand(s, kind).uid, 1800).ok);
-    const marker = s.markers[0],
-      impacts = [...marker.impacts];
-    assert.equal(impacts.length, cfg.count);
-    impacts.forEach((x, i) =>
-      assert(
-        Math.abs(x - (1800 + (i - (cfg.count - 1) / 2) * cfg.spacing)) <=
-          cfg.scatter,
-      ),
-    );
-    advance(s, cfg.delay - 0.1);
+check('三种火炮固定发射真实抛物线炮弹，落点有散布并周期装填', () => {
+  for (const id of ['artillery', 'barrage', 'precision']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 600);
+    const gun = s.units[0];
+    gun.cooldown = 0;
+    spawnUnit(s, 1, 'tank', 1100);
+    const target = s.units[1];
+    target.pace = 0;
+    target.cooldown = target.secondaryCooldown = 100;
+    target.hp = target.maxHp = 10000;
+    spawnUnit(s, 0, 'scout_drone', 1000);
+    tick(s, 1 / 60);
+    const p = s.projectiles.find((p) => p.sourceUid === gun.uid);
+    assert(p?.shell);
+    assert(p.total >= 2);
+    assert(Math.abs(p.tx - target.x) < 45);
     assert.equal(s.explosions, 0);
-    s.seed = 8372;
-    advance(s, 0.2);
+    advance(s, 1);
+    assert.equal(s.explosions, 0);
+    advance(s, 1.3);
     assert.equal(s.explosions, 1);
-    assert.equal(s.blasts[0].x, impacts[0]);
-    assert.deepEqual(marker.impacts, impacts);
-    if (cfg.count > 1) {
-      advance(s, cfg.interval - 0.25);
-      assert.equal(s.explosions, 1);
-      advance(s, 0.3);
-      assert.equal(s.explosions, 2);
-    }
+    assert.equal(gun.x, 600);
+    assert.equal(gun.shots, 1);
+    advance(s, CARDS[id].rate);
+    assert(gun.shots >= 2);
+    assert.equal(s.markers.length, 0);
   }
 });
 check('普通火炮不能一轮清空满编队伍，边缘伤害衰减且移动可躲开精确打击', () => {
   const s = arena();
   spawnUnit(s, 1, 'infantry', 1800);
   s.players[0].energy = 10;
-  assert(playCard(s, 0, hand(s, 'artillery').uid, 1705).ok);
+  explode(s, 1705, 366, 36, 44, 0);
   s.units.forEach((u) => {
     u.pace = 0;
     u.decisionIn = 100;
@@ -1186,7 +1203,25 @@ check('普通火炮不能一轮清空满编队伍，边缘伤害衰减且移动�
   spawnUnit(moving, 1, 'tank', 1800);
   const tank = moving.units[0];
   moving.players[0].energy = 10;
-  assert(playCard(moving, 0, hand(moving, 'precision').uid, 1800).ok);
+  moving.projectiles.push({
+    uid: ++moving.uid,
+    shell: true,
+    side: 0,
+    x: 1000,
+    y: 300,
+    startX: 1000,
+    startY: 300,
+    tx: 1800,
+    ty: 366,
+    total: 2.6,
+    life: 2.6,
+    arc: 170,
+    ammunition: 'mortar',
+    targetUid: tank.uid,
+    base: null,
+    radius: 22,
+    damage: 75,
+  });
   advance(moving, 3);
   assert.equal(tank.hp, tank.maxHp);
   assert(tank.x < 1740);
@@ -1296,7 +1331,7 @@ check('未倒地中弹、致命中弹和炮击与伤员分支区分，倒地仍�
   assert.equal(v.hp, 0);
   assert.equal(b.players[1].kills, 1);
 });
-check('爆炸火光和烟雾独立存在四秒，不受粒子上限或暂停影响', () => {
+check('爆炸火光和烟雾独立存在七秒，不受粒子上限或暂停影响', () => {
   const s = arena();
   explode(s, 1800, 366, 42, 0, 0);
   assert.equal(s.blasts.length, 1);
@@ -1311,7 +1346,7 @@ check('爆炸火光和烟雾独立存在四秒，不受粒子上限或暂停影�
   advance(s, 5);
   assert.equal(s.blasts[0].age, age);
   s.status = 'playing';
-  advance(s, 2);
+  advance(s, 5);
   assert.equal(s.blasts.length, 0);
 });
 check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减员不改武器', () => {
@@ -1358,91 +1393,79 @@ check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减�
     assert(squad.slice(1).every((u) => weaponModel(u) === 'infantry'));
   }
 });
-check('炮击使双方班组分散并保持卧倒，驻守和治疗不会反复拉起', () => {
+check('炮弹临近才触发短距离分散并保持卧倒，不提前跑向范围边缘', () => {
   for (const side of [0, 1]) {
     const s = arena();
-    spawnUnit(s, side, 'infantry', side === 0 ? 1000 : 810);
-    const original = s.units.map((u) => u.x);
-    for (const u of s.units) {
-      u.cooldown = 100;
-      u.decisionIn = 100;
+    spawnUnit(s, side, 'infantry', side ? 810 : 1000);
+    s.units.forEach((u) => {
       u.hp = u.maxHp = 10000;
-    }
-    setOrder(s, side, 'hold');
-    s.markers.push({
-      uid: ++s.uid,
-      x: 905,
-      timer: 2.8,
-      side: side === 0 ? 1 : 0,
-      wave: 0,
-      kind: 'artillery',
-      impacts: [835, 905, 975],
+      u.cooldown = u.decisionIn = 100;
     });
-    advance(s, 0.8);
-    assert(s.units.every((u, i) => Math.abs(u.x - original[i]) > 20));
-    assert(
-      new Set(s.units.map((u) => Math.round(u.evadeGoal ?? u.x))).size >= 5,
-    );
-    assert(s.units.some((u, i) => u.x < original[i]));
-    assert(s.units.some((u, i) => u.x > original[i]));
-    advance(s, 1.65);
-    assert(
-      s.units.every((u) => u.pose === 'prone' && !u.moving && u.fire === 0),
-    );
-    advance(s, 2.6);
-    assert.equal(s.markers.length, 0);
-    assert(s.units.every((u) => u.pose === 'prone'));
-    advance(s, 0.7);
-    assert(s.units.every((u) => u.evadeUntil < s.time));
+    setOrder(s, side, 'hold');
+    const original = s.units.map((u) => u.x);
+    s.projectiles.push({
+      uid: ++s.uid,
+      shell: true,
+      side: side ? 0 : 1,
+      x: 400,
+      y: 300,
+      startX: 400,
+      startY: 300,
+      tx: 905,
+      ty: 366,
+      total: 2.8,
+      life: 2.8,
+      arc: 170,
+      ammunition: 'mortar',
+      targetUid: null,
+      base: null,
+      radius: 36,
+      damage: 20,
+    });
+    advance(s, 1.9);
+    assert(s.units.every((u, i) => u.x === original[i]));
+    advance(s, 0.55);
+    assert(s.units.some((u) => u.evadeUntil > s.time));
+    advance(s, 0.5);
+    assert(s.units.every((u) => u.pose === 'prone' && !u.moving));
+    assert(s.units.every((u, i) => Math.abs(u.x - original[i]) <= 40));
   }
 });
-check('避炮不预知随机落点，友军炮击和伤员、装甲、空军不触发逃散', () => {
-  const stages = [];
-  for (const impacts of [
-    [800, 900, 1000],
-    [827, 928, 970],
-  ]) {
-    const s = arena();
-    spawnUnit(s, 0, 'infantry', 1000);
-    s.markers.push({
-      uid: ++s.uid,
-      x: 905,
-      timer: 2.8,
-      side: 1,
-      wave: 0,
-      kind: 'artillery',
-      impacts,
-    });
-    advance(s, 0.8);
-    stages.push(s.units.map((u) => [u.x, u.evadeGoal]));
-  }
-  assert.deepEqual(stages[0], stages[1]);
+check('友军炮弹、伤员、装甲和空军不会触发步兵分散动作', () => {
   const s = arena();
   spawnUnit(s, 0, 'infantry', 1000);
-  s.markers.push({
+  s.units[0].wounded = true;
+  s.units[0].bleedOut = 25;
+  spawnUnit(s, 0, 'tank', 950);
+  spawnUnit(s, 0, 'scout_drone', 950);
+  const shell = {
     uid: ++s.uid,
-    x: 905,
-    timer: 2.8,
+    shell: true,
     side: 0,
-    wave: 0,
-    kind: 'artillery',
-  });
+    x: 800,
+    y: 300,
+    startX: 800,
+    startY: 300,
+    tx: 905,
+    ty: 366,
+    total: 0.4,
+    life: 0.4,
+    arc: 0,
+    ammunition: 'mortar',
+    targetUid: null,
+    base: null,
+    radius: 36,
+    damage: 0,
+  };
+  s.projectiles.push(shell);
   tick(s, 1 / 60);
-  assert(s.units.every((u) => u.evadeUntil === 0));
-  const wounded = s.units[0];
-  wounded.wounded = true;
-  wounded.bleedOut = 25;
-  const x = wounded.x;
-  spawnUnit(s, 0, 'tank', 905);
-  spawnUnit(s, 0, 'scout_drone', 905);
-  s.markers[0].side = 1;
+  assert(s.units.every((u) => !u.evadeUntil));
+  shell.side = 1;
   tick(s, 1 / 60);
-  assert.equal(wounded.x, x);
-  assert.equal(wounded.evadeUntil, 0);
   assert(
     s.units
-      .filter((u) => !CARDS[u.id].members)
-      .every((u) => u.evadeUntil === 0 && u.pose !== 'prone'),
+      .filter((u) => u.wounded || !CARDS[u.id].members)
+      .every((u) => !u.evadeUntil),
   );
 });
 check('五种新航空卡可部署、各有固定高度，AI编队涵盖无人机和制空机', () => {
@@ -1472,7 +1495,6 @@ check('五种新航空卡可部署、各有固定高度，AI编队涵盖无人�
   for (const id of [
     'scout_drone',
     'attack_drone',
-    'loiter_drone',
     'interceptor',
     'rocket_heli',
   ])
@@ -1539,6 +1561,7 @@ check('截击机持续飞行且只对前方空中目标开火，边界可返航'
   assert.equal(jet.fire, 0);
   assert(jet.x > 800);
   spawnUnit(s, 1, 'helicopter', 1100);
+  refreshVision(s);
   const heli = s.units.at(-1);
   heli.pace = 0;
   heli.cooldown = 100;
@@ -1552,13 +1575,9 @@ check('截击机持续飞行且只对前方空中目标开火，边界可返航'
       (p) => p.sourceUid === jet.uid && p.targetUid === heli.uid,
     ),
   );
-  jet.x = W - 126;
+  jet.x = W + 155;
   tick(s, 1 / 60);
-  assert.equal(jet.patrolDir, -1);
-  assert.equal(jet.facing, -1);
-  const turn = jet.x;
-  tick(s, 1 / 60);
-  assert(jet.x < turn);
+  assert(!s.units.includes(jet));
   assert.equal(jet.y, CARDS.interceptor.altitude);
 });
 check('察打与反甲直升机发射导弹，巡飞弹只俯冲一次且自身消耗不计阵亡', () => {
@@ -1656,7 +1675,9 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
       if (frame >= decision) {
         const p = s.players[0];
         if (p.hand.length < 3) requestDraw(s, 0);
-        const h = p.hand.find((h) => CARDS[h.id].cost <= p.energy);
+        const h = p.hand.find(
+          (h) => cardCost(h) <= p.energy && cardReadyIn(s, h) <= 0,
+        );
         if (h) {
           const c = CARDS[h.id],
             foes = s.units.filter((u) => u.side === 1 && u.hp > 0);
@@ -1691,6 +1712,373 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
       `  seed ${seed}: ${s.result}, ${s.time.toFixed(1)}s, ${Math.round(s.players[0].hp)}:${Math.round(s.players[1].hp)}`,
     );
   }
+});
+check('重复卡按每种上限校验，总编队固定20张', () => {
+  const base = DECK.filter((id) => id !== 'militia' && id !== 'tank');
+  assert.equal(copyLimit('militia'), 6);
+  assert.equal(copyLimit('tank'), 2);
+  assert(validDeck([...base.slice(0, 14), ...Array(6).fill('militia')]));
+  assert(!validDeck([...base.slice(0, 13), ...Array(7).fill('militia')]));
+  assert(validDeck([...base.slice(0, 18), 'tank', 'tank']));
+  assert(!validDeck([...base.slice(0, 17), 'tank', 'tank', 'tank']));
+});
+check('主战坦克穿甲两发击毁，非致命命中仅有火星，残骸永久保留', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'tank', 800);
+  spawnUnit(s, 1, 'tank', 1300);
+  const [a, b] = s.units;
+  a.cooldown = 0;
+  b.cooldown = b.secondaryCooldown = 100;
+  b.pace = 0;
+  tick(s, 1 / 60);
+  const p = s.projectiles.find((p) => p.sourceUid === a.uid);
+  assert.equal(p.ammunition, 'ap');
+  assert.equal(p.radius, 0);
+  assert.equal(p.damage, 390);
+  advance(s, 0.4);
+  assert.equal(b.hp, 260);
+  assert.equal(s.explosions, 0);
+  assert.equal(s.wrecks.length, 0);
+  a.cooldown = 0;
+  advance(s, 0.5);
+  assert.equal(b.hp, 0);
+  assert.equal(s.wrecks.filter((w) => w.id === b.uid).length, 1);
+  assert.equal(s.explosions, 1);
+  s.units = [];
+  advance(s, 35);
+  assert.equal(s.wrecks.length, 1);
+  assert.equal(s.wrecks[0].falling, false);
+  assert(craterCover(s, b.x - 75, b.x + 200) > 0.3);
+});
+check('标枪与反坦克炮的直击破甲倍率生效，原坦克与直升机强度保留', () => {
+  assert.equal(CARDS.tank.hp, 650);
+  assert.equal(CARDS.tank.damage, 80);
+  assert.equal(CARDS.helicopter.hp, 260);
+  assert.equal(CARDS.helicopter.damage, 30);
+  for (const id of ['javelin', 'anti_tank_gun']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 800);
+    const a = s.units[0];
+    s.units = [a];
+    spawnUnit(s, 1, 'tank', 1200);
+    const b = s.units[1];
+    b.pace = 0;
+    b.cooldown = b.secondaryCooldown = 100;
+    a.cooldown = 0;
+    a.decisionIn = 100;
+    setOrder(s, 0, 'hold');
+    advance(s, 1);
+    assert(b.hp < 540, `${id}: ${b.hp}`);
+  }
+});
+check('地雷预先布设、延迟起爆，仅由装甲触发一次并迟滞目标', () => {
+  const s = arena();
+  s.players[0].hand = [];
+  assert(playCard(s, 0, hand(s, 'antitank_mine').uid, 1000).ok);
+  spawnUnit(s, 1, 'infantry', 1000);
+  s.units.forEach((u) => {
+    u.pace = 0;
+    u.cooldown = 100;
+  });
+  advance(s, 2.1);
+  assert.equal(s.mines.length, 1);
+  spawnUnit(s, 1, 'tank', 1000);
+  const tank = s.units.at(-1);
+  tank.pace = 0;
+  tick(s, 1 / 60);
+  assert.equal(s.mines.length, 0);
+  assert.equal(tank.hp, 390);
+  assert(tank.slowedUntil > s.time);
+  const hp = tank.hp;
+  advance(s, 0.2);
+  assert.equal(tank.hp, hp);
+});
+check('制导防空追踪高速通场飞机并造成实际伤害', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'sam_vehicle', 900);
+  const sam = s.units[0];
+  sam.cooldown = 0;
+  spawnUnit(s, 1, 'strike_jet', 1750);
+  s.players[1].morale = 8;
+  const jet = s.units[1];
+  jet.cooldown = 100;
+  jet.hp = jet.maxHp = 1000;
+  tick(s, 1 / 60);
+  const missile = s.projectiles.find((p) => p.sourceUid === sam.uid);
+  assert(missile?.guided);
+  const tx = missile.tx;
+  advance(s, 0.4);
+  assert(missile.tx < tx - 150);
+  advance(s, 1);
+  assert(jet.hp < 1000);
+});
+const tokenList = (s, side) => [
+  ...s.players[side].hand,
+  ...s.players[side].deck,
+  ...s.players[side].discard,
+  ...s.units
+    .filter((u) => u.side === side && u.sortieCard)
+    .map((u) => u.sortieCard),
+];
+check('两张同名飞机分别返航优惠与整备，整副牌UID守恒', () => {
+  const deck = [...DECK];
+  deck[0] = 'strike_jet';
+  const s = createGame(9, deck);
+  startGame(s);
+  s.aiIn = 1e6;
+  const p = s.players[0],
+    original = tokenList(s, 0)
+      .map((h) => h.uid)
+      .sort((a, b) => a - b),
+    planes = tokenList(s, 0).filter((h) => h.id === 'strike_jet');
+  assert.equal(planes.length, 2);
+  p.hand = p.hand.filter((h) => !planes.includes(h));
+  p.deck = p.deck.filter((h) => !planes.includes(h));
+  p.discard = p.discard.filter((h) => !planes.includes(h));
+  p.discard.push(...p.hand);
+  p.hand = [...planes];
+  for (const h of planes) {
+    p.energy = 10;
+    assert(playCard(s, 0, h.uid, 300).ok);
+  }
+  const airborne = s.units.filter((u) => u.sortieCard);
+  airborne[0].x = W + 159;
+  tick(s, 1 / 60);
+  assert.equal(p.hand[0].uid, planes[0].uid);
+  assert.equal(cardCost(p.hand[0]), 2);
+  assert(cardReadyIn(s, p.hand[0]) > 0);
+  assert(!planes[1].returnedOnce);
+  const before = p.energy;
+  assert(!playCard(s, 0, planes[0].uid, 300).ok);
+  assert.equal(p.energy, before);
+  assert.deepEqual(
+    tokenList(s, 0)
+      .map((h) => h.uid)
+      .sort((a, b) => a - b),
+    original,
+  );
+  assert.equal(new Set(tokenList(s, 0).map((h) => h.uid)).size, 20);
+  const ready = cardReadyIn(s, planes[0]);
+  s.status = 'paused';
+  advance(s, 3);
+  assert.equal(cardReadyIn(s, planes[0]), ready);
+  s.status = 'playing';
+  airborne[1].x = W + 159;
+  tick(s, 1 / 60);
+  advance(s, 25);
+  p.energy = 2;
+  assert(playCard(s, 0, planes[0].uid, 300).ok);
+  assert.equal(p.energy, 0);
+});
+check('满手返航转弃牌保留优惠，优惠飞机被击落恢复全价且只结算一次', () => {
+  const s = arena(),
+    p = s.players[0];
+  p.hand = [];
+  p.energy = 10;
+  const h = hand(s, 'strike_jet');
+  assert(playCard(s, 0, h.uid, 300).ok);
+  const jet = s.units[0];
+  draw(s, 0, 6);
+  jet.x = W + 159;
+  tick(s, 1 / 60);
+  assert.equal(p.hand.length, 6);
+  assert(p.discard.includes(h));
+  assert(h.returnedOnce);
+  p.discard = p.discard.filter((v) => v !== h);
+  p.hand = [h];
+  h.readyAt = 0;
+  p.energy = 10;
+  assert(playCard(s, 0, h.uid, 300).ok);
+  const returned = s.units.find((u) => u.sortieCard === h);
+  explode(s, returned.x, returned.y - 20, 50, 1000, 1);
+  assert(p.discard.includes(h));
+  assert.equal(cardCost(h), CARDS.strike_jet.cost);
+  assert(!h.returnedOnce);
+  explode(s, returned.x, returned.y - 20, 50, 1000, 1);
+  assert.equal(p.discard.filter((v) => v === h).length, 1);
+});
+check('飞机坠落后只爆炸一次，落地残骸才提供真实掩体', () => {
+  const s = arena();
+  spawnUnit(s, 1, 'helicopter', 1000);
+  explode(s, 1000, CARDS.helicopter.altitude ?? 232, 80, 1000, 0);
+  const w = s.wrecks[0];
+  assert(w.falling);
+  assert.equal(obstacleBoxes(s).filter((b) => b.wreck).length, 0);
+  const count = s.explosions;
+  advance(s, 2);
+  assert(!w.falling);
+  assert.equal(s.explosions, count + 1);
+  assert(obstacleBoxes(s).some((b) => b.wreck === w));
+  advance(s, 30);
+  assert.equal(s.explosions, count + 1);
+  assert(s.wrecks.includes(w));
+});
+check('房屋分部受损，倒树与废墙永久形成低掩体并拦截弹道', () => {
+  const s = createGame();
+  startGame(s);
+  s.aiIn = 1e6;
+  const house = s.scenery.find((p) => p.kind === 'house'),
+    tree = s.scenery.find((p) => p.kind === 'tree');
+  const wall = house.parts[0];
+  damageScenery(s, wall.x + 4, wall.y + 20, 2, 1000);
+  assert.equal(wall.hp, 0);
+  assert(house.parts.some((p) => p.kind === 'wall' && p.hp > 0));
+  assert(obstacleBoxes(s).some((b) => b.part === wall && b.rubble));
+  damageScenery(s, tree.x, tree.y - 45, 12, 1000);
+  assert(tree.parts.every((p) => p.hp === 0));
+  const fallen = obstacleBoxes(s).find((b) => b.prop === tree && b.rubble);
+  assert(fallen);
+  assert(
+    sceneryIntercept(s, tree.x - 40, tree.y - 10, tree.x + 120, tree.y - 10),
+  );
+  assert(craterCover(s, tree.x - 25, tree.x + 200) > 0.2);
+});
+check('双方视野与快照隐藏未发现敌人，树冠挡视野不挡子弹', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'tank', 1000);
+  spawnUnit(s, 1, 'infantry', 1350);
+  const tank = s.units[0];
+  tank.cooldown = tank.secondaryCooldown = 0;
+  s.scenery = [
+    {
+      id: 99,
+      kind: 'tree',
+      x: 1170,
+      y: 374,
+      seed: 1,
+      parts: [
+        {
+          id: 0,
+          kind: 'crown',
+          x: 1160,
+          y: 240,
+          w: 40,
+          h: 130,
+          hp: 100,
+          maxHp: 100,
+          brokenAt: -1,
+        },
+      ],
+    },
+  ];
+  refreshVision(s);
+  assert(snapshot(s).units.every((u) => u.side === 0));
+  assert.equal(snapshot(s).players[1].hand.length, 0);
+  assert.equal(snapshot(s, 1).players[0].hand.length, 0);
+  tick(s, 1 / 60);
+  assert.equal(tank.shots, 0);
+  assert.equal(tank.secondaryShots, 0);
+  assert.equal(sceneryIntercept(s, 1080, 320, 1350, 347), null);
+  s.scenery = [];
+  refreshVision(s);
+  tick(s, 1 / 60);
+  assert(tank.shots > 0);
+  assert(tank.secondaryShots > 0);
+});
+check('观察员提供炮兵共享目标，撤离后不再向未知目标开火', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'artillery', 500);
+  spawnUnit(s, 1, 'tank', 1500);
+  const [gun, target] = s.units;
+  target.pace = 0;
+  target.cooldown = target.secondaryCooldown = 100;
+  gun.cooldown = 0;
+  tick(s, 1 / 60);
+  assert.equal(gun.shots, 0);
+  spawnUnit(s, 0, 'scout_drone', 1350);
+  refreshVision(s);
+  tick(s, 1 / 60);
+  assert.equal(gun.shots, 1);
+  s.units = s.units.filter((u) => u.id !== 'scout_drone');
+  refreshVision(s);
+  gun.cooldown = 0;
+  tick(s, 1 / 60);
+  assert.equal(gun.shots, 1);
+});
+check('蹲伏士兵主动寻找残骸，低掩体可探身射击并吸收爆炸冲击', () => {
+  const s = arena();
+  s.wrecks.push({
+    id: 1,
+    cardId: 'tank',
+    side: 0,
+    x: 1000,
+    y: 374,
+    angle: 0,
+    age: 10,
+    falling: false,
+    vx: 0,
+    vy: 0,
+  });
+  spawnUnit(s, 0, 'infantry', 880);
+  const u = s.units[0];
+  s.units = [u];
+  u.tactic = 'cover';
+  u.decisionIn = 100;
+  u.hp = u.maxHp = 1000;
+  spawnUnit(s, 1, 'infantry', 1300);
+  const target = s.units[1];
+  s.units = [u, target];
+  target.cooldown = 100;
+  target.pace = 0;
+  u.x = 910;
+  refreshVision(s);
+  advance(s, 2);
+  assert(u.cover > 0.2);
+  assert(u.x < 938);
+  assert(u.shots > 0);
+  const blocked = arena();
+  blocked.wrecks = [{ ...s.wrecks[0], x: 1000 }];
+  spawnUnit(blocked, 0, 'infantry', 930);
+  const soldier = blocked.units[0];
+  blocked.units = [soldier];
+  soldier.hp = soldier.maxHp = 1000;
+  const open = arena();
+  spawnUnit(open, 0, 'infantry', 930);
+  const naked = open.units[0];
+  open.units = [naked];
+  naked.hp = naked.maxHp = 1000;
+  explode(blocked, 1070, 354, 180, 100, 1);
+  explode(open, 1070, 354, 180, 100, 1);
+  assert(soldier.hp > naked.hp);
+});
+check('顽强部队不会投降，补给班部署仅抽一张且不突破手牌上限', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'steadfast', 1000);
+  const u = s.units[0];
+  s.units = [u];
+  u.hp = 1;
+  u.personalMorale = 1;
+  u.cooldown = 100;
+  spawnUnit(s, 1, 'infantry', 1200);
+  s.units.slice(1).forEach((v) => (v.cooldown = 100));
+  tick(s, 1 / 60);
+  assert(!u.surrendered);
+  const t = arena(),
+    p = t.players[0];
+  p.hand = [];
+  p.energy = 10;
+  const h = hand(t, 'supply_team'),
+    n = p.deck.length;
+  assert(playCard(t, 0, h.uid, 300).ok);
+  assert.equal(p.hand.length, 1);
+  assert.equal(p.deck.length, n - 1);
+  assert.equal(t.units.length, 3);
+});
+
+check('未观察到的墙体破坏保持旧记忆，再次观察时才更新', () => {
+  const s = createGame();
+  startGame(s);
+  s.aiIn = 1e6;
+  s.scenery = [];
+  const w = s.walls.at(-1);
+  spawnUnit(s, 1, 'tank', w.x);
+  tick(s, 1 / 60);
+  assert.equal(w.hp, 0);
+  assert.equal(snapshot(s).units.length, 0);
+  assert.equal(snapshot(s).walls.find((v) => v.uid === w.uid).hp, 140);
+  spawnUnit(s, 0, 'scout_drone', w.x - 80);
+  refreshVision(s);
+  assert.equal(snapshot(s).walls.find((v) => v.uid === w.uid).hp, 0);
 });
 console.log(`${count} gameplay checks passed`);
 if (failures.length)

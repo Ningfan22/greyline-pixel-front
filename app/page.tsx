@@ -40,7 +40,7 @@ export default function Home() {
     };
   }, []);
   const save = (next: CardId[]) => {
-    if (!validDeck(next)) return '请选择 20 张不同的卡牌';
+    if (!validDeck(next)) return '编队需满 20 张，且各卡数量不能超过上限';
     setDeck([...next]);
     try {
       localStorage.setItem(STORAGE, JSON.stringify(next));
@@ -131,20 +131,22 @@ export default function Home() {
                 </button>
               </div>
               <div className="ops-roster-preview">
-                {deck
+                {[...new Set(deck)]
                   .filter((id) => CARDS[id].type === 'unit')
                   .slice(0, 5)
                   .map((id) => (
                     <div key={id}>
                       <SpriteArt id={id} />
-                      <b>{CARDS[id].name}</b>
+                      <b>
+                        {CARDS[id].name} ×{deck.filter((v) => v === id).length}
+                      </b>
                       <small>{CARDS[id].cost} 指挥点</small>
                     </div>
                   ))}
               </div>
               <p>
                 从 {Object.keys(CARDS).length} 种卡牌中选 20
-                种，每种一张。用过的牌在牌库抽空后重新洗入。
+                张，各卡有数量上限。用过的牌在牌库抽空后重新洗入。
               </p>
             </div>
             <aside className="ops-briefing">
@@ -172,7 +174,7 @@ export default function Home() {
         />
       )}
       <footer className="ops-footer">
-        <span>GREYLINE / 战术演习 0.8</span>
+        <span>GREYLINE / 战术演习 0.9</span>
         <span>可破坏地形 · 独立士兵动作 · 手机触控</span>
       </footer>
     </main>

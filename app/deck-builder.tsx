@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   Info,
   Layers3,
   Plus,
@@ -19,7 +18,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { CARDS, DECK, validDeck, type CardId } from '@/game/cards';
+import { CARDS, DECK, validDeck, copyLimit, type CardId } from '@/game/cards';
 import { SpriteArt } from '@/game/card-art';
 const pool = Object.values(CARDS).sort(
   (a, b) => a.cost - b.cost || a.name.localeCompare(b.name, 'zh-CN'),
@@ -47,7 +46,8 @@ export default function DeckBuilder({
   const [message, setMessage] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
   const dirty = [...deck].sort().join('|') !== [...draft].sort().join('|');
-  const ordered = [...draft].sort(
+  const countOf = (id: CardId) => draft.filter((v) => v === id).length;
+  const ordered = [...new Set(draft)].sort(
     (a, b) =>
       CARDS[a].cost - CARDS[b].cost ||
       CARDS[a].name.localeCompare(CARDS[b].name, 'zh-CN'),
@@ -66,29 +66,35 @@ export default function DeckBuilder({
     setPending(null);
   };
   const pick = (id: CardId) => {
-    if (draft.includes(id)) {
-      apply(
-        draft.filter((v) => v !== id),
-        `已移除 ${CARDS[id].name}`,
-      );
+    if (countOf(id) >= copyLimit(id)) {
+      setMessage(`${CARDS[id].name}最多编入 ${copyLimit(id)} 张`);
       return;
     }
     if (draft.length < 20) {
-      apply([...draft, id], `已编入 ${CARDS[id].name}`);
+      apply([...draft, id], `已增加一张${CARDS[id].name}`);
       return;
     }
     setPending(id);
-    setMessage(`选择编队中的一张卡，替换为「${CARDS[id].name}」`);
+    setMessage(`选择一张旧卡，替换为「${CARDS[id].name}」`);
     if (window.matchMedia('(max-width:900px)').matches) setDrawer(true);
   };
   const changeSlot = (id: CardId) => {
+    const index = draft.indexOf(id);
+    if (index < 0) return;
+    const next = [...draft];
     if (pending) {
-      apply(
-        draft.map((v) => (v === id ? pending : v)),
-        `已用 ${CARDS[pending].name} 替换 ${CARDS[id].name}`,
-      );
+      if (pending === id) {
+        setPending(null);
+        return;
+      }
+      if (countOf(pending) >= copyLimit(pending)) return;
+      next[index] = pending;
+      apply(next, `已用一张${CARDS[pending].name}替换${CARDS[id].name}`);
       setDrawer(false);
-    } else pick(id);
+    } else {
+      next.splice(index, 1);
+      apply(next, `已减少一张${CARDS[id].name}`);
+    }
   };
   const save = () => {
     if (validDeck(draft)) setMessage(onSave([...draft]));
@@ -103,6 +109,7 @@ export default function DeckBuilder({
     (c) =>
       (type === 'all' ||
         (type === 'infantry' && c.members) ||
+        (type === 'artillery' && c.emplacement) ||
         (type === 'armor' && c.armored) ||
         (type === 'air' && c.air) ||
         (type === 'skill' && c.type === 'skill')) &&
@@ -111,7 +118,7 @@ export default function DeckBuilder({
         : c.cost === Number(cost)) &&
       (owned === 'all' ||
         (owned === 'selected' && draft.includes(c.id)) ||
-        (owned === 'available' && !draft.includes(c.id))) &&
+        (owned === 'available' && countOf(c.id) < copyLimit(c.id))) &&
       `${c.name}${c.tag}${c.description}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
@@ -179,8 +186,9 @@ export default function DeckBuilder({
           >
             <b>{CARDS[id].cost}</b>
             <span>
-              {CARDS[id].name}
+              {CARDS[id].name} ×{countOf(id)}
               <small>
+                上限 {copyLimit(id)} ·
                 {CARDS[id].members
                   ? `${CARDS[id].members} 人`
                   : CARDS[id].type === 'skill'
@@ -216,7 +224,7 @@ export default function DeckBuilder({
       </div>
       <output className="armory-status">
         {message ||
-          (dirty ? '有未保存的修改' : '每种卡限一张，满编后可直接替换')}
+          (dirty ? '有未保存的修改' : '卡池点一次增加一张，编队点一次减少一张')}
       </output>
       <div className="armory-save">
         <button
@@ -248,7 +256,7 @@ export default function DeckBuilder({
           <h1>编组室</h1>
         </div>
         <p>
-          点击卡牌加入或移除
+          点击卡池增加，点击编队减少
           <br />
           <b>满 20 张后，点新卡再选旧卡替换</b>
         </p>
@@ -266,6 +274,7 @@ export default function DeckBuilder({
                 ['all', '全部'],
                 ['infantry', '步兵'],
                 ['armor', '装甲'],
+                ['artillery', '火炮'],
                 ['air', '航空'],
                 ['skill', '指令'],
               ].map(([v, label]) => (
@@ -318,7 +327,7 @@ export default function DeckBuilder({
             >
               {[
                 ['all', '全部'],
-                ['available', '未编入'],
+                ['available', '可增加'],
                 ['selected', '已编入'],
               ].map(([v, label]) => (
                 <label key={v} className={owned === v ? 'active' : ''}>
@@ -340,28 +349,30 @@ export default function DeckBuilder({
                     className="armory-card-select"
                     onClick={() => pick(c.id)}
                     aria-pressed={picked}
-                    aria-label={`${picked ? '移除' : draft.length === 20 ? '替换为' : '编入'}${c.name}，${c.cost} 点，${c.description}`}
+                    aria-label={`${draft.length === 20 ? '替换为' : '增加一张'}${c.name}，${c.cost} 点，${c.description}`}
                   >
                     <div className="armory-card-cap">
                       <b>{c.cost}</b>
                       <span>
                         {c.type === 'skill'
                           ? '指令'
-                          : c.armored
-                            ? '装甲'
-                            : c.air
-                              ? '航空'
-                              : '步兵'}
+                          : c.emplacement
+                            ? '火炮'
+                            : c.armored
+                              ? '装甲'
+                              : c.air
+                                ? '航空'
+                                : '步兵'}
                       </span>
                       <small>
                         {picked ? (
                           <>
-                            <Check size={12} /> 已编入
+                            {countOf(c.id)} / {copyLimit(c.id)}
                           </>
                         ) : pending === c.id ? (
                           '待替换'
                         ) : (
-                          '+ 编入'
+                          `+ 编入 / 上限 ${copyLimit(c.id)}`
                         )}
                       </small>
                     </div>
@@ -449,6 +460,10 @@ export default function DeckBuilder({
               <DialogDescription>{selectedCard.tag}</DialogDescription>
               <SpriteArt id={selectedCard.id} className="detail-portrait" />
               <p>{selectedCard.detail}</p>
+              <p>
+                已编入 {countOf(selectedCard.id)} / 上限{' '}
+                {copyLimit(selectedCard.id)} 张
+              </p>
               {selectedCard.hp && (
                 <div className="detail-stat-row">
                   <span>
@@ -464,16 +479,19 @@ export default function DeckBuilder({
               )}
               <button
                 className="primary-button"
+                disabled={
+                  countOf(selectedCard.id) >= copyLimit(selectedCard.id)
+                }
                 onClick={() => {
                   pick(selectedCard.id);
                   setDetail(null);
                 }}
               >
-                {draft.includes(selectedCard.id)
-                  ? '移出编队'
+                {countOf(selectedCard.id) >= copyLimit(selectedCard.id)
+                  ? '数量已满'
                   : draft.length === 20
                     ? '选择旧卡替换'
-                    : '编入卡组'}
+                    : '增加一张'}
                 <ArrowRight size={16} />
               </button>
             </>

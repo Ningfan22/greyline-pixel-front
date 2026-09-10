@@ -1,3 +1,5 @@
+import { drawScenery } from './scenery-art';
+import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
   drawMuzzle,
@@ -8,6 +10,7 @@ import {
 import { modelOf, weaponModel } from './cards';
 import {
   CARDS,
+  deploymentBounds,
   ground,
   H,
   W,
@@ -49,6 +52,8 @@ export function render(
   for (let x = -parallax; x < viewportWidth; x += VIEW_W)
     ctx.drawImage(art.background, x, -24, VIEW_W, H);
   ctx.translate(-Math.round(camera), 0);
+  const visibleGround = (x: number) =>
+    s.knownTerrain[0][Math.max(0, Math.min(W - 1, Math.floor(x)))];
   // Draw the soil material through the destructible heightfield; craters expose inner strata.
   const left = Math.max(0, Math.floor(camera / 3) * 3),
     right = Math.min(W, Math.ceil((camera + viewportWidth) / 3) * 3);
@@ -56,7 +61,7 @@ export function render(
   ctx.beginPath();
   ctx.moveTo(left, H + 3);
   for (let x = left; x <= right; x += 3)
-    ctx.lineTo(x, Math.round(ground(s, Math.min(W - 1, x))));
+    ctx.lineTo(x, Math.round(visibleGround(x)));
   ctx.lineTo(right, H + 3);
   ctx.closePath();
   ctx.clip();
@@ -78,7 +83,7 @@ export function render(
   }
   ctx.restore();
   for (let x = left; x < right; x += 3) {
-    const y = Math.round(ground(s, x)),
+    const y = Math.round(visibleGround(x)),
       broken = y > s.original[x] + 5;
     ctx.fillStyle = broken ? '#746959' : '#6b7050';
     ctx.fillRect(x, y - 2, 3, 3);
@@ -87,7 +92,7 @@ export function render(
       ctx.fillRect(x, y - 4, 2, 3);
     }
   }
-  for (const wall of s.walls) {
+  for (const wall of Object.values(s.knownWalls[0])) {
     if (wall.hp > 0)
       drawSprite(
         ctx,
@@ -102,14 +107,59 @@ export function render(
       ctx.fillRect(wall.x - 21, ground(s, wall.x) - 2, 42, 5);
     }
   }
+  for (const prop of Object.values(s.knownScenery[0]))
+    if (prop.x > camera - 160 && prop.x < camera + viewportWidth + 160)
+      drawScenery(ctx, prop, s.time, art.scenery);
+  for (const w of s.wrecks) {
+    if (
+      w.x < camera - 200 ||
+      w.x > camera + viewportWidth + 200 ||
+      !(w.side === 0 || pointVisible(s, 0, w.x, w.y - 12))
+    )
+      continue;
+    const c = CARDS[w.cardId],
+      [width, height] = unitSize(w.cardId);
+    ctx.save();
+    ctx.filter = 'saturate(.2) brightness(.48)';
+    drawSprite(
+      ctx,
+      c.members
+        ? art.soldiers[7][Math.min(3, Math.floor(w.age * 8))]
+        : unitFrame(art, w.cardId, 0),
+      w.x,
+      w.y + 3,
+      c.members ? 96 : width * (w.falling ? 1 : 0.88),
+      c.members ? 72 : height * (w.falling ? 1 : 0.48),
+      w.side === 1,
+      1,
+      w.angle,
+    );
+    ctx.restore();
+    if (!c.members && !w.falling) {
+      ctx.fillStyle = '#252d26';
+      ctx.fillRect(w.x - 40, w.y - 4, 80, 5);
+      for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = i % 2 ? '#535a4b' : '#30392e';
+        ctx.fillRect(w.x - 62 + ((i * 19) % 121), w.y - 6 - (i % 3) * 3, 7, 3);
+      }
+    }
+  }
+  for (const m of s.mines)
+    if (m.side === 0) {
+      ctx.fillStyle = s.time < m.armAt ? '#b2a16a' : '#748c6c';
+      ctx.fillRect(m.x - 5, visibleGround(m.x) - 5, 10, 4);
+      ctx.fillStyle = '#d3cba0';
+      ctx.fillRect(m.x - 1, visibleGround(m.x) - 7, 2, 2);
+    }
   const c = selected ? CARDS[selected] : null;
   if (c?.type === 'unit' && s.status === 'playing') {
+    const [lo, hi] = deploymentBounds(s, 0, c.id);
     ctx.fillStyle = '#b2d5cd30';
-    ctx.fillRect(110, 275, 330, 105);
+    ctx.fillRect(lo, 275, hi - lo, 105);
     ctx.strokeStyle = '#daeee3';
     ctx.lineWidth = 1;
     ctx.setLineDash([8, 8]);
-    ctx.strokeRect(110, 276, 330, 104);
+    ctx.strokeRect(lo, 276, hi - lo, 104);
     ctx.setLineDash([]);
     ctx.font = 'bold 13px monospace';
     ctx.fillStyle = '#edf4db';
@@ -136,6 +186,7 @@ export function render(
       Number(!!CARDS[a.id].air) - Number(!!CARDS[b.id].air) || a.lane - b.lane,
   );
   for (const u of sorted) {
+    if (!visibleToSide(s, 0, u)) continue;
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
       isTank = modelOf(u.id) === 'tank',
@@ -184,6 +235,7 @@ export function render(
         frame = Math.floor(s.time * 2 + u.uid) % 4;
       }
     } else frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
+    if (c.emplacement && u.fire > 0.1) frame = 1;
     let img = c.members
       ? art.soldiers[row][frame]
       : unitFrame(art, u.id, frame);
@@ -336,7 +388,7 @@ export function render(
         u.muzzleX,
         u.muzzleY,
         u.shotAngle,
-        ammunition(u.id, u.member),
+        u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
       );
     if (u.healing > 0 || u.repairTime > 0) {
@@ -373,6 +425,7 @@ export function render(
     );
   }
   for (const f of s.smokes) {
+    if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
     ctx.globalAlpha = Math.min(0.6, f.life / 2);
     for (let i = 0; i < 22; i++) {
@@ -392,46 +445,25 @@ export function render(
     ctx.fillStyle = '#e7e9d1';
     ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
   }
-  for (const p of s.projectiles) drawProjectile(ctx, p);
-  for (const m of s.markers) {
-    const y = ground(s, m.x);
-    ctx.strokeStyle = m.side === 0 ? '#e09c46' : '#d9644d';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([7, 5]);
-    ctx.beginPath();
-    ctx.ellipse(
-      m.x,
-      y,
-      m.kind === 'precision' ? 34 : m.kind === 'barrage' ? 185 : 140,
-      20,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.beginPath();
-    ctx.moveTo(m.x, y - 55);
-    ctx.lineTo(m.x, y + 14);
-    ctx.moveTo(m.x - 22, y - 16);
-    ctx.lineTo(m.x + 22, y - 16);
-    ctx.stroke();
-    ctx.fillStyle = '#f4ca7c';
-    ctx.font = 'bold 13px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      `${m.kind === 'precision' ? '精确打击' : '炮击预警'} ${Math.max(0, m.timer).toFixed(1)}s`,
-      m.x,
-      y - 65,
-    );
-  }
-  for (const b of s.blasts) drawBlast(ctx, b);
-  for (const p of s.particles) drawParticle(ctx, p);
+  for (const p of s.projectiles)
+    if (pointVisible(s, 0, p.x, p.y)) drawProjectile(ctx, p);
+  for (const b of s.blasts) if (pointVisible(s, 0, b.x, b.y)) drawBlast(ctx, b);
+  for (const p of s.particles)
+    if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p);
+  for (let x = Math.floor(left / 64) * 64; x < right; x += 64)
+    if (!s.sight[0][Math.floor(x / 64)]) {
+      const fog = ctx.createLinearGradient(0, 210, 0, 400);
+      fog.addColorStop(0, '#172a2900');
+      fog.addColorStop(1, '#172a2920');
+      ctx.fillStyle = fog;
+      ctx.fillRect(x, 210, 64, H - 210);
+    }
   ctx.globalAlpha = 1;
   if (c && hover !== null && s.status === 'playing') {
-    const y = ground(s, hover);
+    const y = visibleGround(hover);
     if (c.type === 'unit') {
-      const valid = hover >= 110 && hover <= 440;
+      const [lo, hi] = deploymentBounds(s, 0, c.id);
+      const valid = hover >= lo && hover <= hi;
       const positions = formationPositions(0, c.id, hover);
       for (const [i, x] of positions.entries()) {
         const contact = c.armored

@@ -1,6 +1,7 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
 export type Ammunition =
+  | 'ap'
   | 'rifle'
   | 'machinegun'
   | 'autocannon'
@@ -10,6 +11,8 @@ export type Ammunition =
   | 'mortar'
   | 'drone';
 export function ammunition(id: CardId, member = 0): Ammunition {
+  if (CARDS[id].emplacement === 'at_gun') return 'ap';
+  if (id === 'javelin' || id === 'sam_vehicle') return 'rocket';
   const model = modelOf(id);
   if (model === 'machinegun' && member > 0) return 'rifle';
   if (CARDS[id].oneWay) return 'drone';
@@ -27,6 +30,7 @@ export const FLIGHT: Record<
   Ammunition,
   { speed: number; minimum: number; arc: number }
 > = {
+  ap: { speed: 2300, minimum: 0.05, arc: 0 },
   rifle: { speed: 3800, minimum: 0.035, arc: 0 },
   machinegun: { speed: 3400, minimum: 0.04, arc: 0 },
   autocannon: { speed: 2600, minimum: 0.05, arc: 0 },
@@ -38,7 +42,7 @@ export const FLIGHT: Record<
 };
 export function isTracer(kind: Ammunition, shot: number) {
   return kind === 'machinegun'
-    ? shot % 4 === 1
+    ? shot % 2 === 1
     : kind === 'rifle'
       ? shot % 3 === 1
       : kind === 'autocannon'
@@ -93,6 +97,9 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
       2,
     );
     streak(ctx, p.x, p.y, angle, 7, '#a1a795');
+  } else if (kind === 'ap') {
+    streak(ctx, p.x, p.y, angle, 12, '#baae8d', 1, 0.45);
+    streak(ctx, p.x, p.y, angle, 5, '#f5e6c1', 1, 0.95);
   } else if (kind === 'rocket') {
     streak(ctx, p.x, p.y, angle, 7, '#3e443b', 2);
     streak(ctx, p.x, p.y - 1, angle, 5, '#b6b7a3');
@@ -114,7 +121,13 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
       );
   } else if (p.tracer) {
     const length = Math.min(
-      kind === 'autocannon' ? 12 : kind === 'machinegun' ? 10 : 7,
+      p.weapon === 'coax'
+        ? 20
+        : kind === 'autocannon'
+          ? 14
+          : kind === 'machinegun'
+            ? 14
+            : 7,
       Math.max(1, Math.floor(travelled)),
     );
     streak(ctx, p.x, p.y, angle, length, '#b39259', 1, 0.24);
@@ -124,9 +137,9 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
       p.y,
       angle,
       Math.max(1, Math.floor(length * 0.55)),
-      '#d6bb82',
+      '#f2c983',
       1,
-      0.7,
+      0.95,
     );
     streak(ctx, p.x, p.y, angle, 2, '#e5d6ab', 1, 0.9);
   } else {
@@ -143,12 +156,12 @@ export function drawMuzzle(
   age: number,
 ) {
   if (kind === 'drone') return;
-  const heavy = kind === 'cannon',
-    duration = heavy ? 0.07 : 0.035;
+  const heavy = kind === 'cannon' || kind === 'ap',
+    duration = heavy ? 0.09 : kind === 'machinegun' ? 0.085 : 0.035;
   if (age < 0 || age > duration) return;
   const dx = Math.cos(angle),
     dy = Math.sin(angle),
-    len = heavy ? 14 : kind === 'rocket' ? 4 : 5;
+    len = heavy ? 22 : kind === 'rocket' ? 4 : kind === 'machinegun' ? 10 : 5;
   ctx.save();
   // A brief asymmetric jet aligned with the barrel, followed by imported smoke particles.
   streak(
@@ -215,81 +228,180 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.globalAlpha = 1;
 }
 
-function pixelCloud(
+function cloud(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  r: number,
+  rx: number,
+  ry: number,
   color: string,
   alpha: number,
+  seed: number,
 ) {
   ctx.fillStyle = color;
-  ctx.globalAlpha = alpha;
-  const q = 3,
-    cx = Math.round(x / q) * q,
-    cy = Math.round(y / q) * q,
-    rr = Math.max(q, Math.round(r / q) * q);
-  for (let j = -rr; j <= rr; j += q) {
-    const half = Math.round(Math.sqrt(Math.max(0, rr * rr - j * j)) / q) * q;
-    ctx.fillRect(cx - half, cy + j, half * 2 + q, q);
+  ctx.globalAlpha = Math.max(0, alpha);
+  const q = 2;
+  for (let yy = -ry; yy <= ry; yy += q) {
+    const n =
+      (Math.sin((Math.floor(yy / q) + seed) * 12.9898) * 43758.5453) % 1;
+    const half =
+      Math.sqrt(Math.max(0, 1 - (yy * yy) / (ry * ry))) *
+      rx *
+      (0.88 + Math.abs(n) * 0.16);
+    const offset = Math.sin(yy * 0.18 + seed) * rx * 0.1;
+    ctx.fillRect(
+      Math.round((x - half + offset) / q) * q,
+      Math.round((y + yy) / q) * q,
+      Math.ceil((half * 2) / q) * q,
+      q,
+    );
   }
 }
 export function drawBlast(ctx: CanvasRenderingContext2D, b: Blast) {
-  const t = b.age,
-    scale = Math.max(0.45, Math.min(1.2, b.radius / 45));
+  const t = b.age;
   ctx.save();
-  // Dense, lingering smoke is separate from short-lived sparks and the particle cap.
-  if (t > 0.12)
-    for (let i = 0; i < 7; i++) {
-      const phase = ((b.seed >>> (i % 5)) % 19) / 19;
-      const spread =
-        ((i - 3) * (5 + t * 4) + Math.sin(t + i * 1.7) * 5) * scale;
-      const rise = (15 + t * 17 + (i % 3) * 8 + phase * 9) * scale;
-      const size = (11 + Math.min(t, 1.8) * 8 + phase * 6) * scale;
-      const opacity = Math.min(0.85, t * 3) * Math.min(1, (4 - t) / 1.5);
-      pixelCloud(
+  if (b.kind === 'penetration') {
+    if (t < 0.09) {
+      ctx.fillStyle = t < 0.04 ? '#fff3d2' : '#e7b36c';
+      ctx.fillRect(b.x - 3, b.y - 2, 6, 4);
+      ctx.fillRect(b.x - 1, b.y - 4, 2, 8);
+    }
+    for (let i = 0; i < 9; i++) {
+      const a = -Math.PI + i * 0.7 + (b.seed % 7) * 0.1,
+        r = t * (80 + i * 14);
+      streak(
         ctx,
-        b.x + spread + (phase - 0.5) * 8,
-        b.y - rise,
-        size,
-        i % 2 ? '#41463c' : '#65685a',
-        opacity,
+        b.x + Math.cos(a) * r,
+        b.y + Math.sin(a) * r + t * t * 110,
+        a,
+        4,
+        '#e8ba77',
+        1,
+        Math.max(0, 1 - t * 5),
       );
-      for (let lobe = 0; lobe < 3; lobe++) {
-        const a = i * 1.3 + lobe * 2.1 + phase;
-        pixelCloud(
-          ctx,
-          b.x + spread + Math.cos(a) * size * 0.6,
-          b.y - rise + Math.sin(a) * size * 0.5,
-          size * 0.48,
-          lobe % 2 ? '#899080' : '#30382f',
-          opacity * 0.24,
-        );
-      }
     }
-  if (t < 0.58) {
-    const expansion = Math.min(1, t / 0.1),
-      fade = Math.min(1, (0.58 - t) / 0.24);
-    for (let i = 0; i < 5; i++) {
-      const x = b.x + (i - 2) * 7 * scale,
-        y = b.y - (8 + (i % 3) * 9 + t * 9) * scale;
-      const radius = (12 + (i % 2) * 5) * scale * expansion;
-      pixelCloud(ctx, x, y, radius, '#a84926', fade);
-      pixelCloud(ctx, x - 2, y + 2, radius * 0.72, '#e28c36', fade);
-      if (t < 0.22) pixelCloud(ctx, x, y + 3, radius * 0.37, '#f1d48c', fade);
-    }
+    ctx.restore();
+    return;
   }
-  if (b.soil && t < 1.1)
-    for (let i = 0; i < 8; i++) {
-      const x = b.x + (i - 3.5) * (8 + t * 18) * scale;
-      pixelCloud(
+  const scale =
+    Math.max(0.55, b.radius / 36) *
+    (b.kind === 'artillery' ? 1.6 : b.kind === 'wreck' ? 1.35 : 1.15);
+  // Low, broad soil shock, rising incandescent fragments, then several turbulent smoke columns.
+  if (b.soil && t < 2.5)
+    for (let i = 0; i < 11; i++) {
+      const dir = i - 5,
+        x = b.x + dir * (7 + Math.min(t, 1.1) * 13) * scale;
+      cloud(
         ctx,
         x,
-        b.y + 3 - t * 3,
-        4 + Math.min(t, 0.5) * 9,
-        '#a29372',
-        Math.min(0.5, (1.1 - t) * 0.55),
+        b.y - 4 - (i % 3) * 3,
+        (10 + Math.min(t, 1) * 10) * scale,
+        (4 + Math.min(t, 1) * 5) * scale,
+        i % 2 ? '#887961' : '#ab9471',
+        Math.min(0.65, t * 6) * Math.min(1, (2.5 - t) / 1.3),
+        b.seed + i,
       );
     }
+  if (t > 0.07)
+    for (let i = 0; i < 9; i++) {
+      const phase = ((b.seed >>> i) % 13) / 13;
+      const rise = (12 + Math.min(t, 4) * 18 + (i % 3) * 11) * scale;
+      const sx =
+        b.x +
+        ((i - 4) * (5 + Math.min(t, 3) * 2) + Math.sin(t * 0.6 + i) * 6) *
+          scale;
+      const sy = b.y - rise;
+      const size = (8 + Math.min(t, 2) * 6 + phase * 5) * scale;
+      const opacity = Math.min(0.92, t * 4) * Math.min(1, (7 - t) / 2.6);
+      cloud(
+        ctx,
+        sx,
+        sy,
+        size,
+        size * (1.1 + phase * 0.25),
+        i % 3 === 0 ? '#282a27' : i % 3 === 1 ? '#4a4941' : '#636055',
+        opacity,
+        b.seed + i,
+      );
+      for (let l = 0; l < 3; l++)
+        cloud(
+          ctx,
+          sx + Math.sin(i + l * 2.1) * size * 0.55,
+          sy + Math.cos(i + l * 2.1) * size * 0.45,
+          size * 0.42,
+          size * 0.38,
+          l % 2 ? '#a19a83' : '#191e1b',
+          opacity * 0.18,
+          b.seed + i + l * 17,
+        );
+    }
+  if (t < 0.65) {
+    const expand = Math.min(1, t / 0.065),
+      fade = Math.min(1, (0.65 - t) / 0.3);
+    for (let i = 0; i < 11; i++) {
+      const a = -Math.PI + (i / 10) * Math.PI,
+        reach = (15 + ((i * 17 + b.seed) % 23)) * scale * expand;
+      const x = b.x + Math.cos(a) * reach * 0.85,
+        y = b.y + Math.sin(a) * reach - t * 14;
+      cloud(
+        ctx,
+        x,
+        y,
+        (7 + (i % 3) * 3) * scale,
+        (8 + (i % 4) * 3) * scale,
+        '#9e411d',
+        fade,
+        b.seed + i,
+      );
+      cloud(
+        ctx,
+        x,
+        y + 3,
+        5 * scale,
+        (6 + (i % 3) * 2) * scale,
+        '#f09936',
+        fade * 0.95,
+        b.seed + i + 8,
+      );
+      if (t < 0.25)
+        cloud(
+          ctx,
+          x,
+          y + 4,
+          3 * scale,
+          4 * scale,
+          '#ffe7a0',
+          fade,
+          b.seed + i + 3,
+        );
+    }
+    if (t < 0.075)
+      cloud(
+        ctx,
+        b.x,
+        b.y - 7 * scale,
+        19 * scale * expand,
+        13 * scale * expand,
+        '#fff3c6',
+        1,
+        b.seed,
+      );
+    for (let i = 0; i < 15; i++) {
+      const a = -Math.PI + 0.12 + i * 0.19,
+        velocity = (75 + ((i * 23) % 120)) * scale;
+      const x = b.x + Math.cos(a) * velocity * t,
+        y = b.y + Math.sin(a) * velocity * t + t * t * 130;
+      streak(
+        ctx,
+        x,
+        y,
+        a,
+        Math.max(2, 8 - t * 8),
+        '#e4b275',
+        1,
+        Math.max(0, 1 - t * 1.7),
+      );
+    }
+  }
   ctx.restore();
 }

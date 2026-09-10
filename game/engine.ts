@@ -1,5 +1,19 @@
 import { ammunition, FLIGHT, isTracer, type Ammunition } from './ballistics';
 import {
+  obstacleBoxes,
+  debrisCover,
+  createScenery,
+  refreshVision,
+  visibleToSide,
+  pointVisible,
+  sceneryIntercept,
+  damageScenery,
+  type Scenery,
+  type Wreck,
+  type Mine,
+} from './world';
+export { refreshVision, visibleToSide, pointVisible } from './world';
+import {
   CARDS,
   DECK,
   validDeck,
@@ -41,6 +55,8 @@ export const AIR_ALTITUDE = 232,
 export interface HandCard {
   uid: number;
   id: CardId;
+  readyAt?: number;
+  returnedOnce?: boolean;
 }
 export interface Unit {
   uid: number;
@@ -72,6 +88,9 @@ export interface Unit {
   woundedBy: Side;
   rescueProgress: number;
   injuryCooldown: number;
+  lastAmmo?: Ammunition;
+  lastThreat?: { x: number; y: number; until: number };
+  motionLift?: number;
   shots: number;
   secondaryShots: number;
   muzzleX: number;
@@ -127,8 +146,18 @@ export interface Unit {
   evadeUntil: number;
   evadeMarker: number | null;
   friendlyWarnAt: number;
+  sortieCard: HandCard | null;
+  slowedUntil: number;
+  destroyed: boolean;
 }
 export interface Projectile {
+  uid?: number;
+  guided?: boolean;
+  speed?: number;
+  infantryMultiplier?: number;
+  baseMultiplier?: number;
+  shell?: boolean;
+  effect?: Blast['kind'];
   sourceUid?: number;
   x: number;
   y: number;
@@ -171,6 +200,7 @@ export interface Marker {
   impacts?: number[];
 }
 export interface Blast {
+  kind?: 'he' | 'artillery' | 'wreck' | 'penetration';
   x: number;
   y: number;
   age: number;
@@ -184,6 +214,7 @@ export interface Smoke {
   side: Side;
 }
 export interface Notice {
+  audience?: Side[];
   text: string;
   time: number;
   kind: 'good' | 'warn' | 'info';
@@ -204,8 +235,8 @@ export interface Player {
   hp: number;
   energy: number;
   hand: HandCard[];
-  deck: CardId[];
-  discard: CardId[];
+  deck: HandCard[];
+  discard: HandCard[];
   drawIn: number;
   jam: number;
   morale: number;
@@ -214,6 +245,16 @@ export interface Player {
   played: number;
 }
 export interface GameState {
+  scenery: Scenery[];
+  wrecks: Wreck[];
+  mines: Mine[];
+  visible: [number[], number[]];
+  sight: [boolean[], boolean[]];
+  knownTerrain: [number[], number[]];
+  knownWalls: [Record<number, Wall>, Record<number, Wall>];
+  knownScenery: [Record<number, Scenery>, Record<number, Scenery>];
+  visionIn: number;
+  audibleExplosions: [number, number];
   status: Status;
   time: number;
   players: [Player, Player];
@@ -244,7 +285,7 @@ function fxRnd(s: GameState) {
   s.fxSeed = (Math.imul(1664525, s.fxSeed) + 1013904223) >>> 0;
   return s.fxSeed / 4294967296;
 }
-function shuffle(p: Player, list: CardId[]) {
+function shuffle<T>(p: Player, list: T[]) {
   const out = [...list];
   for (let i = out.length - 1; i > 0; i--) {
     p.drawSeed = (Math.imul(1664525, p.drawSeed) + 1013904223) >>> 0;
@@ -287,6 +328,16 @@ export function createGame(
     played: 0,
   });
   const s: GameState = {
+    scenery: createScenery(original),
+    wrecks: [],
+    mines: [],
+    visible: [[], []],
+    sight: [[], []],
+    knownTerrain: [[...original], [...original]],
+    knownScenery: [{}, {}],
+    knownWalls: [{}, {}],
+    visionIn: 0,
+    audibleExplosions: [0, 0],
     status: 'ready',
     time: 0,
     players: [p(0, playerDeck), p(1, aiDeck)],
@@ -317,17 +368,35 @@ export function createGame(
   };
   for (const side of [0, 1] as Side[]) {
     const player = s.players[side];
-    player.deck = shuffle(player, player.loadout);
+    player.deck = shuffle(
+      player,
+      player.loadout.map((id) => ({
+        id,
+        uid: ++s.uid,
+        readyAt: 0,
+        returnedOnce: false,
+      })),
+    );
     draw(s, side, MAX_HAND);
   }
+  for (const side of [0, 1] as Side[])
+    s.knownScenery[side] = Object.fromEntries(
+      s.scenery.map((p) => [p.id, structuredClone(p)]),
+    );
+  for (const side of [0, 1] as Side[])
+    s.knownWalls[side] = Object.fromEntries(
+      s.walls.map((w) => [w.uid, { ...w }]),
+    );
+  refreshVision(s);
   return s;
 }
 export function notify(
   s: GameState,
   text: string,
   kind: Notice['kind'] = 'info',
+  audience?: Side[],
 ) {
-  s.notices.unshift({ text, time: s.time, kind });
+  s.notices.unshift({ text, time: s.time, kind, audience });
   s.notices = s.notices.slice(0, 5);
 }
 export function startGame(s: GameState) {
@@ -431,6 +500,9 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       evadeUntil: 0,
       evadeMarker: null,
       friendlyWarnAt: -10,
+      sortieCard: null,
+      slowedUntil: 0,
+      destroyed: false,
     });
   }
 }
@@ -449,12 +521,19 @@ export function draw(s: GameState, side: Side, count = 1) {
       p.deck = shuffle(p, p.discard);
       p.discard = [];
     }
-    const id = p.deck.shift();
-    if (!id) break;
-    p.hand.push({ uid: ++s.uid, id });
+    const token = p.deck.shift();
+    if (!token) break;
+    p.hand.push(token);
     drawn++;
   }
   return drawn;
+}
+export function cardCost(card: HandCard) {
+  const c = CARDS[card.id];
+  return card.returnedOnce && c.sortie ? (c.returnCost ?? c.cost) : c.cost;
+}
+export function cardReadyIn(s: GameState, card: HandCard) {
+  return Math.max(0, (card.readyAt ?? 0) - s.time);
 }
 export function requestDraw(
   s: GameState,
@@ -536,6 +615,25 @@ function callArtillery(
     impacts,
   });
 }
+export function deploymentBounds(
+  s: Pick<GameState, 'units'>,
+  side: Side,
+  id: CardId,
+): [number, number] {
+  let front = side === 0 ? 560 : W - 560;
+  if (CARDS[id].static)
+    for (const u of s.units)
+      if (
+        u.side === side &&
+        isCombatant(u) &&
+        !CARDS[u.id].air &&
+        !CARDS[u.id].static
+      )
+        front = side === 0 ? Math.max(front, u.x) : Math.min(front, u.x);
+  return side === 0
+    ? [110, Math.min(W - 550, front - 120)]
+    : [Math.max(550, front + 120), W - 110];
+}
 export function playCard(
   s: GameState,
   side: Side,
@@ -547,17 +645,23 @@ export function playCard(
   const p = s.players[side],
     index = p.hand.findIndex((c) => c.uid === uid);
   if (index < 0) return { ok: false, message: '这张卡牌已不在手牌中' };
-  const c = CARDS[p.hand[index].id];
-  if (p.energy + 1e-6 < c.cost)
+  const token = p.hand[index],
+    c = CARDS[token.id],
+    cost = cardCost(token);
+  if (cardReadyIn(s, token) > 0)
     return {
       ok: false,
-      message: `还需要 ${Math.ceil(c.cost - p.energy)} 点指挥点`,
+      message: `返航补给中，还需 ${Math.ceil(cardReadyIn(s, token))} 秒`,
     };
+  if (p.energy + 1e-6 < cost)
+    return {
+      ok: false,
+      message: `还需要 ${Math.ceil(cost - p.energy)} 点指挥点`,
+    };
+  const bounds = deploymentBounds(s, side, c.id);
   if (
     c.type === 'unit' &&
-    (x === undefined ||
-      !Number.isFinite(x) ||
-      (side === 0 ? x < 110 || x > 440 : x < W - 440 || x > W - 110))
+    (x === undefined || !Number.isFinite(x) || x < bounds[0] || x > bounds[1])
   )
     return { ok: false, message: '请在蓝色部署区域内选择落点' };
   if (
@@ -565,12 +669,29 @@ export function playCard(
     (x === undefined || !Number.isFinite(x) || x < 0 || x > W)
   )
     return { ok: false, message: '请在战场上选择作用位置' };
-  p.energy = Math.max(0, p.energy - c.cost);
+  if (
+    c.id === 'antitank_mine' &&
+    s.units.some(
+      (u) =>
+        u.side !== side &&
+        u.hp > 0 &&
+        CARDS[u.id].armored &&
+        visibleToSide(s, side, u) &&
+        Math.abs(u.x - x!) < 80,
+    )
+  )
+    return { ok: false, message: '请提前布雷，需离敌方装甲至少 80 距离' };
+  p.energy = Math.max(0, p.energy - cost);
   p.hand.splice(index, 1);
-  p.discard.push(c.id);
+  if (!c.sortie) p.discard.push(token);
   p.played++;
   if (c.type === 'unit') {
     spawnUnit(s, side, c.id, x!);
+    if (c.sortie) s.units.at(-1)!.sortieCard = token;
+    if (c.deployDraw) draw(s, side, c.deployDraw);
+    refreshVision(s);
+  } else if (c.id === 'antitank_mine') {
+    s.mines.push({ uid: ++s.uid, side, x: x!, armAt: s.time + 2 });
   } else if (c.effect) {
     const own = s.units.filter(
       (u) => u.side === side && isCombatant(u) && CARDS[u.id].members,
@@ -633,7 +754,7 @@ export function playCard(
     side === 0
       ? `${c.name}${c.type === 'unit' ? '已部署' : '已下达'}`
       : `敌方${c.type === 'unit' ? '部署' : '使用'}：${c.name}`;
-  notify(s, message, side === 0 ? 'good' : 'warn');
+  notify(s, message, side === 0 ? 'good' : 'warn', [side]);
   return { ok: true, message };
 }
 export function crater(
@@ -662,18 +783,27 @@ export function crater(
       s.terrain[i] = Math.min(s.terrain[i], s.terrain[i + 1] + 1.25);
   }
 }
-function burst(s: GameState, x: number, y: number, radius: number) {
+function burst(
+  s: GameState,
+  x: number,
+  y: number,
+  radius: number,
+  kind: Blast['kind'] = 'he',
+) {
   s.explosions++;
+  for (const side of [0, 1] as Side[])
+    if (pointVisible(s, side, x, y)) s.audibleExplosions[side]++;
   s.blasts.push({
     x,
     y,
     age: 0,
     radius,
+    kind,
     soil: y > ground(s, x) - 65,
     seed: s.fxSeed,
   });
   s.blasts = s.blasts.slice(-32);
-  s.shake = Math.min(8, radius / 10);
+  if (pointVisible(s, 0, x, y)) s.shake = Math.min(12, radius / 7);
   const soil = y > ground(s, x) - 65;
   for (let i = 0; i < 6; i++) {
     const angle = fxRnd(s) * Math.PI * 2,
@@ -866,15 +996,17 @@ function hitUnit(
         s,
         `${u.side === 0 ? '我方' : '敌方'}${c.name}有队员倒地待救`,
         'info',
+        ([0, 1] as Side[]).filter((side) => visibleToSide(s, side, u)),
       );
     }
   }
 }
 function finishDeath(s: GameState, u: Unit, side: Side) {
-  if (u.deadFor > 0) return;
+  if (u.destroyed) return;
+  u.destroyed = true;
   u.hp = 0;
   u.wounded = false;
-  u.deadFor = 1.5;
+  u.deadFor = 0;
   u.moving = false;
   u.fire = 0;
   u.secondaryFire = 0;
@@ -884,7 +1016,39 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
       friend.personalMorale = Math.max(0, friend.personalMorale - 9);
       friend.decisionIn = 0;
     }
-  if (!CARDS[u.id].members) burst(s, u.x, u.y - 20, 24);
+  const c = CARDS[u.id];
+  s.wrecks.push({
+    id: u.uid,
+    cardId: u.id,
+    side: u.side,
+    x: u.x,
+    y: u.y,
+    angle: u.hullAngle,
+    age: 0,
+    falling: !!c.air,
+    vx: c.air ? u.facing * 70 : 0,
+    vy: 0,
+  });
+  if (!c.members && !c.air)
+    burst(s, u.x, u.y - 20, c.armored ? 60 : 42, 'wreck');
+  settleSortie(s, u, false);
+}
+function settleSortie(s: GameState, u: Unit, success: boolean) {
+  const token = u.sortieCard;
+  if (!token) return;
+  u.sortieCard = null;
+  token.returnedOnce = success;
+  token.readyAt = s.time + (CARDS[u.id].sortieCooldown ?? 18);
+  const p = s.players[u.side];
+  if (success && p.hand.length < MAX_HAND) p.hand.push(token);
+  else p.discard.push(token);
+  if (success)
+    notify(
+      s,
+      `${CARDS[u.id].name}返航${p.hand.includes(token) ? '回手' : '，手牌已满转入弃牌'}，补给后可低费派遣`,
+      'info',
+      [u.side],
+    );
 }
 function revive(u: Unit) {
   u.wounded = false;
@@ -910,8 +1074,21 @@ export function explode(
   side: Side,
   baseScale = 1,
   armorMultiplier = 1,
+  kind: Blast['kind'] = 'he',
+  infantryMultiplier = 1,
 ) {
-  burst(s, x, y, radius);
+  burst(s, x, y, radius, kind);
+  const sheltered = new Set(
+    s.units
+      .filter(
+        (u) =>
+          CARDS[u.id].members &&
+          sceneryIntercept(s, x, y, u.x, u.y - 20, false, true),
+      )
+      .map((u) => u.uid),
+  );
+  damageScenery(s, x, y, radius, damage);
+  s.visionIn = 0;
   for (const wall of s.walls) {
     if (
       wall.hp > 0 &&
@@ -948,9 +1125,14 @@ export function explode(
         u,
         damage *
           Math.pow(Math.max(0, 1 - dist / (radius + 12)), 1.25) *
-          (CARDS[u.id].armored ? armorMultiplier : 1),
+          (CARDS[u.id].armored
+            ? armorMultiplier
+            : CARDS[u.id].members
+              ? infantryMultiplier
+              : 1),
+        // Weapon modifiers apply to each victim, never to the selected target alone.
         side,
-        0,
+        sheltered.has(u.uid) ? 0.65 : 0,
         'blast',
       );
   }
@@ -967,11 +1149,12 @@ export function explode(
 export function craterCover(s: GameState, x: number, threatX: number) {
   const y = ground(s, x),
     depth = y - s.original[Math.max(0, Math.min(W - 1, Math.floor(x)))];
-  if (depth < 7) return 0;
+  const debris = debrisCover(s, x, threatX);
+  if (depth < 7) return debris;
   const dir = threatX >= x ? 1 : -1;
   let lip = y;
   for (let d = 8; d <= 38; d += 2) lip = Math.min(lip, ground(s, x + dir * d));
-  return Math.max(0, Math.min(1, (y - lip - 4) / 15));
+  return Math.max(debris, Math.max(0, Math.min(1, (y - lip - 4) / 15)));
 }
 export function terrainIntercept(
   s: GameState,
@@ -980,14 +1163,18 @@ export function terrainIntercept(
   tx: number,
   ty: number,
 ) {
+  const prop = sceneryIntercept(s, sx, sy, tx, ty);
   const steps = Math.max(1, Math.ceil(Math.abs(tx - sx) / 2));
   for (let i = 1; i <= steps; i++) {
     const t = i / steps,
       x = sx + (tx - sx) * t,
       y = sy + (ty - sy) * t;
-    if (y >= ground(s, x) - 1) return { x, y: ground(s, x) - 1 };
+    if (y >= ground(s, x) - 1)
+      return prop && prop.t < t
+        ? { x: prop.x, y: prop.y }
+        : { x, y: ground(s, x) - 1 };
   }
-  return null;
+  return prop ? { x: prop.x, y: prop.y } : null;
 }
 function retreatingFriendlyHit(
   s: GameState,
@@ -1039,6 +1226,8 @@ function retreatingFriendlyHit(
   return nearest;
 }
 export function muzzleOffset(u: Unit) {
+  if (CARDS[u.id].emplacement)
+    return CARDS[u.id].emplacement === 'aa_gun' ? 25 : 60;
   if (CARDS[u.id].airframe)
     return CARDS[u.id].airframe === 'rocket_heli'
       ? 72
@@ -1056,6 +1245,8 @@ export function muzzleOffset(u: Unit) {
           : 18;
 }
 export function muzzleHeight(u: Unit) {
+  if (CARDS[u.id].emplacement)
+    return CARDS[u.id].emplacement === 'aa_gun' ? 62 : 48;
   return CARDS[u.id].air
     ? 16
     : modelOf(u.id) === 'mortar'
@@ -1138,7 +1329,7 @@ function firingHeight(
   if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty)) return 47;
   return null;
 }
-function seekCover(s: GameState, u: Unit, target: Unit) {
+function seekCover(s: GameState, u: Unit, target: Pick<Unit, 'x' | 'y'>) {
   let best: number | null = null,
     score = 0;
   for (
@@ -1150,7 +1341,9 @@ function seekCover(s: GameState, u: Unit, target: Unit) {
     const cover = craterCover(s, x, target.x);
     if (
       cover < 0.25 ||
-      terrainIntercept(s, x, ground(s, x) - 47, target.x, target.y - 27)
+      obstacleBoxes(s).some(
+        (b) => !b.foliage && x > b.x - 10 && x < b.x + b.w + 10,
+      )
     )
       continue;
     if (
@@ -1209,11 +1402,12 @@ function traverse(s: GameState, u: Unit, dt: number) {
     const t = Math.min(1, u.motionTime / u.motionDuration),
       ease = t * t * (3 - 2 * t);
     u.x = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
-    u.y = ground(s, u.x) - Math.sin(t * Math.PI) * 4;
+    u.y = ground(s, u.x) - Math.sin(t * Math.PI) * (u.motionLift ?? 4);
     if (t >= 1) {
       u.motion = 'ground';
       u.y = ground(s, u.x);
-      u.stepCooldown = 0.3;
+      u.stepCooldown = 0.6;
+      u.motionLift = 0;
     }
   }
   return true;
@@ -1257,6 +1451,24 @@ function moveSoldier(
     u.pose = 'climb';
     return;
   }
+  const debris = obstacleBoxes(s).find(
+    (b) =>
+      b.rubble &&
+      (dir > 0 ? b.x - u.x : u.x - b.x - b.w) > 0 &&
+      (dir > 0 ? b.x - u.x : u.x - b.x - b.w) < 17,
+  );
+  if (debris && u.stepCooldown <= 0 && u.coverGoal === null) {
+    u.motion = 'bank';
+    u.motionTime = 0;
+    u.motionDuration = 0.65 + debris.w / 150;
+    u.motionFromX = u.x;
+    u.motionFromY = u.y;
+    u.motionToX = dir > 0 ? debris.x + debris.w + 18 : debris.x - 18;
+    u.motionToY = ground(s, u.motionToX);
+    u.motionLift = debris.h + 5;
+    u.pose = 'climb';
+    return;
+  }
   const wall = s.walls.find(
     (w) =>
       w.hp > 0 &&
@@ -1288,6 +1500,7 @@ function moveSoldier(
         v !== u &&
         v.side === u.side &&
         isCombatant(v) &&
+        visibleToSide(s, u.side, v) &&
         CARDS[v.id].members &&
         v.facing === dir &&
         Math.abs(v.lane - u.lane) < 4 &&
@@ -1336,12 +1549,19 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn = 1.1 + (u.member % 4) * 0.18;
   const c = CARDS[u.id];
   const threat = s.units
-    .filter((v) => v.side !== u.side && isCombatant(v) && !CARDS[v.id].air)
+    .filter(
+      (v) =>
+        v.side !== u.side &&
+        isCombatant(v) &&
+        visibleToSide(s, u.side, v) &&
+        !CARDS[v.id].air,
+    )
     .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
   const survivors = s.units.filter(
     (v) => v.squad === u.squad && isCombatant(v),
   ).length;
   if (
+    !c.neverSurrender &&
     u.personalMorale < 18 &&
     survivors <= 2 &&
     u.hp / u.maxHp < 0.35 &&
@@ -1361,6 +1581,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
       s,
       `${u.side === 0 ? '我方' : '敌方'}${c.name}有队员放下武器`,
       'info',
+      ([0, 1] as Side[]).filter((side) => visibleToSide(s, side, u)),
     );
     return;
   }
@@ -1377,7 +1598,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     }
   }
   if (!threat || Math.abs(threat.x - u.x) > Math.max(560, unitRange(s, u))) {
-    u.tactic = 'advance';
+    u.tactic = u.suppression > 68 ? 'prone' : 'advance';
     if (u.personalMorale < (c.discipline ?? 80))
       u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
     return;
@@ -1400,85 +1621,51 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
       : list[(u.member + rotation * 3) % list.length];
 }
 function evadeArtillery(s: GameState, u: Unit, dt: number) {
-  const threats = s.markers
-    .filter((m) => {
-      const c = ARTILLERY[m.kind ?? 'artillery'];
-      return (
-        m.side !== u.side &&
-        Math.abs(u.x - m.x) <
-          ((c.count - 1) * c.spacing) / 2 + c.radius + c.scatter + 45
-      );
-    })
-    .sort((a, b) => a.timer - b.timer);
-  for (const m of threats) {
-    const c = ARTILLERY[m.kind ?? 'artillery'];
-    u.evadeUntil = Math.max(
-      u.evadeUntil,
-      s.time + m.timer + (c.count - m.wave - 1) * c.interval + 0.7,
+  const incoming = s.projectiles.find(
+    (p) =>
+      p.side !== u.side &&
+      p.shell &&
+      Math.hypot(p.x - u.x, p.y - u.y) < 240 &&
+      (p.guided
+        ? Math.hypot(p.tx - p.x, p.ty - p.y) /
+          FLIGHT[p.ammunition ?? 'mortar'].speed
+        : p.life) <
+        0.45 + (u.uid % 5) * 0.055,
+  );
+  if (incoming && incoming.uid !== u.evadeMarker) {
+    u.evadeMarker = incoming.uid ?? -1;
+    u.evadeUntil = Math.max(u.evadeUntil, s.time + 1.5);
+    const dir = (u.uid + u.member) % 2 ? 1 : -1;
+    u.evadeGoal = Math.max(
+      80,
+      Math.min(W - 80, u.x + dir * (14 + (u.uid % 4) * 7)),
     );
-  }
-  const alarm = threats[0],
-    key = alarm ? (alarm.uid ?? -1) : null;
-  if (alarm && key !== u.evadeMarker) {
-    const preferred =
-      Math.abs(u.x - alarm.x) > 18
-        ? Math.sign(u.x - alarm.x)
-        : (u.member + u.side) % 2
-          ? 1
-          : -1;
-    const candidates = [0, 40, 64, 88, 112, 136, -40, -64, -88, -112, -136]
-      .map((d) => {
-        const x = Math.max(130, Math.min(W - 130, u.x + d));
-        let score = Math.abs(d) * 0.07 + (Math.sign(d) === preferred ? -3 : 0);
-        for (const m of threats) {
-          const c = ARTILLERY[m.kind ?? 'artillery'];
-          for (let wave = m.wave; wave < c.count; wave++) {
-            const center = m.x + (wave - (c.count - 1) / 2) * c.spacing;
-            score +=
-              Math.max(0, c.radius + c.scatter + 24 - Math.abs(x - center)) * 2;
-          }
-        }
-        for (const v of s.units)
-          if (
-            v !== u &&
-            v.side === u.side &&
-            isCombatant(v) &&
-            CARDS[v.id].members
-          )
-            score += Math.max(0, 32 - Math.abs(x - (v.evadeGoal ?? v.x))) * 4;
-        score += Math.max(0, Math.abs(ground(s, x) - u.y) - 18) * 3;
-        return { x, score };
-      })
-      .sort((a, b) => a.score - b.score);
-    u.evadeMarker = key;
-    u.evadeGoal = candidates[0].x;
     u.coverGoal = null;
-    u.cover = 0;
+    u.fire = 0;
   }
   if (u.evadeUntil <= s.time) {
-    if (u.evadeGoal !== null) {
-      u.evadeGoal = null;
-      u.decisionIn = 0;
-    }
+    u.evadeGoal = null;
     return false;
   }
   u.fire = 0;
   u.secondaryFire = 0;
-  if (alarm && alarm.timer <= 0.4) u.evadeGoal = null;
+  const timeLeft = incoming
+    ? incoming.guided
+      ? Math.hypot(incoming.tx - incoming.x, incoming.ty - incoming.y) /
+        FLIGHT[incoming.ammunition ?? 'mortar'].speed
+      : incoming.life
+    : 0;
+  if (timeLeft < 0.18) u.evadeGoal = null;
   if (u.evadeGoal !== null && Math.abs(u.evadeGoal - u.x) > 4) {
     u.pose = 'run';
     moveSoldier(
       s,
       u,
       Math.sign(u.evadeGoal - u.x),
-      CARDS[u.id].speed! *
-        u.pace *
-        1.75 *
-        (s.players[u.side].morale > 0 ? 1.2 : 1),
+      CARDS[u.id].speed! * u.pace * 1.5,
       dt,
     );
-    if (u.moving || u.climbing || u.motion !== 'ground') return true;
-    u.evadeGoal = null;
+    if (u.moving) return true;
   }
   u.evadeGoal = null;
   u.pose = 'prone';
@@ -1492,6 +1679,7 @@ function fireCoax(s: GameState, u: Unit) {
       (v) =>
         v.side !== u.side &&
         isCombatant(v) &&
+        visibleToSide(s, u.side, v) &&
         CARDS[v.id].members &&
         Math.abs(v.x - u.x) <=
           420 *
@@ -1545,7 +1733,7 @@ function fireCoax(s: GameState, u: Unit) {
     arc: 0,
     weapon: 'coax',
     ammunition: 'machinegun',
-    tracer: isTracer('machinegun', u.secondaryShots),
+    tracer: true,
   });
 }
 function updateAI(s: GameState) {
@@ -1556,7 +1744,9 @@ function updateAI(s: GameState) {
   )
     requestDraw(s, 1);
   const p = s.players[1],
-    foes = s.units.filter((u) => u.side === 0 && isCombatant(u)),
+    foes = s.units.filter(
+      (u) => u.side === 0 && isCombatant(u) && visibleToSide(s, 1, u),
+    ),
     own = s.units.filter((u) => u.side === 1 && isCombatant(u));
   const patients = s.units.filter(
     (u) =>
@@ -1573,7 +1763,7 @@ function updateAI(s: GameState) {
     p.order = 'prone';
   else p.order = 'advance';
   const options = p.hand
-    .filter((h) => CARDS[h.id].cost <= p.energy)
+    .filter((h) => cardCost(h) <= p.energy && cardReadyIn(s, h) <= 0)
     .map((h) => {
       const c = CARDS[h.id];
       let score = rnd(s) * 2;
@@ -1589,8 +1779,7 @@ function updateAI(s: GameState) {
         score += groundFoes.length > 1 ? 7 : groundFoes.length ? 2 : -10;
       if (modelOf(c.id) === 'morale') score += own.length > 2 ? 6 : -8;
       if (modelOf(c.id) === 'supply') score += p.hand.length < 4 ? 7 : -9;
-      if (modelOf(c.id) === 'jam')
-        score += s.players[0].hand.length < 4 ? 3 : 0;
+      if (modelOf(c.id) === 'jam') score += 1;
       if (c.effect === 'medevac' && patients.length) score += 16;
       if (modelOf(c.id) === 'medic')
         score += patients.length ? 3 : own.length < 4 ? -6 : 0;
@@ -1625,21 +1814,24 @@ function updateAI(s: GameState) {
       return;
     }
     choice = options
-      .filter((o) => CARDS[o.h.id].type === 'skill')
-      .sort((a, b) => CARDS[a.h.id].cost - CARDS[b.h.id].cost)[0];
+
+      .sort((a, b) => cardCost(a.h) - cardCost(b.h))[0];
     if (!choice) return;
   }
   const c = CARDS[choice.h.id];
   let x: number | undefined;
-  if (c.type === 'unit') x = W - 350 + rnd(s) * 120;
-  if (modelOf(c.id) === 'smoke')
+  if (c.type === 'unit') {
+    const b = deploymentBounds(s, 1, c.id);
+    x = c.static ? b[0] + 35 : W - 350 + rnd(s) * 120;
+  }
+  if (c.type === 'skill' && modelOf(c.id) === 'smoke')
     x = own.length
       ? own.reduce((a, u) => a + u.x, 0) / own.length - 60
       : W - 600;
-  if (modelOf(c.id) === 'precision')
+  if (c.type === 'skill' && modelOf(c.id) === 'precision')
     x =
       groundFoes.find((u) => CARDS[u.id].armored)?.x ?? groundFoes[0]?.x ?? 600;
-  if (modelOf(c.id) === 'artillery') {
+  if (c.type === 'skill' && modelOf(c.id) === 'artillery') {
     let cluster = groundFoes[0];
     let best = -1;
     for (const u of groundFoes) {
@@ -1667,6 +1859,11 @@ export function tick(s: GameState, dt: number) {
     p.fortify = Math.max(0, p.fortify - dt);
     p.jam = Math.max(0, p.jam - dt);
     p.drawIn = Math.max(0, p.drawIn - dt);
+  }
+  s.visionIn -= dt;
+  if (s.visionIn <= 0) {
+    refreshVision(s);
+    s.visionIn = 0.18;
   }
   s.aiIn -= dt;
   if (s.aiIn <= 0) {
@@ -1792,16 +1989,9 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
 
-    if (c.air && c.patrol) {
-      u.x = Math.max(
-        125,
-        Math.min(
-          W - 125,
-          u.x + u.patrolDir * c.speed! * (morale ? 1.2 : 1) * dt,
-        ),
-      );
-      if (u.x <= 125 || u.x >= W - 125) u.patrolDir *= -1;
-      u.facing = u.patrolDir;
+    if (c.air && c.sortie) {
+      u.x += dir * c.speed! * (morale ? 1.2 : 1) * dt;
+      u.facing = dir;
       u.moving = true;
     }
     if (c.observer) {
@@ -1872,9 +2062,10 @@ export function tick(s: GameState, dt: number) {
         (v) =>
           v.side !== u.side &&
           isCombatant(v) &&
+          visibleToSide(s, u.side, v) &&
           (!CARDS[v.id].air || c.antiAir) &&
           (!c.airOnly || CARDS[v.id].air) &&
-          (!c.patrol || (v.x - u.x) * u.patrolDir >= 0) &&
+          (!c.sortie || (v.x - u.x) * dir >= -40) &&
           Math.abs(v.x - u.x) <= range &&
           Math.abs(v.x - u.x) >= (c.minRange ?? 0),
       )
@@ -1886,6 +2077,15 @@ export function tick(s: GameState, dt: number) {
               ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
               : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
       );
+    if (candidates[0])
+      u.lastThreat = {
+        x: candidates[0].x,
+        y: candidates[0].y,
+        until: s.time + 3,
+      };
+    const threat =
+      candidates[0] ??
+      (u.lastThreat && u.lastThreat.until > s.time ? u.lastThreat : null);
     const target = candidates.find(
       (v) => firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
     );
@@ -1900,13 +2100,14 @@ export function tick(s: GameState, dt: number) {
           (v) =>
             v.side !== u.side &&
             isCombatant(v) &&
+            visibleToSide(s, u.side, v) &&
             !CARDS[v.id].air &&
             Math.abs(v.x - u.x) < c.minRange!,
         )
       : null;
     if (
       c.members &&
-      target &&
+      threat &&
       order !== 'rush' &&
       !c.indirect &&
       !treating &&
@@ -1914,15 +2115,15 @@ export function tick(s: GameState, dt: number) {
     ) {
       if (
         u.coverGoal !== null &&
-        (craterCover(s, u.coverGoal, target.x) < 0.2 ||
-          Math.abs(target.x - u.coverGoal) > range)
+        (craterCover(s, u.coverGoal, threat.x) < 0.2 ||
+          Math.abs(threat.x - u.coverGoal) > range)
       )
         u.coverGoal = null;
       if (u.coverGoal === null && order !== 'hold' && u.coverSearch <= 0) {
-        u.coverGoal = seekCover(s, u, target);
+        u.coverGoal = seekCover(s, u, threat);
         u.coverSearch = 0.7;
       }
-      u.cover = craterCover(s, u.x, target.x);
+      u.cover = craterCover(s, u.x, threat.x);
     } else {
       u.cover = 0;
       u.coverGoal = null;
@@ -1948,8 +2149,13 @@ export function tick(s: GameState, dt: number) {
       !bounding &&
       !retreating
     ) {
-      const tx = target ? target.x : baseX;
-      const ty = target ? target.y - bodyHeight(target) : ground(s, baseX) - 25;
+      let tx = target ? target.x : baseX;
+      let ty = target ? target.y - bodyHeight(target) : ground(s, baseX) - 25;
+      if (c.indirect && u.cooldown <= 0) {
+        const scatter = u.id === 'precision' ? 14 : c.emplacement ? 42 : 26;
+        tx += (rnd(s) - 0.5) * scatter * 2;
+        ty = ground(s, tx) - 8;
+      }
       if (c.indirect) u.pose = 'crouch';
       if (u.cooldown <= 0) {
         if (u.cover > 0.2 || firingHeight(s, u, tx, ty) === 47) u.pose = 'idle';
@@ -1959,19 +2165,28 @@ export function tick(s: GameState, dt: number) {
         if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
-          const kind = ammunition(u.id, u.member),
+          const ap = !!(c.penetration && target && CARDS[target.id].armored);
+          const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
           const total = Math.max(
-            flight.minimum,
+            c.indirect ? 2 : flight.minimum,
             Math.abs(tx - sx) / flight.speed,
           );
           u.facing = Math.sign(tx - u.x) || dir;
           u.shots++;
+          u.lastAmmo = kind;
           u.muzzleX = sx;
           u.muzzleY = sy;
           u.shotAngle = Math.atan2(ty - sy, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
           s.projectiles.push({
+            uid: ++s.uid,
+            guided: c.guided && !c.indirect,
+            speed: c.guided && c.airOnly ? 1250 : undefined,
+            infantryMultiplier: c.infantryMultiplier,
+            baseMultiplier: c.baseMultiplier,
+            shell: !!c.indirect,
+            effect: ap ? 'penetration' : c.indirect ? 'artillery' : 'he',
             sourceUid: u.uid,
             x: sx,
             y: sy,
@@ -1981,7 +2196,7 @@ export function tick(s: GameState, dt: number) {
             targetUid: target?.uid ?? null,
             base: target ? null : enemySide,
             damage:
-              (c.damage! / (c.members ?? 1)) *
+              ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               (morale ? 1.35 : 1) *
               (c.trait === 'close_assault' && Math.abs(tx - u.x) < 200
                 ? 1.2
@@ -1994,8 +2209,8 @@ export function tick(s: GameState, dt: number) {
             tracer: isTracer(kind, u.shots),
             trailIn: 0,
             arc: flight.arc,
-            radius: c.radius ?? 0,
-            life: total,
+            radius: ap ? 0 : (c.radius ?? 0),
+            life: c.guided && !c.indirect ? 8 : total,
             total,
             startX: sx,
             startY: sy,
@@ -2013,7 +2228,10 @@ export function tick(s: GameState, dt: number) {
         bounding ||
         retreating ||
         !!closeThreat ||
-        (!target && !baseInRange && (!c.members || order !== 'hold')))
+        (!target &&
+          !baseInRange &&
+          !(threat && u.cover > 0.2) &&
+          (!c.members || order !== 'hold')))
     ) {
       if (c.members)
         u.pose =
@@ -2037,7 +2255,12 @@ export function tick(s: GameState, dt: number) {
               ? 0.25
               : 1
         : 1;
-      const speed = c.speed! * u.pace * orderSpeed * (morale ? 1.2 : 1);
+      const speed =
+        c.speed! *
+        u.pace *
+        orderSpeed *
+        (morale ? 1.2 : 1) *
+        (u.slowedUntil > s.time ? 0.5 : 1);
       const moveDir = retreating
         ? -dir
         : closeThreat
@@ -2055,7 +2278,7 @@ export function tick(s: GameState, dt: number) {
           seeking ? Math.min(speed, Math.abs(u.coverGoal! - u.x) / dt) : speed,
           dt,
         );
-      else if (!c.patrol) {
+      else if (!c.sortie && !c.static) {
         u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
         u.moving = true;
       }
@@ -2080,12 +2303,35 @@ export function tick(s: GameState, dt: number) {
     const oldX = p.x,
       oldY = p.y;
     p.life -= dt;
-    const t = 1 - Math.max(0, p.life) / p.total;
-    p.x = p.startX + (p.tx - p.startX) * t;
-    p.y =
-      p.startY +
-      (p.ty - p.startY) * t -
-      Math.sin(t * Math.PI) * (p.arc ?? (p.radius ? 35 : 0));
+    if (p.guided) {
+      const tracked = s.units.find(
+        (u) => u.uid === p.targetUid && canTakeDamage(u),
+      );
+      if (tracked) {
+        p.tx = tracked.x;
+        p.ty = tracked.y - bodyHeight(tracked);
+      }
+      const dx = p.tx - p.x,
+        dy = p.ty - p.y,
+        dist = Math.hypot(dx, dy),
+        step = (p.speed ?? FLIGHT[p.ammunition ?? 'rocket'].speed) * dt;
+      if (p.life <= 0) {
+        continue;
+      }
+      if (dist <= step) {
+        p.x = p.tx;
+        p.y = p.ty;
+        p.life = 0;
+      } else {
+        p.x += (dx / dist) * step;
+        p.y += (dy / dist) * step;
+      }
+    } else {
+      const t = 1 - Math.max(0, p.life) / p.total;
+      p.x = p.startX + (p.tx - p.startX) * t;
+      p.y =
+        p.startY + (p.ty - p.startY) * t - Math.sin(t * Math.PI) * (p.arc ?? 0);
+    }
     if (p.ammunition === 'rocket') {
       p.trailIn = (p.trailIn ?? 0) - dt;
       if (p.trailIn <= 0) {
@@ -2116,7 +2362,7 @@ export function tick(s: GameState, dt: number) {
       p.x = friendly.x;
       p.y = friendly.y;
       if (s.time - friendly.u.friendlyWarnAt > 3) {
-        notify(s, '撤退队员进入友军射线，发生误伤', 'warn');
+        notify(s, '撤退队员进入友军射线，发生误伤', 'warn', [friendly.u.side]);
         friendly.u.friendlyWarnAt = s.time;
       }
       hitUnit(s, friendly.u, p.damage, p.side);
@@ -2133,11 +2379,21 @@ export function tick(s: GameState, dt: number) {
           p.radius,
           p.damage,
           p.side,
-          1,
+          p.baseMultiplier ?? 1,
           p.armorMultiplier,
+          p.effect,
+          p.infantryMultiplier,
         );
-      else
-        bulletImpact(s, impact.x, impact.y, 'soil', Math.sign(p.tx - p.startX));
+      else {
+        damageScenery(s, impact.x, impact.y, 3, p.damage);
+        bulletImpact(
+          s,
+          impact.x,
+          impact.y,
+          p.ammunition === 'ap' ? 'armor' : 'soil',
+          Math.sign(p.tx - p.startX),
+        );
+      }
       continue;
     }
     if (p.life <= 0) {
@@ -2149,12 +2405,20 @@ export function tick(s: GameState, dt: number) {
           p.radius,
           p.damage,
           p.side,
-          1,
+          p.baseMultiplier ?? 1,
           p.armorMultiplier,
+          p.effect,
+          p.infantryMultiplier,
         );
       else if (p.targetUid !== null) {
         const u = s.units.find((u) => u.uid === p.targetUid);
-        if (u && canTakeDamage(u)) {
+        if (
+          u &&
+          canTakeDamage(u) &&
+          Math.abs(u.x - p.tx) <
+            (CARDS[u.id].armored ? 70 : CARDS[u.id].air ? 80 : 18) &&
+          !terrainIntercept(s, p.x, p.y, u.x, u.y - bodyHeight(u))
+        ) {
           const cover =
             CARDS[u.id].members && u.motion === 'ground' && !u.climbing
               ? craterCover(s, u.x, p.startX) *
@@ -2164,7 +2428,28 @@ export function tick(s: GameState, dt: number) {
                     ? 0.6
                     : 0.25)
               : 0;
-          hitUnit(s, u, p.damage, p.side, cover);
+          hitUnit(
+            s,
+            u,
+            p.damage *
+              (CARDS[u.id].armored
+                ? (p.armorMultiplier ?? 1)
+                : CARDS[u.id].members
+                  ? (p.infantryMultiplier ?? 1)
+                  : 1),
+            p.side,
+            cover,
+          );
+          if (p.ammunition === 'ap')
+            s.blasts.push({
+              x: p.tx,
+              y: p.ty,
+              age: 0,
+              radius: 4,
+              kind: 'penetration',
+              soil: false,
+              seed: s.fxSeed,
+            });
           bulletImpact(
             s,
             p.tx,
@@ -2174,16 +2459,61 @@ export function tick(s: GameState, dt: number) {
           );
         }
       } else if (p.base !== null)
-        s.players[p.base].hp = Math.max(0, s.players[p.base].hp - p.damage);
+        s.players[p.base].hp = Math.max(
+          0,
+          s.players[p.base].hp - p.damage * (p.baseMultiplier ?? 1),
+        );
     }
   }
   s.projectiles = s.projectiles.filter((p) => p.life > 0);
+  for (const mine of s.mines) {
+    if (mine.armAt > s.time) continue;
+    const victim = s.units.find(
+      (u) =>
+        u.side !== mine.side &&
+        canTakeDamage(u) &&
+        CARDS[u.id].armored &&
+        Math.abs(u.x - mine.x) < 24,
+    );
+    if (victim) {
+      mine.armAt = Infinity;
+      victim.slowedUntil = s.time + 3;
+      hitUnit(s, victim, 260, mine.side, 0, 'blast');
+      burst(s, mine.x, ground(s, mine.x) - 4, 32, 'he');
+    }
+  }
+  s.mines = s.mines.filter((m) => m.armAt !== Infinity);
+  for (const u of s.units)
+    if (u.hp > 0 && CARDS[u.id].sortie && (u.x < -160 || u.x > W + 160)) {
+      settleSortie(s, u, true);
+      u.hp = 0;
+      u.deadFor = 0;
+      u.destroyed = true;
+    }
+  for (const w of s.wrecks) {
+    w.age += dt;
+    if (w.falling) {
+      w.x = Math.max(20, Math.min(W - 20, w.x + w.vx * dt));
+      w.vy += 250 * dt;
+      w.y += w.vy * dt;
+      w.angle += dt * 0.7 * Math.sign(w.vx || 1);
+      if (w.y >= ground(s, w.x)) {
+        w.falling = false;
+        w.y = ground(s, w.x);
+        w.angle = 0.09 * Math.sign(w.vx || 1);
+        burst(s, w.x, w.y - 15, 65, 'wreck');
+        s.visionIn = 0;
+      }
+    } else w.y = ground(s, w.x);
+  }
   s.units = s.units.filter(
     (u) =>
       (u.hp > 0 || u.deadFor > 0) && (!u.surrendered || u.surrenderTime < 6),
   );
   for (const b of s.blasts) b.age += dt;
-  s.blasts = s.blasts.filter((b) => b.age < 4);
+  s.blasts = s.blasts.filter(
+    (b) => b.age < (b.kind === 'penetration' ? 0.24 : 7),
+  );
   for (const p of s.particles) {
     p.life -= dt;
     p.x += p.vx * dt;
@@ -2212,7 +2542,7 @@ export function tick(s: GameState, dt: number) {
     );
   }
 }
-export function snapshot(s: GameState) {
+export function snapshot(s: GameState, viewer: Side = 0) {
   return {
     status: s.status,
     time: s.time,
@@ -2221,10 +2551,18 @@ export function snapshot(s: GameState) {
       side: i,
       order: p.order,
       hp: p.hp,
-      energy: p.energy,
-      hand: p.hand.map((h) => ({ ...h, ...CARDS[h.id] })),
-      deckCount: p.deck.length,
-      discardCount: p.discard.length,
+      energy: i === viewer ? p.energy : 0,
+      hand:
+        i === viewer
+          ? p.hand.map((h) => ({
+              ...h,
+              ...CARDS[h.id],
+              cost: cardCost(h),
+              readyIn: cardReadyIn(s, h),
+            }))
+          : [],
+      deckCount: i === viewer ? p.deck.length : 0,
+      discardCount: i === viewer ? p.discard.length : 0,
       drawIn: p.drawIn,
       jam: p.jam,
       morale: p.morale,
@@ -2234,10 +2572,14 @@ export function snapshot(s: GameState) {
       kills: p.kills,
       played: p.played,
     })),
-    units: s.units.map((u) => ({ ...u })),
-    walls: s.walls.map((w) => ({ ...w })),
+    units: s.units
+      .filter((u) => visibleToSide(s, viewer, u))
+      .map((u) => ({ ...u, sortieCard: null })),
+    walls: Object.values(s.knownWalls[viewer]).map((w) => ({ ...w })),
     smokes: s.smokes.map((f) => ({ ...f })),
-    explosions: s.explosions,
-    notices: s.notices.map((n) => ({ ...n })),
+    explosions: s.audibleExplosions[viewer],
+    notices: s.notices
+      .filter((n) => !n.audience || n.audience.includes(viewer))
+      .map((n) => ({ ...n })),
   };
 }

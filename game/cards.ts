@@ -39,6 +39,15 @@ export type CardId =
   | 'attack_drone'
   | 'loiter_drone'
   | 'interceptor'
+  | 'javelin'
+  | 'anti_tank_gun'
+  | 'antitank_mine'
+  | 'aa_gun'
+  | 'sam_vehicle'
+  | 'steadfast'
+  | 'supply_team'
+  | 'strike_jet'
+  | 'bomber'
   | 'rally'
   | 'ammo'
   | 'emp'
@@ -76,6 +85,18 @@ export interface Card {
     | 'attack_drone'
     | 'loiter_drone'
     | 'interceptor';
+  sortie?: boolean;
+  returnCost?: number;
+  sortieCooldown?: number;
+  sight?: number;
+  guided?: boolean;
+  static?: boolean;
+  emplacement?: 'howitzer' | 'at_gun' | 'aa_gun';
+  penetration?: number;
+  infantryMultiplier?: number;
+  baseMultiplier?: number;
+  neverSurrender?: boolean;
+  deployDraw?: number;
   altitude?: number;
   patrol?: boolean;
   observer?: boolean;
@@ -394,6 +415,204 @@ function variant(
 }
 export const CARDS: Record<CardId, Card> = {
   ...BASE_CARDS,
+  javelin: variant(
+    'rocket',
+    'javelin',
+    '标枪反坦克组',
+    4,
+    '双人制导反甲组，远距猎杀重装。',
+    {
+      members: 2,
+      hp: 140,
+      damage: 104,
+      rate: 3.2,
+      range: 760,
+      minRange: 100,
+      radius: 8,
+      guided: true,
+      antiAir: false,
+      armorMultiplier: 2.4,
+      infantryMultiplier: 0.3,
+      baseMultiplier: 0.2,
+      sight: 480,
+      tag: '制导 · 反坦克',
+      detail:
+        '2 人，140 生命。每 3.2 秒全组 104 伤害，制导追踪；射程 100–760，对装甲 ×2.4、对步兵 ×0.3。依赖前线观察员提供目标。',
+    },
+  ),
+  anti_tank_gun: variant(
+    'mortar',
+    'anti_tank_gun',
+    '牵引反坦克炮',
+    4,
+    '远射程穿甲炮，压制装甲推进。',
+    {
+      members: undefined,
+      hp: 240,
+      damage: 75,
+      rate: 2.8,
+      range: 840,
+      minRange: 100,
+      radius: 0,
+      indirect: false,
+      static: true,
+      speed: 0,
+      emplacement: 'at_gun',
+      armorMultiplier: 2.6,
+      infantryMultiplier: 0.25,
+      baseMultiplier: 0.2,
+      sight: 470,
+      tag: '阵地 · 反装甲',
+      detail:
+        '240 生命，部署后固定。射程 100–840，每 2.8 秒 75 伤害；装甲目标伤害 ×2.6，步兵目标 ×0.25。远处目标需要友军侦察。',
+    },
+  ),
+  antitank_mine: variant(
+    'smoke',
+    'antitank_mine',
+    '反坦克地雷',
+    2,
+    '预埋行进路线，仅敌方装甲触发。',
+    {
+      tag: '工事 · 装甲伏击',
+      detail:
+        '布置 2 秒后启用，保留到触发。敌方装甲进入 24 距离时承受 260 伤害并减速 3 秒。不伤步兵；不能贴着敌方装甲布置，需保持 80 距离。',
+    },
+  ),
+  aa_gun: variant(
+    'ifv',
+    'aa_gun',
+    '双联防空炮',
+    3,
+    '低费防空阵地，持续追打飞行目标。',
+    {
+      hp: 170,
+      damage: 10,
+      rate: 0.25,
+      range: 850,
+      speed: 0,
+      static: true,
+      armored: false,
+      antiAir: true,
+      airOnly: true,
+      emplacement: 'aa_gun',
+      sight: 760,
+      tag: '防空 · 持续压制',
+      detail:
+        '170 生命，固定阵地。每 0.25 秒 10 伤害、射程 850，只攻击空中目标。射速快，能在飞机掠过时持续射击。',
+    },
+  ),
+  sam_vehicle: variant(
+    'ifv',
+    'sam_vehicle',
+    '雷达防空车',
+    5,
+    '长程制导导弹，拦截高速飞机。',
+    {
+      hp: 280,
+      damage: 90,
+      rate: 2.4,
+      range: 1100,
+      speed: 36,
+      radius: 12,
+      guided: true,
+      antiAir: true,
+      airOnly: true,
+      sight: 1000,
+      tag: '防空 · 雷达制导',
+      detail:
+        '280 生命。每 2.4 秒一发 90 伤害追踪导弹，射程 1100，只攻击空中目标。雷达视野较远，可给友军共享空情。',
+    },
+  ),
+  steadfast: variant(
+    'infantry',
+    'steadfast',
+    '坚定守备队',
+    4,
+    '永不投降，适合坚守重要阵地。',
+    {
+      members: 4,
+      hp: 240,
+      damage: 24,
+      speed: 60,
+      neverSurrender: true,
+      discipline: 100,
+      doctrine: 'defensive',
+      tag: '精锐 · 永不投降',
+      detail: '4 人，240 生命。永远不会投降；仍会受伤、被压制或战术撤退。',
+    },
+  ),
+  supply_team: variant(
+    'infantry',
+    'supply_team',
+    '补给联络组',
+    4,
+    '部署成功后立即抽取一张卡。',
+    {
+      members: 3,
+      hp: 150,
+      damage: 15,
+      range: 320,
+      speed: 54,
+      deployDraw: 1,
+      sight: 620,
+      tag: '指挥 · 部署抽牌',
+      detail:
+        '3 人，150 生命。每次成功部署整支班组后，立即从自己的牌库抽 1 张，手牌上限仍为 6。拥有较远观察范围。',
+    },
+  ),
+  strike_jet: variant(
+    'helicopter',
+    'strike_jet',
+    '对地攻击机',
+    6,
+    '快速通场扫射，返航后低费再次派遣。',
+    {
+      hp: 170,
+      damage: 18,
+      rate: 0.25,
+      range: 630,
+      speed: 560,
+      altitude: 158,
+      airframe: 'interceptor',
+      sortie: true,
+      returnCost: 2,
+      sortieCooldown: 18,
+      sight: 730,
+      infantryMultiplier: 1.3,
+      armorMultiplier: 0.35,
+      baseMultiplier: 0.15,
+      tag: '航空 · 通场扫射',
+      detail:
+        '170 生命，快速单次穿过战场并对地扫射。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+    },
+  ),
+  bomber: variant(
+    'helicopter',
+    'bomber',
+    '战术轰炸机',
+    7,
+    '通场投弹，大范围爆破，返航后补充弹药。',
+    {
+      hp: 230,
+      damage: 62,
+      rate: 1.8,
+      range: 390,
+      speed: 430,
+      radius: 46,
+      altitude: 136,
+      airframe: 'attack_drone',
+      sortie: true,
+      returnCost: 2,
+      sortieCooldown: 24,
+      sight: 760,
+      indirect: true,
+      baseMultiplier: 0.15,
+      tag: '航空 · 通场轰炸',
+      detail:
+        '230 生命，快速飞越并投下高爆弹。成功离场回手，满手则弃牌；冷却 24 秒，后续该张卡花费 2。被击落会失去返航优惠。',
+    },
+  ),
   marines: variant(
     'infantry',
     'marines',
@@ -890,75 +1109,79 @@ export function needsTarget(id: CardId) {
 export const DECK_SIZE = 20;
 export const DECK: CardId[] = [
   'infantry',
+  'infantry',
   'marines',
-  'armed_police',
+  'militia',
   'scout_drone',
-  'assault',
-  'attack_drone',
   'machinegun',
-  'rocket',
-  'sniper',
+  'javelin',
+  'anti_tank_gun',
+  'antitank_mine',
+  'manpads',
+  'aa_gun',
   'medic',
-  'mortar',
   'tank',
-  'ifv',
   'helicopter',
+  'strike_jet',
+  'artillery',
   'morale',
   'smoke',
-  'artillery',
   'supply',
-  'recon',
-  'rally',
+  'supply_team',
 ];
 export function validDeck(value: unknown): value is CardId[] {
   return (
     Array.isArray(value) &&
     value.length === DECK_SIZE &&
-    new Set(value).size === DECK_SIZE &&
-    value.every((id) => typeof id === 'string' && Object.hasOwn(CARDS, id))
+    value.every(
+      (id) =>
+        typeof id === 'string' &&
+        Object.hasOwn(CARDS, id) &&
+        value.filter((v) => v === id).length <= copyLimit(id as CardId),
+    )
   );
 }
 const AI_DECKS: CardId[][] = [
   [
-    'infantry',
-    'marines',
-    'paratroopers',
     'militia',
-    'heavy_mg',
-    'antiarmor',
-    'sniper',
+    'militia',
+    'marines',
+    'infantry',
+    'machinegun',
+    'javelin',
+    'anti_tank_gun',
+    'antitank_mine',
+    'manpads',
+    'aa_gun',
     'medic',
-    'mortar',
-    'light_tank',
     'tank',
     'ifv',
     'helicopter',
-    'smoke',
     'artillery',
+    'smoke',
+    'morale',
     'supply',
-    'ammo',
     'recon',
-    'rally',
-    'repair',
+    'supply_team',
   ],
   [
     'armed_police',
     'infantry',
-    'mountain',
     'engineers',
-    'commandos',
-    'machinegun',
+    'steadfast',
+    'heavy_mg',
+    'javelin',
+    'javelin',
     'manpads',
-    'antiarmor',
-    'scouts',
+    'sam_vehicle',
     'medic',
-    'mortar',
     'heavy_tank',
-    'ifv',
-    'fortify',
-    'smoke',
     'barrage',
     'precision',
+    'scout_drone',
+    'interceptor',
+    'fortify',
+    'smoke',
     'supply',
     'medevac',
     'emp',
@@ -968,22 +1191,22 @@ const AI_DECKS: CardId[][] = [
     'assault',
     'scout_drone',
     'interceptor',
-    'loiter_drone',
-    'grenadiers',
-    'rocket',
-    'manpads',
-    'medic',
+    'strike_jet',
+    'bomber',
     'attack_drone',
     'rocket_heli',
-    'ifv',
-    'helicopter',
-    'morale',
-    'sabotage',
+    'javelin',
+    'anti_tank_gun',
+    'manpads',
+    'aa_gun',
+    'medic',
+    'supply_team',
     'artillery',
     'smoke',
     'supply',
     'ammo',
     'rally',
+    'infantry',
   ],
 ];
 export function chooseAiDeck(seed: number): CardId[] {
@@ -997,3 +1220,134 @@ export function chooseAiDeck(seed: number): CardId[] {
 for (const id of ['tank', 'light_tank', 'heavy_tank'] as const)
   CARDS[id].detail +=
     ' 同轴机枪独立装填：射程 420，每 0.18 秒对步兵射击，单发 3 伤害。';
+
+export function copyLimit(id: CardId) {
+  if (id === 'militia') return 6;
+  if (id === 'infantry') return 4;
+  if (['heavy_tank', 'rocket_heli', 'barrage', 'bomber'].includes(id)) return 1;
+  if (
+    [
+      'machinegun',
+      'rocket',
+      'medic',
+      'morale',
+      'supply',
+      'smoke',
+      'recon',
+      'marines',
+      'armed_police',
+      'paratroopers',
+      'assault',
+      'engineers',
+      'mountain',
+      'scouts',
+      'grenadiers',
+      'antiarmor',
+      'manpads',
+      'rally',
+      'scout_drone',
+      'loiter_drone',
+      'antitank_mine',
+    ].includes(id)
+  )
+    return 3;
+  return 2;
+}
+Object.assign(CARDS.artillery, {
+  name: '野战榴弹炮',
+  en: 'FIELD HOWITZER',
+  type: 'unit',
+  hp: 190,
+  damage: 44,
+  rate: 9,
+  range: 1250,
+  minRange: 280,
+  speed: 0,
+  static: true,
+  indirect: true,
+  radius: 36,
+  emplacement: 'howitzer',
+  targetGround: false,
+  sight: 390,
+  baseMultiplier: 0.15,
+  tag: '炮兵 · 周期火力',
+  description: '固定炮兵单位，自动向已发现的敌军开火。',
+  detail:
+    '190 生命。每 9 秒向友军已发现的敌人发射一发榴弹，射程 280–1250，中心 44 伤害。落点有散布，临近落弹才可能被察觉。',
+});
+Object.assign(CARDS.barrage, {
+  name: '重型榴弹炮',
+  type: 'unit',
+  hp: 240,
+  damage: 68,
+  rate: 13,
+  range: 1450,
+  minRange: 350,
+  speed: 0,
+  static: true,
+  indirect: true,
+  radius: 44,
+  emplacement: 'howitzer',
+  targetGround: false,
+  effect: undefined,
+  sight: 390,
+  baseMultiplier: 0.15,
+  description: '大口径周期炮击，需要前线观察员。',
+  detail:
+    '240 生命，每 13 秒 68 伤害、半径 44。射程 350–1450，部署后固定；只向已被友军观察到的敌军开火。',
+});
+Object.assign(CARDS.precision, {
+  name: '校射榴弹炮',
+  type: 'unit',
+  hp: 170,
+  damage: 75,
+  rate: 12,
+  range: 1350,
+  minRange: 300,
+  speed: 0,
+  static: true,
+  indirect: true,
+  guided: false,
+  radius: 22,
+  emplacement: 'howitzer',
+  targetGround: false,
+  sight: 390,
+  baseMultiplier: 0.2,
+  description: '低频校射炮击，打击已发现的重装目标。',
+  detail:
+    '170 生命，每 12 秒发射 75 伤害校射榴弹，射程 300–1350。固定阵地，需要友军持续观察。',
+});
+CARDS.manpads.guided = true;
+CARDS.manpads.sight = 860;
+for (const [id, damage] of [
+  ['tank', 390],
+  ['light_tank', 300],
+  ['heavy_tank', 510],
+] as const) {
+  CARDS[id].penetration = damage;
+  CARDS[id].detail +=
+    ` 对装甲使用 ${damage} 伤害穿甲弹，命中仅产生穿甲火星，击毁后才爆炸；对步兵使用高爆弹。`;
+}
+Object.assign(CARDS.interceptor, {
+  sortie: true,
+  patrol: false,
+  returnCost: 1,
+  sortieCooldown: 18,
+  speed: 620,
+  sight: 1050,
+  description: '快速通场争夺制空权，返航后仅需 1 费。',
+  detail:
+    '150 生命，单次高速穿过战场，只攻击空中目标。存活离场回手，满手则弃牌；返航冷却 18 秒，后续该张卡 1 费。被击落重置为全价。',
+});
+Object.assign(CARDS.attack_drone, {
+  sortie: true,
+  returnCost: 1,
+  sortieCooldown: 16,
+  speed: 450,
+  sight: 740,
+  guided: true,
+  description: '单次通场制导攻击，返航后仅需 1 费。',
+  detail:
+    '90 生命，单次通场发射反甲导弹。成功离场返回手牌，满手则弃牌；冷却 16 秒，此后该张卡花费 1。被击落会失去优惠。',
+});
+CARDS.rocket_heli.guided = true;

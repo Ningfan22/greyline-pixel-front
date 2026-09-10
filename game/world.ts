@@ -1,0 +1,386 @@
+import { CARDS } from './cards';
+import type { GameState, Side, Unit } from './engine';
+export interface SceneryPart {
+  id: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  hp: number;
+  maxHp: number;
+  kind: 'wall' | 'roof' | 'trunk' | 'crown';
+  brokenAt: number;
+}
+export interface Scenery {
+  id: number;
+  kind: 'house' | 'tree';
+  x: number;
+  y: number;
+  seed: number;
+  parts: SceneryPart[];
+}
+export interface Wreck {
+  id: number;
+  cardId: Unit['id'];
+  side: Side;
+  x: number;
+  y: number;
+  angle: number;
+  age: number;
+  falling: boolean;
+  vx: number;
+  vy: number;
+}
+export interface Mine {
+  uid: number;
+  side: Side;
+  x: number;
+  armAt: number;
+}
+const floorAt = (s: GameState, x: number) =>
+  s.terrain[Math.max(0, Math.min(s.terrain.length - 1, Math.floor(x)))];
+export function createScenery(terrain: number[]): Scenery[] {
+  return [
+    620, 820, 1040, 1250, 1450, 1680, 1910, 2140, 2370, 2570, 2790, 3000, 3220,
+  ].flatMap((x, i) => {
+    const house = i % 3 === 0,
+      y = terrain[x],
+      parts: SceneryPart[] = [];
+    const add = (
+      kind: SceneryPart['kind'],
+      dx: number,
+      dy: number,
+      w: number,
+      h: number,
+      hp: number,
+    ) =>
+      parts.push({
+        id: parts.length,
+        x: x + dx,
+        y: y + dy,
+        w,
+        h,
+        hp,
+        maxHp: hp,
+        kind,
+        brokenAt: -1,
+      });
+    if (house) {
+      add('wall', -52, -103, 34, 103, 100);
+      add('wall', -18, -103, 36, 103, 110);
+      add('wall', 18, -103, 34, 103, 100);
+      add('roof', -61, -153, 122, 52, 85);
+    } else {
+      add('trunk', -6, -85, 12, 85, 60);
+      add('crown', -50, -136, 100, 98, 40);
+    }
+    const base: Scenery = {
+      id: i * 2,
+      kind: house ? 'house' : 'tree',
+      x,
+      y,
+      parts,
+      seed: 119 + i * 47,
+    };
+    if (house) return [base];
+    const xx = x + 72,
+      yy = terrain[xx];
+    return [
+      base,
+      {
+        ...base,
+        id: i * 2 + 1,
+        x: xx,
+        y: yy,
+        seed: base.seed + 7,
+        parts: parts.map((p) => ({ ...p, x: p.x + 72, y: p.y + yy - y })),
+      },
+    ];
+  });
+}
+function segmentBox(
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  p: { x: number; y: number; w: number; h: number },
+) {
+  let near = 0,
+    far = 1;
+  for (const [start, delta, min, max] of [
+    [sx, tx - sx, p.x, p.x + p.w],
+    [sy, ty - sy, p.y, p.y + p.h],
+  ]) {
+    if (Math.abs(delta) < 0.0001) {
+      if (start < min || start > max) return null;
+    } else {
+      const a = (min - start) / delta,
+        b = (max - start) / delta;
+      near = Math.max(near, Math.min(a, b));
+      far = Math.min(far, Math.max(a, b));
+    }
+  }
+  return near <= far && far > 0.015 && near <= 1 ? Math.max(0.01, near) : null;
+}
+export interface Obstacle {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  prop?: Scenery;
+  part?: SceneryPart;
+  wreck?: Wreck;
+  rubble?: boolean;
+  foliage?: boolean;
+}
+const geometryCache = new WeakMap<
+  GameState,
+  { time: number; scenery: Scenery[]; wreckCount: number; boxes: Obstacle[] }
+>();
+export function obstacleBoxes(s: GameState): Obstacle[] {
+  const cached = geometryCache.get(s);
+  if (
+    cached &&
+    cached.time === s.time &&
+    cached.scenery === s.scenery &&
+    cached.wreckCount === s.wrecks.length
+  )
+    return cached.boxes;
+  const boxes: Obstacle[] = [];
+  for (const prop of s.scenery) {
+    for (const part of prop.parts) {
+      if (part.hp > 0)
+        boxes.push({ ...part, prop, part, foliage: part.kind === 'crown' });
+      else if (part.kind === 'wall')
+        boxes.push({
+          x: part.x,
+          y: floorAt(s, part.x + part.w / 2) - 22,
+          w: part.w,
+          h: 22,
+          prop,
+          part,
+          rubble: true,
+        });
+    }
+    if (
+      prop.kind === 'tree' &&
+      prop.parts.find((p) => p.kind === 'trunk')?.hp === 0
+    )
+      boxes.push({
+        x: prop.x - 12,
+        y: floorAt(s, prop.x) - 20,
+        w: 140,
+        h: 20,
+        prop,
+        rubble: true,
+      });
+  }
+  for (const wreck of s.wrecks)
+    if (!wreck.falling && !CARDS[wreck.cardId].members) {
+      const c = CARDS[wreck.cardId],
+        w = c.armored ? 126 : c.air ? 112 : 84,
+        h = c.armored ? 34 : c.air ? 28 : 24;
+      boxes.push({
+        x: wreck.x - w / 2,
+        y: wreck.y - h,
+        w,
+        h,
+        wreck,
+        rubble: true,
+      });
+    }
+  geometryCache.set(s, {
+    time: s.time,
+    scenery: s.scenery,
+    wreckCount: s.wrecks.length,
+    boxes,
+  });
+  return boxes;
+}
+export function sceneryIntercept(
+  s: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  vision = false,
+  includeOrigin = false,
+) {
+  let hit: { box: Obstacle; x: number; y: number; t: number } | null = null;
+  for (const box of obstacleBoxes(s)) {
+    if (!vision && box.foliage) continue;
+    // A soldier sheltering inside a footprint can shoot out above/along its edge.
+    if (
+      !includeOrigin &&
+      sx >= box.x &&
+      sx <= box.x + box.w &&
+      sy >= box.y &&
+      sy <= box.y + box.h
+    )
+      continue;
+    const t = segmentBox(sx, sy, tx, ty, box);
+    if (t !== null && (!hit || t < hit.t))
+      hit = { box, x: sx + (tx - sx) * t, y: sy + (ty - sy) * t, t };
+  }
+  return hit;
+}
+export function debrisCover(s: GameState, x: number, threatX: number) {
+  const y = floorAt(s, x),
+    dir = Math.sign(threatX - x) || 1;
+  let cover = 0;
+  for (const b of obstacleBoxes(s)) {
+    if (b.foliage) continue;
+    const edge = dir > 0 ? b.x : b.x + b.w,
+      d = (edge - x) * dir;
+    if (d < -b.w || d > 48 || Math.abs(threatX - x) < Math.max(0, d)) continue;
+    const height = y - b.y;
+    if (height > 8)
+      cover = Math.max(
+        cover,
+        Math.min(0.9, height / 44) * (1 - Math.max(0, d) / 85),
+      );
+  }
+  return cover;
+}
+export function clearSight(
+  s: GameState,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+  throughSmoke = false,
+) {
+  if (sceneryIntercept(s, sx, sy, tx, ty, true)) return false;
+  const steps = Math.ceil(Math.abs(tx - sx) / 12);
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    if (sy + (ty - sy) * t >= floorAt(s, sx + (tx - sx) * t) - 2) return false;
+  }
+  if (
+    !throughSmoke &&
+    s.smokes.some(
+      (f) =>
+        f.life > 0 &&
+        f.x + 95 > Math.min(sx, tx) &&
+        f.x - 95 < Math.max(sx, tx),
+    ) &&
+    Math.abs(tx - sx) > 140
+  )
+    return false;
+  return true;
+}
+export function sightRange(u: Unit) {
+  const c = CARDS[u.id];
+  return (
+    c.sight ??
+    (c.observer
+      ? 820
+      : c.air
+        ? 690
+        : c.members
+          ? Math.min(650, (c.range ?? 380) + 100)
+          : c.armored
+            ? 570
+            : 440)
+  );
+}
+export function pointVisible(s: GameState, side: Side, x: number, y: number) {
+  if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
+    return true;
+  return s.units.some(
+    (u) =>
+      u.side === side &&
+      u.hp > 0 &&
+      !u.wounded &&
+      !u.surrendered &&
+      Math.hypot(u.x - x, (u.y - 45 - y) * 0.65) <=
+        sightRange(u) * (s.players[side].recon > 0 ? 1.15 : 1) &&
+      clearSight(
+        s,
+        u.x,
+        u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48),
+        x,
+        y,
+        s.players[side].recon > 0 ||
+          (s.players[side].jam <= 0 &&
+            s.units.some(
+              (v) =>
+                v.side === side &&
+                v.hp > 0 &&
+                !v.wounded &&
+                !v.surrendered &&
+                CARDS[v.id].observer &&
+                Math.abs(v.x - u.x) <= 650,
+            )),
+      ),
+  );
+}
+export function visibleToSide(s: GameState, side: Side, u: Unit) {
+  return u.side === side || s.visible[side].includes(u.uid);
+}
+export function refreshVision(s: GameState) {
+  for (const side of [0, 1] as Side[]) {
+    s.visible[side] = s.units
+      .filter(
+        (u) =>
+          u.side === side ||
+          pointVisible(s, side, u.x, u.y - (u.pose === 'prone' ? 8 : 28)),
+      )
+      .map((u) => u.uid);
+    for (let bin = 0; bin < 60; bin++) {
+      const x = bin * 64 + 32,
+        seen = pointVisible(s, side, x, floorAt(s, x) - 35);
+      s.sight[side][bin] = seen;
+      if (seen)
+        for (let j = bin * 64; j < Math.min(3840, (bin + 1) * 64); j++)
+          s.knownTerrain[side][j] = s.terrain[j];
+    }
+    for (const w of s.walls)
+      if (pointVisible(s, side, w.x, floorAt(s, w.x) - w.height - 1))
+        s.knownWalls[side][w.uid] = { ...w };
+    for (const prop of s.scenery)
+      if (
+        prop.parts.some(
+          (p) =>
+            pointVisible(s, side, p.x - 1, p.y + p.h / 2) ||
+            pointVisible(s, side, p.x + p.w + 1, p.y + p.h / 2),
+        ) ||
+        pointVisible(s, side, prop.x, prop.y - 12)
+      )
+        s.knownScenery[side][prop.id] = structuredClone(prop);
+  }
+}
+export function damageScenery(
+  s: GameState,
+  x: number,
+  y: number,
+  radius: number,
+  damage: number,
+) {
+  geometryCache.delete(s);
+  for (const prop of s.scenery)
+    for (const p of prop.parts) {
+      if (p.hp <= 0) continue;
+      const distance = Math.hypot(
+        Math.max(p.x - x, 0, x - p.x - p.w),
+        Math.max(p.y - y, 0, y - p.y - p.h),
+      );
+      if (distance > radius) continue;
+      p.hp = Math.max(
+        0,
+        p.hp - damage * Math.max(0.15, 1 - distance / (radius + 1)),
+      );
+      if (!p.hp) p.brokenAt = s.time;
+    }
+  for (const prop of s.scenery) {
+    const support = prop.parts.filter(
+      (p) => p.kind === 'wall' || p.kind === 'trunk',
+    );
+    if (support.every((p) => p.hp <= 0))
+      for (const p of prop.parts)
+        if (p.hp > 0) {
+          p.hp = 0;
+          p.brokenAt = s.time;
+        }
+  }
+}
