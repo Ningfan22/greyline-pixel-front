@@ -1,5 +1,6 @@
 'use client';
-import Image from 'next/image';
+/* oxlint-disable next/no-img-element -- Generated WebP cards are already optimized and must work on static hosting. */
+import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
 
@@ -53,23 +54,21 @@ export function CardFace({
       className={`printed-card ${className}`}
       aria-label={`${c.name}，${value}指挥点。${stats.map(([k, v]) => `${k}${v}`).join('，')}。${copy.ability}：${copy.rule} ${copy.flavor}`}
     >
-      <Image
+      <img
         width={1024}
         height={1536}
-        unoptimized
         className="printed-card-frame"
-        src="/art/cards-v10/frame.webp"
+        src={assetUrl('/art/cards-v10/frame.webp')}
         alt=""
         aria-hidden="true"
         decoding="async"
         draggable={false}
       />
-      <Image
+      <img
         width={720}
         height={720}
-        unoptimized
         className="printed-card-picture"
-        src={`/art/cards-v10/${id}.webp`}
+        src={assetUrl(`/art/cards-v10/${id}.webp`)}
         alt=""
         aria-hidden="true"
         loading={eager ? 'eager' : 'lazy'}

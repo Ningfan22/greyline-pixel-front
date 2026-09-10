@@ -1,5 +1,6 @@
 import { CARDS, modelOf, weaponModel, type CardId } from './cards';
 import { buildAircraft } from './aircraft';
+import { assetUrl } from './asset-url';
 export interface Art {
   reactions: HTMLCanvasElement[][];
   background: HTMLCanvasElement;
@@ -19,7 +20,7 @@ function loadImage(src: string) {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`无法加载 ${src}`));
-    img.src = src;
+    img.src = assetUrl(src);
   });
 }
 function surface(w: number, h: number) {
