@@ -2543,3 +2543,23 @@ footer button {
     flex-shrink: 0;
   }
 }
+
+.recon-label {
+  position: absolute;
+  right: 18px;
+  bottom: 50px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 7px 10px;
+  background: #2a443ddd;
+  color: #e1e8c9;
+  pointer-events: none;
+}
+.range-readout {
+  display: inline-block;
+  margin-top: 8px;
+  color: #d8c69c;
+  font-size: 12px;
+}

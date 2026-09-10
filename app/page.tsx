@@ -7,6 +7,10 @@ import {
   BookOpen,
   ChevronRight,
   Crosshair,
+  CloudFog,
+  Binoculars,
+  Wrench,
+  Target,
   Flag,
   Layers3,
   Pause,
@@ -29,6 +33,8 @@ import {
 } from '@/components/ui/dialog';
 import {
   CARDS,
+  DECK,
+  needsTarget,
   createGame,
   DURATION,
   MAX_HP,
@@ -46,62 +52,79 @@ import {
   type HandCard,
 } from '@/game/engine';
 import { render } from '@/game/render';
-import { loadArt, drawSprite, cardFrame, type Art } from '@/game/art';
+import {
+  loadArt,
+  drawSprite,
+  cardFrame,
+  soldierEquipment,
+  type Art,
+} from '@/game/art';
 
-function SpriteArt({
-  index,
-  className = '',
-}: {
-  index: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
+function SpriteArt({ id, className = '' }: { id: CardId; className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null),
+    card = CARDS[id];
   useEffect(() => {
     let live = true;
+    if (card.type === 'skill') return;
     void loadArt()
       .then((art) => {
         if (!live) return;
         const ctx = ref.current?.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, 240, 150);
-          ctx.imageSmoothingEnabled = false;
-          const frame = cardFrame(art, index);
-          if (index < 3) {
-            drawSprite(ctx, frame, 90, 145, 140, 105);
-            drawSprite(ctx, frame, 146, 145, 140, 105);
-            if (index > 0) {
-              const weapon = art.vehicles[2][index === 1 ? 2 : 3];
-              drawSprite(ctx, weapon, 98, 101, 50, 21);
-              drawSprite(ctx, weapon, 154, 101, 50, 21);
-            }
-          } else drawSprite(ctx, frame, 120, 140, 192, 112);
-        }
+        if (!ctx) return;
+        ctx.clearRect(0, 0, 240, 150);
+        ctx.imageSmoothingEnabled = false;
+        const frame = cardFrame(art, card.atlas);
+        if (card.members) {
+          for (const x of [90, 146]) {
+            drawSprite(ctx, frame, x, 145, 140, 105);
+            const item = soldierEquipment(art, id);
+            if (item)
+              drawSprite(
+                ctx,
+                item,
+                x + (id === 'medic' ? -12 : 8),
+                id === 'mortar' ? 140 : id === 'medic' ? 115 : 101,
+                id === 'medic' ? 20 : id === 'mortar' ? 33 : 50,
+                id === 'medic' ? 23 : id === 'mortar' ? 39 : 21,
+              );
+          }
+        } else drawSprite(ctx, frame, 120, 140, 192, 112);
       })
       .catch(() => {});
     return () => {
       live = false;
     };
-  }, [index]);
-  return index >= 6 ? (
+  }, [id, card]);
+  if (card.type === 'unit')
+    return (
+      <canvas
+        aria-hidden="true"
+        className={className}
+        width="240"
+        height="150"
+        ref={ref}
+      />
+    );
+  const Icon =
+    id === 'morale'
+      ? Sparkles
+      : id === 'artillery'
+        ? Crosshair
+        : id === 'supply'
+          ? Layers3
+          : id === 'smoke'
+            ? CloudFog
+            : id === 'recon'
+              ? Binoculars
+              : id === 'repair'
+                ? Wrench
+                : id === 'precision'
+                  ? Target
+                  : Radio;
+  return (
     <div className={'skill-art-icon ' + className} aria-hidden="true">
-      {index === 6 ? (
-        <Sparkles />
-      ) : index === 7 ? (
-        <Crosshair />
-      ) : index === 8 ? (
-        <Layers3 />
-      ) : (
-        <Radio />
-      )}
+      <Icon />
     </div>
-  ) : (
-    <canvas
-      aria-hidden="true"
-      className={className}
-      width="240"
-      height="150"
-      ref={ref}
-    />
   );
 }
 const timeString = (t: number) =>
@@ -163,10 +186,9 @@ export default function Home() {
           setCameraView(0);
           hover.current = 280;
         } else
-          hover.current =
-            h.id === 'artillery'
-              ? camera.current + viewport.current * 0.6
-              : null;
+          hover.current = CARDS[h.id].targetGround
+            ? camera.current + viewport.current * 0.6
+            : null;
       }
     } else hover.current = null;
   }, []);
@@ -424,9 +446,7 @@ export default function Home() {
         if (hand)
           execute(
             hand.uid,
-            CARDS[hand.id].type === 'unit' || hand.id === 'artillery'
-              ? (hover.current ?? 280)
-              : undefined,
+            needsTarget(hand.id) ? (hover.current ?? 280) : undefined,
           );
       }
     };
@@ -489,7 +509,7 @@ export default function Home() {
     register({
       name: 'play_battle_card',
       description:
-        '打出当前手牌。单位部署 x 为 110–440；火炮 x 为 0–3840；其他技能无需 x。',
+        '打出当前手牌。单位部署 x 为 110–440；烟幕、火炮和精确打击 x 为 0–3840；其他技能无需 x。',
       inputSchema: {
         type: 'object',
         properties: { uid: { type: 'integer' }, x: { type: 'number' } },
@@ -528,12 +548,12 @@ export default function Home() {
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
     if (CARDS[h.id].type === 'unit') moveCamera(0);
-    if (touchMode && (CARDS[h.id].type === 'unit' || h.id === 'artillery'))
+    if (touchMode && needsTarget(h.id))
       canvas.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     hover.current =
       CARDS[h.id].type === 'unit'
         ? 280
-        : h.id === 'artillery'
+        : CARDS[h.id].targetGround
           ? camera.current + viewport.current * 0.6
           : null;
   };
@@ -728,7 +748,7 @@ export default function Home() {
             if (e.currentTarget.hasPointerCapture(e.pointerId))
               e.currentTarget.releasePointerCapture(e.pointerId);
             if (moved || !chosen) return;
-            if (card?.type === 'unit' || card?.id === 'artillery') {
+            if (card && needsTarget(card.id)) {
               const x = Math.max(0, Math.min(W, canvasX(e.clientX)));
               if (e.pointerType !== 'mouse') {
                 setTouchMode(true);
@@ -796,10 +816,10 @@ export default function Home() {
                 ? touchMode
                   ? '点选蓝色区域，再确认部署'
                   : '点击蓝色区域部署部队'
-                : card.id === 'artillery'
+                : card.targetGround
                   ? touchMode
-                    ? '滑动找目标，点选后确认炮击'
-                    : '点击战场，指定火炮覆盖区域'
+                    ? '滑动找目标，点选后确认指令'
+                    : '点击战场，指定' + card.name + '区域'
                   : '确认下达指令'
               : '选择手牌下令 · 拖动查看前线'}
             {card && (
@@ -810,36 +830,38 @@ export default function Home() {
             )}
           </div>
         )}
-        {active &&
-          touchMode &&
-          chosen &&
-          (card?.type === 'unit' || card?.id === 'artillery') && (
-            <div className="touch-target-controls">
-              <button onClick={() => choose(null)}>取消</button>
-              <button
-                className="confirm-target"
-                disabled={
-                  aimTarget === null ||
-                  p.energy < card.cost ||
-                  (card.type === 'unit' && (aimTarget < 110 || aimTarget > 440))
-                }
-                onClick={() =>
-                  aimTarget !== null && execute(chosen.uid, aimTarget)
-                }
-              >
-                <Crosshair size={16} />
-                {aimTarget === null
-                  ? '先点选落点'
-                  : card.type === 'unit'
-                    ? '确认部署'
-                    : '确认炮击'}
-              </button>
-            </div>
-          )}
+        {active && touchMode && chosen && card && needsTarget(card.id) && (
+          <div className="touch-target-controls">
+            <button onClick={() => choose(null)}>取消</button>
+            <button
+              className="confirm-target"
+              disabled={
+                aimTarget === null ||
+                p.energy < card.cost ||
+                (card.type === 'unit' && (aimTarget < 110 || aimTarget > 440))
+              }
+              onClick={() =>
+                aimTarget !== null && execute(chosen.uid, aimTarget)
+              }
+            >
+              <Crosshair size={16} />
+              {aimTarget === null
+                ? '先点选落点'
+                : card.type === 'unit'
+                  ? '确认部署'
+                  : '确认' + card.name}
+            </button>
+          </div>
+        )}
         {p.morale > 0 && (
           <div className="buff-label">
             <Sparkles size={13} />
             士气鼓舞 · {Math.ceil(p.morale)}s
+          </div>
+        )}
+        {p.recon > 0 && (
+          <div className="recon-label">
+            <Binoculars size={14} /> 校射 +20% · {Math.ceil(p.recon)}s
           </div>
         )}
         {view.status === 'ready' && (
@@ -1134,7 +1156,7 @@ export default function Home() {
                   <strong>{card.name}</strong>
                 </div>
                 <p>{card.detail}</p>
-                {card.type === 'skill' && card.id !== 'artillery' ? (
+                {card.type === 'skill' && !card.targetGround ? (
                   <button
                     className="order-button"
                     disabled={!active || p.energy < card.cost}
@@ -1147,14 +1169,16 @@ export default function Home() {
                     <Crosshair size={13} />
                     {card.type === 'unit'
                       ? '在蓝色区域选择部署点'
-                      : '在战场选择炮击落点'}
+                      : '在战场选择作用位置'}
                   </span>
                 )}
               </>
             ) : (
               <>
                 <span className="panel-eyebrow">指挥提示</span>
-                <p>推进时自动寻找弹坑掩护；奔跑时不主动寻找掩护。</p>
+                <p>
+                  狙击与迫击炮留在后方，医疗组跟进救治；烟幕可掩护前排推进。
+                </p>
               </>
             )}
           </div>
@@ -1202,7 +1226,7 @@ export default function Home() {
                       <kbd>{i + 1}</kbd>
                     </div>
                     <div className="card-art">
-                      <SpriteArt index={c.atlas} />
+                      <SpriteArt id={c.id} />
                       <div className="art-horizon" />
                     </div>
                     <div className="card-copy">
@@ -1211,7 +1235,11 @@ export default function Home() {
                       <p>{c.description}</p>
                     </div>
                     <div className="card-bottom">
-                      <span>{c.tag}</span>
+                      <span>
+                        {c.range
+                          ? `射程 ${c.minRange ? c.minRange + '–' : ''}${c.range}`
+                          : c.tag}
+                      </span>
                       {c.type === 'unit' ? (
                         <Shield size={12} />
                       ) : (
@@ -1232,7 +1260,7 @@ export default function Home() {
             <button
               className="deck-pile"
               onClick={() => openPanel('deck')}
-              aria-label="查看全部九种卡牌及规则"
+              aria-label="查看全部兵种、卡牌及规则"
             >
               <span className="deck-card-back">
                 <span className="deck-emblem">
@@ -1255,7 +1283,7 @@ export default function Home() {
       </section>
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · 演习版本 0.4
+          GREYLINE <i /> 林间前线 · 演习版本 0.5
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -1279,7 +1307,7 @@ export default function Home() {
           </DialogTitle>
           <DialogDescription>
             {panel === 'deck'
-              ? '18 张循环牌库 · 9 种战术卡 · 用过的牌在牌库抽空后重新洗入。'
+              ? `${DECK.length} 张循环牌库 · ${Object.keys(CARDS).length} 种战术卡 · 用过的牌在牌库抽空后重新洗入。`
               : '灰线 / 林间前线 · 单线即时卡牌对战'}
           </DialogDescription>
           {panel === 'guide' ? (
@@ -1299,23 +1327,23 @@ export default function Home() {
                   <p>
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
                     移动视野，也可点击小地图。选卡后点击蓝色区域部署；手机上点选落点后再按确认。炮击可指定任意位置。每个班组由
-                    5–6
-                    名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。士兵会跳入弹坑、落地缓冲，再撑地攀出。
+                    2–6
+                    名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。小起伏直接步行通过，较大落差才会下跳、缓冲和攀出。
                   </p>
                 </div>
                 <div>
                   <span>03 / 补给</span>
                   <h3>合理分配指挥点</h3>
                   <p>
-                    开局 7 点，每 2.8 秒恢复 1 点，上限 10。每 9 秒抽 1
-                    张牌，最多持有 6 张；满手牌时跳过当次抽牌。
+                    开局 6 张手牌、7 指挥点，每 2.8 秒恢复 1 点，上限 10。每 9
+                    秒抽 1 张牌，最多持有 6 张；满手牌时跳过当次抽牌。
                   </p>
                 </div>
                 <div>
                   <span>04 / 战术</span>
                   <h3>用好不同兵种</h3>
                   <p>
-                    坦克承伤，重火力负责爆破；机枪和重火力能够对空。火炮可打击任意位置，友军免伤，对基地只造成
+                    坦克承伤，战车持续压制；狙击手优先打步兵，迫击炮曲射但怕近身，医疗组救治步兵。机枪、战车和重火力能够对空。火炮可打击任意位置，友军免伤，对基地只造成
                     35%
                     伤害。交火时士兵会寻找附近弹坑，蹲伏躲避、探身开火；坑沿能遮挡直射，无法挡住落入坑内的炮击。
                   </p>
@@ -1337,7 +1365,7 @@ export default function Home() {
             <div className="catalog">
               {deckCards.map((c) => (
                 <div className={`catalog-card ${c.type}`} key={c.id}>
-                  <SpriteArt index={c.atlas} />
+                  <SpriteArt id={c.id} />
                   <div>
                     <h3>
                       {c.name}
@@ -1348,6 +1376,12 @@ export default function Home() {
                     </h3>
                     <span>{c.tag}</span>
                     <p>{c.detail}</p>
+                    {c.range && (
+                      <span className="range-readout">
+                        有效射程 {c.minRange ? c.minRange + '–' : ''}
+                        {c.range}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

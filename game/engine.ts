@@ -8,7 +8,15 @@ export type CardId =
   | 'morale'
   | 'artillery'
   | 'supply'
-  | 'jam';
+  | 'jam'
+  | 'sniper'
+  | 'medic'
+  | 'mortar'
+  | 'ifv'
+  | 'smoke'
+  | 'recon'
+  | 'repair'
+  | 'precision';
 export type Order = 'advance' | 'hold' | 'rush' | 'crouch' | 'prone';
 export type Status = 'ready' | 'playing' | 'paused' | 'finished';
 export interface Card {
@@ -30,6 +38,11 @@ export interface Card {
   antiAir?: boolean;
   radius?: number;
   members?: number;
+  minRange?: number;
+  indirect?: boolean;
+  heal?: number;
+  armored?: boolean;
+  targetGround?: boolean;
 }
 export const CARDS: Record<CardId, Card> = {
   infantry: {
@@ -45,7 +58,7 @@ export const CARDS: Record<CardId, Card> = {
     atlas: 0,
     hp: 210,
     damage: 24,
-    range: 145,
+    range: 380,
     speed: 68,
     rate: 1,
     members: 6,
@@ -63,7 +76,7 @@ export const CARDS: Record<CardId, Card> = {
     atlas: 1,
     hp: 225,
     damage: 12,
-    range: 215,
+    range: 500,
     speed: 54,
     rate: 0.35,
     antiAir: true,
@@ -82,7 +95,7 @@ export const CARDS: Record<CardId, Card> = {
     atlas: 2,
     hp: 200,
     damage: 100,
-    range: 280,
+    range: 650,
     speed: 48,
     rate: 2.6,
     radius: 34,
@@ -101,10 +114,11 @@ export const CARDS: Record<CardId, Card> = {
     atlas: 3,
     hp: 650,
     damage: 80,
-    range: 235,
+    range: 600,
     speed: 40,
     rate: 1.9,
     radius: 44,
+    armored: true,
   },
   helicopter: {
     id: 'helicopter',
@@ -118,10 +132,87 @@ export const CARDS: Record<CardId, Card> = {
     atlas: 4,
     hp: 260,
     damage: 30,
-    range: 195,
+    range: 540,
     speed: 94,
     rate: 1,
     air: true,
+  },
+  sniper: {
+    id: 'sniper',
+    name: '狙击小组',
+    en: 'MARKSMEN',
+    cost: 3,
+    type: 'unit',
+    tag: '远距 · 点射',
+    description: '超远射程，优先狙击步兵',
+    detail:
+      '2 名狙击手 · 100 生命，每 2.4 秒共 42 伤害。射程 780，优先攻击步兵；对装甲伤害减半。',
+    atlas: 10,
+    members: 2,
+    hp: 100,
+    damage: 42,
+    rate: 2.4,
+    range: 780,
+    speed: 52,
+  },
+  medic: {
+    id: 'medic',
+    name: '战地医疗组',
+    en: 'COMBAT MEDICS',
+    cost: 3,
+    type: 'unit',
+    tag: '救治 · 步兵',
+    description: '就地救治附近受伤步兵',
+    detail:
+      '3 名军医 · 135 生命。每人每 0.8 秒为 140 范围内一名步兵恢复 4 生命，不复活，不修理载具；携带自卫武器。',
+    atlas: 11,
+    members: 3,
+    hp: 135,
+    damage: 9,
+    rate: 1.2,
+    range: 260,
+    speed: 64,
+    heal: 4,
+  },
+  mortar: {
+    id: 'mortar',
+    name: '迫击炮组',
+    en: 'MORTAR TEAM',
+    cost: 4,
+    type: 'unit',
+    tag: '曲射 · 区域压制',
+    description: '越过地形和烟幕曲射',
+    detail:
+      '3 名炮手 · 150 生命，每 3.4 秒共 90 范围伤害。射程 180–820，无法对空；敌军贴近时会后撤。',
+    atlas: 12,
+    members: 3,
+    hp: 150,
+    damage: 90,
+    rate: 3.4,
+    range: 820,
+    minRange: 180,
+    speed: 42,
+    radius: 42,
+    indirect: true,
+  },
+  ifv: {
+    id: 'ifv',
+    name: '步兵战车',
+    en: 'INFANTRY FIGHTING VEHICLE',
+    cost: 5,
+    type: 'unit',
+    tag: '机炮 · 对空',
+    description: '快速机炮，压制步兵与空中',
+    detail:
+      '420 生命 · 每 0.4 秒 13 伤害。射程 500，机炮可对空；比坦克轻快，适合持续火力支援。',
+    atlas: 13,
+    hp: 420,
+    damage: 13,
+    rate: 0.4,
+    range: 500,
+    speed: 58,
+    antiAir: true,
+    armored: true,
   },
   morale: {
     id: 'morale',
@@ -136,6 +227,7 @@ export const CARDS: Record<CardId, Card> = {
   },
   artillery: {
     id: 'artillery',
+    targetGround: true,
     name: '火炮覆盖',
     en: 'ARTILLERY BARRAGE',
     cost: 4,
@@ -168,6 +260,56 @@ export const CARDS: Record<CardId, Card> = {
     detail: '暂停敌方自动抽牌倒计时 9 秒；不影响补给卡。重复使用刷新时长。',
     atlas: 9,
   },
+  smoke: {
+    id: 'smoke',
+    name: '烟幕掩护',
+    en: 'SMOKE SCREEN',
+    cost: 2,
+    type: 'skill',
+    tag: '掩护 · 遮蔽',
+    description: '遮挡双方远距直射 8 秒',
+    detail:
+      '选择位置释放半径 110 的烟幕，持续 8 秒。阻止双方超过 110 距离的穿烟直射；无法阻止迫击炮与火炮。侦察校射可看穿烟幕。',
+    atlas: 14,
+    targetGround: true,
+  },
+  recon: {
+    id: 'recon',
+    name: '侦察校射',
+    en: 'FORWARD OBSERVER',
+    cost: 2,
+    type: 'skill',
+    tag: '观测 · 射程',
+    description: '射程 +20%，看穿烟幕',
+    detail:
+      '全体己方部队射程提升 20%，并能看穿烟幕，持续 10 秒。适合配合狙击手和后方火力。重复使用刷新时长。',
+    atlas: 15,
+  },
+  repair: {
+    id: 'repair',
+    name: '装甲抢修',
+    en: 'FIELD REPAIRS',
+    cost: 3,
+    type: 'skill',
+    tag: '后勤 · 载具',
+    description: '8 秒内修复己方装甲',
+    detail:
+      '在场己方坦克与步兵战车每秒恢复 20 生命，持续 8 秒。只修复使用时已经在场且存活的装甲，生命不超过上限。',
+    atlas: 16,
+  },
+  precision: {
+    id: 'precision',
+    name: '精确打击',
+    en: 'PRECISION STRIKE',
+    cost: 5,
+    type: 'skill',
+    tag: '支援 · 定点爆破',
+    description: '小范围重击，克制装甲',
+    detail:
+      '指定位置，1.2 秒后造成半径 36、240 点伤害的单次打击。只伤害敌军；对基地伤害为 25%。瞄准停火中的重装单位更有效。',
+    atlas: 17,
+    targetGround: true,
+  },
 };
 export const W = 3840,
   VIEW_W = 1440,
@@ -177,6 +319,9 @@ export const W = 3840,
   DRAW_TIME = 9,
   ENERGY_TIME = 2.8,
   MAX_HAND = 6;
+export const AIR_ALTITUDE = 232,
+  DROP_HEIGHT = 20,
+  CLIMB_HEIGHT = 20;
 export const DECK: CardId[] = [
   'infantry',
   'infantry',
@@ -184,19 +329,30 @@ export const DECK: CardId[] = [
   'machinegun',
   'machinegun',
   'rocket',
-  'rocket',
-  'tank',
   'tank',
   'helicopter',
-  'morale',
+  'sniper',
+  'sniper',
+  'medic',
+  'medic',
+  'mortar',
+  'mortar',
+  'ifv',
   'morale',
   'artillery',
   'artillery',
   'supply',
   'supply',
   'jam',
-  'jam',
+  'smoke',
+  'smoke',
+  'recon',
+  'repair',
+  'precision',
 ];
+export function needsTarget(id: CardId) {
+  return CARDS[id].type === 'unit' || !!CARDS[id].targetGround;
+}
 export interface HandCard {
   uid: number;
   id: CardId;
@@ -244,6 +400,9 @@ export interface Unit {
   cover: number;
   coverGoal: number | null;
   coverSearch: number;
+  supportCooldown: number;
+  healing: number;
+  repairTime: number;
 }
 export interface Projectile {
   x: number;
@@ -259,6 +418,7 @@ export interface Projectile {
   total: number;
   startX: number;
   startY: number;
+  arc?: number;
 }
 export interface Particle {
   x: number;
@@ -275,6 +435,12 @@ export interface Marker {
   timer: number;
   side: Side;
   wave: number;
+  kind?: 'artillery' | 'precision';
+}
+export interface Smoke {
+  x: number;
+  life: number;
+  side: Side;
 }
 export interface Notice {
   text: string;
@@ -298,6 +464,7 @@ export interface Player {
   drawIn: number;
   jam: number;
   morale: number;
+  recon: number;
   kills: number;
   played: number;
 }
@@ -312,6 +479,7 @@ export interface GameState {
   projectiles: Projectile[];
   particles: Particle[];
   markers: Marker[];
+  smokes: Smoke[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -351,6 +519,7 @@ export function createGame(seed = Date.now()): GameState {
     drawIn: DRAW_TIME,
     jam: 0,
     morale: 0,
+    recon: 0,
     kills: 0,
     played: 0,
   });
@@ -371,6 +540,7 @@ export function createGame(seed = Date.now()): GameState {
     projectiles: [],
     particles: [],
     markers: [],
+    smokes: [],
     notices: [],
     result: null,
     aiIn: 3.5,
@@ -383,8 +553,9 @@ export function createGame(seed = Date.now()): GameState {
     const deck = [...DECK];
     const opening: CardId[] = [
       'infantry',
-      'machinegun',
-      'tank',
+      'sniper',
+      'ifv',
+      'smoke',
       'artillery',
       'supply',
     ];
@@ -392,7 +563,9 @@ export function createGame(seed = Date.now()): GameState {
       deck.splice(deck.indexOf(id), 1);
       s.players[side].hand.push({ uid: ++s.uid, id });
     }
-    s.players[side].deck = shuffle(s, deck);
+    const next: CardId[] = ['medic', 'mortar'];
+    for (const id of next) deck.splice(deck.indexOf(id), 1);
+    s.players[side].deck = [...next, ...shuffle(s, deck)];
     spawnUnit(s, side, 'infantry', side === 0 ? 175 : W - 175);
   }
   return s;
@@ -424,7 +597,7 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       id,
       side,
       x: px,
-      y: c.air ? 240 : ground(s, px),
+      y: c.air ? AIR_ALTITUDE : ground(s, px),
       hp,
       maxHp: hp,
       cooldown: 0.3 + i * 0.13,
@@ -454,6 +627,9 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       cover: 0,
       coverGoal: null,
       coverSearch: 0,
+      supportCooldown: 0,
+      healing: 0,
+      repairTime: 0,
     });
   }
 }
@@ -504,10 +680,10 @@ export function playCard(
   )
     return { ok: false, message: '请在蓝色部署区域内选择落点' };
   if (
-    c.id === 'artillery' &&
+    c.targetGround &&
     (x === undefined || !Number.isFinite(x) || x < 0 || x > W)
   )
-    return { ok: false, message: '请在战场上选择炮击位置' };
+    return { ok: false, message: '请在战场上选择作用位置' };
   p.energy = Math.max(0, p.energy - c.cost);
   p.hand.splice(index, 1);
   p.discard.push(c.id);
@@ -516,6 +692,15 @@ export function playCard(
     spawnUnit(s, side, c.id, x!);
   } else if (c.id === 'artillery') {
     s.markers.push({ x: x!, timer: 0.8, side, wave: 0 });
+  } else if (c.id === 'precision') {
+    s.markers.push({ x: x!, timer: 1.2, side, wave: 0, kind: 'precision' });
+  } else if (c.id === 'smoke') {
+    s.smokes.push({ x: x!, life: 8, side });
+  } else if (c.id === 'recon') {
+    p.recon = 10;
+  } else if (c.id === 'repair') {
+    for (const u of s.units)
+      if (u.side === side && u.hp > 0 && CARDS[u.id].armored) u.repairTime = 8;
   } else if (c.id === 'morale') {
     p.morale = 8;
   } else if (c.id === 'supply') {
@@ -652,16 +837,31 @@ export function terrainIntercept(
   }
   return null;
 }
+export function muzzleOffset(u: Unit) {
+  return u.id === 'tank'
+    ? 88
+    : u.id === 'ifv'
+      ? 65
+      : CARDS[u.id].air
+        ? 90
+        : u.id === 'mortar'
+          ? 12
+          : 18;
+}
 export function muzzleHeight(u: Unit) {
   return CARDS[u.id].air
     ? 16
-    : u.id === 'tank'
-      ? 54
-      : u.pose === 'prone'
-        ? 9
-        : u.pose === 'crouch' || u.pose === 'land'
-          ? 28
-          : 47;
+    : u.id === 'mortar'
+      ? 30
+      : u.id === 'tank'
+        ? 54
+        : u.id === 'ifv'
+          ? 42
+          : u.pose === 'prone'
+            ? 9
+            : u.pose === 'crouch' || u.pose === 'land'
+              ? 28
+              : 47;
 }
 function bodyHeight(u: Unit) {
   return u.pose === 'prone'
@@ -669,6 +869,33 @@ function bodyHeight(u: Unit) {
     : u.pose === 'crouch' || u.pose === 'land'
       ? 18
       : 27;
+}
+export function unitRange(s: GameState, u: Unit) {
+  return CARDS[u.id].range! * (s.players[u.side].recon > 0 ? 1.2 : 1);
+}
+export function smokeBlocks(s: GameState, side: Side, sx: number, tx: number) {
+  if (s.players[side].recon > 0 || Math.abs(tx - sx) <= 110) return false;
+  const left = Math.min(sx, tx),
+    right = Math.max(sx, tx);
+  return s.smokes.some(
+    (f) => f.life > 0 && f.x + 110 > left && f.x - 110 < right,
+  );
+}
+function firingHeight(
+  s: GameState,
+  u: Unit,
+  tx: number,
+  ty: number,
+): number | null {
+  const c = CARDS[u.id],
+    height = muzzleHeight(u),
+    sx = u.x + Math.sign(tx - u.x) * muzzleOffset(u);
+  if (c.indirect) return height;
+  if (smokeBlocks(s, u.side, u.x, tx)) return null;
+  if (!terrainIntercept(s, sx, u.y - height, tx, ty)) return height;
+  // A crouched soldier can briefly rise to fire, rather than stall behind a slope.
+  if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty)) return 47;
+  return null;
 }
 function seekCover(s: GameState, u: Unit, target: Unit) {
   let best: number | null = null,
@@ -678,7 +905,7 @@ function seekCover(s: GameState, u: Unit, target: Unit) {
     x <= Math.min(W - 125, u.x + 58);
     x += 4
   ) {
-    if (Math.abs(target.x - x) > CARDS[u.id].range!) continue;
+    if (Math.abs(target.x - x) > unitRange(s, u)) continue;
     const cover = craterCover(s, x, target.x);
     if (
       cover < 0.25 ||
@@ -708,7 +935,7 @@ function beginDrop(u: Unit, dir: number, speed: number, falling = false) {
   u.motionTime = 0;
   u.motionDuration = 0.6;
   u.vx = dir * Math.min(45, speed);
-  u.vy = falling ? 0 : -55;
+  u.vy = falling ? 0 : -18;
   u.motionFromY = u.y;
   u.pose = 'jump';
   u.cover = 0;
@@ -758,16 +985,21 @@ function moveSoldier(
   dt: number,
 ) {
   const y = ground(s, u.x),
-    ahead = ground(s, u.x + dir * 12);
+    ahead = ground(s, u.x + dir * 24);
   const depth = y - s.original[Math.floor(u.x)];
   const aheadDepth =
     ahead -
-    s.original[Math.max(0, Math.min(W - 1, Math.floor(u.x + dir * 12)))];
-  if (u.stepCooldown <= 0 && aheadDepth > 7 && ahead - y > 5 && depth < 8) {
+    s.original[Math.max(0, Math.min(W - 1, Math.floor(u.x + dir * 24)))];
+  if (
+    u.stepCooldown <= 0 &&
+    aheadDepth >= DROP_HEIGHT &&
+    ahead - y >= DROP_HEIGHT &&
+    depth < 12
+  ) {
     beginDrop(u, dir, speed);
     return;
   }
-  if (depth > 6 && y - ahead > 4) {
+  if (depth >= CLIMB_HEIGHT && y - ahead >= CLIMB_HEIGHT) {
     let destination = u.x + dir * 12;
     for (let d = 12; d <= 52; d += 2) {
       destination = Math.max(125, Math.min(W - 125, u.x + dir * d));
@@ -833,6 +1065,33 @@ function updateAI(s: GameState) {
       if (c.id === 'morale') score += own.length > 2 ? 6 : -8;
       if (c.id === 'supply') score += p.hand.length < 4 ? 7 : -9;
       if (c.id === 'jam') score += s.players[0].hand.length < 4 ? 3 : 0;
+      if (c.id === 'medic')
+        score += own.some((u) => CARDS[u.id].members && u.hp < u.maxHp)
+          ? 3
+          : own.length < 4
+            ? -6
+            : 0;
+      if (c.id === 'sniper')
+        score += groundFoes.some((u) => CARDS[u.id].members) ? 2 : 0;
+      if (c.id === 'smoke')
+        score +=
+          own.length > 2 &&
+          foes.some((v) => own.some((u) => Math.abs(u.x - v.x) < 650))
+            ? 4
+            : -10;
+      if (c.id === 'recon')
+        score +=
+          own.length > 3 && (s.smokes.length || groundFoes.length) ? 5 : -8;
+      if (c.id === 'repair')
+        score += own.some((u) => CARDS[u.id].armored && u.maxHp - u.hp > 100)
+          ? 8
+          : -12;
+      if (c.id === 'precision')
+        score += groundFoes.some((u) => CARDS[u.id].armored)
+          ? 8
+          : groundFoes.length > 3
+            ? 3
+            : -10;
       return { h, score };
     })
     .sort((a, b) => b.score - a.score);
@@ -841,6 +1100,13 @@ function updateAI(s: GameState) {
   const c = CARDS[choice.h.id];
   let x: number | undefined;
   if (c.type === 'unit') x = W - 350 + rnd(s) * 120;
+  if (c.id === 'smoke')
+    x = own.length
+      ? own.reduce((a, u) => a + u.x, 0) / own.length - 60
+      : W - 600;
+  if (c.id === 'precision')
+    x =
+      groundFoes.find((u) => CARDS[u.id].armored)?.x ?? groundFoes[0]?.x ?? 600;
   if (c.id === 'artillery') {
     let cluster = groundFoes[0];
     let best = -1;
@@ -865,6 +1131,7 @@ export function tick(s: GameState, dt: number) {
     const p = s.players[side];
     p.energy = Math.min(10, p.energy + dt / ENERGY_TIME);
     p.morale = Math.max(0, p.morale - dt);
+    p.recon = Math.max(0, p.recon - dt);
     if (p.jam > 0) p.jam = Math.max(0, p.jam - dt);
     else {
       p.drawIn -= dt;
@@ -879,9 +1146,16 @@ export function tick(s: GameState, dt: number) {
     updateAI(s);
     s.aiIn = 1.6 + rnd(s) * 1.2;
   }
+  for (const f of s.smokes) f.life -= dt;
+  s.smokes = s.smokes.filter((f) => f.life > 0);
   for (const m of s.markers) {
     m.timer -= dt;
     if (m.timer <= 0) {
+      if (m.kind === 'precision') {
+        explode(s, m.x, ground(s, m.x) - 8, 36, 240, m.side, 0.25);
+        m.wave = 3;
+        continue;
+      }
       const x = m.x + (m.wave - 1) * 37;
       explode(s, x, ground(s, x) - 8, 68, 55, m.side, 0.35);
       m.wave++;
@@ -901,6 +1175,12 @@ export function tick(s: GameState, dt: number) {
       baseX = enemySide === 0 ? 70 : W - 70;
     const morale = s.players[u.side].morale > 0;
     u.cooldown -= dt;
+    u.supportCooldown -= dt;
+    u.healing = Math.max(0, u.healing - dt);
+    if (u.repairTime > 0) {
+      u.hp = Math.min(u.maxHp, u.hp + Math.min(dt, u.repairTime) * 20);
+      u.repairTime = Math.max(0, u.repairTime - dt);
+    }
     u.flash = Math.max(0, u.flash - dt);
     u.fire = Math.max(0, u.fire - dt);
     u.moving = false;
@@ -936,35 +1216,71 @@ export function tick(s: GameState, dt: number) {
     if (
       c.members &&
       (u.motion === 'ground' || u.motion === 'bank') &&
-      ground(s, u.x) - u.y > 5
+      ground(s, u.x) - u.y > DROP_HEIGHT
     )
       beginDrop(u, dir, 0, true);
     if (c.members && traverse(s, u, dt)) continue;
+    const range = unitRange(s, u);
+    let treating = false;
+    if (c.heal) {
+      const patient = s.units
+        .filter(
+          (v) =>
+            v.side === u.side &&
+            v.hp > 0 &&
+            v.hp < v.maxHp &&
+            CARDS[v.id].members &&
+            Math.abs(v.x - u.x) <= 140,
+        )
+        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      if (patient) {
+        treating = true;
+        u.pose = 'crouch';
+        if (u.supportCooldown <= 0) {
+          patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
+          patient.healing = 0.6;
+          u.healing = 0.6;
+          u.supportCooldown = 0.8;
+        }
+      }
+    }
     const candidates = s.units
       .filter(
         (v) =>
           v.side !== u.side &&
           v.hp > 0 &&
           (!CARDS[v.id].air || c.antiAir) &&
-          Math.abs(v.x - u.x) <= c.range!,
+          Math.abs(v.x - u.x) <= range &&
+          Math.abs(v.x - u.x) >= (c.minRange ?? 0),
       )
-      .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x));
+      .sort(
+        (a, b) =>
+          (u.id === 'sniper'
+            ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
+            : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
+      );
     const target = candidates.find(
-      (v) =>
-        !terrainIntercept(
-          s,
-          u.x,
-          u.y - (c.members ? 47 : muzzleHeight(u)),
-          v.x,
-          v.y - bodyHeight(v),
-        ),
+      (v) => firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
     );
-    const baseInRange = !target && Math.abs(baseX - u.x) <= c.range!;
-    if (c.members && target && order !== 'rush') {
+    const baseInRange =
+      !target &&
+      Math.abs(baseX - u.x) <= range &&
+      Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
+      firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
+    const closeThreat = c.minRange
+      ? s.units.find(
+          (v) =>
+            v.side !== u.side &&
+            v.hp > 0 &&
+            !CARDS[v.id].air &&
+            Math.abs(v.x - u.x) < c.minRange!,
+        )
+      : null;
+    if (c.members && target && order !== 'rush' && !c.indirect && !treating) {
       if (
         u.coverGoal !== null &&
         (craterCover(s, u.coverGoal, target.x) < 0.2 ||
-          Math.abs(target.x - u.coverGoal) > c.range!)
+          Math.abs(target.x - u.coverGoal) > range)
       )
         u.coverGoal = null;
       if (u.coverGoal === null && order !== 'hold' && u.coverSearch <= 0) {
@@ -981,17 +1297,22 @@ export function tick(s: GameState, dt: number) {
       // Rise just before firing, then return behind the crater lip between shots.
       u.pose = u.cooldown < 0.16 || u.fire > 0 ? 'idle' : 'crouch';
     }
-    if ((target || baseInRange) && !seeking) {
+    if ((target || baseInRange) && !seeking && !closeThreat && !treating) {
       const tx = target ? target.x : baseX;
       const ty = target ? target.y - bodyHeight(target) : ground(s, baseX) - 25;
+      if (c.indirect) u.pose = 'crouch';
       if (u.cooldown <= 0) {
-        if (u.cover > 0.2) u.pose = 'idle';
-        const sx = u.x + (tx > u.x ? 1 : -1) * 18,
+        if (u.cover > 0.2 || firingHeight(s, u, tx, ty) === 47) u.pose = 'idle';
+        const sx = u.x + (tx > u.x ? 1 : -1) * muzzleOffset(u),
           sy = u.y - muzzleHeight(u);
-        if (!terrainIntercept(s, sx, sy, tx, ty)) {
+        if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
-          const total = c.radius ? 0.48 : 0.13;
+          const total = c.indirect
+            ? 1.3
+            : c.radius
+              ? Math.max(0.4, Math.abs(tx - sx) / 900)
+              : Math.max(0.13, Math.abs(tx - sx) / 2600);
           s.projectiles.push({
             x: sx,
             y: sy,
@@ -1000,7 +1321,13 @@ export function tick(s: GameState, dt: number) {
             side: u.side,
             targetUid: target?.uid ?? null,
             base: target ? null : enemySide,
-            damage: (c.damage! / (c.members ?? 1)) * (morale ? 1.35 : 1),
+            damage:
+              (c.damage! / (c.members ?? 1)) *
+              (morale ? 1.35 : 1) *
+              (u.id === 'sniper' && target && CARDS[target.id].armored
+                ? 0.5
+                : 1),
+            arc: c.indirect ? 170 : c.radius ? 35 : 0,
             radius: c.radius ?? 0,
             life: total,
             total,
@@ -1010,8 +1337,10 @@ export function tick(s: GameState, dt: number) {
         } else if (c.members && u.pose === 'prone') u.pose = 'crouch';
       }
     } else if (
-      seeking ||
-      (!target && !baseInRange && (!c.members || order !== 'hold'))
+      !treating &&
+      (seeking ||
+        !!closeThreat ||
+        (!target && !baseInRange && (!c.members || order !== 'hold')))
     ) {
       if (c.members)
         u.pose =
@@ -1032,7 +1361,13 @@ export function tick(s: GameState, dt: number) {
               : 1
         : 1;
       const speed = c.speed! * u.pace * orderSpeed * (morale ? 1.2 : 1);
-      const moveDir = seeking ? Math.sign(u.coverGoal! - u.x) : dir;
+      const moveDir = closeThreat
+        ? u.x > closeThreat.x
+          ? 1
+          : -1
+        : seeking
+          ? Math.sign(u.coverGoal! - u.x)
+          : dir;
       if (c.members)
         moveSoldier(
           s,
@@ -1046,7 +1381,7 @@ export function tick(s: GameState, dt: number) {
         u.moving = true;
       }
     }
-    if (u.id === 'tank') {
+    if (c.armored) {
       for (const wall of s.walls) {
         if (wall.hp > 0 && Math.abs(u.x - wall.x) < 26) {
           wall.hp = 0;
@@ -1055,7 +1390,7 @@ export function tick(s: GameState, dt: number) {
       }
     }
     if (!c.members || u.motion === 'ground')
-      u.y = c.air ? 232 + Math.sin(s.time * 2 + u.uid) * 6 : ground(s, u.x);
+      u.y = c.air ? AIR_ALTITUDE : ground(s, u.x);
   }
   for (const p of s.projectiles) {
     const oldX = p.x,
@@ -1066,7 +1401,7 @@ export function tick(s: GameState, dt: number) {
     p.y =
       p.startY +
       (p.ty - p.startY) * t -
-      (p.radius ? Math.sin(t * Math.PI) * 35 : 0);
+      Math.sin(t * Math.PI) * (p.arc ?? (p.radius ? 35 : 0));
     const impact = terrainIntercept(s, oldX, oldY, p.x, p.y);
     if (impact) {
       p.life = 0;
@@ -1156,11 +1491,13 @@ export function snapshot(s: GameState) {
       drawIn: p.drawIn,
       jam: p.jam,
       morale: p.morale,
+      recon: p.recon,
       kills: p.kills,
       played: p.played,
     })),
     units: s.units.map((u) => ({ ...u })),
     walls: s.walls.map((w) => ({ ...w })),
+    smokes: s.smokes.map((f) => ({ ...f })),
     explosions: s.explosions,
     notices: s.notices.map((n) => ({ ...n })),
   };

@@ -98,3 +98,17 @@ ROW 3, columns 1-8: CLIMB UP A DIRT BANK, pantomimed against an invisible ledge;
 This row must visibly progress from hanging/reaching to pulling, knee plant, weight shift, standing, not eight minor hand variations.
 
 Prioritize exact 8-by-3 structure, transparent background, consistently proportioned adult character and anatomically coherent distinct keyframes.
+
+
+V5 REINFORCEMENTS
+Use case: stylized-concept.
+Asset type: one production sprite atlas for an adult, grounded, realistic modern military side-scrolling pixel-art game.
+Create ONE PNG sprite sheet on a genuinely fully transparent alpha background. DO NOT draw any checkerboard, solid-color backdrop, gradient, ground, shadows behind the sprites, cell lines, labels, text or UI. Transparency must be real.
+Canvas and layout: wide canvas 2048 x 1024 pixels, exactly FOUR equal 512-pixel columns and TWO equal 512-pixel rows, eight equal cells total. Center one isolated asset within each cell, safely inside the cell with generous clear margins. Crisp hard-edged hand-pixel clusters, restrained desaturated olive-drab, charcoal, weathered steel, practical adult military proportions, slight worn texture. Pure side elevation viewed from the left, all directional equipment facing RIGHT. No isometric or three-quarter view, no cute toy proportions, no rounded cartoon shapes.
+FIRST ROW: four animation frames of the EXACT SAME tracked infantry fighting vehicle. Modest compact angular troop-carrying hull, lighter and smaller than a main battle tank; five or six road wheels and clearly visible continuous caterpillar tracks; compact turret with slender medium-length autocannon barrel pointing RIGHT; subtle olive armor paneling and stowage. The four frames must have IDENTICAL body position within each cell, identical silhouette, scale, turret, gun and wheels; change only the small tread-link phase to create a four-frame moving track cycle. Keep main hull horizontally level in all four.
+SECOND ROW:
+cell 1: ONE long sniper rifle with mounted compact telescopic scope, fixed stock to left, slim barrel and muzzle pointing right, isolated horizontal profile, fully contained within cell.
+cell 2: ONE small practical rectangular olive military medical satchel with closed flap, short carry handle and a small CREAM-colored cross patch. Cream cross ONLY, no red-cross emblem, no red colors.
+cell 3: ONE isolated olive mortar tube with bipod and baseplate, tube angled diagonally upward to the RIGHT, accurate recognizable field mortar silhouette, side view, no ammunition or crew.
+cell 4: ONE folded olive reconnaissance drone / optics spotter backpack, compact fabric field pack with a folded small quadcopter securely strapped on and small dark binocular/optics module, standalone clean silhouette, no person.
+The eight sprites must be separate with empty transparent space between them. No extra objects. Pixel-art quality should match serious late-1990s military tactics sprites rendered with fine intentional pixel clustering and restrained weathering, not smooth illustration or 3D.

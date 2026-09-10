@@ -5,10 +5,12 @@ import {
   W,
   VIEW_W,
   muzzleHeight,
+  muzzleOffset,
+  AIR_ALTITUDE,
   type GameState,
   type CardId,
 } from './engine';
-import { drawSprite, cardFrame, type Art } from './art';
+import { drawSprite, cardFrame, soldierEquipment, type Art } from './art';
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -121,10 +123,11 @@ export function render(
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
       isTank = u.id === 'tank',
+      isIFV = u.id === 'ifv',
       isAir = !!c.air,
       isDead = u.hp <= 0;
-    const w = isTank ? 205 : isAir ? 235 : 96,
-      h = isTank ? 108 : isAir ? 118 : 72;
+    const w = isTank ? 205 : isIFV ? 165 : isAir ? 235 : 96,
+      h = isTank ? 108 : isIFV ? 105 : isAir ? 118 : 72;
     let row = 0,
       frame = 0;
     if (c.members) {
@@ -164,7 +167,9 @@ export function render(
     } else frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
     let img = c.members
       ? art.soldiers[row][frame]
-      : art.vehicles[isTank ? 0 : 1][frame];
+      : isIFV
+        ? art.reinforcements[0][frame]
+        : art.vehicles[isTank ? 0 : 1][frame];
     if (c.members && !isDead) {
       if (u.motion === 'jump') {
         const frame =
@@ -212,27 +217,50 @@ export function render(
       u.pose !== 'climb' &&
       u.motion === 'ground'
     ) {
-      const weapon = art.vehicles[2][u.id === 'machinegun' ? 2 : 3];
+      const weapon = soldierEquipment(art, u.id);
       const wy = u.y - muzzleHeight(u);
       drawSprite(
         ctx,
         weapon,
-        u.x + (u.side === 0 ? 6 : -6),
-        wy + 7,
-        u.id === 'rocket' ? 39 : 33,
-        15,
+        u.x +
+          (u.side === 0 ? 1 : -1) *
+            (u.id === 'medic'
+              ? -8
+              : u.id === 'mortar'
+                ? u.moving
+                  ? -8
+                  : 17
+                : 6),
+        u.id === 'mortar'
+          ? u.y - (u.moving ? 12 : 0)
+          : u.id === 'medic'
+            ? u.y - 25
+            : wy + 7,
+        u.id === 'medic'
+          ? 14
+          : u.id === 'mortar'
+            ? 27
+            : u.id === 'sniper'
+              ? 43
+              : 36,
+        u.id === 'medic' ? 17 : u.id === 'mortar' ? 30 : 15,
         u.side === 1,
       );
     }
     if (isDead) continue;
     if (u.fire > 0.16 && u.motion === 'ground' && !u.climbing) {
-      const mx = u.x + (u.side === 0 ? 1 : -1) * (c.members ? 23 : w * 0.45),
+      const mx = u.x + (u.side === 0 ? 1 : -1) * muzzleOffset(u),
         my = u.y - muzzleHeight(u);
       ctx.fillStyle = '#eebc6955';
       ctx.fillRect(mx - 3, my - 2, 8, 5);
       ctx.fillStyle = '#ffe8ad';
       ctx.fillRect(mx, my - 1, 4, 2);
       ctx.fillRect(mx + 1, my - 3, 2, 6);
+    }
+    if (u.healing > 0 || u.repairTime > 0) {
+      ctx.fillStyle = '#e9e6b6';
+      ctx.fillRect(u.x - 1, u.y - h - 15, 2, 8);
+      ctx.fillRect(u.x - 4, u.y - h - 12, 8, 2);
     }
     if (s.players[u.side].morale > 0) {
       ctx.fillStyle = '#f4cf79';
@@ -261,6 +289,26 @@ export function render(
       Math.round(bw * Math.max(0, u.hp / u.maxHp)),
       3,
     );
+  }
+  for (const f of s.smokes) {
+    if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
+    ctx.globalAlpha = Math.min(0.6, f.life / 2);
+    for (let i = 0; i < 22; i++) {
+      const x = f.x - 110 + ((i * 41) % 220),
+        y = ground(s, f.x) - 20 - ((i * 17) % 58) - Math.sin(s.time + i) * 4;
+      ctx.fillStyle = i % 2 ? '#8e958a' : '#adb1a2';
+      ctx.fillRect(
+        Math.round(x / 3) * 3,
+        Math.round(y / 3) * 3,
+        28 + (i % 4) * 5,
+        19 + (i % 3) * 6,
+      );
+    }
+    ctx.globalAlpha = 1;
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e7e9d1';
+    ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
   }
   for (const p of s.projectiles) {
     const angle = Math.atan2(p.ty - p.startY, p.tx - p.startX),
@@ -293,7 +341,15 @@ export function render(
     ctx.lineWidth = 2;
     ctx.setLineDash([7, 5]);
     ctx.beginPath();
-    ctx.ellipse(m.x, y, 91, 20, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      m.x,
+      y,
+      m.kind === 'precision' ? 36 : 91,
+      20,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -305,7 +361,7 @@ export function render(
     ctx.fillStyle = '#f4ca7c';
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('炮击预警', m.x, y - 65);
+    ctx.fillText(m.kind === 'precision' ? '精确打击' : '炮击预警', m.x, y - 65);
   }
   for (const p of s.particles) {
     ctx.globalAlpha = Math.min(1, (p.life / p.maxLife) * 2);
@@ -321,9 +377,9 @@ export function render(
         ctx,
         cardFrame(art, c.atlas),
         hover,
-        c.air ? 239 : y + 3,
-        c.id === 'tank' ? 205 : c.air ? 235 : 96,
-        c.id === 'tank' ? 108 : c.air ? 118 : 72,
+        c.air ? AIR_ALTITUDE + 3 : y + 3,
+        c.id === 'tank' ? 205 : c.id === 'ifv' ? 165 : c.air ? 235 : 96,
+        c.id === 'tank' ? 108 : c.id === 'ifv' ? 105 : c.air ? 118 : 72,
         false,
         valid ? 0.65 : 0.3,
       );
@@ -346,12 +402,20 @@ export function render(
       ctx.moveTo(hover - 15, y + 7);
       ctx.lineTo(hover + 15, y + 7);
       ctx.stroke();
-    } else if (c.id === 'artillery') {
+    } else if (c.targetGround) {
       ctx.strokeStyle = '#f9e0a2';
       ctx.lineWidth = 2;
       ctx.setLineDash([7, 6]);
       ctx.beginPath();
-      ctx.ellipse(hover, y, 105, 22, 0, 0, Math.PI * 2);
+      ctx.ellipse(
+        hover,
+        y,
+        c.id === 'precision' ? 36 : c.id === 'smoke' ? 110 : 105,
+        22,
+        0,
+        0,
+        Math.PI * 2,
+      );
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.beginPath();

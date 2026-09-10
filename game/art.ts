@@ -4,6 +4,7 @@ export interface Art {
   soldiers: HTMLCanvasElement[][];
   vehicles: HTMLCanvasElement[][];
   locomotion: HTMLCanvasElement[][];
+  reinforcements: HTMLCanvasElement[][];
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -152,6 +153,54 @@ function locomotionFrames(img: HTMLImageElement) {
     }),
   );
 }
+function croppedFrame(img: HTMLImageElement, rect: number[], lw = 64, lh = 40) {
+  const out = surface(lw, lh),
+    ctx = out.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const [x, y, w, h] = rect,
+    scale = Math.min((lw - 2) / w, (lh - 2) / h);
+  const dw = Math.round(w * scale),
+    dh = Math.round(h * scale);
+  ctx.drawImage(img, x, y, w, h, Math.floor((lw - dw) / 2), lh - dh, dw, dh);
+  const px = ctx.getImageData(0, 0, lw, lh);
+  for (let i = 3; i < px.data.length; i += 4)
+    px.data[i] = px.data[i] > 150 ? 255 : 0;
+  ctx.putImageData(px, 0, 0);
+  return out;
+}
+function stableHelicopters(img: HTMLImageElement) {
+  const raw = [0, 1, 2, 3].map((i) =>
+    croppedFrame(img, [i * 512, 256, 512, 210], 64, 32),
+  );
+  return raw.map((rotor) => {
+    const out = surface(64, 32),
+      ctx = out.getContext('2d')!;
+    // Keep the same fuselage pixels and anchor. Only the rotor band changes.
+    ctx.drawImage(raw[1], 0, 0);
+    ctx.clearRect(12, 6, 52, 11);
+    ctx.drawImage(rotor, 12, 6, 52, 11, 12, 6, 52, 11);
+    return out;
+  });
+}
+function reinforcementFrames(img: HTMLImageElement) {
+  return [
+    [20, 464, 907, 1350].map((x) => croppedFrame(img, [x, 86, 416, 274])),
+    [
+      [16, 584, 456, 140],
+      [548, 544, 238, 222],
+      [930, 480, 332, 320],
+      [1424, 508, 279, 297],
+    ].map((rect) => croppedFrame(img, rect)),
+  ];
+}
+export function soldierEquipment(art: Art, id: string) {
+  if (id === 'machinegun') return art.vehicles[2][2];
+  if (id === 'rocket') return art.vehicles[2][3];
+  if (id === 'sniper') return art.reinforcements[1][0];
+  if (id === 'medic') return art.reinforcements[1][1];
+  if (id === 'mortar') return art.reinforcements[1][2];
+  return undefined;
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
@@ -159,17 +208,21 @@ export function loadArt() {
     loadImage('/art/vehicles-v3.png'),
     loadImage('/art/terrain-texture.png'),
     loadImage('/art/locomotion-v4.png'),
-  ]).then(([bg, soldiers, vehicles, terrain, locomotion]) => {
+    loadImage('/art/reinforcements-v5.png'),
+  ]).then(([bg, soldiers, vehicles, terrain, locomotion, reinforcement]) => {
     const background = surface(640, 214),
       ctx = background.getContext('2d')!;
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(bg, 0, 0, 640, 214);
+    const vehicleArt = frames(vehicles, 4, 3, 64, 32);
+    vehicleArt[1] = stableHelicopters(vehicles);
     return {
       background,
       terrain,
       locomotion: locomotionFrames(locomotion),
       soldiers: frames(soldiers, 4, 8, 64, 48, true),
-      vehicles: frames(vehicles, 4, 3, 64, 32),
+      vehicles: vehicleArt,
+      reinforcements: reinforcementFrames(reinforcement),
     };
   });
   return cached.catch((error) => {
@@ -197,7 +250,8 @@ export function drawSprite(
   ctx.restore();
 }
 export function cardFrame(art: Art, index: number) {
-  if (index < 3) return art.soldiers[0][0];
+  if (index < 3 || (index >= 10 && index <= 12)) return art.soldiers[0][0];
+  if (index === 13) return art.reinforcements[0][0];
   if (index === 3) return art.vehicles[0][0];
   if (index === 4) return art.vehicles[1][0];
   return art.vehicles[2][0];

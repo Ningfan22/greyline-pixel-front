@@ -15,6 +15,11 @@ import {
   terrainIntercept,
   W,
   MAX_HAND,
+  DECK,
+  AIR_ALTITUDE,
+  smokeBlocks,
+  unitRange,
+  needsTarget,
 } from '../game/engine.ts';
 const advance = (s, seconds) => {
   for (let t = 0; t < seconds - 1e-9; t += 1 / 60) tick(s, 1 / 60);
@@ -246,7 +251,7 @@ check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
       s.walls = [];
       s.terrain.fill(374);
       s.original.fill(374);
-      crater(s, 900, 25, 18);
+      crater(s, 900, 28, 30);
       setOrder(s, side, order);
       spawnUnit(s, side, 'infantry', side === 0 ? 856 : 944);
       s.units = [s.units[0]];
@@ -275,6 +280,7 @@ check('脚下爆炸触发下落，空中驻守仍先安全落地', () => {
   spawnUnit(s, 0, 'infantry', 900);
   s.units = [s.units[0]];
   explode(s, 900, 366, 68, 0, 0);
+  explode(s, 900, ground(s, 900) - 8, 68, 0, 0);
   setOrder(s, 0, 'hold');
   tick(s, 1 / 60);
   const u = s.units[0];
@@ -362,6 +368,205 @@ check('坑沿阻挡射线，掩体减轻直射而不削弱落入坑内的炮击'
   explode(s, 900, u.y - 20, 20, 10, 1);
   assert(u.hp < hp - 9);
 });
+check('直升机跨多个旋翼周期保持固定飞行高度', () => {
+  const s = fresh();
+  s.units = [];
+  spawnUnit(s, 0, 'helicopter', 600);
+  const u = s.units[0];
+  assert.equal(u.y, AIR_ALTITUDE);
+  for (let i = 0; i < 600; i++) {
+    tick(s, 1 / 60);
+    assert.equal(u.y, AIR_ALTITUDE);
+  }
+});
+check('双向小起伏和普通浅坑不触发跳落或攀爬', () => {
+  for (const side of [0, 1]) {
+    const s = fresh();
+    s.units = [];
+    s.walls = [];
+    s.terrain.fill(374);
+    s.original.fill(374);
+    crater(s, 900, 25, 10);
+    crater(s, 1030, 25, 18);
+    spawnUnit(s, side, 'infantry', side === 0 ? 840 : 1090);
+    s.units = [s.units[0]];
+    for (let i = 0; i < 5 * 60; i++) {
+      tick(s, 1 / 60);
+      assert.equal(s.units[0].motion, 'ground');
+      assert.equal(s.units[0].y, ground(s, s.units[0].x));
+    }
+  }
+});
+const duel = (id, distance) => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  s.terrain.fill(374);
+  s.original.fill(374);
+  spawnUnit(s, 0, id, 1100);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'tank', 1100 + distance);
+  const target = s.units[1];
+  target.cooldown = 1e6;
+  target.hp = target.maxHp = 10000;
+  u.cooldown = 0;
+  setOrder(s, 0, 'hold');
+  return { s, u, target };
+};
+check('所有战斗兵种在远距离开火，射程外不会误射', () => {
+  for (const id of [
+    'infantry',
+    'machinegun',
+    'rocket',
+    'tank',
+    'helicopter',
+    'sniper',
+    'mortar',
+    'ifv',
+  ]) {
+    const inside = duel(id, CARDS[id].range - 1);
+    tick(inside.s, 1 / 60);
+    assert(inside.u.fire > 0, id);
+    const outside = duel(id, CARDS[id].range + 1);
+    tick(outside.s, 1 / 60);
+    assert.equal(outside.u.fire, 0, id);
+  }
+  const d = duel('infantry', 420);
+  assert.equal(unitRange(d.s, d.u), 380);
+  d.s.players[0].recon = 10;
+  tick(d.s, 1 / 60);
+  assert(d.u.fire > 0);
+  assert.equal(unitRange(d.s, d.u), 456);
+});
+check('烟幕双向遮挡直射，侦察穿烟且到期恢复', () => {
+  const d = duel('infantry', 350);
+  d.s.smokes.push({ x: 1280, life: 8, side: 0 });
+  assert(smokeBlocks(d.s, 0, 1100, 1450));
+  assert(smokeBlocks(d.s, 1, 1450, 1100));
+  assert.equal(smokeBlocks(d.s, 0, 1250, 1300), false);
+  tick(d.s, 1 / 60);
+  assert.equal(d.u.fire, 0);
+  d.s.players[0].recon = 1;
+  tick(d.s, 1 / 60);
+  assert(d.u.fire > 0);
+  advance(d.s, 8);
+  assert.equal(d.s.smokes.length, 0);
+  assert.equal(d.s.players[0].recon, 0);
+});
+check('迫击炮穿烟曲射，最小射程内后撤', () => {
+  const d = duel('mortar', 600);
+  d.s.smokes.push({ x: 1300, life: 8, side: 1 });
+  for (let x = 1300; x < 1380; x++) d.s.terrain[x] = 305;
+  tick(d.s, 1 / 60);
+  assert(d.u.fire > 0);
+  assert.equal(d.s.projectiles[0].arc, 170);
+  advance(d.s, 1.5);
+  assert(d.target.hp < d.target.maxHp);
+  const near = duel('mortar', 179),
+    x = near.u.x;
+  tick(near.s, 1 / 60);
+  assert.equal(near.u.fire, 0);
+  assert(near.u.x < x);
+  const boundary = duel('mortar', 180);
+  tick(boundary.s, 1 / 60);
+  assert(boundary.u.fire > 0);
+});
+check('军医只治疗存活友军步兵，抢修只作用于已有装甲', () => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  spawnUnit(s, 0, 'medic', 600);
+  const medic = s.units[0];
+  s.units = [medic];
+  spawnUnit(s, 0, 'infantry', 640);
+  const patient = s.units[1];
+  s.units = [medic, patient];
+  patient.hp -= 12;
+  spawnUnit(s, 0, 'tank', 620);
+  const tank = s.units[2];
+  tank.hp -= 200;
+  spawnUnit(s, 0, 'helicopter', 620);
+  const heli = s.units[3];
+  heli.hp -= 100;
+  const hp = patient.hp;
+  tick(s, 1 / 60);
+  assert.equal(patient.hp, hp + 4);
+  assert.equal(tank.hp, tank.maxHp - 200);
+  assert.equal(heli.hp, heli.maxHp - 100);
+  s.players[0].energy = 10;
+  const card = hand(s, 'repair');
+  assert(playCard(s, 0, card.uid).ok);
+  spawnUnit(s, 0, 'ifv', 700);
+  const late = s.units.at(-1);
+  late.hp -= 100;
+  advance(s, 2);
+  assert(tank.hp > tank.maxHp - 162 && tank.hp < tank.maxHp - 159);
+  assert.equal(late.hp, late.maxHp - 100);
+  assert.equal(heli.hp, heli.maxHp - 100);
+  assert(patient.hp <= patient.maxHp);
+});
+check('精确打击只命中一次，新增指令统一校验落点', () => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  s.original.fill(374);
+  s.terrain.fill(374);
+  spawnUnit(s, 1, 'tank', 900);
+  const u = s.units[0];
+  u.cooldown = 1000;
+  s.players[0].energy = 10;
+  const p = hand(s, 'precision');
+  const before = s.explosions;
+  assert.equal(playCard(s, 0, p.uid).ok, false);
+  assert.equal(s.players[0].energy, 10);
+  assert(playCard(s, 0, p.uid, 850).ok);
+  advance(s, 2);
+  assert.equal(s.explosions, before + 1);
+  assert(u.hp < u.maxHp);
+  assert.equal(s.markers.length, 0);
+  for (const id of [
+    'smoke',
+    'precision',
+    'artillery',
+    'sniper',
+    'medic',
+    'mortar',
+    'ifv',
+  ])
+    assert(needsTarget(id));
+  for (const id of ['recon', 'repair', 'supply'])
+    assert.equal(needsTarget(id), false);
+});
+check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () => {
+  const s = fresh();
+  s.units = [];
+  s.walls = [];
+  spawnUnit(s, 0, 'sniper', 590);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'infantry', 1360);
+  s.units = [u, s.units[1]];
+  s.units[1].cooldown = 1000;
+  setOrder(s, 0, 'prone');
+  setOrder(s, 1, 'hold');
+  u.cooldown = 0;
+  tick(s, 1 / 60);
+  assert(u.fire > 0);
+  assert.equal(u.pose, 'idle');
+});
+check('扩展牌库包含全部十七种卡牌，开局与抽牌能获得新兵种', () => {
+  const s = fresh();
+  assert.equal(Object.keys(CARDS).length, 17);
+  assert.equal(new Set(DECK).size, 17);
+  for (const p of s.players) {
+    assert.equal(p.hand.length, 6);
+    assert.equal(p.hand.length + p.deck.length, DECK.length);
+    assert(p.hand.some((h) => h.id === 'sniper'));
+    assert(p.hand.some((h) => h.id === 'ifv'));
+    assert.deepEqual(p.deck.slice(0, 2), ['medic', 'mortar']);
+  }
+});
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {
     const s = createGame(seed);
@@ -384,7 +589,7 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
             h.uid,
             c.type === 'unit'
               ? 330
-              : c.id === 'artillery'
+              : c.targetGround
                 ? (foes[0]?.x ?? 1100)
                 : undefined,
           );
