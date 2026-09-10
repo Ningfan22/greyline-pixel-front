@@ -1,39 +1,21 @@
 'use client';
 import { useEffect, useState } from 'react';
-import {
-  ArrowRight,
-  ArrowLeft,
-  Plus,
-  Search,
-  Shield,
-  Layers3,
-  Check,
-  X,
-  Crosshair,
-} from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { ArrowRight, Layers3, Crosshair } from 'lucide-react';
 import {
   CARDS,
   DECK,
-  DECK_SIZE,
   validDeck,
   chooseAiDeck,
   type CardId,
 } from '@/game/engine';
 import { SpriteArt } from '@/game/card-art';
 import Battle from './battle';
+import DeckBuilder from './deck-builder';
 const STORAGE = 'greyline-deck-v6';
-const allCards = Object.values(CARDS);
 export default function Home() {
   const [page, setPage] = useState<'home' | 'builder' | 'battle'>('home');
   const [deck, setDeck] = useState<CardId[]>([...DECK]);
-  const [draft, setDraft] = useState<CardId[]>([...DECK]);
   const [loaded, setLoaded] = useState(false);
-  const [message, setMessage] = useState('');
-  const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
   const [match, setMatch] = useState<{
     seed: number;
     player: CardId[];
@@ -47,7 +29,6 @@ export default function Home() {
         const saved = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
         if (validDeck(saved)) {
           setDeck([...saved]);
-          setDraft([...saved]);
         }
       } catch {
         /* Keep the recommended deck when device storage is unavailable. */
@@ -58,16 +39,15 @@ export default function Home() {
       live = false;
     };
   }, []);
-  const save = () => {
-    if (!validDeck(draft)) return false;
-    setDeck([...draft]);
+  const save = (next: CardId[]) => {
+    if (!validDeck(next)) return '请选择 20 张不同的卡牌';
+    setDeck([...next]);
     try {
-      localStorage.setItem(STORAGE, JSON.stringify(draft));
-      setMessage('编队已保存到当前设备');
+      localStorage.setItem(STORAGE, JSON.stringify(next));
+      return '编队已保存到当前设备';
     } catch {
-      setMessage('本次编队已生效；浏览器未允许本地保存');
+      return '编队本次已生效；浏览器未允许本地保存';
     }
-    return true;
   };
   const begin = (chosen: CardId[]) => {
     if (!validDeck(chosen)) return;
@@ -76,32 +56,8 @@ export default function Home() {
     setPage('battle');
   };
   const edit = () => {
-    setDraft([...deck]);
-    setMessage('');
     setPage('builder');
   };
-  const toggle = (id: CardId) => {
-    setMessage('');
-    setDraft((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length < DECK_SIZE
-          ? [...prev, id]
-          : prev,
-    );
-  };
-  const visible = allCards.filter(
-    (c) =>
-      (filter === 'all' ||
-        (filter === 'infantry' && !!c.members) ||
-        (filter === 'armor' && c.armored) ||
-        (filter === 'air' && c.air) ||
-        (filter === 'skill' && c.type === 'skill')) &&
-      `${c.name}${c.tag}${c.description}`.includes(search.trim()),
-  );
-  const avg = (
-    draft.reduce((a, id) => a + CARDS[id].cost, 0) / Math.max(1, draft.length)
-  ).toFixed(1);
   if (page === 'battle' && match)
     return (
       <Battle
@@ -198,8 +154,8 @@ export default function Home() {
               <div>
                 <b>6</b>
                 <span>随机起手</span>
-                <b>9s</b>
-                <span>补给抽牌</span>
+                <b>2 点</b>
+                <span>主动抽牌</span>
                 <b>AI</b>
                 <span>独立编队</span>
               </div>
@@ -207,196 +163,15 @@ export default function Home() {
           </section>
         </>
       ) : (
-        <>
-          <div className="builder-title">
-            <div>
-              <button className="back-link" onClick={() => setPage('home')}>
-                <ArrowLeft size={15} /> 返回首页
-              </button>
-              <span className="ops-kicker">BATTLE GROUP / ARMORY</span>
-              <h1>组建你的战斗序列</h1>
-              <p>
-                40 种卡牌，自选 20 种。兵种搭配、火力支援和指挥调度由你决定。
-              </p>
-            </div>
-            <span className="builder-total">
-              40 <small>可用卡牌</small>
-            </span>
-          </div>
-          <div className="builder-layout">
-            <section className="collection">
-              <div className="collection-toolbar">
-                <RadioGroup
-                  value={filter}
-                  onValueChange={(v) => setFilter(String(v))}
-                  className="collection-filters"
-                  aria-label="卡牌类型"
-                >
-                  {[
-                    ['all', '全部'],
-                    ['infantry', '步兵'],
-                    ['armor', '装甲'],
-                    ['air', '航空'],
-                    ['skill', '指令'],
-                  ].map(([id, label]) => (
-                    <label key={id} className={filter === id ? 'active' : ''}>
-                      <RadioGroupItem value={id} />
-                      {label}
-                    </label>
-                  ))}
-                </RadioGroup>
-                <div className="collection-search">
-                  <Search size={16} />
-                  <Input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="搜索兵种或特点"
-                    aria-label="搜索卡牌"
-                  />
-                </div>
-              </div>
-              <div className="collection-grid">
-                {visible.map((c) => {
-                  const selected = draft.includes(c.id);
-                  return (
-                    <label
-                      key={c.id}
-                      className={`collection-card ${selected ? 'picked' : ''} ${c.type}`}
-                    >
-                      <div className="collection-card-top">
-                        <b>
-                          {c.cost}
-                          <small> 指挥点</small>
-                        </b>
-                        <Checkbox
-                          checked={selected}
-                          onCheckedChange={() => toggle(c.id)}
-                          disabled={!selected && draft.length === 20}
-                          aria-label={`${selected ? '移除' : '加入'}${c.name}`}
-                        />
-                      </div>
-                      <SpriteArt id={c.id} className="collection-art" />
-                      <span className="collection-tag">{c.tag}</span>
-                      <h3>{c.name}</h3>
-                      <p>{c.detail}</p>
-                      <div className="collection-stats">
-                        {c.members
-                          ? `${c.members} 人班组`
-                          : c.armored
-                            ? '装甲载具'
-                            : c.air
-                              ? '航空支援'
-                              : '战术指令'}
-                        <span>
-                          {c.range
-                            ? `射程 ${c.range}`
-                            : selected
-                              ? '已编入'
-                              : '可选入'}
-                        </span>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-              {visible.length === 0 && (
-                <div className="collection-empty">
-                  没有匹配的卡牌，请换个关键词。
-                </div>
-              )}
-            </section>
-            <aside className="selected-deck">
-              <div className="selected-deck-title">
-                <Shield size={20} />
-                <h2>我的编队</h2>
-                <strong className={draft.length === 20 ? 'complete' : ''}>
-                  {draft.length}
-                  <small> / 20</small>
-                </strong>
-              </div>
-              <div className="deck-composition">
-                <span>
-                  平均费用 <b>{avg}</b>
-                </span>
-                <span>
-                  部队{' '}
-                  <b>
-                    {draft.filter((id) => CARDS[id].type === 'unit').length}
-                  </b>
-                </span>
-                <span>
-                  指令{' '}
-                  <b>
-                    {draft.filter((id) => CARDS[id].type === 'skill').length}
-                  </b>
-                </span>
-              </div>
-              <div className="selected-deck-list">
-                {draft.map((id, i) => (
-                  <button
-                    key={id}
-                    onClick={() => toggle(id)}
-                    aria-label={`移除${CARDS[id].name}`}
-                  >
-                    <small>{String(i + 1).padStart(2, '0')}</small>
-                    <span>{CARDS[id].name}</span>
-                    <b>{CARDS[id].cost}</b>
-                    <X size={13} />
-                  </button>
-                ))}
-                {Array.from({ length: 20 - draft.length }, (_, i) => (
-                  <div className="deck-empty-slot" key={i}>
-                    <Plus size={12} />
-                    <span>待编入</span>
-                  </div>
-                ))}
-              </div>
-              <div className="deck-editor-actions">
-                <button
-                  onClick={() => {
-                    setDraft([...DECK]);
-                    setMessage('已载入推荐编队，保存后生效');
-                  }}
-                >
-                  推荐编队
-                </button>
-                <button
-                  onClick={() => {
-                    setDraft([]);
-                    setMessage('');
-                  }}
-                >
-                  清空
-                </button>
-              </div>
-              <output className="deck-save-status">
-                {message ||
-                  (draft.length === 20
-                    ? '编队就绪。双方从各自的 20 张牌库抽牌。'
-                    : `还需选择 ${20 - draft.length} 张卡牌`)}
-              </output>
-              <button
-                className="secondary-button"
-                disabled={!validDeck(draft)}
-                onClick={save}
-              >
-                <Check size={16} /> 保存卡组
-              </button>
-              <button
-                className="primary-button"
-                disabled={!validDeck(draft)}
-                onClick={() => {
-                  if (save()) begin(draft);
-                }}
-              >
-                保存并出战 <ArrowRight size={17} />
-              </button>
-            </aside>
-          </div>
-        </>
+        <DeckBuilder
+          deck={deck}
+          onSave={save}
+          onStart={begin}
+          onExit={() => setPage('home')}
+        />
       )}
       <footer className="ops-footer">
-        <span>GREYLINE / 战术演习 0.6</span>
+        <span>GREYLINE / 战术演习 0.7</span>
         <span>可破坏地形 · 独立士兵动作 · 手机触控</span>
       </footer>
     </main>

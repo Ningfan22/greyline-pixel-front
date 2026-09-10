@@ -1,5 +1,5 @@
 import { modelOf, CARDS, type CardId } from './cards';
-import type { Particle, Projectile } from './engine';
+import type { Blast, Particle, Projectile } from './engine';
 export type Ammunition =
   | 'rifle'
   | 'machinegun'
@@ -185,4 +185,83 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
     streak(ctx, x, y, Math.atan2(p.vy, p.vx), 3, p.color, 1, life);
   else ctx.fillRect(x, y, size, p.kind === 'casing' ? 2 : size);
   ctx.globalAlpha = 1;
+}
+
+function pixelCloud(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  color: string,
+  alpha: number,
+) {
+  ctx.fillStyle = color;
+  ctx.globalAlpha = alpha;
+  const q = 3,
+    cx = Math.round(x / q) * q,
+    cy = Math.round(y / q) * q,
+    rr = Math.max(q, Math.round(r / q) * q);
+  for (let j = -rr; j <= rr; j += q) {
+    const half = Math.round(Math.sqrt(Math.max(0, rr * rr - j * j)) / q) * q;
+    ctx.fillRect(cx - half, cy + j, half * 2 + q, q);
+  }
+}
+export function drawBlast(ctx: CanvasRenderingContext2D, b: Blast) {
+  const t = b.age,
+    scale = Math.max(0.45, Math.min(1.2, b.radius / 45));
+  ctx.save();
+  // Dense, lingering smoke is separate from short-lived sparks and the particle cap.
+  if (t > 0.12)
+    for (let i = 0; i < 7; i++) {
+      const phase = ((b.seed >>> (i % 5)) % 19) / 19;
+      const spread =
+        ((i - 3) * (5 + t * 4) + Math.sin(t + i * 1.7) * 5) * scale;
+      const rise = (15 + t * 17 + (i % 3) * 8 + phase * 9) * scale;
+      const size = (11 + Math.min(t, 1.8) * 8 + phase * 6) * scale;
+      const opacity = Math.min(0.85, t * 3) * Math.min(1, (4 - t) / 1.5);
+      pixelCloud(
+        ctx,
+        b.x + spread + (phase - 0.5) * 8,
+        b.y - rise,
+        size,
+        i % 2 ? '#41463c' : '#65685a',
+        opacity,
+      );
+      for (let lobe = 0; lobe < 3; lobe++) {
+        const a = i * 1.3 + lobe * 2.1 + phase;
+        pixelCloud(
+          ctx,
+          b.x + spread + Math.cos(a) * size * 0.6,
+          b.y - rise + Math.sin(a) * size * 0.5,
+          size * 0.48,
+          lobe % 2 ? '#899080' : '#30382f',
+          opacity * 0.24,
+        );
+      }
+    }
+  if (t < 0.58) {
+    const expansion = Math.min(1, t / 0.1),
+      fade = Math.min(1, (0.58 - t) / 0.24);
+    for (let i = 0; i < 5; i++) {
+      const x = b.x + (i - 2) * 7 * scale,
+        y = b.y - (8 + (i % 3) * 9 + t * 9) * scale;
+      const radius = (12 + (i % 2) * 5) * scale * expansion;
+      pixelCloud(ctx, x, y, radius, '#a84926', fade);
+      pixelCloud(ctx, x - 2, y + 2, radius * 0.72, '#e28c36', fade);
+      if (t < 0.22) pixelCloud(ctx, x, y + 3, radius * 0.37, '#f1d48c', fade);
+    }
+  }
+  if (b.soil && t < 1.1)
+    for (let i = 0; i < 8; i++) {
+      const x = b.x + (i - 3.5) * (8 + t * 18) * scale;
+      pixelCloud(
+        ctx,
+        x,
+        b.y + 3 - t * 3,
+        4 + Math.min(t, 0.5) * 9,
+        '#a29372',
+        Math.min(0.5, (1.1 - t) * 0.55),
+      );
+    }
+  ctx.restore();
 }

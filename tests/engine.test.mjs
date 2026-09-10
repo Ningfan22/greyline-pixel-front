@@ -21,6 +21,14 @@ import {
   smokeBlocks,
   unitRange,
   needsTarget,
+  requestDraw,
+  ARTILLERY,
+  DRAW_COST,
+  MAX_CRATER_DEPTH,
+  formationPositions,
+  vehicleContact,
+  muzzlePoint,
+  canTakeDamage,
   validDeck,
   chooseAiDeck,
   modelOf,
@@ -44,10 +52,16 @@ const fresh = () => {
   return s;
 };
 let count = 0;
+const failures = [];
 function check(name, fn) {
-  fn();
-  count++;
-  console.log('✓ ' + name);
+  try {
+    fn();
+    count++;
+    console.log('✓ ' + name);
+  } catch (error) {
+    failures.push(name);
+    console.error('FAIL ' + name + '\n' + error.stack);
+  }
 }
 check('六名士兵拥有独立生命、位置和动作计时', () => {
   const s = fresh(),
@@ -103,19 +117,21 @@ check('补给先消耗自身卡位，满手牌最多补进一张', () => {
   assert(playCard(s, 0, supply.uid).ok);
   assert.equal(p.hand.length, MAX_HAND);
 });
-check('干扰暂停自动抽牌，补给仍可使用', () => {
+check('干扰封锁主动抽牌，补给仍可使用', () => {
   const s = fresh(),
     p = s.players[0];
   p.hand = [];
   p.drawIn = 2;
   p.jam = 3;
   advance(s, 1);
-  assert.equal(p.drawIn, 2);
+  assert(!requestDraw(s, 0).ok);
+  assert(Math.abs(p.drawIn - 1) < 0.001);
   const supply = hand(s, 'supply');
   assert(playCard(s, 0, supply.uid).ok);
   assert.equal(p.hand.length, 2);
   advance(s, 2.2);
-  assert(p.drawIn < 2 && p.drawIn > 1.7);
+  assert.equal(p.drawIn, 0);
+  assert(requestDraw(s, 0).ok);
 });
 check('弃牌在牌库抽空后重新洗入', () => {
   const s = fresh(),
@@ -200,7 +216,7 @@ check('驻守、推进、奔跑、蹲行、卧倒分别驱动独立姿态', () =
   setOrder(crouch, 0, 'crouch');
   setOrder(prone, 0, 'prone');
   for (const s of [walk, run, hold, crouch, prone]) advance(s, 1);
-  assert.equal(hold.units[0].x, 175);
+  assert.equal(hold.units[0].x, formationPositions(0, 'infantry', 175)[0]);
   assert.equal(hold.units[0].pose, 'idle');
   assert.equal(walk.units[0].pose, 'walk');
   assert.equal(run.units[0].pose, 'run');
@@ -246,10 +262,10 @@ check('炮击伤害半径独立于小弹坑，连续命中保持限深', () => {
   s.units = [];
   explode(s, 900, 366, 68, 55, 0);
   const changed = s.terrain.filter((y) => y > 374).length;
-  assert(changed >= 35 && changed <= 50);
-  assert(ground(s, 900) > 387 && ground(s, 900) <= 392);
+  assert(changed >= 25 && changed <= 36);
+  assert(ground(s, 900) > 374 && ground(s, 900) <= 379);
   for (let i = 0; i < 20; i++) explode(s, 900, ground(s, 900) - 8, 68, 55, 0);
-  assert(ground(s, 900) <= 406);
+  assert(ground(s, 900) <= 374 + MAX_CRATER_DEPTH);
 });
 check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
   for (const side of [0, 1])
@@ -292,6 +308,10 @@ check('脚下爆炸触发下落，空中驻守仍先安全落地', () => {
   setOrder(s, 0, 'hold');
   tick(s, 1 / 60);
   const u = s.units[0];
+  assert.equal(u.motion, 'ground');
+  u.y = 374;
+  for (let i = 0; i < 6; i++) explode(s, 900, ground(s, 900) - 8, 68, 0, 0);
+  tick(s, 1 / 60);
   assert.equal(u.motion, 'jump');
   advance(s, 2);
   assert.equal(u.motion, 'ground');
@@ -418,6 +438,8 @@ const duel = (id, distance) => {
   spawnUnit(s, 1, 'tank', 1100 + distance);
   const target = s.units[1];
   target.cooldown = 1e6;
+  target.secondaryCooldown = 1e6;
+  target.pace = 0;
   target.hp = target.maxHp = 10000;
   u.cooldown = 0;
   setOrder(s, 0, 'hold');
@@ -524,13 +546,17 @@ check('精确打击只命中一次，新增指令统一校验落点', () => {
   spawnUnit(s, 1, 'tank', 900);
   const u = s.units[0];
   u.cooldown = 1000;
+  u.secondaryCooldown = 1000;
+  u.pace = 0;
   s.players[0].energy = 10;
   const p = hand(s, 'precision');
   const before = s.explosions;
   assert.equal(playCard(s, 0, p.uid).ok, false);
   assert.equal(s.players[0].energy, 10);
-  assert(playCard(s, 0, p.uid, 850).ok);
+  assert(playCard(s, 0, p.uid, 900).ok);
   advance(s, 2);
+  assert.equal(s.explosions, before);
+  advance(s, 1);
   assert.equal(s.explosions, before + 1);
   assert(u.hp < u.maxHp);
   assert.equal(s.markers.length, 0);
@@ -780,7 +806,7 @@ check('新增七种指令分别作用，炮幕恰好五轮且循环牌数守恒'
   assert.equal(p.hand.length, 3);
   s.units = [];
   use('barrage');
-  advance(s, 3);
+  advance(s, 8);
   assert.equal(s.explosions, 5);
   assert.equal(s.markers.length, 0);
 });
@@ -939,6 +965,354 @@ check('射击与命中视觉粒子不消耗战斗或洗牌随机流', () => {
   explode(s, 1800, ground(s, 1800) - 8, 30, 10, 0);
   assert.equal(s.seed, before);
 });
+check('主动抽牌严格扣除 2 点，冷却、满手、干扰及暂停均无额外消耗', () => {
+  const s = arena(),
+    p = s.players[0];
+  p.hand = p.hand.slice(0, 3);
+  const starting = p.hand.length;
+  advance(s, 12);
+  assert.equal(p.hand.length, starting, '时间经过不能自动抽牌');
+  p.energy = 6;
+  assert(requestDraw(s, 0).ok);
+  assert.equal(p.energy, 6 - DRAW_COST);
+  assert.equal(p.hand.length, 4);
+  assert.equal(requestDraw(s, 0).ok, false);
+  assert.equal(p.energy, 4);
+  advance(s, 9.1);
+  p.energy = 1.99;
+  assert.equal(requestDraw(s, 0).ok, false);
+  assert.equal(p.energy, 1.99);
+  p.energy = 4;
+  p.jam = 2;
+  assert.equal(requestDraw(s, 0).ok, false);
+  p.jam = 0;
+  s.status = 'paused';
+  assert.equal(requestDraw(s, 0).ok, false);
+  s.status = 'playing';
+  draw(s, 0, 2);
+  assert.equal(p.hand.length, 6);
+  assert.equal(requestDraw(s, 0).ok, false);
+  assert.equal(p.energy, 4);
+});
+check('AI 空手及低价值技能手牌都能付费补牌并重新部署', () => {
+  for (const skills of [
+    [],
+    ['repair', 'morale', 'smoke'],
+    ['repair', 'morale', 'smoke', 'recon', 'precision', 'artillery'],
+  ]) {
+    const s = arena(),
+      p = s.players[1];
+    p.hand = skills.map((id) => ({ id, uid: ++s.uid }));
+    p.deck = ['infantry', 'marines'];
+    p.discard = [];
+    p.energy = 10;
+    p.drawIn = 0;
+    s.aiIn = 0;
+    advance(s, 12);
+    assert(
+      s.units.some((u) => u.side === 1),
+      skills.join(','),
+    );
+    assert(p.energy < 10);
+    assert(p.drawIn > 0 || p.played > 0);
+  }
+});
+check('部署在两侧边界的班组仍保持 38 像素间距，预览和实体一致', () => {
+  for (const side of [0, 1])
+    for (const id of ['infantry', 'militia', 'sniper']) {
+      const s = arena(),
+        x = side === 0 ? 110 : W - 110;
+      spawnUnit(s, side, id, x);
+      assert.deepEqual(
+        s.units.map((u) => u.x),
+        formationPositions(side, id, x),
+      );
+      for (let i = 1; i < s.units.length; i++)
+        assert.equal(Math.abs(s.units[i].x - s.units[i - 1].x), 38);
+      assert(s.units.every((u) => u.x >= 112 && u.x <= W - 112));
+    }
+});
+check('撤退转身并持续跑离，士气小幅恢复不反复切换姿态', () => {
+  for (const side of [0, 1]) {
+    const s = arena();
+    spawnUnit(s, side, 'infantry', 1800);
+    const u = s.units[0];
+    s.units = [u];
+    spawnUnit(s, side === 0 ? 1 : 0, 'infantry', side === 0 ? 2100 : 1500);
+    s.units = [u, s.units[1]];
+    for (const v of s.units) {
+      v.cooldown = 100;
+      v.decisionIn = 100;
+    }
+    u.personalMorale = 30;
+    u.decisionIn = 0;
+    const x = u.x,
+      dir = side === 0 ? -1 : 1;
+    for (let i = 0; i < 180; i++) {
+      tick(s, 1 / 60);
+      if (i === 30) u.personalMorale = 45;
+      assert.equal(u.tactic, 'retreat');
+      assert.equal(u.facing, dir);
+      assert.equal(u.pose, 'run');
+      assert.equal(u.fire, 0);
+    }
+    assert((u.x - x) * dir > 90);
+    u.x = side === 0 ? 55 : W - 55;
+    const gait = u.walk;
+    tick(s, 1 / 60);
+    assert.equal(u.moving, false);
+    assert.equal(u.pose, 'idle');
+    assert.equal(u.walk, gait);
+    u.personalMorale = 95;
+    u.decisionIn = 0;
+    u.retreatUntil = 100;
+    tick(s, 1 / 60);
+    assert.equal(u.personalMorale, 95);
+  }
+});
+check('撤退士兵可以与迎面推进的友军错身通过', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 700);
+  const u = s.units[0],
+    friend = s.units[1];
+  s.units = [u, friend];
+  u.x = 700;
+  friend.x = 695;
+  u.lane = friend.lane = 0;
+  friend.facing = 1;
+  u.tactic = 'retreat';
+  u.retreatUntil = 100;
+  u.personalMorale = 30;
+  u.decisionIn = 100;
+  friend.decisionIn = 100;
+  advance(s, 0.3);
+  assert(u.x < 695);
+  assert(friend.x > 700);
+});
+check('坦克履带跨浅坑保持支撑，宽坡倾斜且炮口跟随车身', () => {
+  for (const id of ['tank', 'light_tank', 'heavy_tank', 'ifv']) {
+    const s = arena();
+    crater(s, 900, 18, 5);
+    const contact = vehicleContact(s, 900, id);
+    assert.equal(contact.y, 374);
+    assert.equal(contact.angle, 0);
+    spawnUnit(s, 0, id, 900);
+    const u = s.units[0];
+    u.pace = 0;
+    advance(s, 0.5);
+    assert.equal(u.y, 374);
+    for (let x = 650; x < 1150; x++) s.terrain[x] = 374 + (x - 650) * 0.1;
+    const tilted = vehicleContact(s, 900, id);
+    assert(tilted.angle > 0.09 && tilted.angle < 0.11);
+    const before = u.y;
+    tick(s, 1 / 60);
+    assert(u.y > before && u.y < tilted.y);
+    advance(s, 1);
+    assert(Math.abs(u.hullAngle - tilted.angle) < 0.001);
+    const center = { ...u, hullAngle: 0 },
+      flat = muzzlePoint(center, 1100),
+      tip = muzzlePoint(u, 1100);
+    const dx = flat.x - u.x,
+      dy = flat.y - u.y;
+    assert(
+      Math.abs(
+        tip.y - (u.y + dx * Math.sin(u.hullAngle) + dy * Math.cos(u.hullAngle)),
+      ) < 1e-6,
+    );
+    assert(tip.y > flat.y);
+    assert(muzzlePoint(u, 700).y < muzzlePoint(center, 700).y);
+    for (let x = 650; x < 1150; x++)
+      s.terrain[x] = Math.min(386, 374 + Math.abs(x - 908) * 1.25);
+    assert(
+      vehicleContact(s, 900, id).y <= 375,
+      '两坑之间的窄土脊也必须支撑履带',
+    );
+  }
+});
+check('火炮按预警延时分批落弹，散布在范围内且落点预先锁定', () => {
+  for (const kind of ['artillery', 'barrage', 'precision']) {
+    const s = arena(),
+      cfg = ARTILLERY[kind];
+    s.players[0].energy = 10;
+    assert(playCard(s, 0, hand(s, kind).uid, 1800).ok);
+    const marker = s.markers[0],
+      impacts = [...marker.impacts];
+    assert.equal(impacts.length, cfg.count);
+    impacts.forEach((x, i) =>
+      assert(
+        Math.abs(x - (1800 + (i - (cfg.count - 1) / 2) * cfg.spacing)) <=
+          cfg.scatter,
+      ),
+    );
+    advance(s, cfg.delay - 0.1);
+    assert.equal(s.explosions, 0);
+    s.seed = 8372;
+    advance(s, 0.2);
+    assert.equal(s.explosions, 1);
+    assert.equal(s.blasts[0].x, impacts[0]);
+    assert.deepEqual(marker.impacts, impacts);
+    if (cfg.count > 1) {
+      advance(s, cfg.interval - 0.25);
+      assert.equal(s.explosions, 1);
+      advance(s, 0.3);
+      assert.equal(s.explosions, 2);
+    }
+  }
+});
+check('普通火炮不能一轮清空满编队伍，边缘伤害衰减且移动可躲开精确打击', () => {
+  const s = arena();
+  spawnUnit(s, 1, 'infantry', 1800);
+  s.players[0].energy = 10;
+  assert(playCard(s, 0, hand(s, 'artillery').uid, 1705).ok);
+  s.units.forEach((u) => {
+    u.pace = 0;
+    u.decisionIn = 100;
+    u.cooldown = 100;
+  });
+  advance(s, 5);
+  assert(s.units.filter((u) => u.hp > 0).length >= 4);
+  const a = arena();
+  spawnUnit(a, 1, 'infantry', 1600);
+  a.units = a.units.slice(0, 2);
+  a.units[0].x = 1600;
+  a.units[1].x = 1640;
+  a.units.forEach((u) => (u.pose = 'idle'));
+  explode(a, 1600, 354, 42, 26, 0);
+  assert(
+    a.units[0].maxHp - a.units[0].hp > 4 * (a.units[1].maxHp - a.units[1].hp),
+  );
+  const moving = arena();
+  spawnUnit(moving, 1, 'tank', 1800);
+  const tank = moving.units[0];
+  moving.players[0].energy = 10;
+  assert(playCard(moving, 0, hand(moving, 'precision').uid, 1800).ok);
+  advance(moving, 3);
+  assert.equal(tank.hp, tank.maxHp);
+  assert(tank.x < 1740);
+  const bridge = arena();
+  crater(bridge, 1800, 25, 24);
+  spawnUnit(bridge, 1, 'tank', 1800);
+  const armored = bridge.units[0];
+  explode(bridge, 1800, ground(bridge, 1800) - 8, 26, 150, 0);
+  assert(armored.maxHp - armored.hp > 50, '桥接坦克仍受到坑底爆炸冲击');
+});
+const bulletAt = (s, u, damage = 20) => {
+  s.projectiles.push({
+    x: u.x - 100,
+    y: 347,
+    startX: u.x - 100,
+    startY: 347,
+    tx: u.x,
+    ty: 347,
+    side: u.side === 0 ? 1 : 0,
+    targetUid: u.uid,
+    base: null,
+    damage,
+    radius: 0,
+    life: 0.01,
+    total: 0.01,
+    arc: 0,
+    ammunition: 'rifle',
+    tracer: false,
+  });
+  tick(s, 1 / 60);
+};
+const woundedCase = (side = 0) => {
+  const s = arena();
+  spawnUnit(s, side, 'infantry', 1400);
+  const u = s.units[0];
+  s.units = [u];
+  setOrder(s, side, 'hold');
+  s.injurySeed = 0;
+  bulletAt(s, u);
+  assert(u.wounded);
+  return { s, u };
+};
+check('非致命中弹可倒地成伤员，暂停冻结失血，倒地不计击杀也不再作战', () => {
+  const { s, u } = woundedCase();
+  assert(u.hp > 0);
+  assert(!isCombatant(u));
+  assert(canTakeDamage(u));
+  assert.equal(s.players[1].kills, 0);
+  const x = u.x;
+  advance(s, 2);
+  assert.equal(u.x, x);
+  assert.equal(u.fire, 0);
+  assert.equal(u.moving, false);
+  assert.equal(u.pose, 'prone');
+  const life = u.bleedOut;
+  s.status = 'paused';
+  advance(s, 10);
+  assert.equal(u.bleedOut, life);
+  s.status = 'playing';
+  advance(s, 24);
+  assert.equal(u.hp, 0);
+  assert.equal(s.players[1].kills, 1);
+  advance(s, 3);
+  assert.equal(s.players[1].kills, 1);
+  assert(!s.units.includes(u));
+});
+check('军医可救起伤员，急救也可救起，死亡与投降保持终态', () => {
+  for (const treatment of ['medic', 'medevac']) {
+    const { s, u } = woundedCase();
+    if (treatment === 'medic') {
+      spawnUnit(s, 0, 'medic', 1430);
+      s.units = [u, s.units[1]];
+      s.units[1].supportCooldown = 0;
+    } else {
+      s.players[0].energy = 10;
+      assert(playCard(s, 0, hand(s, 'medevac').uid).ok);
+    }
+    advance(s, 1.6);
+    assert(!u.wounded);
+    assert(u.hp >= u.maxHp * 0.4);
+    assert(u.injuryCooldown > 0);
+    assert.equal(s.players[1].kills, 0);
+  }
+  const { s, u } = woundedCase();
+  bulletAt(s, u, 999);
+  assert.equal(u.hp, 0);
+  assert.equal(s.players[1].kills, 1);
+  s.players[0].energy = 10;
+  assert(playCard(s, 0, hand(s, 'medevac').uid).ok);
+  assert.equal(u.hp, 0);
+});
+check('未倒地中弹、致命中弹和炮击与伤员分支区分，倒地仍会承受已有炮弹', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 1400);
+  s.units = [s.units[0]];
+  const u = s.units[0];
+  setOrder(s, 0, 'hold');
+  s.injurySeed = 0;
+  bulletAt(s, u, 3);
+  assert(!u.wounded);
+  assert(u.hp > 0);
+  bulletAt(s, u, 999);
+  assert.equal(u.hp, 0);
+  assert(!u.wounded);
+  const { s: b, u: v } = woundedCase();
+  explode(b, v.x, v.y - 20, 30, 999, 1);
+  assert.equal(v.hp, 0);
+  assert.equal(b.players[1].kills, 1);
+});
+check('爆炸火光和烟雾独立存在四秒，不受粒子上限或暂停影响', () => {
+  const s = arena();
+  explode(s, 1800, 366, 42, 0, 0);
+  assert.equal(s.blasts.length, 1);
+  advance(s, 0.3);
+  assert(s.blasts[0].age >= 0.3);
+  s.particles = [];
+  advance(s, 2);
+  assert.equal(s.blasts.length, 1);
+  assert(s.blasts[0].age > 2);
+  s.status = 'paused';
+  const age = s.blasts[0].age;
+  advance(s, 5);
+  assert.equal(s.blasts[0].age, age);
+  s.status = 'playing';
+  advance(s, 2);
+  assert.equal(s.blasts.length, 0);
+});
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {
     const s = createGame(seed);
@@ -951,6 +1325,7 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     ) {
       if (frame >= decision) {
         const p = s.players[0];
+        if (p.hand.length < 3) requestDraw(s, 0);
         const h = p.hand.find((h) => CARDS[h.id].cost <= p.energy);
         if (h) {
           const c = CARDS[h.id],
@@ -978,7 +1353,9 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     }
     assert(s.units.every((u) => Number.isFinite(u.x) && Number.isFinite(u.y)));
     assert(
-      s.terrain.every((y, x) => y >= s.original[x] && y <= s.original[x] + 32),
+      s.terrain.every(
+        (y, x) => y >= s.original[x] && y <= s.original[x] + MAX_CRATER_DEPTH,
+      ),
     );
     console.log(
       `  seed ${seed}: ${s.result}, ${s.time.toFixed(1)}s, ${Math.round(s.players[0].hp)}:${Math.round(s.players[1].hp)}`,
@@ -986,3 +1363,5 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
   }
 });
 console.log(`${count} gameplay checks passed`);
+if (failures.length)
+  throw new Error(`${failures.length} failures: ${failures.join('; ')}`);

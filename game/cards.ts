@@ -209,7 +209,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '救治 · 步兵',
     description: '就地救治附近受伤步兵',
     detail:
-      '3 名军医 · 135 生命。每人每 0.8 秒为 140 范围内一名步兵恢复 4 生命，不复活，不修理载具；携带自卫武器。',
+      '3 名军医 · 135 生命。每人每 0.8 秒治疗附近步兵 4 生命，优先靠近救助倒地伤员；死亡和投降者不能救起，不修理载具。',
     atlas: 11,
     members: 3,
     hp: 135,
@@ -228,16 +228,16 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '曲射 · 区域压制',
     description: '越过地形和烟幕曲射',
     detail:
-      '3 名炮手 · 150 生命，每 3.4 秒共 90 范围伤害。射程 180–820，无法对空；敌军贴近时会后撤。',
+      '3 名炮手 · 150 生命，每 4.4 秒共 66 范围伤害。射程 180–820，无法对空；敌军贴近时会后撤。',
     atlas: 12,
     members: 3,
     hp: 150,
-    damage: 90,
-    rate: 3.4,
+    damage: 66,
+    rate: 4.4,
     range: 820,
     minRange: 180,
     speed: 42,
-    radius: 42,
+    radius: 30,
     indirect: true,
   },
   ifv: {
@@ -278,9 +278,9 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     cost: 4,
     type: 'skill',
     tag: '支援 · 范围',
-    description: '三轮炮击，炸毁地面',
+    description: '延迟三轮炮击，随机散布',
     detail:
-      '选择落点，0.8 秒后开始三轮炮击，每轮 55 范围伤害。只伤害敌军；对基地伤害为 35%。',
+      '2.8 秒后落弹，3 发间隔 0.85 秒，每发 26 伤害、半径 42。落点间隔 70，随机偏移 ±28；边缘伤害衰减，对基地造成 15% 伤害。',
     atlas: 7,
   },
   supply: {
@@ -301,8 +301,8 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     cost: 2,
     type: 'skill',
     tag: '干扰 · 抽牌',
-    description: '暂停敌方自动抽牌 9 秒',
-    detail: '暂停敌方自动抽牌倒计时 9 秒；不影响补给卡。重复使用刷新时长。',
+    description: '封锁敌方主动抽牌 9 秒',
+    detail: '封锁敌方主动抽牌 9 秒；不影响补给卡。重复使用刷新时长。',
     atlas: 9,
   },
   smoke: {
@@ -351,7 +351,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '支援 · 定点爆破',
     description: '小范围重击，克制装甲',
     detail:
-      '指定位置，1.2 秒后造成半径 36、240 点伤害的单次打击。只伤害敌军；对基地伤害为 25%。瞄准停火中的重装单位更有效。',
+      '指定位置，2.6 秒后单次打击，150 伤害、半径 26、随机偏移 ±8。边缘衰减，对基地造成 20% 伤害。瞄准停火中的重装单位更有效。',
     atlas: 17,
     targetGround: true,
   },
@@ -689,7 +689,7 @@ export const CARDS: Record<CardId, Card> = {
     'emp',
     '电磁封锁',
     4,
-    '暂停敌方自动抽牌 14 秒，并取消敌方侦察校射。',
+    '封锁敌方主动抽牌 14 秒，并取消敌方侦察校射。',
     { effect: 'emp', tag: '电子战 · 封锁' },
   ),
   barrage: variant(
@@ -697,7 +697,7 @@ export const CARDS: Record<CardId, Card> = {
     'barrage',
     '密集炮幕',
     6,
-    '指定区域，五轮宽幅炮击，延迟 0.8 秒，每轮 42 伤害、半径 68，对基地造成 35% 伤害。',
+    '3.6 秒后五轮炮击，间隔 0.75 秒；每发 20 伤害、半径 40，中心间隔 60、随机偏移 ±25。边缘衰减，对基地造成 15% 伤害。',
     { effect: 'barrage', tag: '炮兵 · 宽幅覆盖' },
   ),
   medevac: variant(
@@ -705,7 +705,7 @@ export const CARDS: Record<CardId, Card> = {
     'medevac',
     '战地急救',
     2,
-    '每名存活且未投降的己方步兵立即恢复 10 生命与 8 士气。',
+    '己方存活步兵恢复 10 生命与 8 士气；倒地伤员得到急救，生命恢复至 40% 后可起身。死亡或投降者不复活。',
     { effect: 'medevac', tag: '医疗 · 急救' },
   ),
   fortify: variant(

@@ -303,6 +303,26 @@ export function soldierEquipment(art: Art, cardId: CardId) {
   if (id === 'mortar') return art.reinforcements[1][2];
   return undefined;
 }
+function stableTracks(list: HTMLCanvasElement[], height: number) {
+  return list.map((frame) => {
+    const out = surface(frame.width, frame.height),
+      ctx = out.getContext('2d')!;
+    ctx.drawImage(list[0], 0, 0);
+    ctx.clearRect(0, frame.height - height, frame.width, height);
+    ctx.drawImage(
+      frame,
+      0,
+      frame.height - height,
+      frame.width,
+      height,
+      0,
+      frame.height - height,
+      frame.width,
+      height,
+    );
+    return out;
+  });
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
@@ -328,6 +348,9 @@ export function loadArt() {
       ctx.drawImage(bg, 0, 0, 640, 214);
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
+      vehicleArt[0] = stableTracks(vehicleArt[0], 5);
+      const reinforcementArt = reinforcementFrames(reinforcement);
+      reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       return {
         background,
         reactions: reactionFrames(reactions),
@@ -335,7 +358,7 @@ export function loadArt() {
         locomotion: locomotionFrames(locomotion),
         soldiers: frames(soldiers, 4, 8, 64, 48, true),
         vehicles: vehicleArt,
-        reinforcements: reinforcementFrames(reinforcement),
+        reinforcements: reinforcementArt,
       };
     },
   );
@@ -353,12 +376,14 @@ export function drawSprite(
   h: number,
   flip = false,
   alpha = 1,
+  rotation = 0,
 ) {
   if (!frame) return;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = alpha;
   ctx.translate(Math.round(x), Math.round(y));
+  if (rotation) ctx.rotate(rotation);
   if (flip) ctx.scale(-1, 1);
   ctx.drawImage(frame, -Math.round(w / 2), -h, w, h);
   ctx.restore();

@@ -3,6 +3,7 @@ import {
   drawMuzzle,
   drawProjectile,
   drawParticle,
+  drawBlast,
 } from './ballistics';
 import { modelOf } from './cards';
 import {
@@ -12,6 +13,8 @@ import {
   W,
   VIEW_W,
   muzzleHeight,
+  formationPositions,
+  vehicleContact,
   AIR_ALTITUDE,
   type GameState,
   type CardId,
@@ -143,11 +146,16 @@ export function render(
     let row = 0,
       frame = 0;
     if (c.members) {
-      if (isDead) {
+      if (u.wounded) {
+        row = 7;
+        frame = Math.min(3, Math.floor(u.woundedTime * 7));
+      } else if (isDead) {
         row = 7;
         frame = Math.min(3, Math.floor((1.5 - u.deadFor) * 4));
       } else if (
         u.flash > 0 &&
+        !u.moving &&
+        u.tactic !== 'retreat' &&
         !u.cover &&
         u.motion === 'ground' &&
         !u.climbing
@@ -182,7 +190,7 @@ export function render(
       : isIFV
         ? art.reinforcements[0][frame]
         : art.vehicles[isTank ? 0 : 1][frame];
-    if (c.members && !isDead) {
+    if (c.members && !isDead && !u.wounded) {
       if (u.motion === 'jump') {
         const frame =
           u.motionTime < 0.07 ? 1 : u.vy < 0 ? 2 : u.vy < 65 ? 3 : 4;
@@ -204,6 +212,14 @@ export function render(
       else if (u.pose === 'walk' && u.moving)
         img = art.locomotion[0][Math.floor(u.walk) % 8];
     }
+    if (
+      c.members &&
+      u.tactic === 'retreat' &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      u.moving
+    )
+      img = art.locomotion[0][Math.floor(u.walk) % 8];
     if (u.surrendered)
       img =
         art.reactions[0][
@@ -234,14 +250,16 @@ export function render(
       u.y + u.lane + 3,
       w,
       h,
-      u.side === 1,
+      c.members ? u.facing < 0 : u.side === 1,
       alpha,
+      c.armored ? u.hullAngle : 0,
     );
     if (!c.members && isDead) ctx.restore();
     if (
       c.members &&
       !isDead &&
       !u.surrendered &&
+      !u.wounded &&
       modelOf(u.id) !== 'infantry' &&
       u.pose !== 'climb' &&
       u.motion === 'ground'
@@ -252,7 +270,7 @@ export function render(
         ctx,
         weapon,
         u.x +
-          (u.side === 0 ? 1 : -1) *
+          u.facing *
             (modelOf(u.id) === 'medic'
               ? -8
               : modelOf(u.id) === 'mortar'
@@ -273,10 +291,20 @@ export function render(
               ? 43
               : 36,
         modelOf(u.id) === 'medic' ? 17 : modelOf(u.id) === 'mortar' ? 30 : 15,
-        u.side === 1,
+        u.facing < 0,
       );
     }
     if (isDead) continue;
+    if (u.wounded) {
+      const by = u.y - 25;
+      ctx.fillStyle = '#e5d8b0';
+      ctx.fillRect(u.x - 1, by - 11, 2, 8);
+      ctx.fillRect(u.x - 4, by - 8, 8, 2);
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`待救 ${Math.ceil(u.bleedOut)}s`, u.x, by - 15);
+      continue;
+    }
     if (u.surrendered) {
       ctx.fillStyle = '#eee8c9';
       ctx.font = '10px sans-serif';
@@ -371,7 +399,7 @@ export function render(
     ctx.ellipse(
       m.x,
       y,
-      m.kind === 'precision' ? 36 : 91,
+      m.kind === 'precision' ? 34 : m.kind === 'barrage' ? 185 : 140,
       20,
       0,
       0,
@@ -388,36 +416,47 @@ export function render(
     ctx.fillStyle = '#f4ca7c';
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(m.kind === 'precision' ? '精确打击' : '炮击预警', m.x, y - 65);
+    ctx.fillText(
+      `${m.kind === 'precision' ? '精确打击' : '炮击预警'} ${Math.max(0, m.timer).toFixed(1)}s`,
+      m.x,
+      y - 65,
+    );
   }
+  for (const b of s.blasts) drawBlast(ctx, b);
   for (const p of s.particles) drawParticle(ctx, p);
   ctx.globalAlpha = 1;
   if (c && hover !== null && s.status === 'playing') {
     const y = ground(s, hover);
     if (c.type === 'unit') {
       const valid = hover >= 110 && hover <= 440;
-      drawSprite(
-        ctx,
-        cardFrame(art, c.atlas),
-        hover,
-        c.air ? AIR_ALTITUDE + 3 : y + 3,
-        c.id === 'tank' ? 205 : c.id === 'ifv' ? 165 : c.air ? 235 : 96,
-        c.id === 'tank' ? 108 : c.id === 'ifv' ? 105 : c.air ? 118 : 72,
-        false,
-        valid ? 0.65 : 0.3,
-      );
-      if (c.members) {
-        for (let i = 1; i < c.members; i++)
-          drawSprite(
-            ctx,
-            art.soldiers[1][0],
-            Math.max(112, hover - i * 22),
-            ground(s, Math.max(112, hover - i * 22)) + 3,
-            96,
-            72,
-            false,
-            valid ? 0.35 : 0.15,
-          );
+      const positions = formationPositions(0, c.id, hover);
+      for (const [i, x] of positions.entries()) {
+        const contact = c.armored
+          ? vehicleContact(s, x, c.id)
+          : { y: ground(s, x), angle: 0 };
+        drawSprite(
+          ctx,
+          cardFrame(art, c.atlas),
+          x,
+          c.air ? AIR_ALTITUDE + 3 : contact.y + 3,
+          modelOf(c.id) === 'tank'
+            ? 205
+            : modelOf(c.id) === 'ifv'
+              ? 165
+              : c.air
+                ? 235
+                : 96,
+          modelOf(c.id) === 'tank'
+            ? 108
+            : modelOf(c.id) === 'ifv'
+              ? 105
+              : c.air
+                ? 118
+                : 72,
+          false,
+          valid ? (i ? 0.4 : 0.65) : 0.2,
+          contact.angle,
+        );
       }
       ctx.strokeStyle = valid ? '#e9eac9' : '#c85b48';
       ctx.lineWidth = 2;

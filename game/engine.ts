@@ -29,8 +29,11 @@ export const W = 3840,
   DURATION = 240,
   MAX_HP = 1000,
   DRAW_TIME = 9,
-  ENERGY_TIME = 2.8,
+  ENERGY_TIME = 3.6,
   MAX_HAND = 6;
+export const DRAW_COST = 2,
+  MAX_CRATER_DEPTH = 24,
+  SQUAD_SPACING = 38;
 export const AIR_ALTITUDE = 232,
   DROP_HEIGHT = 20,
   CLIMB_HEIGHT = 20;
@@ -59,6 +62,15 @@ export interface Unit {
   climbFrom: number;
   climbWall: number;
   passedWalls: number[];
+  facing: number;
+  retreatUntil: number;
+  hullAngle: number;
+  wounded: boolean;
+  woundedTime: number;
+  bleedOut: number;
+  woundedBy: Side;
+  rescueProgress: number;
+  injuryCooldown: number;
   shots: number;
   secondaryShots: number;
   muzzleX: number;
@@ -148,6 +160,15 @@ export interface Marker {
   side: Side;
   wave: number;
   kind?: 'artillery' | 'precision' | 'barrage';
+  impacts?: number[];
+}
+export interface Blast {
+  x: number;
+  y: number;
+  age: number;
+  radius: number;
+  soil: boolean;
+  seed: number;
 }
 export interface Smoke {
   x: number;
@@ -196,6 +217,7 @@ export interface GameState {
   particles: Particle[];
   markers: Marker[];
   smokes: Smoke[];
+  blasts: Blast[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -203,6 +225,7 @@ export interface GameState {
   uid: number;
   seed: number;
   fxSeed: number;
+  injurySeed: number;
   explosions: number;
 }
 function rnd(s: GameState) {
@@ -244,11 +267,11 @@ export function createGame(
     captures: 0,
     order: 'advance',
     hp: MAX_HP,
-    energy: 7,
+    energy: 6,
     hand: [],
     deck: [],
     discard: [],
-    drawIn: DRAW_TIME,
+    drawIn: 0,
     jam: 0,
     morale: 0,
     recon: 0,
@@ -273,6 +296,7 @@ export function createGame(
     particles: [],
     markers: [],
     smokes: [],
+    blasts: [],
     notices: [],
     result: null,
     aiIn: 3.5,
@@ -280,6 +304,7 @@ export function createGame(
     uid: 0,
     seed: seed >>> 0,
     fxSeed: (seed ^ 0x7f4a7c15) >>> 0,
+    injurySeed: (seed ^ 0x4cf5ad43) >>> 0,
     explosions: 0,
   };
   for (const side of [0, 1] as Side[]) {
@@ -303,20 +328,37 @@ export function startGame(s: GameState) {
     notify(s, '战线已开放，部署你的第一支部队', 'good');
   }
 }
+export function formationPositions(side: Side, id: CardId, x: number) {
+  const count = CARDS[id].members ?? 1,
+    span = (count - 1) * SQUAD_SPACING;
+  const front =
+    side === 0
+      ? Math.max(112 + span, Math.min(W - 112, x))
+      : Math.min(W - 112 - span, Math.max(112, x));
+  return Array.from(
+    { length: count },
+    (_, i) => front - (side === 0 ? 1 : -1) * i * SQUAD_SPACING,
+  );
+}
 export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
   const c = CARDS[id],
     count = c.members ?? 1,
     squad = ++s.uid,
     dir = side === 0 ? 1 : -1;
+  const positions = formationPositions(side, id, x);
   for (let i = 0; i < count; i++) {
-    const px = Math.max(112, Math.min(W - 112, x - dir * i * 22)),
+    const px = positions[i],
       hp = c.hp! / count;
     s.units.push({
       uid: ++s.uid,
       id,
       side,
       x: px,
-      y: c.air ? AIR_ALTITUDE : ground(s, px),
+      y: c.air
+        ? AIR_ALTITUDE
+        : c.armored
+          ? vehicleContact(s, px, id).y
+          : ground(s, px),
       hp,
       maxHp: hp,
       cooldown: 0.3 + i * 0.13,
@@ -332,6 +374,15 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       climbFrom: 0,
       climbWall: 0,
       passedWalls: [],
+      facing: dir,
+      retreatUntil: 0,
+      hullAngle: c.armored ? vehicleContact(s, px, id).angle : 0,
+      wounded: false,
+      woundedTime: 0,
+      bleedOut: 0,
+      woundedBy: side === 0 ? 1 : 0,
+      rescueProgress: 0,
+      injuryCooldown: 0,
       shots: i,
       secondaryShots: 0,
       muzzleX: px,
@@ -392,6 +443,78 @@ export function draw(s: GameState, side: Side, count = 1) {
   }
   return drawn;
 }
+export function requestDraw(
+  s: GameState,
+  side: Side,
+): { ok: boolean; message: string } {
+  const p = s.players[side];
+  if (s.status !== 'playing')
+    return { ok: false, message: '请先开始或继续作战' };
+  if (p.jam > 0)
+    return { ok: false, message: `通讯受扰，还需 ${Math.ceil(p.jam)} 秒` };
+  if (p.hand.length >= MAX_HAND)
+    return { ok: false, message: '手牌已满，请先使用一张卡' };
+  if (p.drawIn > 0)
+    return { ok: false, message: `补给准备中，还需 ${Math.ceil(p.drawIn)} 秒` };
+  if (!p.deck.length && !p.discard.length)
+    return { ok: false, message: '没有可抽取的卡牌' };
+  if (p.energy < DRAW_COST)
+    return { ok: false, message: '抽牌需要 2 点指挥点' };
+  if (!draw(s, side)) return { ok: false, message: '没有可抽取的卡牌' };
+  p.energy -= DRAW_COST;
+  p.drawIn = DRAW_TIME;
+  return { ok: true, message: '消耗 2 点指挥点，抽取 1 张卡牌' };
+}
+export const ARTILLERY = {
+  artillery: {
+    delay: 2.8,
+    count: 3,
+    interval: 0.85,
+    damage: 26,
+    radius: 42,
+    spacing: 70,
+    scatter: 28,
+    baseScale: 0.15,
+  },
+  barrage: {
+    delay: 3.6,
+    count: 5,
+    interval: 0.75,
+    damage: 20,
+    radius: 40,
+    spacing: 60,
+    scatter: 25,
+    baseScale: 0.15,
+  },
+  precision: {
+    delay: 2.6,
+    count: 1,
+    interval: 0,
+    damage: 150,
+    radius: 26,
+    spacing: 0,
+    scatter: 8,
+    baseScale: 0.2,
+  },
+};
+function callArtillery(
+  s: GameState,
+  side: Side,
+  x: number,
+  kind: keyof typeof ARTILLERY,
+) {
+  const c = ARTILLERY[kind];
+  const impacts = Array.from({ length: c.count }, (_, i) =>
+    Math.max(
+      0,
+      Math.min(
+        W,
+        x + (i - (c.count - 1) / 2) * c.spacing + (rnd(s) * 2 - 1) * c.scatter,
+      ),
+    ),
+  );
+  s.markers.push({ x, timer: c.delay, side, wave: 0, kind, impacts });
+}
 export function playCard(
   s: GameState,
   side: Side,
@@ -437,19 +560,22 @@ export function playCard(
         u.personalMorale = Math.min(100, u.personalMorale + 40);
         u.suppression *= 0.2;
         u.decisionIn = 0;
+        u.retreatUntil = 0;
       }
     if (c.effect === 'ammo') draw(s, side, 3);
     if (c.effect === 'emp') {
       foe.jam = Math.max(foe.jam, 14);
       foe.recon = 0;
     }
-    if (c.effect === 'barrage')
-      s.markers.push({ x: x!, timer: 0.8, side, wave: 0, kind: 'barrage' });
+    if (c.effect === 'barrage') callArtillery(s, side, x!, 'barrage');
     if (c.effect === 'medevac')
-      for (const u of own) {
+      for (const u of s.units.filter(
+        (v) => v.side === side && canTakeDamage(v) && CARDS[v.id].members,
+      )) {
         u.hp = Math.min(u.maxHp, u.hp + 10);
         u.personalMorale = Math.min(100, u.personalMorale + 8);
         u.healing = 0.7;
+        if (u.wounded) u.rescueProgress += 1.6;
       }
     if (c.effect === 'fortify') {
       p.fortify = 10;
@@ -463,9 +589,9 @@ export function playCard(
           u.secondaryCooldown = Math.max(0, u.secondaryCooldown) + 1.8;
         }
   } else if (c.id === 'artillery') {
-    s.markers.push({ x: x!, timer: 0.8, side, wave: 0 });
+    callArtillery(s, side, x!, 'artillery');
   } else if (c.id === 'precision') {
-    s.markers.push({ x: x!, timer: 1.2, side, wave: 0, kind: 'precision' });
+    callArtillery(s, side, x!, 'precision');
   } else if (c.id === 'smoke') {
     s.smokes.push({ x: x!, life: 8, side });
   } else if (c.id === 'recon') {
@@ -504,7 +630,7 @@ export function crater(
     const a = (i - x) / radius,
       dy = Math.sqrt(Math.max(0, 1 - a * a)) * depth;
     s.terrain[i] = Math.min(
-      s.original[i] + 32,
+      s.original[i] + MAX_CRATER_DEPTH,
       Math.max(s.terrain[i], centerY + dy),
     );
   }
@@ -517,6 +643,15 @@ export function crater(
 }
 function burst(s: GameState, x: number, y: number, radius: number) {
   s.explosions++;
+  s.blasts.push({
+    x,
+    y,
+    age: 0,
+    radius,
+    soil: y > ground(s, x) - 65,
+    seed: s.fxSeed,
+  });
+  s.blasts = s.blasts.slice(-32);
   s.shake = Math.min(8, radius / 10);
   const soil = y > ground(s, x) - 65;
   for (let i = 0; i < 6; i++) {
@@ -651,8 +786,15 @@ function bulletImpact(
       });
     }
 }
-function hitUnit(s: GameState, u: Unit, damage: number, side: Side, cover = 0) {
-  if (!isCombatant(u)) return;
+function hitUnit(
+  s: GameState,
+  u: Unit,
+  damage: number,
+  side: Side,
+  cover = 0,
+  source: 'bullet' | 'blast' = 'bullet',
+) {
+  if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
   const protection = u.pose === 'prone' ? 0.7 : u.pose === 'crouch' ? 0.85 : 1;
   const actual =
@@ -673,17 +815,69 @@ function hitUnit(s: GameState, u: Unit, damage: number, side: Side, cover = 0) {
   }
   u.flash = 0.16;
   if (u.hp <= 0) {
-    s.players[side].kills++;
-    for (const friend of s.units)
-      if (friend !== u && friend.squad === u.squad && isCombatant(friend)) {
-        friend.personalMorale = Math.max(0, friend.personalMorale - 9);
-        friend.decisionIn = 0;
-      }
-    u.deadFor = 1.5;
-    u.moving = false;
-    u.fire = 0;
-    if (!CARDS[u.id].members) burst(s, u.x, u.y - 20, 24);
+    finishDeath(s, u, side);
+    return;
   }
+  if (
+    c.members &&
+    !u.wounded &&
+    source === 'bullet' &&
+    u.injuryCooldown <= 0 &&
+    u.hp <= u.maxHp * 0.55
+  ) {
+    s.injurySeed = (Math.imul(1664525, s.injurySeed) + 1013904223) >>> 0;
+    if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
+      u.wounded = true;
+      u.woundedTime = 0;
+      u.bleedOut = 25;
+      u.woundedBy = side;
+      u.rescueProgress = 0;
+      u.fire = 0;
+      u.secondaryFire = 0;
+      u.moving = false;
+      u.climbing = 0;
+      u.motion = 'ground';
+      u.coverGoal = null;
+      u.pose = 'prone';
+      u.y = ground(s, u.x);
+      notify(
+        s,
+        `${u.side === 0 ? '我方' : '敌方'}${c.name}有队员倒地待救`,
+        'info',
+      );
+    }
+  }
+}
+function finishDeath(s: GameState, u: Unit, side: Side) {
+  if (u.deadFor > 0) return;
+  u.hp = 0;
+  u.wounded = false;
+  u.deadFor = 1.5;
+  u.moving = false;
+  u.fire = 0;
+  u.secondaryFire = 0;
+  s.players[side].kills++;
+  for (const friend of s.units)
+    if (friend !== u && friend.squad === u.squad && isCombatant(friend)) {
+      friend.personalMorale = Math.max(0, friend.personalMorale - 9);
+      friend.decisionIn = 0;
+    }
+  if (!CARDS[u.id].members) burst(s, u.x, u.y - 20, 24);
+}
+function revive(u: Unit) {
+  u.wounded = false;
+  u.woundedTime = 0;
+  u.bleedOut = 0;
+  u.rescueProgress = 0;
+  u.injuryCooldown = 4;
+  u.hp = Math.max(u.hp, u.maxHp * 0.4);
+  u.personalMorale = Math.max(55, u.personalMorale);
+  u.suppression = 20;
+  u.cooldown = Math.max(1.2, u.cooldown);
+  u.tactic = 'crouch';
+  u.pose = 'crouch';
+  u.decisionIn = 1.5;
+  u.retreatUntil = 0;
 }
 export function explode(
   s: GameState,
@@ -706,20 +900,36 @@ export function explode(
   }
   // Blast reach and the excavated soil footprint are deliberately separate.
   if (y > ground(s, x) - 80) {
-    const soilRadius = Math.min(25, radius * 0.36);
-    crater(s, x, soilRadius, Math.min(18, radius * 0.27));
+    const soilRadius = Math.min(18, radius * 0.28);
+    crater(s, x, soilRadius, Math.min(5, radius * 0.1));
   }
   for (const u of s.units) {
-    if (u.side === side || !isCombatant(u)) continue;
-    const dist = Math.hypot(u.x - x, u.y - 20 - y);
-    if (dist < radius + 18)
+    if (u.side === side || !canTakeDamage(u)) continue;
+    let dist = Math.hypot(u.x - x, u.y - 20 - y);
+    if (CARDS[u.id].armored) {
+      // Measure from the hull, including when tracks bridge a crater.
+      const dx = x - u.x,
+        dy = y - u.y,
+        cos = Math.cos(u.hullAngle),
+        sin = Math.sin(u.hullAngle),
+        localX = dx * cos + dy * sin,
+        localY = -dx * sin + dy * cos,
+        half = modelOf(u.id) === 'tank' ? 62 : 48;
+      dist = Math.hypot(
+        Math.max(0, Math.abs(localX) - half),
+        Math.max(0, localY, -48 - localY),
+      );
+    }
+    if (dist < radius + 12)
       hitUnit(
         s,
         u,
         damage *
-          Math.max(0.45, 1 - dist / (radius * 2)) *
+          Math.pow(Math.max(0, 1 - dist / (radius + 12)), 1.25) *
           (CARDS[u.id].armored ? armorMultiplier : 1),
         side,
+        0,
+        'blast',
       );
   }
   for (const target of [0, 1] as Side[]) {
@@ -783,6 +993,19 @@ export function muzzleHeight(u: Unit) {
               ? 28
               : 47;
 }
+export function muzzlePoint(
+  u: Unit,
+  tx: number,
+  height = muzzleHeight(u),
+  coax = false,
+) {
+  const dx = Math.sign(tx - u.x) * (coax ? 58 : muzzleOffset(u)),
+    dy = -height;
+  const angle = CARDS[u.id].armored ? u.hullAngle : 0,
+    c = Math.cos(angle),
+    sn = Math.sin(angle);
+  return { x: u.x + dx * c - dy * sn, y: u.y + dx * sn + dy * c };
+}
 function bodyHeight(u: Unit) {
   return u.pose === 'prone'
     ? 7
@@ -809,10 +1032,11 @@ function firingHeight(
 ): number | null {
   const c = CARDS[u.id],
     height = muzzleHeight(u),
-    sx = u.x + Math.sign(tx - u.x) * muzzleOffset(u);
+    point = muzzlePoint(u, tx, height),
+    sx = point.x;
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
-  if (!terrainIntercept(s, sx, u.y - height, tx, ty)) return height;
+  if (!terrainIntercept(s, sx, point.y, tx, ty)) return height;
   // A crouched soldier can briefly rise to fire, rather than stall behind a slope.
   if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty)) return 47;
   return null;
@@ -838,7 +1062,7 @@ function seekCover(s: GameState, u: Unit, target: Unit) {
           v !== u &&
           v.side === u.side &&
           isCombatant(v) &&
-          Math.abs((v.coverGoal ?? v.x) - x) < 9,
+          Math.abs((v.coverGoal ?? v.x) - x) < 18,
       )
     )
       continue;
@@ -961,15 +1185,44 @@ function moveSoldier(
     u.pose = 'climb';
     return;
   }
-  const distance = speed * dt;
-  u.x = Math.max(55, Math.min(W - 55, u.x + dir * distance));
+  const blocker = s.units
+    .filter(
+      (v) =>
+        v !== u &&
+        v.side === u.side &&
+        isCombatant(v) &&
+        CARDS[v.id].members &&
+        v.facing === dir &&
+        Math.abs(v.lane - u.lane) < 4 &&
+        (v.x - u.x) * dir > 0,
+    )
+    .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
+  if (blocker)
+    speed *= Math.max(0, Math.min(1, (Math.abs(blocker.x - u.x) - 24) / 12));
+  const beforeX = u.x;
+  u.facing = dir;
+  u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
+  const distance = Math.abs(u.x - beforeX);
   // Gait advances by travelled distance so feet stop when the soldier stops.
   u.walk += distance / (u.pose === 'run' ? 8 : u.pose === 'prone' ? 4 : 6);
   u.y = ground(s, u.x);
-  u.moving = true;
+  u.moving = distance > 0.001;
 }
 export function isCombatant(u: Unit) {
+  return u.hp > 0 && !u.surrendered && !u.wounded;
+}
+export function canTakeDamage(u: Unit) {
   return u.hp > 0 && !u.surrendered;
+}
+export function vehicleContact(s: GameState, x: number, id: CardId) {
+  const half = modelOf(id) === 'tank' ? 62 : 48;
+  const left = ground(s, x - half),
+    right = ground(s, x + half);
+  const slope = Math.max(-0.18, Math.min(0.18, (right - left) / (half * 2)));
+  let y = (left + right) / 2;
+  for (let i = -half; i <= half; i += 2)
+    y = Math.min(y, ground(s, x + i) - slope * i);
+  return { y, angle: Math.atan(slope) };
 }
 const roles: Record<Doctrine, Unit['tactic'][]> = {
   balanced: ['prone', 'cover', 'crouch', 'bound', 'cover', 'bound'],
@@ -988,12 +1241,6 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   const threat = s.units
     .filter((v) => v.side !== u.side && isCombatant(v) && !CARDS[v.id].air)
     .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
-  if (!threat || Math.abs(threat.x - u.x) > Math.max(560, unitRange(s, u))) {
-    u.tactic = 'advance';
-    if (u.personalMorale < (c.discipline ?? 80))
-      u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
-    return;
-  }
   const survivors = s.units.filter(
     (v) => v.squad === u.squad && isCombatant(v),
   ).length;
@@ -1001,6 +1248,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.personalMorale < 18 &&
     survivors <= 2 &&
     u.hp / u.maxHp < 0.35 &&
+    threat &&
     Math.abs(threat.x - u.x) < 320
   ) {
     u.surrendered = true;
@@ -1019,8 +1267,27 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     );
     return;
   }
+  if (u.tactic === 'retreat') {
+    if (
+      u.personalMorale < 70 &&
+      (!threat ||
+        Math.abs(threat.x - u.x) > Math.max(560, unitRange(s, u)) + 130)
+    )
+      u.personalMorale = Math.min(70, u.personalMorale + 8);
+    if (s.time < u.retreatUntil || u.personalMorale < 52) {
+      u.coverGoal = null;
+      return;
+    }
+  }
+  if (!threat || Math.abs(threat.x - u.x) > Math.max(560, unitRange(s, u))) {
+    u.tactic = 'advance';
+    if (u.personalMorale < (c.discipline ?? 80))
+      u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
+    return;
+  }
   if (u.personalMorale < 35) {
     u.tactic = 'retreat';
+    u.retreatUntil = s.time + 4;
     u.coverGoal = null;
     return;
   }
@@ -1046,20 +1313,17 @@ function fireCoax(s: GameState, u: Unit) {
         Math.abs(v.x - u.x) <= 420 * (s.players[u.side].recon > 0 ? 1.2 : 1),
     )
     .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))
-    .find(
-      (v) =>
+    .find((v) => {
+      const p = muzzlePoint(u, v.x, 42, true);
+      return (
         !smokeBlocks(s, u.side, u.x, v.x) &&
-        !terrainIntercept(
-          s,
-          u.x + Math.sign(v.x - u.x) * 58,
-          u.y - 42,
-          v.x,
-          v.y - bodyHeight(v),
-        ),
-    );
+        !terrainIntercept(s, p.x, p.y, v.x, v.y - bodyHeight(v))
+      );
+    });
   if (!target) return;
-  const sx = u.x + Math.sign(target.x - u.x) * 58,
-    sy = u.y - 42,
+  const point = muzzlePoint(u, target.x, 42, true),
+    sx = point.x,
+    sy = point.y,
     total = Math.max(
       FLIGHT.machinegun.minimum,
       Math.abs(target.x - sx) / FLIGHT.machinegun.speed,
@@ -1095,9 +1359,22 @@ function fireCoax(s: GameState, u: Unit) {
   });
 }
 function updateAI(s: GameState) {
+  const ai = s.players[1];
+  if (
+    (ai.hand.length === 0 && ai.energy >= 2) ||
+    (ai.hand.length <= 2 && ai.energy >= 4)
+  )
+    requestDraw(s, 1);
   const p = s.players[1],
     foes = s.units.filter((u) => u.side === 0 && isCombatant(u)),
     own = s.units.filter((u) => u.side === 1 && isCombatant(u));
+  const patients = s.units.filter(
+    (u) =>
+      u.side === 1 &&
+      canTakeDamage(u) &&
+      CARDS[u.id].members &&
+      (u.wounded || u.hp < u.maxHp),
+  );
   const air = foes.some((u) => CARDS[u.id].air),
     groundFoes = foes.filter((u) => !CARDS[u.id].air);
   if (foes.some((u) => u.x > W - 900)) p.order = 'crouch';
@@ -1122,12 +1399,9 @@ function updateAI(s: GameState) {
       if (modelOf(c.id) === 'supply') score += p.hand.length < 4 ? 7 : -9;
       if (modelOf(c.id) === 'jam')
         score += s.players[0].hand.length < 4 ? 3 : 0;
+      if (c.effect === 'medevac' && patients.length) score += 16;
       if (modelOf(c.id) === 'medic')
-        score += own.some((u) => CARDS[u.id].members && u.hp < u.maxHp)
-          ? 3
-          : own.length < 4
-            ? -6
-            : 0;
+        score += patients.length ? 3 : own.length < 4 ? -6 : 0;
       if (modelOf(c.id) === 'sniper')
         score += groundFoes.some((u) => CARDS[u.id].members) ? 2 : 0;
       if (modelOf(c.id) === 'smoke')
@@ -1152,8 +1426,17 @@ function updateAI(s: GameState) {
       return { h, score };
     })
     .sort((a, b) => b.score - a.score);
-  const choice = options[0];
-  if (!choice || choice.score < 0) return;
+  let choice = options[0];
+  if (!choice || choice.score < 0) {
+    if (p.hand.length < MAX_HAND) {
+      requestDraw(s, 1);
+      return;
+    }
+    choice = options
+      .filter((o) => CARDS[o.h.id].type === 'skill')
+      .sort((a, b) => CARDS[a.h.id].cost - CARDS[b.h.id].cost)[0];
+    if (!choice) return;
+  }
   const c = CARDS[choice.h.id];
   let x: number | undefined;
   if (c.type === 'unit') x = W - 350 + rnd(s) * 120;
@@ -1190,14 +1473,8 @@ export function tick(s: GameState, dt: number) {
     p.morale = Math.max(0, p.morale - dt);
     p.recon = Math.max(0, p.recon - dt);
     p.fortify = Math.max(0, p.fortify - dt);
-    if (p.jam > 0) p.jam = Math.max(0, p.jam - dt);
-    else {
-      p.drawIn -= dt;
-      if (p.drawIn <= 0) {
-        draw(s, side);
-        p.drawIn += DRAW_TIME;
-      }
-    }
+    p.jam = Math.max(0, p.jam - dt);
+    p.drawIn = Math.max(0, p.drawIn - dt);
   }
   s.aiIn -= dt;
   if (s.aiIn <= 0) {
@@ -1207,35 +1484,39 @@ export function tick(s: GameState, dt: number) {
   for (const f of s.smokes) f.life -= dt;
   s.smokes = s.smokes.filter((f) => f.life > 0);
   for (const m of s.markers) {
+    const c = ARTILLERY[m.kind ?? 'artillery'];
     m.timer -= dt;
     if (m.timer <= 0) {
-      if (m.kind === 'precision') {
-        explode(s, m.x, ground(s, m.x) - 8, 36, 240, m.side, 0.25);
-        m.wave = 3;
-        continue;
-      }
-      const x =
-        m.x +
-        (m.wave - (m.kind === 'barrage' ? 2 : 1)) *
-          (m.kind === 'barrage' ? 65 : 37);
-      explode(
-        s,
-        x,
-        ground(s, x) - 8,
-        68,
-        m.kind === 'barrage' ? 42 : 55,
-        m.side,
-        0.35,
-      );
+      const x = m.impacts?.[m.wave] ?? m.x;
+      explode(s, x, ground(s, x) - 8, c.radius, c.damage, m.side, c.baseScale);
       m.wave++;
-      m.timer = 0.28;
+      m.timer = c.interval;
     }
   }
-  s.markers = s.markers.filter((m) => m.wave < (m.kind === 'barrage' ? 5 : 3));
+  s.markers = s.markers.filter(
+    (m) => m.wave < ARTILLERY[m.kind ?? 'artillery'].count,
+  );
   for (const u of s.units) {
     if (u.hp <= 0) {
       u.deadFor -= dt;
       u.y = Math.min(ground(s, u.x), u.y + 110 * dt);
+      continue;
+    }
+    if (u.wounded) {
+      u.woundedTime += dt;
+      u.bleedOut -= dt;
+      u.fire = 0;
+      u.secondaryFire = 0;
+      u.moving = false;
+      u.y = ground(s, u.x);
+      u.healing = Math.max(0, u.healing - dt);
+      if (
+        u.woundedTime >= 1.5 &&
+        u.hp >= u.maxHp * 0.4 &&
+        u.rescueProgress >= 1.6
+      )
+        revive(u);
+      else if (u.bleedOut <= 0) finishDeath(s, u, u.woundedBy);
       continue;
     }
     if (u.surrendered) {
@@ -1251,6 +1532,7 @@ export function tick(s: GameState, dt: number) {
       enemySide: Side = u.side === 0 ? 1 : 0,
       baseX = enemySide === 0 ? 70 : W - 70;
     const morale = s.players[u.side].morale > 0;
+    u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
     u.cooldown -= dt;
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
@@ -1306,6 +1588,17 @@ export function tick(s: GameState, dt: number) {
     )
       beginDrop(u, dir, 0, true);
     if (c.members && traverse(s, u, dt)) continue;
+    if (c.members && u.tactic === 'retreat') {
+      u.cover = 0;
+      u.coverGoal = null;
+      u.fire = 0;
+      u.pose = 'run';
+      u.facing = -dir;
+      moveSoldier(s, u, -dir, c.speed! * u.pace * 1.2, dt);
+      if (!u.moving && u.motion === 'ground') u.pose = 'idle';
+      continue;
+    }
+
     const range = unitRange(s, u);
     let treating = false;
     if (c.heal) {
@@ -1313,16 +1606,30 @@ export function tick(s: GameState, dt: number) {
         .filter(
           (v) =>
             v.side === u.side &&
-            isCombatant(v) &&
-            v.hp < v.maxHp &&
+            canTakeDamage(v) &&
+            (v.wounded || v.hp < v.maxHp) &&
             CARDS[v.id].members &&
             Math.abs(v.x - u.x) <= 140,
         )
-        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+        .sort(
+          (a, b) =>
+            Number(b.wounded) - Number(a.wounded) ||
+            a.hp / a.maxHp - b.hp / b.maxHp,
+        )[0];
       if (patient) {
         treating = true;
         u.pose = 'crouch';
-        if (u.supportCooldown <= 0) {
+        if (patient.wounded && Math.abs(patient.x - u.x) > 64) {
+          u.pose = 'walk';
+          moveSoldier(
+            s,
+            u,
+            Math.sign(patient.x - u.x),
+            c.speed! * u.pace * 0.8,
+            dt,
+          );
+        } else if (u.supportCooldown <= 0) {
+          if (patient.wounded) patient.rescueProgress += 0.8;
           patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
           patient.healing = 0.6;
           u.healing = 0.6;
@@ -1415,8 +1722,9 @@ export function tick(s: GameState, dt: number) {
       if (c.indirect) u.pose = 'crouch';
       if (u.cooldown <= 0) {
         if (u.cover > 0.2 || firingHeight(s, u, tx, ty) === 47) u.pose = 'idle';
-        const sx = u.x + (tx > u.x ? 1 : -1) * muzzleOffset(u),
-          sy = u.y - muzzleHeight(u);
+        const point = muzzlePoint(u, tx),
+          sx = point.x,
+          sy = point.y;
         if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
@@ -1426,6 +1734,7 @@ export function tick(s: GameState, dt: number) {
             flight.minimum,
             Math.abs(tx - sx) / flight.speed,
           );
+          u.facing = Math.sign(tx - u.x) || dir;
           u.shots++;
           u.muzzleX = sx;
           u.muzzleY = sy;
@@ -1522,7 +1831,12 @@ export function tick(s: GameState, dt: number) {
         }
       }
     }
-    if (!c.members || u.motion === 'ground')
+    if (c.armored) {
+      const contact = vehicleContact(s, u.x, u.id),
+        blend = 1 - Math.exp(-dt * 9);
+      u.y += (contact.y - u.y) * blend;
+      u.hullAngle += (contact.angle - u.hullAngle) * blend;
+    } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? AIR_ALTITUDE : ground(s, u.x);
   }
   for (const p of s.projectiles) {
@@ -1585,7 +1899,7 @@ export function tick(s: GameState, dt: number) {
         );
       else if (p.targetUid !== null) {
         const u = s.units.find((u) => u.uid === p.targetUid);
-        if (u && isCombatant(u)) {
+        if (u && canTakeDamage(u)) {
           const cover =
             CARDS[u.id].members && u.motion === 'ground' && !u.climbing
               ? craterCover(s, u.x, p.startX) *
@@ -1613,6 +1927,8 @@ export function tick(s: GameState, dt: number) {
     (u) =>
       (u.hp > 0 || u.deadFor > 0) && (!u.surrendered || u.surrenderTime < 6),
   );
+  for (const b of s.blasts) b.age += dt;
+  s.blasts = s.blasts.filter((b) => b.age < 4);
   for (const p of s.particles) {
     p.life -= dt;
     p.x += p.vx * dt;

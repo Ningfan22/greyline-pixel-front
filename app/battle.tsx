@@ -42,6 +42,9 @@ import {
   DURATION,
   MAX_HP,
   playCard,
+  requestDraw,
+  DRAW_COST,
+  DRAW_TIME,
   snapshot,
   startGame,
   setOrder,
@@ -143,6 +146,12 @@ export default function Battle({
     },
     [choose, refresh, toast],
   );
+  const drawCard = useCallback(() => {
+    const result = requestDraw(game.current!, 0);
+    toast(result.message);
+    refresh();
+    return result;
+  }, [refresh, toast]);
   const start = useCallback(() => {
     if (!art.current) {
       toast('美术资源正在加载，请稍候');
@@ -359,6 +368,11 @@ export default function Battle({
         e.preventDefault();
         pause();
       }
+      if (e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        drawCard();
+        return;
+      }
       if (/^[1-6]$/.test(e.key)) {
         const h = game.current!.players[0].hand[Number(e.key) - 1];
         if (h) choose(h.uid);
@@ -404,7 +418,7 @@ export default function Battle({
       window.removeEventListener('keyup', onUp);
       pressedKeys.clear();
     };
-  }, [panel, choose, pause, execute, moveCamera]);
+  }, [panel, choose, pause, execute, moveCamera, drawCard]);
   useEffect(() => {
     const context = (
       document as unknown as {
@@ -453,6 +467,18 @@ export default function Battle({
       },
     });
     register({
+      name: 'draw_battle_card',
+      description:
+        '消耗 2 点指挥点抽取 1 张卡，抽牌后冷却 9 秒。手牌已满、受干扰或资源不足时不消耗资源。',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false },
+      execute: drawCard,
+    });
+    register({
       name: 'play_battle_card',
       description:
         '打出当前手牌。单位部署 x 为 110–440；烟幕、火炮、密集炮幕和精确打击 x 为 0–3840；其他技能无需 x。',
@@ -476,14 +502,14 @@ export default function Battle({
       },
     });
     return () => lifecycle.abort();
-  }, [execute, start]);
+  }, [execute, start, drawCard]);
   const p = view.players[0],
     enemy = view.players[1],
     chosen = p.hand.find((h) => h.uid === selected),
     card = chosen ? CARDS[chosen.id] : null;
   const active = view.status === 'playing';
   const units = view.units.filter(
-      (u) => u.side === 0 && u.hp > 0 && !u.surrendered,
+      (u) => u.side === 0 && u.hp > 0 && !u.surrendered && !u.wounded,
     ),
     squads = new Set(units.map((u) => u.squad)).size;
   const deckCards = playerDeck.map((id) => CARDS[id]);
@@ -1058,6 +1084,11 @@ export default function Battle({
                   : '队员自主判断 · 交替掩护推进'}
         </small>
       </div>
+      <div className="casualty-readout">
+        伤员{' '}
+        {view.units.filter((u) => u.side === 0 && u.wounded && u.hp > 0).length}{' '}
+        人 · 军医可靠近救起 / 急救卡可治疗
+      </div>
       <section className="command">
         <aside className="command-panel">
           <div className="resource-title">
@@ -1070,7 +1101,7 @@ export default function Battle({
           <div className="energy-number">
             <strong>{Math.floor(p.energy)}</strong>
             <span>/ 10</span>
-            <small>+1 / 2.8s</small>
+            <small>+1 / 3.6s</small>
           </div>
           <div
             className="energy-segments"
@@ -1139,6 +1170,12 @@ export default function Battle({
             <div>
               <Layers3 size={16} />
               <strong>战术手牌</strong>
+              <button
+                className="inspect-deck"
+                onClick={() => openPanel('deck')}
+              >
+                查看卡组
+              </button>
               <span>{p.hand.length} / 6</span>
             </div>
             <span>
@@ -1149,8 +1186,10 @@ export default function Battle({
                 </>
               ) : p.hand.length === 6 ? (
                 '手牌已满 · 打出卡牌腾出空位'
+              ) : p.drawIn > 0 ? (
+                `抽牌冷却 ${Math.ceil(p.drawIn)}s`
               ) : (
-                `下一张补给 ${Math.ceil(p.drawIn)}s`
+                '点击角落牌堆 · 2 点抽一张'
               )}
             </span>
           </div>
@@ -1211,15 +1250,23 @@ export default function Battle({
               {p.hand.length === 0 && (
                 <div className="empty-hand">
                   <Layers3 size={30} />
-                  <p>等待战地补给</p>
-                  <span>{Math.ceil(p.drawIn)} 秒后抽取下一张牌</span>
+                  <p>手牌已用尽</p>
+                  <span>点击右下角牌堆，消耗 2 点抽牌</span>
                 </div>
               )}
             </div>
             <button
               className="deck-pile"
-              onClick={() => openPanel('deck')}
-              aria-label="查看本局自选 20 张卡组"
+              onClick={drawCard}
+              disabled={
+                !active ||
+                p.energy < DRAW_COST ||
+                p.hand.length >= 6 ||
+                p.jam > 0 ||
+                p.drawIn > 0 ||
+                p.deckCount + p.discardCount === 0
+              }
+              aria-label="消耗 2 点指挥点抽一张牌"
             >
               <span className="deck-card-back">
                 <span className="deck-emblem">
@@ -1227,14 +1274,22 @@ export default function Battle({
                 </span>
                 <small>GREYLINE</small>
               </span>
-              <span className="deck-label">战术牌库</span>
+              <span className="deck-label">抽牌 · 2 点</span>
               <strong>
                 {p.deckCount}
                 <small> 张</small>
               </strong>
-              <span className="deck-sub">弃牌 {p.discardCount}</span>
+              <span className="deck-sub">
+                {p.jam > 0
+                  ? `受扰 ${Math.ceil(p.jam)}s`
+                  : p.drawIn > 0
+                    ? `${Math.ceil(p.drawIn)}s 冷却`
+                    : p.hand.length >= 6
+                      ? '手牌已满'
+                      : '点击抽牌 / R'}
+              </span>
               <div className="draw-progress">
-                <i style={{ width: `${(1 - p.drawIn / 9) * 100}%` }} />
+                <i style={{ width: `${(1 - p.drawIn / DRAW_TIME) * 100}%` }} />
               </div>
             </button>
           </div>
@@ -1242,7 +1297,7 @@ export default function Battle({
       </section>
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · 演习版本 0.6
+          GREYLINE <i /> 林间前线 · 演习版本 0.7
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -1294,8 +1349,9 @@ export default function Battle({
                   <span>03 / 补给</span>
                   <h3>合理分配指挥点</h3>
                   <p>
-                    开局 6 张手牌、7 指挥点，每 2.8 秒恢复 1 点，上限 10。每 9
-                    秒抽 1 张牌，最多持有 6 张；满手牌时跳过当次抽牌。
+                    开局随机 6 张手牌、6 指挥点，每 3.6 秒恢复 1 点，上限
+                    10。主动点击牌堆，消耗 2 点抽 1 张，冷却 9
+                    秒；不再自动抽牌。补给技能按卡面费用结算，无需额外支付抽牌费用。
                   </p>
                 </div>
                 <div>
@@ -1303,7 +1359,7 @@ export default function Battle({
                   <h3>用好不同兵种</h3>
                   <p>
                     坦克承伤，战车持续压制；狙击手优先打步兵，迫击炮曲射但怕近身，医疗组救治步兵。机枪、战车和重火力能够对空。火炮可打击任意位置，友军免伤，对基地只造成
-                    35%
+                    15%
                     伤害。交火时士兵会寻找附近弹坑，蹲伏躲避、探身开火；坑沿能遮挡直射，无法挡住落入坑内的炮击。
                   </p>
                 </div>

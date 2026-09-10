@@ -3760,3 +3760,882 @@ footer button {
     bottom: 38px;
   }
 }
+
+/* Card collection: selectable cards, cost filters, persistent formation list. */
+.armory {
+  padding-bottom: 16px;
+}
+.armory-title {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 25px 0 22px;
+}
+.armory-title .back-link {
+  margin: 0;
+  min-height: 44px;
+}
+.armory-title > div {
+  border-left: 1px solid #69725b;
+  padding-left: 24px;
+}
+.armory-title > div > span {
+  font: 9px monospace;
+  letter-spacing: 2px;
+  color: #aeb79b;
+}
+.armory-title h1 {
+  font-size: 29px;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 4px 0 0;
+}
+.armory-title p {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 1.9;
+  color: #aeb99f;
+}
+.armory-title p b {
+  font-weight: 400;
+  color: #d5caa1;
+}
+.armory-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 28px;
+  align-items: start;
+}
+.armory-collection {
+  min-width: 0;
+}
+.armory-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #66724f;
+}
+.armory-tabs {
+  display: flex !important;
+  gap: 4px !important;
+}
+.armory-tabs label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 67px;
+  justify-content: center;
+  min-height: 44px;
+  font-size: 13px;
+  color: #adb79c;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+}
+.armory-tabs label.active {
+  border-color: #cfb877;
+  color: #f0dfab;
+  background: #40503b;
+}
+.armory-tabs [data-slot='radio-group-item'] {
+  width: 9px;
+  height: 9px;
+}
+.armory-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 0 8px;
+}
+.armory-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 140px;
+}
+.armory-search input {
+  height: 38px;
+  border-radius: 0;
+  border-color: #647152;
+  font-size: 12px;
+}
+.armory-search > svg {
+  color: #b6bd9f;
+}
+.cost-filter {
+  display: flex !important;
+  gap: 5px !important;
+}
+.cost-filter label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 31px;
+  min-height: 33px;
+  background: #303e2e;
+  border: 1px solid #68764f;
+  color: #c6ceb2;
+  font: 13px monospace;
+  cursor: pointer;
+}
+.cost-filter label:first-child {
+  width: 42px;
+  font: 11px sans-serif;
+}
+.cost-filter label.active {
+  background: #d3be80;
+  color: #293625;
+  border-color: #e3d49b;
+}
+.cost-filter [data-slot='radio-group-item'],
+.ownership-filter [data-slot='radio-group-item'] {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+}
+.cost-filter label:focus-within,
+.ownership-filter label:focus-within {
+  outline: 2px solid #e7ba60;
+  outline-offset: 2px;
+}
+.armory-results {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 5px 0 13px;
+  min-height: 30px;
+}
+.armory-results > span {
+  font-size: 10px;
+  color: #9eae8c;
+}
+.ownership-filter {
+  display: flex !important;
+  gap: 12px !important;
+}
+.ownership-filter label {
+  position: relative;
+  cursor: pointer;
+  font-size: 11px;
+  color: #9eaf8f;
+  padding: 4px 2px;
+}
+.ownership-filter label.active {
+  color: #e9d99f;
+  border-bottom: 1px solid #c6b37a;
+}
+.armory-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 17px 14px;
+  max-height: calc(100svh - 325px);
+  min-height: 320px;
+  overflow-y: auto;
+  padding: 5px 8px 15px 2px;
+  scrollbar-color: #82916a #26362b;
+  align-content: start;
+}
+.armory-card {
+  position: relative;
+  min-width: 0;
+  background: #c4c4a4;
+  border: 1px solid #8b9877;
+  box-shadow: 0 4px 0 #14241c;
+}
+.armory-card.picked {
+  outline: 2px solid #c8b26f;
+  outline-offset: 1px;
+}
+.armory-card.pending {
+  outline: 3px solid #efd697;
+  box-shadow: 0 0 20px #cbb86b44;
+}
+.armory-card-select {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 0 28px;
+  width: 100%;
+  height: 100%;
+  min-height: 246px;
+  text-align: left;
+  border: 0;
+  background: linear-gradient(#ccd0b0, #b6bd9d);
+  color: #263c2b;
+  cursor: pointer;
+}
+.armory-card-select:hover {
+  background: linear-gradient(#e0ddbf, #c4cba9);
+}
+.armory-card.skill .armory-card-select {
+  background: linear-gradient(#d4cfb0, #c4bf9b);
+}
+.armory-card-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #495b3a;
+  color: #e1e4c2;
+  height: 31px;
+}
+.armory-card-cap > b {
+  width: 33px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  background: #d8c58f;
+  color: #293a29;
+  font: 700 23px monospace;
+  box-shadow: 2px 1px 0 #1c332c66;
+}
+.armory-card-cap > span {
+  font-size: 9px;
+}
+.armory-card-cap > small {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  margin-left: auto;
+  margin-right: 7px;
+  color: #d9dda8;
+}
+.armory-card.picked .armory-card-cap {
+  background: #344c31;
+}
+.armory-card-image {
+  width: 100%;
+  height: 105px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: linear-gradient(0deg, #89977666, transparent);
+}
+.armory-card .skill-art-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.armory-card .skill-art-icon svg {
+  width: 42px;
+  height: 42px;
+  color: #596245;
+}
+.armory-card h3 {
+  font-size: 15px;
+  font-weight: 800;
+  margin: 0;
+  padding: 8px 9px 6px;
+  border-top: 1px solid #899674;
+  background: #d0d1b2;
+}
+.armory-card p {
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 7px 9px 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 32px;
+}
+.armory-card-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 5px 9px 0;
+  font-size: 9px;
+  margin-top: auto;
+  color: #3b5438;
+}
+.armory-card-stats b {
+  font-weight: 600;
+}
+.armory-card-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 26px;
+  background: #536846;
+  color: #e3e5c7;
+  border: 0;
+  border-top: 1px solid #84916b;
+  font-size: 10px;
+}
+.armory-card-info:hover {
+  background: #3f593b;
+}
+.armory-deck {
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  background: #293b2b;
+  border: 1px solid #788062;
+  min-width: 0;
+}
+.desktop-deck {
+  position: sticky;
+  top: 15px;
+  height: calc(100svh - 160px);
+  min-height: 520px;
+  max-height: 940px;
+}
+.armory-deck-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.armory-deck-heading > div > small {
+  font: 8px monospace;
+  letter-spacing: 1.8px;
+  color: #abb598;
+}
+.armory-deck-heading h2 {
+  font-size: 21px;
+  font-weight: 700;
+  margin: 5px 0;
+}
+.armory-deck-heading > strong {
+  font: 30px monospace;
+  color: #e5d39a;
+}
+.armory-deck-heading > strong small {
+  font: 12px monospace;
+  margin-left: 4px;
+  color: #b8c1a4;
+}
+.armory-deck-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #b2c09f;
+  padding: 10px 0;
+  border-bottom: 1px solid #536849;
+}
+.cost-curve {
+  display: flex;
+  justify-content: space-around;
+  align-items: end;
+  gap: 13px;
+  padding: 10px 0;
+  height: 67px;
+}
+.cost-curve > div {
+  display: flex;
+  align-items: center;
+  justify-content: end;
+  flex-direction: column;
+  width: 24px;
+  height: 50px;
+}
+.cost-curve b {
+  font: 9px monospace;
+  color: #d9d09f;
+  min-height: 10px;
+}
+.cost-curve i {
+  display: block;
+  background: #b4b478;
+  width: 100%;
+  max-height: 30px;
+}
+.cost-curve small {
+  font: 9px monospace;
+  color: #a7b69a;
+  margin-top: 4px;
+}
+.armory-deck-list {
+  flex: 1;
+  min-height: 130px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-color: #81916b #293b2b;
+}
+.armory-deck-list > button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 29px;
+  background: #445b3c;
+  border: 1px solid #566f47;
+  text-align: left;
+  padding: 0 7px 0 0;
+  color: #e0e5ca;
+}
+.armory-deck-list > button > b {
+  width: 26px;
+  align-self: stretch;
+  background: #9c9f6d;
+  color: #223922;
+  font: 700 15px monospace;
+  display: grid;
+  place-items: center;
+}
+.armory-deck-list > button > span {
+  font-size: 11px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+}
+.armory-deck-list small {
+  font-size: 8px;
+  color: #adbe9b;
+}
+.armory-deck-list > button > svg {
+  color: #acbc99;
+}
+.armory-deck-list > button:hover {
+  background: #627347;
+}
+.armory-deck-list.replacing > button {
+  border-color: #c8b475;
+  background: #5b613d;
+}
+.armory-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border: 1px dashed #718159;
+  color: #b7c19b;
+  font-size: 11px;
+}
+.armory-deck-tools {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0 0;
+}
+.armory-deck-tools button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  border: 0;
+  background: none;
+  color: #b8c4a3;
+  font-size: 10px;
+}
+.armory-deck-tools button:disabled {
+  opacity: 0.35;
+}
+.armory-status {
+  display: block;
+  font-size: 10px;
+  line-height: 1.7;
+  min-height: 31px;
+  margin: 4px 0 8px;
+  color: #d5d5ad;
+}
+.armory-save {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.armory-save .primary-button,
+.armory-save .secondary-button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+.replace-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+  padding: 9px;
+  background: #d0bc7c;
+  color: #2d3b28;
+  font-size: 11px;
+}
+.replace-banner b {
+  font-weight: 800;
+}
+.replace-banner small {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.replace-banner button {
+  background: none;
+  border: 0;
+  min-height: 35px;
+  min-width: 30px;
+}
+.mobile-deck-bar,
+.mobile-filter-toggle {
+  display: none;
+}
+.card-detail-dialog {
+  max-width: 480px !important;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  background: #2b3d2e;
+  border: 1px solid #a6ac82;
+  padding: 28px;
+}
+.card-detail-dialog h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 23px;
+  gap: 20px;
+}
+.card-detail-dialog h2 small {
+  font: 12px monospace;
+  color: #dfca8e;
+}
+.detail-portrait {
+  width: 100%;
+  height: 190px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.card-detail-dialog .skill-art-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.card-detail-dialog .skill-art-icon svg {
+  width: 72px;
+  height: 72px;
+  color: #cbb67e;
+}
+.card-detail-dialog > p {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #c9d0b5;
+}
+.detail-stat-row {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #627653;
+  border-bottom: 1px solid #627653;
+  padding: 13px 0;
+  font-size: 11px;
+  color: #b6c4a2;
+}
+.detail-stat-row b {
+  color: #e1d49d;
+  margin-left: 5px;
+}
+.card-detail-dialog .primary-button {
+  width: 100%;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.armory-drawer {
+  padding: 0 !important;
+  width: min(420px, 100vw) !important;
+  max-width: 100vw !important;
+  max-height: 88svh !important;
+  overflow-y: auto;
+  background: #293b2b !important;
+  border-color: #8d946f !important;
+}
+.armory-drawer .armory-deck {
+  height: min(80svh, 780px);
+  border: 0;
+  padding-top: 27px;
+}
+@media (max-height: 600px) {
+  .armory-drawer .armory-deck {
+    height: auto;
+    min-height: 0;
+  }
+  .armory-drawer .armory-deck-list {
+    flex: none;
+    max-height: 35dvh;
+  }
+  .armory-drawer .cost-curve {
+    display: none;
+  }
+}
+.inspect-deck {
+  font-size: 10px;
+  color: #c7c9a9;
+  border: 0;
+  border-bottom: 1px solid #687653;
+  padding: 0 0 2px;
+  background: transparent;
+}
+.game-shell .deck-pile:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+.game-shell .deck-pile:not(:disabled) .deck-card-back {
+  border-color: #ead294;
+  box-shadow:
+    4px 3px 0 #344932,
+    7px 6px 0 #152c1d;
+}
+.casualty-readout {
+  font-size: 10px;
+  color: #bac4a5;
+  padding: 4px 0;
+}
+@media (max-width: 1200px) {
+  .armory-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .armory-layout {
+    grid-template-columns: minmax(0, 1fr) 285px;
+    gap: 19px;
+  }
+  .armory-filters {
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .armory-search {
+    width: 100%;
+  }
+  .cost-filter label {
+    min-height: 31px;
+  }
+}
+@media (max-width: 900px) {
+  .armory-title {
+    gap: 15px;
+  }
+  .armory-title p {
+    max-width: 200px;
+  }
+  .armory-layout {
+    display: block;
+  }
+  .desktop-deck {
+    display: none;
+  }
+  .armory {
+    padding-bottom: 84px;
+  }
+  .armory-grid {
+    max-height: none;
+    min-height: 0;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    padding-right: 2px;
+  }
+  .armory-card-select {
+    min-height: 246px;
+  }
+  .mobile-deck-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 30;
+    padding: 11px 20px max(11px, env(safe-area-inset-bottom));
+    background: #243626f5;
+    border-top: 1px solid #839066;
+  }
+  .mobile-deck-bar > button:first-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: 0;
+    color: #e0e5c7;
+    text-align: left;
+    font-size: 13px;
+    min-height: 44px;
+  }
+  .mobile-deck-bar > button:first-child b {
+    font: 14px monospace;
+    color: #e0c789;
+    margin-left: 7px;
+  }
+  .mobile-deck-bar small {
+    display: block;
+    color: #ddcd94;
+    font-size: 10px;
+  }
+  .mobile-deck-bar .primary-button {
+    min-height: 44px;
+    min-width: 150px;
+    font-size: 13px;
+  }
+  .armory-deck-list > button {
+    min-height: 37px;
+  }
+  .armory-deck-list > button > span {
+    font-size: 13px;
+  }
+  .armory-deck-list small {
+    font-size: 10px;
+  }
+  .armory-deck-tools button {
+    min-height: 42px;
+  }
+  .armory-save .primary-button,
+  .armory-save .secondary-button {
+    min-height: 44px;
+  }
+  .armory-status {
+    font-size: 11px;
+  }
+}
+@media (max-width: 620px) {
+  .armory-title {
+    flex-wrap: wrap;
+    padding: 15px 0 16px;
+    gap: 12px;
+  }
+  .armory-title .back-link {
+    min-height: 35px;
+  }
+  .armory-title > div {
+    padding-left: 14px;
+  }
+  .armory-title h1 {
+    font-size: 24px;
+  }
+  .armory-title p {
+    width: 100%;
+    max-width: none;
+    font-size: 11px;
+    margin: 0;
+  }
+  .armory-title p br {
+    display: none;
+  }
+  .armory-title p b {
+    margin-left: 8px;
+  }
+  .armory-tabs {
+    gap: 0 !important;
+  }
+  .armory-tabs label {
+    min-width: 42px;
+    font-size: 12px;
+    gap: 3px;
+    padding: 0 4px;
+  }
+  .armory-tabs [data-slot='radio-group-item'] {
+    width: 7px;
+    height: 7px;
+  }
+  .mobile-filter-toggle {
+    display: block;
+    background: none;
+    border: 1px solid #74825c;
+    color: #c8d0b0;
+    font-size: 10px;
+    min-height: 36px;
+    padding: 4px 7px;
+  }
+  .armory-filters {
+    display: none;
+  }
+  .armory-filters.expanded {
+    display: flex;
+  }
+  .armory-search {
+    flex-basis: 100%;
+  }
+  .cost-filter {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .cost-filter label {
+    min-height: 40px;
+    width: 34px;
+  }
+  .armory-results {
+    gap: 5px;
+    margin: 10px 0 12px;
+  }
+  .armory-results > span {
+    font-size: 9px;
+  }
+  .ownership-filter {
+    gap: 9px !important;
+  }
+  .ownership-filter label {
+    font-size: 10px;
+  }
+  .armory-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 11px;
+  }
+  .armory-card-select {
+    min-height: 238px;
+    padding-bottom: 33px;
+  }
+  .armory-card-image {
+    height: 97px;
+  }
+  .armory-card h3 {
+    font-size: 14px;
+    padding: 7px;
+  }
+  .armory-card p {
+    font-size: 11px;
+    margin: 7px;
+    line-height: 1.6;
+    min-height: 34px;
+  }
+  .armory-card-cap > small {
+    font-size: 8px;
+    margin-right: 5px;
+  }
+  .armory-card-stats {
+    font-size: 9px;
+    margin: 6px 7px 0;
+  }
+  .armory-card-info {
+    height: 31px;
+    font-size: 10px;
+  }
+  .mobile-deck-bar {
+    padding-left: 12px;
+    padding-right: 12px;
+    gap: 6px;
+  }
+  .mobile-deck-bar .primary-button {
+    min-width: 134px;
+  }
+  .mobile-deck-bar > button:first-child {
+    font-size: 12px;
+    gap: 6px;
+  }
+  .card-detail-dialog {
+    max-width: calc(100vw - 24px) !important;
+    padding: 22px !important;
+  }
+  .card-detail-dialog h2 {
+    font-size: 21px;
+  }
+  .detail-portrait {
+    height: 150px;
+  }
+  .game-shell .hand-heading .inspect-deck {
+    font-size: 9px;
+  }
+  .game-shell .hand-heading > span {
+    max-width: 135px;
+    line-height: 1.3;
+  }
+  .casualty-readout {
+    font-size: 9px;
+  }
+}
