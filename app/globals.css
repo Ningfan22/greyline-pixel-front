@@ -2563,3 +2563,1200 @@ footer button {
   color: #d8c69c;
   font-size: 12px;
 }
+
+/* Operations lobby and the twenty-card formation editor. */
+.operations-shell {
+  max-width: 1600px;
+  margin: auto;
+  padding: 0 42px;
+  color: #edeedc;
+  min-height: 100svh;
+}
+.ops-header {
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #52604d;
+  gap: 20px;
+}
+.ops-brand {
+  border: 0;
+  background: none;
+  color: #edebd0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+}
+.ops-brand span {
+  font:
+    24px Impact,
+    'Arial Narrow',
+    sans-serif;
+  letter-spacing: 2px;
+  margin-left: 12px;
+}
+.ops-header > span,
+.ops-header > b {
+  font-size: 12px;
+  color: #a8b599;
+  font-weight: 400;
+  letter-spacing: 2px;
+}
+.ops-header > b {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ops-header i {
+  background: #a8c48c;
+  width: 5px;
+  height: 5px;
+}
+.ops-hero {
+  position: relative;
+  min-height: 540px;
+  margin-top: 26px;
+  overflow: hidden;
+  border: 1px solid #677158;
+  background: #53684c;
+}
+.ops-hero-art {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, #182b25ed 0%, #203629dd 32%, #24352635 74%),
+    linear-gradient(0deg, #202924, transparent 45%),
+    url('/art/battlefield-v3.png') 65% center/auto 100%;
+  image-rendering: pixelated;
+}
+.ops-hero-copy {
+  position: relative;
+  padding: 65px 54px;
+  max-width: 730px;
+}
+.ops-kicker {
+  display: block;
+  color: #c1c5a1;
+  font: 10px/1.7 monospace;
+  letter-spacing: 2px;
+}
+.ops-hero h1 {
+  font-size: clamp(36px, 4.2vw, 65px);
+  letter-spacing: -2px;
+  line-height: 1.22;
+  font-weight: 750;
+  margin: 21px 0;
+}
+.ops-hero-copy > p {
+  font-size: 15px;
+  line-height: 1.9;
+  color: #c3cdb5;
+}
+.ops-actions {
+  display: flex;
+  gap: 14px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+.operations-shell .primary-button {
+  min-height: 48px;
+  min-width: 160px;
+  justify-content: space-between;
+}
+.secondary-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid #77836c;
+  background: #26382de0;
+  color: #e4e7cd;
+  padding: 12px 20px;
+  min-height: 46px;
+  font-size: 14px;
+}
+.secondary-button:hover {
+  background: #3e513c;
+}
+.operations-shell button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.ops-brief {
+  display: flex;
+  gap: 28px;
+  margin-top: 36px;
+  font: 11px monospace;
+  color: #a4b496;
+}
+.ops-coordinate {
+  position: absolute;
+  right: 26px;
+  bottom: 28px;
+  font: 10px/1.9 monospace;
+  color: #ced7bb;
+  text-align: right;
+  letter-spacing: 1px;
+}
+.ops-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 38px;
+  margin-top: 35px;
+}
+.ops-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.ops-section-heading h2,
+.ops-briefing h2 {
+  font-size: 22px;
+  margin: 6px 0 20px;
+  font-weight: 600;
+}
+.ops-section-heading h2 small {
+  font: 13px monospace;
+  color: #b3b89a;
+  margin-left: 15px;
+}
+.ops-section-heading button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: none;
+  border: 0;
+  color: #c6cbb0;
+  font-size: 13px;
+}
+.ops-roster-preview {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.ops-roster-preview > div {
+  background: linear-gradient(#4c6048, #2b3d30);
+  border: 1px solid #5a6b51;
+  text-align: center;
+  min-width: 0;
+  padding: 8px 4px 13px;
+}
+.ops-roster-preview canvas {
+  width: 100%;
+  height: 112px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.ops-roster-preview b {
+  font-size: 13px;
+  display: block;
+  font-weight: 500;
+}
+.ops-roster-preview small {
+  color: #a6b796;
+  font: 10px monospace;
+}
+.ops-current > p {
+  font-size: 12px;
+  color: #a6b396;
+  line-height: 1.7;
+  margin-top: 14px;
+}
+.ops-briefing {
+  border-left: 1px solid #53614b;
+  padding: 5px 0 0 28px;
+}
+.ops-briefing > svg {
+  color: #d0be8e;
+  margin-bottom: 10px;
+}
+.ops-briefing h2 {
+  margin-bottom: 13px;
+}
+.ops-briefing p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #b3bfa3;
+}
+.ops-briefing > div {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 28px;
+  gap: 8px;
+}
+.ops-briefing > div b {
+  font: 24px monospace;
+  grid-row: 1;
+  color: #e0cf9d;
+}
+.ops-briefing > div span {
+  font-size: 11px;
+  grid-row: 2;
+  color: #abb79e;
+}
+.ops-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 23px 0;
+  margin-top: 32px;
+  border-top: 1px solid #4e5d47;
+  font: 10px monospace;
+  color: #a0ad93;
+  letter-spacing: 1px;
+}
+.builder-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 28px 0 30px;
+}
+.back-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #acb69d;
+  background: none;
+  border: 0;
+  font-size: 12px;
+  margin-bottom: 26px;
+}
+.builder-title h1 {
+  font-size: 34px;
+  line-height: 1.3;
+  margin: 6px 0 13px;
+  font-weight: 650;
+}
+.builder-title p {
+  font-size: 13px;
+  color: #acb89e;
+  line-height: 1.8;
+}
+.builder-total {
+  font: 46px monospace;
+  color: #d8c690;
+}
+.builder-total small {
+  display: block;
+  font-size: 11px;
+  color: #b5bea3;
+  margin-top: 5px;
+}
+.builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 290px;
+  gap: 26px;
+  align-items: start;
+}
+.collection-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 20px;
+}
+.collection-filters {
+  display: flex !important;
+  gap: 4px !important;
+}
+.collection-filters label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: #b5bfa5;
+}
+.collection-filters label.active {
+  background: #47573e;
+  color: #f1edce;
+  border-color: #a0a47b;
+}
+.collection-filters [data-slot='radio-group-item'] {
+  width: 10px;
+  height: 10px;
+}
+.collection-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 200px;
+}
+.collection-search > svg {
+  color: #acb597;
+}
+.collection-search input {
+  font-size: 12px;
+  border-radius: 0;
+  height: 38px;
+  border-color: #59634e;
+}
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.collection-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #607254;
+  background: linear-gradient(155deg, #3f513e, #2c3d30);
+  padding: 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+.collection-card:hover {
+  border-color: #bbb987;
+}
+.collection-card.picked {
+  border-color: #d0b776;
+  box-shadow: inset 0 0 0 1px #c1ad6855;
+}
+.collection-card.skill {
+  background: linear-gradient(155deg, #484c36, #323b2d);
+}
+.collection-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.collection-card-top > b {
+  font: 20px monospace;
+  color: #e1d099;
+}
+.collection-card-top small {
+  font: 9px sans-serif;
+  color: #b1ba9d;
+}
+.collection-card [data-slot='checkbox'] {
+  border-radius: 0;
+  width: 19px;
+  height: 19px;
+  border-color: #9eaa87;
+}
+.collection-card .collection-art {
+  width: 100%;
+  height: 115px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.collection-card .skill-art-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.collection-card .skill-art-icon svg {
+  width: 47px;
+  height: 47px;
+  color: #d3c08a;
+}
+.collection-tag {
+  font-size: 9px;
+  color: #b1bea0;
+  margin: 4px 0 5px;
+}
+.collection-card h3 {
+  font-size: 16px;
+  font-weight: 650;
+  color: #edead2;
+  margin: 0 0 8px;
+}
+.collection-card p {
+  font-size: 11px;
+  color: #b7c1a9;
+  line-height: 1.75;
+  margin: 0 0 13px;
+  flex: 1;
+}
+.collection-stats {
+  border-top: 1px solid #66745380;
+  padding-top: 9px;
+  display: flex;
+  justify-content: space-between;
+  font: 9px monospace;
+  color: #b4c1a3;
+  gap: 5px;
+}
+.collection-empty {
+  padding: 80px 20px;
+  text-align: center;
+  color: #a5b096;
+}
+.selected-deck {
+  position: sticky;
+  top: 20px;
+  border: 1px solid #6b7557;
+  background: #29382d;
+  padding: 18px;
+}
+.selected-deck-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.selected-deck-title svg {
+  color: #d0bd86;
+}
+.selected-deck-title h2 {
+  font-size: 17px;
+  flex: 1;
+}
+.selected-deck-title > strong {
+  font: 24px monospace;
+  color: #aab494;
+}
+.selected-deck-title > strong.complete {
+  color: #edcf84;
+}
+.selected-deck-title small {
+  font-size: 12px;
+}
+.deck-composition {
+  display: flex;
+  gap: 13px;
+  justify-content: space-between;
+  margin: 17px 0;
+  font-size: 10px;
+  color: #a9b699;
+}
+.deck-composition b {
+  color: #e2dbb9;
+}
+.selected-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 44svh;
+  overflow: auto;
+  scrollbar-color: #81906a #29382d;
+}
+.selected-deck-list > button,
+.deck-empty-slot {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  gap: 9px;
+  padding: 4px 8px;
+  background: #3d4d36;
+  border: 0;
+  color: #d8ddc2;
+  text-align: left;
+  font-size: 11px;
+}
+.selected-deck-list > button:hover {
+  background: #586044;
+}
+.selected-deck-list small {
+  color: #839672;
+  font: 9px monospace;
+}
+.selected-deck-list span {
+  flex: 1;
+}
+.selected-deck-list b {
+  color: #d9c889;
+  font: 12px monospace;
+}
+.selected-deck-list svg {
+  color: #a9b39a;
+}
+.deck-empty-slot {
+  border: 1px dashed #48583e;
+  background: transparent;
+  color: #788970;
+  min-height: 25px;
+  font-size: 10px;
+}
+.deck-editor-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 13px;
+}
+.deck-editor-actions button {
+  border: 0;
+  background: none;
+  color: #c4c9aa;
+  font-size: 11px;
+  min-height: 32px;
+}
+.deck-save-status {
+  font-size: 11px;
+  color: #c2cba9;
+  line-height: 1.7;
+  min-height: 36px;
+  margin: 9px 0;
+}
+.selected-deck > .secondary-button,
+.selected-deck > .primary-button {
+  width: 100%;
+  margin-top: 9px;
+}
+
+/* Fan hand: the selected card lifts out of the fan; pile stays in the corner. */
+.game-shell {
+  padding-bottom: 292px;
+}
+.game-shell .command {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  height: 266px;
+  padding: 18px 25px;
+  display: block;
+  background: linear-gradient(0deg, #17271afc 85%, #203123e8);
+  border-top: 1px solid #677653;
+}
+.game-shell .command-panel {
+  position: absolute;
+  left: 25px;
+  top: 15px;
+  bottom: 12px;
+  width: 220px;
+  padding: 0 20px 0 0;
+  display: block;
+  border-right: 1px solid #59674e;
+}
+.game-shell .command-panel .deployment-count {
+  display: none;
+}
+.game-shell .command-panel .selection-detail {
+  margin-top: 12px;
+  padding-top: 11px;
+}
+.game-shell .command-panel .selection-detail p {
+  font-size: 11px;
+  line-height: 1.6;
+  max-height: 57px;
+  overflow: auto;
+  margin: 6px 0;
+}
+.game-shell .command-panel .energy-number {
+  margin: 6px 0;
+}
+.game-shell .command-panel .energy-number strong {
+  font-size: 34px;
+}
+.game-shell .command-panel .energy-segments {
+  height: 5px;
+}
+.game-shell .hand-section {
+  position: absolute;
+  left: 265px;
+  right: 124px;
+  top: 8px;
+  bottom: 0;
+  min-width: 0;
+  padding: 0;
+}
+.game-shell .hand-heading {
+  position: relative;
+  z-index: 0;
+  margin: 0;
+  height: 24px;
+  font-size: 11px;
+}
+.game-shell .hand-and-deck {
+  display: block;
+  height: 218px;
+  padding: 0;
+}
+.game-shell .hand-cards {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 218px;
+  overflow: visible;
+  padding: 0;
+  gap: 0;
+}
+.game-shell .tactical-card {
+  --fan-step: clamp(45px, 5.2vw, 84px);
+  position: absolute;
+  left: 50%;
+  bottom: 25px;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  height: 192px;
+  flex: none;
+  transform-origin: 50% 100%;
+  transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+    translateY(var(--fan-y)) rotate(var(--fan-angle));
+  border-radius: 5px 5px 2px 2px;
+  overflow: hidden;
+  box-shadow: -4px 1px 8px #111b1699;
+}
+.game-shell .tactical-card .card-art {
+  height: 68px;
+  flex: 0 0 68px;
+}
+.game-shell .tactical-card .card-art canvas {
+  height: 68px;
+}
+.game-shell .tactical-card .card-art .skill-art-icon {
+  height: 68px;
+}
+.game-shell .tactical-card .card-copy {
+  padding: 7px 9px 4px;
+}
+.game-shell .tactical-card .card-copy > small {
+  display: none;
+}
+.game-shell .tactical-card .card-copy strong {
+  font-size: 14px;
+}
+.game-shell .tactical-card .card-copy p {
+  font-size: 10px;
+  line-height: 1.5;
+  margin-top: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.game-shell .tactical-card .card-bottom {
+  padding: 5px 9px;
+  font-size: 9px;
+  margin-top: auto;
+}
+.game-shell .tactical-card .card-top {
+  height: 28px;
+  min-height: 28px;
+}
+.game-shell .tactical-card.selected {
+  transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+    translateY(-35px) rotate(0);
+  border-color: #ecd39c;
+  box-shadow:
+    0 0 0 2px #e8c577,
+    0 5px 24px #121e17;
+}
+.game-shell .deck-pile {
+  position: fixed;
+  bottom: 21px;
+  right: 23px;
+  width: 72px;
+  min-width: 72px;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: 0;
+  z-index: 21;
+}
+.game-shell .deck-card-back {
+  height: 112px;
+  width: 72px;
+}
+.game-shell .deck-label {
+  font-size: 10px;
+}
+.game-shell .deck-pile > strong {
+  font-size: 20px;
+}
+.game-shell .deck-sub {
+  font-size: 10px;
+}
+.game-shell .empty-hand {
+  position: absolute;
+  inset: 20px;
+}
+.game-shell > footer {
+  margin-bottom: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .game-shell .tactical-card:hover {
+    transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+      translateY(-38px) rotate(0);
+    z-index: 40 !important;
+  }
+}
+@media (max-width: 1200px) {
+  .collection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .operations-shell {
+    padding: 0 25px;
+  }
+  .collection-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .collection-search {
+    width: 100%;
+  }
+  .ops-bottom {
+    gap: 22px;
+    grid-template-columns: minmax(0, 1fr) 270px;
+  }
+}
+@media (max-width: 900px) {
+  .ops-hero-copy {
+    padding: 45px 30px;
+  }
+  .ops-hero {
+    min-height: 470px;
+  }
+  .ops-header > span {
+    display: none;
+  }
+  .ops-bottom {
+    grid-template-columns: 1fr;
+  }
+  .ops-briefing {
+    border-left: 0;
+    border-top: 1px solid #566449;
+    padding: 23px 0 0;
+  }
+  .ops-briefing > div {
+    max-width: 350px;
+  }
+  .builder-layout {
+    grid-template-columns: minmax(0, 1fr) 250px;
+    gap: 15px;
+  }
+  .collection-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .collection-filters label {
+    padding: 5px 7px;
+  }
+  .game-shell {
+    padding-bottom: 318px;
+  }
+  .game-shell .command {
+    height: 300px;
+  }
+  .game-shell .command-panel {
+    top: 8px;
+    left: 15px;
+    right: 15px;
+    bottom: auto;
+    width: auto;
+    height: 83px;
+    display: grid;
+    grid-template-columns: 115px minmax(0, 1fr);
+    border: 0;
+    padding: 0;
+    gap: 0 16px;
+  }
+  .game-shell .command-panel .resource-title {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .game-shell .command-panel .resource-title small {
+    display: none;
+  }
+  .game-shell .command-panel .energy-number {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .game-shell .command-panel .energy-segments {
+    grid-column: 1;
+    grid-row: 3;
+  }
+  .game-shell .command-panel .selection-detail {
+    grid-column: 2;
+    grid-row: 1/4;
+    border: 0;
+    border-left: 1px solid #64704d;
+    padding: 0 0 0 13px;
+    margin: 0;
+    min-height: 0;
+  }
+  .game-shell .command-panel .selection-detail > div {
+    display: flex;
+    gap: 8px;
+  }
+  .game-shell .command-panel .selection-detail p {
+    max-height: 34px;
+    margin: 4px 0;
+  }
+  .game-shell .command-panel .order-button {
+    position: absolute;
+    right: 0;
+    top: 34px;
+    width: auto;
+    min-width: 100px;
+    min-height: 38px;
+    margin: 0;
+    padding: 5px 8px;
+  }
+  .game-shell .command-panel .selection-detail:has(.order-button) p {
+    padding-right: 110px;
+  }
+  .game-shell .hand-section {
+    left: 12px;
+    right: 88px;
+    top: 101px;
+  }
+  .game-shell .hand-heading > span {
+    font-size: 10px;
+  }
+  .game-shell .hand-and-deck,
+  .game-shell .hand-cards {
+    height: 180px;
+  }
+  .game-shell .tactical-card {
+    --fan-step: clamp(40px, 7.4vw, 64px);
+    height: 175px;
+    bottom: 21px;
+    width: 125px;
+    min-width: 125px;
+    max-width: 125px;
+  }
+  .game-shell .tactical-card .card-art,
+  .game-shell .tactical-card .card-art canvas,
+  .game-shell .tactical-card .card-art .skill-art-icon {
+    height: 55px;
+    flex-basis: 55px;
+  }
+  .game-shell .deck-pile {
+    right: 13px;
+    bottom: 22px;
+    width: 60px;
+    min-width: 60px;
+  }
+  .game-shell .deck-card-back {
+    width: 60px;
+    height: 91px;
+  }
+}
+@media (max-width: 620px) {
+  .operations-shell {
+    padding: 0 16px;
+  }
+  .ops-header {
+    height: 72px;
+    gap: 10px;
+  }
+  .ops-brand {
+    font-size: 24px;
+    letter-spacing: 2px;
+  }
+  .ops-brand span {
+    font-size: 17px;
+    margin-left: 6px;
+  }
+  .ops-header > b {
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+  .ops-hero {
+    margin-top: 16px;
+    min-height: 482px;
+  }
+  .ops-hero-copy {
+    padding: 34px 23px;
+  }
+  .ops-hero h1 {
+    font-size: 38px;
+    letter-spacing: -1px;
+  }
+  .ops-hero-copy > p {
+    font-size: 13px;
+  }
+  .ops-kicker {
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .ops-actions {
+    gap: 10px;
+    margin-top: 25px;
+  }
+  .operations-shell .primary-button {
+    min-width: 137px;
+    font-size: 13px;
+  }
+  .secondary-button {
+    padding: 10px 13px;
+    font-size: 13px;
+  }
+  .ops-brief {
+    gap: 13px;
+    font-size: 9px;
+    margin-top: 27px;
+  }
+  .ops-coordinate {
+    bottom: 15px;
+    right: 16px;
+    font-size: 8px;
+  }
+  .ops-roster-preview {
+    gap: 6px;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .ops-roster-preview > div:nth-child(n + 4) {
+    display: none;
+  }
+  .ops-roster-preview canvas {
+    height: 100px;
+  }
+  .ops-section-heading h2 {
+    font-size: 19px;
+  }
+  .ops-section-heading h2 small {
+    margin-left: 6px;
+  }
+  .ops-section-heading button {
+    font-size: 11px;
+    gap: 4px;
+  }
+  .ops-footer {
+    gap: 12px;
+    line-height: 1.7;
+    font-size: 9px;
+  }
+  .ops-footer > span:last-child {
+    text-align: right;
+  }
+  .builder-title {
+    padding: 20px 0;
+  }
+  .builder-title h1 {
+    font-size: 26px;
+  }
+  .builder-title p {
+    font-size: 12px;
+  }
+  .builder-total {
+    display: none;
+  }
+  .builder-layout {
+    display: flex;
+    flex-direction: column;
+  }
+  .collection {
+    width: 100%;
+  }
+  .collection-grid {
+    gap: 10px;
+  }
+  .collection-card {
+    padding: 10px;
+  }
+  .collection-card .collection-art {
+    height: 100px;
+  }
+  .collection-card h3 {
+    font-size: 15px;
+  }
+  .collection-card p {
+    font-size: 11px;
+  }
+  .collection-stats {
+    font-size: 9px;
+  }
+  .selected-deck {
+    position: static;
+    width: 100%;
+    margin-top: 15px;
+  }
+  .selected-deck-list {
+    max-height: 340px;
+  }
+  .collection-filters {
+    justify-content: space-between;
+  }
+  .collection-filters label {
+    min-height: 44px;
+    padding: 6px 10px;
+  }
+  .back-link {
+    min-height: 35px;
+    margin-bottom: 15px;
+  }
+  .game-shell {
+    padding-bottom: 297px;
+  }
+  .game-shell .command {
+    height: 280px;
+    padding: 0;
+  }
+  .game-shell .command-panel {
+    left: 10px;
+    right: 10px;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 0 10px;
+    height: 77px;
+  }
+  .game-shell .command-panel .energy-number strong {
+    font-size: 29px;
+  }
+  .game-shell .command-panel .selection-detail strong {
+    font-size: 13px;
+  }
+  .game-shell .command-panel .selection-detail p {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .game-shell .hand-section {
+    top: 95px;
+    left: 8px;
+    right: 57px;
+  }
+  .game-shell .hand-heading {
+    height: 22px;
+    gap: 3px;
+  }
+  .game-shell .hand-heading strong {
+    font-size: 11px;
+  }
+  .game-shell .hand-heading > div {
+    gap: 4px;
+  }
+  .game-shell .hand-heading > div > span {
+    font-size: 10px;
+  }
+  .game-shell .hand-heading > div > svg {
+    display: none;
+  }
+  .game-shell .hand-heading > span {
+    font-size: 9px;
+  }
+  .game-shell .hand-and-deck,
+  .game-shell .hand-cards {
+    height: 158px;
+  }
+  .game-shell .tactical-card {
+    --fan-step: clamp(32px, 9.2vw, 46px);
+    width: 94px;
+    min-width: 94px;
+    max-width: 94px;
+    height: 142px;
+    bottom: 23px;
+  }
+  .game-shell .tactical-card .card-art,
+  .game-shell .tactical-card .card-art canvas,
+  .game-shell .tactical-card .card-art .skill-art-icon {
+    height: 50px;
+    flex-basis: 50px;
+  }
+  .game-shell .tactical-card .card-copy {
+    padding: 5px;
+  }
+  .game-shell .tactical-card .card-copy strong {
+    font-size: 12px;
+  }
+  .game-shell .tactical-card .card-copy p {
+    display: none;
+  }
+  .game-shell .tactical-card .card-top {
+    height: 25px;
+    min-height: 25px;
+    gap: 4px;
+    font-size: 8px;
+  }
+  .game-shell .tactical-card .card-cost {
+    width: 23px;
+    height: 25px;
+    font-size: 19px;
+  }
+  .game-shell .tactical-card .card-bottom {
+    padding: 4px 5px;
+    font-size: 8px;
+  }
+  .game-shell .tactical-card .card-art svg {
+    width: 28px;
+    height: 28px;
+  }
+  .game-shell .tactical-card.selected {
+    transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+      translateY(-17px) rotate(0);
+  }
+  .game-shell .deck-pile {
+    width: 43px;
+    min-width: 43px;
+    right: 7px;
+    bottom: 18px;
+  }
+  .game-shell .deck-card-back {
+    width: 40px;
+    height: 63px;
+  }
+  .game-shell .deck-emblem {
+    font-size: 22px;
+  }
+  .game-shell .deck-card-back > small {
+    font-size: 6px;
+  }
+  .game-shell .deck-pile > strong {
+    font-size: 18px;
+  }
+  .game-shell .deck-label,
+  .game-shell .deck-sub {
+    font-size: 8px;
+  }
+  .game-shell .return-home {
+    width: auto !important;
+    font-size: 11px;
+    display: flex !important;
+    padding: 0 6px;
+  }
+  .game-shell .header-actions .live-label {
+    display: none;
+  }
+  .game-shell .command-panel .order-button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+}
+@media (max-height: 540px) and (orientation: landscape) {
+  .game-shell .command {
+    position: relative;
+    height: 300px;
+    margin: 14px -8px 0;
+  }
+  .game-shell {
+    padding-bottom: 12px;
+  }
+  .game-shell .deck-pile {
+    position: absolute;
+  }
+  .selected-deck {
+    position: static;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-shell .tactical-card {
+    transition: none;
+  }
+}
+
+.game-shell .touch-target-controls {
+  position: fixed;
+  bottom: 276px;
+  z-index: 31;
+}
+@media (max-width: 900px) {
+  .game-shell .touch-target-controls {
+    bottom: 310px;
+  }
+}
+@media (max-width: 620px) {
+  .game-shell .touch-target-controls {
+    bottom: 290px;
+  }
+  .game-shell .tactical-card {
+    --fan-step: clamp(26px, 8vw, 42px);
+    transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+      translateY(var(--fan-y)) rotate(calc(var(--fan-angle)*0.6));
+  }
+  .game-shell .tactical-card.selected {
+    transform: translateX(calc(-50% + var(--fan-index)*var(--fan-step)))
+      translateY(-17px) rotate(0);
+  }
+}
+@media (max-height: 540px) and (orientation: landscape) {
+  .game-shell .touch-target-controls {
+    position: absolute;
+    bottom: 38px;
+  }
+}

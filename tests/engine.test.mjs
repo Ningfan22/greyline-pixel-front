@@ -20,6 +20,10 @@ import {
   smokeBlocks,
   unitRange,
   needsTarget,
+  validDeck,
+  chooseAiDeck,
+  modelOf,
+  isCombatant,
 } from '../game/engine.ts';
 const advance = (s, seconds) => {
   for (let t = 0; t < seconds - 1e-9; t += 1 / 60) tick(s, 1 / 60);
@@ -32,6 +36,9 @@ const hand = (s, id) => {
 const fresh = () => {
   const s = createGame(37);
   startGame(s);
+  // Legacy battlefield scenarios explicitly stage their own initial units.
+  spawnUnit(s, 0, 'infantry', 175);
+  spawnUnit(s, 1, 'infantry', W - 175);
   s.aiIn = 1e6;
   return s;
 };
@@ -44,7 +51,7 @@ function check(name, fn) {
 check('六名士兵拥有独立生命、位置和动作计时', () => {
   const s = fresh(),
     before = s.units.length,
-    c = s.players[0].hand.find((c) => c.id === 'infantry');
+    c = hand(s, 'infantry');
   assert.equal(playCard(s, 0, c.uid, 320).ok, true);
   const group = s.units.slice(before);
   assert.equal(group.length, 6);
@@ -62,7 +69,7 @@ check('六名士兵拥有独立生命、位置和动作计时', () => {
 check('无效部署与指挥点不足不消耗卡牌或资源', () => {
   const s = fresh(),
     p = s.players[0],
-    c = p.hand[0],
+    c = hand(s, 'infantry'),
     energy = p.energy,
     n = p.hand.length;
   assert.equal(playCard(s, 0, c.uid, 900).ok, false);
@@ -299,6 +306,7 @@ check('士兵主动进入弹坑，蹲伏掩护与探身开火交替', () => {
   crater(s, 900, 25, 18);
   spawnUnit(s, 0, 'infantry', 860);
   const u = s.units[0];
+  u.member = 1; // One of the squad's cover-seeking members.
   s.units = [u];
   spawnUnit(s, 1, 'infantry', 990);
   s.units = [u, s.units[1]];
@@ -555,17 +563,305 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('扩展牌库包含全部十七种卡牌，开局与抽牌能获得新兵种', () => {
-  const s = fresh();
-  assert.equal(Object.keys(CARDS).length, 17);
-  assert.equal(new Set(DECK).size, 17);
-  for (const p of s.players) {
-    assert.equal(p.hand.length, 6);
-    assert.equal(p.hand.length + p.deck.length, DECK.length);
-    assert(p.hand.some((h) => h.id === 'sniper'));
-    assert(p.hand.some((h) => h.id === 'ifv'));
-    assert.deepEqual(p.deck.slice(0, 2), ['medic', 'mortar']);
+check('40种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 40);
+  assert(validDeck(DECK));
+  assert(!validDeck([...DECK.slice(0, 19), DECK[0]]));
+  assert(!validDeck([...DECK.slice(0, 19), 'unknown']));
+  assert(!validDeck(DECK.slice(1)));
+  for (let seed = 0; seed < 20; seed++) {
+    const ai = chooseAiDeck(seed);
+    assert(validDeck(ai));
+    const s = createGame(seed, DECK, ai);
+    assert.equal(s.units.length, 0);
+    s.players.forEach((p, i) => {
+      assert.equal(p.hand.length, 6);
+      assert.equal(p.deck.length, 14);
+      assert.deepEqual(
+        [...p.hand.map((h) => h.id), ...p.deck].sort(),
+        [...(i ? ai : DECK)].sort(),
+      );
+    });
   }
+  assert.notDeepEqual(
+    createGame(1).players[0].hand.map((h) => h.id),
+    createGame(2).players[0].hand.map((h) => h.id),
+  );
+  assert.throws(() => createGame(1, DECK.slice(1)));
+});
+check('双方洗牌随机流隔离，原始卡组不可被战斗改写', () => {
+  const deck = [...DECK],
+    a = createGame(9, deck),
+    b = createGame(9, deck);
+  deck.reverse();
+  assert.deepEqual(a.players[0].loadout, DECK);
+  for (const s of [a, b]) {
+    const p = s.players[0];
+    p.discard = [...p.deck, ...p.hand.map((h) => h.id)];
+    p.deck = [];
+    p.hand = [];
+  }
+  a.seed = 12991;
+  draw(a, 1);
+  spawnUnit(a, 1, 'tank', 3200);
+  explode(a, 2000, 370, 25, 2, 1);
+  draw(a, 0, 6);
+  draw(b, 0, 6);
+  assert.deepEqual(
+    a.players[0].hand.map((h) => h.id),
+    b.players[0].hand.map((h) => h.id),
+  );
+  assert.notEqual(a.players[0].loadout, a.players[1].loadout);
+});
+const arena = () => {
+  const s = createGame(67);
+  startGame(s);
+  s.aiIn = 1e6;
+  s.walls = [];
+  s.terrain.fill(374);
+  s.original.fill(374);
+  return s;
+};
+check('同一班组遭遇敌军时独立卧倒、下蹲、掩护和交替推进', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 700);
+  spawnUnit(s, 1, 'infantry', 940);
+  for (const u of s.units) {
+    u.cooldown = 100;
+    u.hp = u.maxHp = 10000;
+    u.decisionIn = 0;
+  }
+  tick(s, 1 / 60);
+  const own = s.units.filter((u) => u.side === 0);
+  assert(own.some((u) => u.pose === 'prone'));
+  assert(own.some((u) => u.pose === 'crouch'));
+  assert(own.some((u) => u.moving));
+  assert(new Set(own.map((u) => u.tactic)).size >= 4);
+  const before = own.map((u) => u.tactic);
+  advance(s, 0.2);
+  assert.deepEqual(
+    own.map((u) => u.tactic),
+    before,
+  );
+});
+check('低士气幸存者撤退，重伤崩溃者投降且停止所有战斗行为', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'militia', 700);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'infantry', 900);
+  u.personalMorale = 25;
+  u.decisionIn = 0;
+  tick(s, 1 / 60);
+  assert.equal(u.tactic, 'retreat');
+  assert(u.x < 700);
+  u.hp = u.maxHp * 0.2;
+  u.personalMorale = 10;
+  u.decisionIn = 0;
+  tick(s, 1 / 60);
+  assert(u.surrendered);
+  assert(!isCombatant(u));
+  assert.equal(s.players[1].captures, 1);
+  const hp = u.hp,
+    x = u.x;
+  s.projectiles.push({
+    x: 850,
+    y: 340,
+    startX: 850,
+    startY: 340,
+    tx: u.x,
+    ty: 347,
+    side: 1,
+    targetUid: u.uid,
+    base: null,
+    damage: 999,
+    radius: 0,
+    life: 0.1,
+    total: 0.1,
+  });
+  explode(s, u.x, u.y - 20, 35, 999, 1);
+  for (const id of ['rally', 'medevac', 'fortify', 'morale']) {
+    s.players[0].energy = 10;
+    const h = hand(s, id);
+    assert(playCard(s, 0, h.uid).ok);
+  }
+  advance(s, 1);
+  assert.equal(u.hp, hp);
+  assert.equal(u.x, x);
+  assert.equal(u.fire, 0);
+  assert(u.surrendered);
+  advance(s, 6);
+  assert(!s.units.includes(u));
+  assert.equal(s.players[1].kills, 0);
+});
+check('所有坦克主炮装填时同轴机枪仍独立开火，主副武器可同帧射击', () => {
+  for (const id of ['tank', 'light_tank', 'heavy_tank']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 700);
+    const u = s.units[0];
+    spawnUnit(s, 1, 'infantry', 1000);
+    u.cooldown = 20;
+    u.secondaryCooldown = 0;
+    tick(s, 1 / 60);
+    assert(s.projectiles.some((p) => p.weapon === 'coax'));
+    assert(!s.projectiles.some((p) => p.side === 0 && p.radius > 0));
+    s.projectiles = [];
+    u.cooldown = 0;
+    u.secondaryCooldown = 0;
+    tick(s, 1 / 60);
+    assert(s.projectiles.some((p) => p.weapon === 'coax'));
+    assert(s.projectiles.some((p) => p.side === 0 && p.radius > 0));
+    const vehicle = arena();
+    spawnUnit(vehicle, 0, id, 700);
+    spawnUnit(vehicle, 1, 'tank', 900);
+    spawnUnit(vehicle, 1, 'helicopter', 1000);
+    vehicle.units[0].secondaryCooldown = 0;
+    tick(vehicle, 1 / 60);
+    assert(!vehicle.projectiles.some((p) => p.weapon === 'coax'));
+  }
+});
+check('防空组只瞄准空中目标，反坦克爆炸只给装甲额外伤害', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'manpads', 700);
+  spawnUnit(s, 1, 'infantry', 900);
+  for (const u of s.units) u.cooldown = 0;
+  tick(s, 1 / 60);
+  assert(!s.projectiles.some((p) => p.side === 0));
+  spawnUnit(s, 1, 'helicopter', 1100);
+  advance(s, 0.2);
+  assert(s.projectiles.some((p) => p.side === 0));
+  const a = arena();
+  spawnUnit(a, 1, 'infantry', 800);
+  spawnUnit(a, 1, 'tank', 800);
+  a.units = [a.units[0], a.units.at(-1)];
+  a.units.forEach((u) => {
+    u.hp = u.maxHp = 1000;
+    u.pose = 'idle';
+  });
+  explode(a, 800, 354, 30, 10, 0, 1, 1.6);
+  assert.equal(1000 - a.units[0].hp, 10);
+  assert.equal(1000 - a.units[1].hp, 16);
+});
+check('新增七种指令分别作用，炮幕恰好五轮且循环牌数守恒', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 600);
+  spawnUnit(s, 1, 'tank', 1500);
+  const u = s.units[0],
+    v = s.units.at(-1),
+    p = s.players[0];
+  u.personalMorale = 20;
+  u.suppression = 50;
+  u.hp -= 15;
+  const use = (id) => {
+    p.hand = [];
+    p.energy = 10;
+    const h = hand(s, id);
+    assert(playCard(s, 0, h.uid, 1800).ok);
+  };
+  use('rally');
+  assert.equal(u.personalMorale, 60);
+  assert.equal(u.suppression, 10);
+  use('medevac');
+  assert.equal(u.hp, u.maxHp - 5);
+  assert.equal(u.personalMorale, 68);
+  use('fortify');
+  assert.equal(p.fortify, 10);
+  assert.equal(u.personalMorale, 78);
+  use('emp');
+  assert.equal(s.players[1].jam, 14);
+  assert.equal(s.players[1].recon, 0);
+  v.cooldown = 1;
+  v.secondaryCooldown = 0.2;
+  use('sabotage');
+  assert.equal(v.cooldown, 2.8);
+  assert.equal(v.secondaryCooldown, 2);
+  use('ammo');
+  assert.equal(p.hand.length, 3);
+  s.units = [];
+  use('barrage');
+  advance(s, 3);
+  assert.equal(s.explosions, 5);
+  assert.equal(s.markers.length, 0);
+});
+check('山地兵加快攀墙，工兵破墙而非原地卡住', () => {
+  for (const id of ['mountain', 'engineers']) {
+    const s = arena();
+    s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
+    spawnUnit(s, 0, id, 480);
+    s.units = [s.units[0]];
+    tick(s, 1 / 60);
+    if (id === 'mountain') {
+      assert.equal(s.units[0].climbDuration, 0.65);
+      advance(s, 1);
+      assert(s.units[0].x > 530);
+    } else {
+      advance(s, 2.5);
+      assert.equal(s.walls[0].hp, 0);
+      assert(s.units[0].x > 530);
+    }
+  }
+});
+check('全军增益影响机枪，士气技能不被自然恢复削掉，干扰不缩短封锁', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'tank', 700);
+  spawnUnit(s, 1, 'infantry', 1180);
+  s.players[0].morale = 8;
+  s.players[0].recon = 10;
+  s.units[0].secondaryCooldown = 0;
+  tick(s, 1 / 60);
+  const shot = s.projectiles.find((p) => p.weapon === 'coax');
+  assert(shot);
+  assert.equal(shot.damage, 3 * 1.35);
+  const t = arena();
+  spawnUnit(t, 0, 'infantry', 500);
+  t.units[0].personalMorale = 100;
+  t.units[0].decisionIn = 0;
+  tick(t, 1 / 60);
+  assert.equal(t.units[0].personalMorale, 100);
+  t.players[1].jam = 13;
+  const h = hand(t, 'jam');
+  assert(playCard(t, 0, h.uid).ok);
+  assert.equal(t.players[1].jam, 13);
+});
+check('受压制后自动低姿态前进，姿态与实际速度一致', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 700);
+  const u = s.units[0];
+  s.units = [u];
+  spawnUnit(s, 1, 'infantry', 1200);
+  s.units = s.units.slice(0, 2);
+  u.suppression = 90;
+  u.decisionIn = 0;
+  const x = u.x;
+  tick(s, 1 / 60);
+  assert.equal(u.pose, 'prone');
+  assert(u.x - x <= (CARDS.infantry.speed * u.pace * 0.25) / 60 + 0.001);
+});
+check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
+  const s = createGame(710),
+    originals = s.players.map((p) => [...p.loadout].sort());
+  startGame(s);
+  s.aiIn = 1e6;
+  for (let n = 0; n < 100; n++)
+    for (const side of [0, 1]) {
+      const p = s.players[side];
+      p.energy = 10;
+      const h = p.hand[0];
+      if (h)
+        assert(
+          playCard(
+            s,
+            side,
+            h.uid,
+            CARDS[h.id].type === 'unit' ? (side ? 3500 : 300) : 1800,
+          ).ok,
+        );
+      draw(s, side, 1);
+      assert.deepEqual(
+        [...p.hand.map((h) => h.id), ...p.deck, ...p.discard].sort(),
+        originals[side],
+      );
+    }
 });
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {

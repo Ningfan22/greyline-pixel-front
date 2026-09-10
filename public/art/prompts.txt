@@ -112,3 +112,26 @@ cell 2: ONE small practical rectangular olive military medical satchel with clos
 cell 3: ONE isolated olive mortar tube with bipod and baseplate, tube angled diagonally upward to the RIGHT, accurate recognizable field mortar silhouette, side view, no ammunition or crew.
 cell 4: ONE folded olive reconnaissance drone / optics spotter backpack, compact fabric field pack with a folded small quadcopter securely strapped on and small dark binocular/optics module, standalone clean silhouette, no person.
 The eight sprites must be separate with empty transparent space between them. No extra objects. Pixel-art quality should match serious late-1990s military tactics sprites rendered with fine intentional pixel clustering and restrained weathering, not smooth illustration or 3D.
+
+V6 reactions and identities
+Use case: style-transfer
+Asset type: production pixel-art sprite atlas for a game and its homepage.
+Edit the supplied reference into a NEW strictly organized atlas. Reference image role: soldier identity, modern military outfit, crisp hand-pixel style, realistic adult anatomy and RIGHT-facing side-profile camera only. Replace the reference's existing poses/layout/background with the following exact specification.
+
+Canvas: landscape 2048 x 1024 PNG, arranged as exactly FOUR columns by TWO rows of equal 512 x 512 cells. No visible cell borders. Exactly eight isolated full-body individuals total, one per cell. Fixed orthographic side camera; EVERY figure faces RIGHT. All bodies fully contained inside their respective cell with at least 40 pixels padding. Feet/ground baseline at 90% of each cell. Preserve identical adult body scale across all eight cells; standing humans have natural approximately seven-head-tall anatomy, modest realistic head/helmet size, long adult limbs, never chibi or toy proportions. Center subjects horizontally in each cell; leave clear empty gutters.
+
+ROW 1, columns left to right: four clearly DISTINCT surrender keyframes of the SAME reference olive/tan soldier with identical helmet, face, armor, backpack, fatigues and boots.
+1. Kneeling on one knee, torso upright, right-facing, releasing his black rifle so it drops beside the forward knee, empty open hand extended down; one separate rifle is visible near the ground. The soldier is surrendering, not fighting.
+2. Standing, both hands empty, slowly raising both forearms so OPEN PALMS are visible around shoulder level. Rifle entirely absent from this cell, including no slung weapon.
+3. Standing with both empty arms FULLY ABOVE HIS HELMET in unmistakable surrender, elbows slightly bent and OPEN PALMS visible. No weapon anywhere in the cell.
+4. Kneeling on both knees with torso upright and both empty arms raised beside/above his helmet, OPEN PALMS visible. No weapon anywhere in the cell.
+
+ROW 2, columns left to right: four isolated right-facing full-body military uniform identities, each a SINGLE individual in a quiet grounded standing pose. Same believable adult proportions and pixel-art treatment as row 1.
+1. Marine wearing olive-and-tan modern combat fatigues, ballistic helmet, practical tactical vest and boots, holding a standard black rifle at low ready.
+2. Armed police officer wearing a distinctly dark navy-blue/charcoal tactical uniform, matching helmet, compact body armor, black boots, holding a black rifle at low ready. No insignia or writing.
+3. Recon soldier wearing woodland green/brown camouflage and a light practical ghillie covering with sparse angular leaf/rag silhouettes, light webbing, slim silhouette, holding a rifle low. The person remains clearly readable, not a bush.
+4. Assault trooper wearing noticeably heavier modern dark olive/charcoal body armor, helmet and knee protection, holding a compact carbine at low ready. Human proportions, not science-fiction power armor.
+
+Rendering: strict hand-authored 2D pixel art, small controlled color clusters, hard stepped pixel edges, crisp dark outline, no blur, no smoothing, no gradients, no painterly texture, no glossy 3D. Use a coherent approximately 4 x 4 output-pixel block grid, as if drawn at 512 x 256 and enlarged by nearest neighbor. Muted olive, tan, khaki, navy/charcoal with limited flesh tones. Clear readable hand shapes. Do not add accessories, extra limbs, duplicated hands, UI, panels, card frames, labels, typography, flags, emblems, logos, explosions, terrain, shadows or scenery.
+
+CRITICAL BACKGROUND: export with actual PNG ALPHA TRANSPARENCY. All pixels outside characters and the single dropped rifle are alpha=0. Do NOT draw a checkerboard, white field, gray field, mottling or any imitation of transparency. The supplied reference's checker pattern is only a preview/background to discard, never part of the desired art.

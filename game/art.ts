@@ -1,4 +1,6 @@
+import { modelOf, type CardId } from './cards';
 export interface Art {
+  reactions: HTMLCanvasElement[][];
   background: HTMLCanvasElement;
   terrain: HTMLImageElement;
   soldiers: HTMLCanvasElement[][];
@@ -153,7 +155,12 @@ function locomotionFrames(img: HTMLImageElement) {
     }),
   );
 }
-function croppedFrame(img: HTMLImageElement, rect: number[], lw = 64, lh = 40) {
+function croppedFrame(
+  img: HTMLImageElement | HTMLCanvasElement,
+  rect: number[],
+  lw = 64,
+  lh = 40,
+) {
   const out = surface(lw, lh),
     ctx = out.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
@@ -193,7 +200,102 @@ function reinforcementFrames(img: HTMLImageElement) {
     ].map((rect) => croppedFrame(img, rect)),
   ];
 }
-export function soldierEquipment(art: Art, id: string) {
+function reactionFrames(img: HTMLImageElement) {
+  const source = surface(img.width, img.height),
+    ctx = source.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const px = ctx.getImageData(0, 0, img.width, img.height);
+  for (let i = 0; i < px.data.length; i += 4) {
+    const r = px.data[i],
+      g = px.data[i + 1],
+      b = px.data[i + 2];
+    if (Math.min(r, g, b) > 155 && Math.max(r, g, b) - Math.min(r, g, b) < 28)
+      px.data[i + 3] = 0;
+  }
+  ctx.putImageData(px, 0, 0);
+  return [0, 1].map((row) =>
+    [0, 1, 2, 3].map((col) => {
+      let left = img.width,
+        right = 0,
+        top = img.height,
+        bottom = 0;
+      for (
+        let y = Math.round((row * img.height) / 2);
+        y < Math.round(((row + 1) * img.height) / 2);
+        y++
+      )
+        for (
+          let x = Math.round((col * img.width) / 4);
+          x < Math.round(((col + 1) * img.width) / 4);
+          x++
+        )
+          if (px.data[(y * img.width + x) * 4 + 3] > 0) {
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+      const out = surface(64, 48),
+        oc = out.getContext('2d')!;
+      oc.imageSmoothingEnabled = false;
+      const w = Math.round((right - left + 1) * 0.112),
+        h = Math.round((bottom - top + 1) * 0.112);
+      oc.drawImage(
+        source,
+        left,
+        top,
+        right - left + 1,
+        bottom - top + 1,
+        32 - Math.round(w / 2),
+        48 - h,
+        w,
+        h,
+      );
+      return out;
+    }),
+  );
+}
+const uniformCache = new WeakMap<
+  HTMLCanvasElement,
+  Map<string, HTMLCanvasElement>
+>();
+export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
+  if (!uniform) return frame;
+  let variants = uniformCache.get(frame);
+  if (!variants) {
+    variants = new Map();
+    uniformCache.set(frame, variants);
+  }
+  if (variants.has(uniform)) return variants.get(uniform)!;
+  const out = surface(frame.width, frame.height),
+    ctx = out.getContext('2d')!;
+  ctx.drawImage(frame, 0, 0);
+  const px = ctx.getImageData(0, 0, out.width, out.height);
+  for (let i = 0; i < px.data.length; i += 4) {
+    const r = px.data[i],
+      g = px.data[i + 1],
+      b = px.data[i + 2];
+    // Apply a uniform palette only to olive fabric, preserving skin and weapons.
+    if (g >= r * 0.92 && g > b * 1.12 && g > 35 && r < 165) {
+      const v = (r + g + b) / 3;
+      const palette =
+        uniform === 'police'
+          ? [0.72, 0.82, 1.03]
+          : uniform === 'recon'
+            ? [0.84, 1.04, 0.61]
+            : uniform === 'assault'
+              ? [0.73, 0.78, 0.7]
+              : [1.08, 1.02, 0.71];
+      for (let j = 0; j < 3; j++)
+        px.data[i + j] = Math.min(255, Math.round(v * palette[j]));
+    }
+  }
+  ctx.putImageData(px, 0, 0);
+  variants.set(uniform, out);
+  return out;
+}
+export function soldierEquipment(art: Art, cardId: CardId) {
+  const id = modelOf(cardId);
   if (id === 'machinegun') return art.vehicles[2][2];
   if (id === 'rocket') return art.vehicles[2][3];
   if (id === 'sniper') return art.reinforcements[1][0];
@@ -209,22 +311,34 @@ export function loadArt() {
     loadImage('/art/terrain-texture.png'),
     loadImage('/art/locomotion-v4.png'),
     loadImage('/art/reinforcements-v5.png'),
-  ]).then(([bg, soldiers, vehicles, terrain, locomotion, reinforcement]) => {
-    const background = surface(640, 214),
-      ctx = background.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(bg, 0, 0, 640, 214);
-    const vehicleArt = frames(vehicles, 4, 3, 64, 32);
-    vehicleArt[1] = stableHelicopters(vehicles);
-    return {
-      background,
+    loadImage('/art/reactions-v6.png'),
+  ]).then(
+    ([
+      bg,
+      soldiers,
+      vehicles,
       terrain,
-      locomotion: locomotionFrames(locomotion),
-      soldiers: frames(soldiers, 4, 8, 64, 48, true),
-      vehicles: vehicleArt,
-      reinforcements: reinforcementFrames(reinforcement),
-    };
-  });
+      locomotion,
+      reinforcement,
+      reactions,
+    ]) => {
+      const background = surface(640, 214),
+        ctx = background.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(bg, 0, 0, 640, 214);
+      const vehicleArt = frames(vehicles, 4, 3, 64, 32);
+      vehicleArt[1] = stableHelicopters(vehicles);
+      return {
+        background,
+        reactions: reactionFrames(reactions),
+        terrain,
+        locomotion: locomotionFrames(locomotion),
+        soldiers: frames(soldiers, 4, 8, 64, 48, true),
+        vehicles: vehicleArt,
+        reinforcements: reinforcementFrames(reinforcement),
+      };
+    },
+  );
   return cached.catch((error) => {
     cached = null;
     throw error;

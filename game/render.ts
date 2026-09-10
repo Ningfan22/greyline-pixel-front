@@ -1,3 +1,4 @@
+import { modelOf } from './cards';
 import {
   CARDS,
   ground,
@@ -10,7 +11,13 @@ import {
   type GameState,
   type CardId,
 } from './engine';
-import { drawSprite, cardFrame, soldierEquipment, type Art } from './art';
+import {
+  drawSprite,
+  cardFrame,
+  soldierEquipment,
+  uniformFrame,
+  type Art,
+} from './art';
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -122,8 +129,8 @@ export function render(
   for (const u of sorted) {
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
-      isTank = u.id === 'tank',
-      isIFV = u.id === 'ifv',
+      isTank = modelOf(u.id) === 'tank',
+      isIFV = modelOf(u.id) === 'ifv',
       isAir = !!c.air,
       isDead = u.hp <= 0;
     const w = isTank ? 205 : isIFV ? 165 : isAir ? 235 : 96,
@@ -144,7 +151,7 @@ export function render(
         frame = 0;
       } else if (u.pose === 'climb') {
         row = 3;
-        frame = Math.min(3, Math.floor((1 - u.climbing / 1.2) * 4));
+        frame = Math.min(3, Math.floor((1 - u.climbing / u.climbDuration) * 4));
       } else if (u.pose === 'crouch') {
         row = 4;
         frame = u.moving ? Math.floor(u.walk) % 4 : 0;
@@ -187,14 +194,30 @@ export function render(
       else if (u.climbing > 0)
         img =
           art.locomotion[2][
-            Math.min(7, Math.floor((1 - u.climbing / 1.2) * 8))
+            Math.min(7, Math.floor((1 - u.climbing / u.climbDuration) * 8))
           ];
       else if (u.pose === 'walk' && u.moving)
         img = art.locomotion[0][Math.floor(u.walk) % 8];
     }
+    if (u.surrendered)
+      img =
+        art.reactions[0][
+          u.surrenderTime < 0.35
+            ? 0
+            : u.surrenderTime < 0.75
+              ? 1
+              : u.surrenderTime < 2.5
+                ? 2
+                : 3
+        ];
+    if (c.members) img = uniformFrame(img, c.uniform);
     ctx.fillStyle = isAir ? '#25372b14' : '#25372b33';
     ctx.fillRect(u.x - w * 0.23, ground(s, u.x) + u.lane, w * 0.46, 3);
-    const alpha = isDead ? Math.min(1, u.deadFor) : 1;
+    const alpha = isDead
+      ? Math.min(1, u.deadFor)
+      : u.surrendered
+        ? Math.min(1, 6 - u.surrenderTime)
+        : 1;
     if (!c.members && isDead) {
       ctx.save();
       ctx.filter = 'grayscale(1) brightness(.5)';
@@ -213,7 +236,8 @@ export function render(
     if (
       c.members &&
       !isDead &&
-      u.id !== 'infantry' &&
+      !u.surrendered &&
+      modelOf(u.id) !== 'infantry' &&
       u.pose !== 'climb' &&
       u.motion === 'ground'
     ) {
@@ -224,30 +248,48 @@ export function render(
         weapon,
         u.x +
           (u.side === 0 ? 1 : -1) *
-            (u.id === 'medic'
+            (modelOf(u.id) === 'medic'
               ? -8
-              : u.id === 'mortar'
+              : modelOf(u.id) === 'mortar'
                 ? u.moving
                   ? -8
                   : 17
                 : 6),
-        u.id === 'mortar'
+        modelOf(u.id) === 'mortar'
           ? u.y - (u.moving ? 12 : 0)
-          : u.id === 'medic'
+          : modelOf(u.id) === 'medic'
             ? u.y - 25
             : wy + 7,
-        u.id === 'medic'
+        modelOf(u.id) === 'medic'
           ? 14
-          : u.id === 'mortar'
+          : modelOf(u.id) === 'mortar'
             ? 27
-            : u.id === 'sniper'
+            : modelOf(u.id) === 'sniper'
               ? 43
               : 36,
-        u.id === 'medic' ? 17 : u.id === 'mortar' ? 30 : 15,
+        modelOf(u.id) === 'medic' ? 17 : modelOf(u.id) === 'mortar' ? 30 : 15,
         u.side === 1,
       );
     }
     if (isDead) continue;
+    if (u.surrendered) {
+      ctx.fillStyle = '#eee8c9';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('投降', u.x, u.y - 78);
+      continue;
+    }
+    if (u.secondaryFire > 0) {
+      const mx = u.x + (u.side === 0 ? 1 : -1) * 58;
+      ctx.fillStyle = '#ffe8ad';
+      ctx.fillRect(mx, u.y - 43, 5, 2);
+    }
+    if (u.tactic === 'retreat') {
+      ctx.fillStyle = '#e3b975';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('撤退', u.x, u.y - 78);
+    }
     if (u.fire > 0.16 && u.motion === 'ground' && !u.climbing) {
       const mx = u.x + (u.side === 0 ? 1 : -1) * muzzleOffset(u),
         my = u.y - muzzleHeight(u);
@@ -311,8 +353,7 @@ export function render(
     ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
   }
   for (const p of s.projectiles) {
-    const angle = Math.atan2(p.ty - p.startY, p.tx - p.startX),
-      dir = p.tx > p.startX ? 1 : -1;
+    const angle = Math.atan2(p.ty - p.startY, p.tx - p.startX);
     ctx.save();
     ctx.translate(Math.round(p.x), Math.round(p.y));
     ctx.rotate(angle);
