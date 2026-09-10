@@ -804,57 +804,10 @@ function burst(
   });
   s.blasts = s.blasts.slice(-32);
   if (pointVisible(s, 0, x, y)) s.shake = Math.min(12, radius / 7);
-  const soil = y > ground(s, x) - 65;
-  for (let i = 0; i < 6; i++) {
-    const angle = fxRnd(s) * Math.PI * 2,
-      life = 0.09 + fxRnd(s) * 0.12;
-    s.particles.push({
-      kind: 'spark',
-      x,
-      y,
-      vx: Math.cos(angle) * radius * 1.7,
-      vy: Math.sin(angle) * radius * 1.4,
-      life,
-      maxLife: life,
-      color: i % 2 ? '#dcac6d' : '#ecdbb2',
-      size: 1,
-    });
-  }
-  for (let i = 0; i < 12; i++) {
-    const life = 0.3 + fxRnd(s) * 0.4;
-    s.particles.push({
-      kind: 'chip',
-      x,
-      y,
-      vx: (fxRnd(s) - 0.5) * radius * 3,
-      vy: -fxRnd(s) * radius * 2.5,
-      life,
-      maxLife: life,
-      color: soil
-        ? i % 2
-          ? '#75674d'
-          : '#4e5140'
-        : i % 2
-          ? '#626b63'
-          : '#3e4944',
-      size: 1 + Math.floor(fxRnd(s) * 2),
-    });
-  }
-  for (let i = 0; i < 8; i++) {
-    const life = 0.45 + fxRnd(s) * 0.4;
-    s.particles.push({
-      kind: soil && i < 3 ? 'dust' : 'smoke',
-      x: x + (fxRnd(s) - 0.5) * radius * 0.25,
-      y: y - 3,
-      vx: (fxRnd(s) - 0.5) * radius * 0.65,
-      vy: -12 - fxRnd(s) * 30,
-      life,
-      maxLife: life,
-      color: soil && i < 3 ? '#92846b' : i % 2 ? '#515c52' : '#8e9382',
-      size: 7 + fxRnd(s) * Math.min(14, radius * 0.2),
-    });
-  }
+  // Generated sprite frames contain the fire, smoke and debris. Only animation state is simulated.
+  fxRnd(s);
 }
+
 function muzzleParticles(
   s: GameState,
   u: Unit,
@@ -1227,7 +1180,7 @@ function retreatingFriendlyHit(
 }
 export function muzzleOffset(u: Unit) {
   if (CARDS[u.id].emplacement)
-    return CARDS[u.id].emplacement === 'aa_gun' ? 25 : 60;
+    return CARDS[u.id].emplacement === 'aa_gun' ? 45 : 90;
   if (CARDS[u.id].airframe)
     return CARDS[u.id].airframe === 'rocket_heli'
       ? 72
@@ -1246,7 +1199,11 @@ export function muzzleOffset(u: Unit) {
 }
 export function muzzleHeight(u: Unit) {
   if (CARDS[u.id].emplacement)
-    return CARDS[u.id].emplacement === 'aa_gun' ? 62 : 48;
+    return CARDS[u.id].emplacement === 'aa_gun'
+      ? 92
+      : CARDS[u.id].emplacement === 'at_gun'
+        ? 30
+        : 60;
   return CARDS[u.id].air
     ? 16
     : modelOf(u.id) === 'mortar'

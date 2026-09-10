@@ -228,180 +228,43 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
   ctx.globalAlpha = 1;
 }
 
-function cloud(
+export function drawBlast(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  rx: number,
-  ry: number,
-  color: string,
-  alpha: number,
-  seed: number,
+  b: Blast,
+  frames: HTMLCanvasElement[][],
 ) {
-  ctx.fillStyle = color;
-  ctx.globalAlpha = Math.max(0, alpha);
-  const q = 2;
-  for (let yy = -ry; yy <= ry; yy += q) {
-    const n =
-      (Math.sin((Math.floor(yy / q) + seed) * 12.9898) * 43758.5453) % 1;
-    const half =
-      Math.sqrt(Math.max(0, 1 - (yy * yy) / (ry * ry))) *
-      rx *
-      (0.88 + Math.abs(n) * 0.16);
-    const offset = Math.sin(yy * 0.18 + seed) * rx * 0.1;
-    ctx.fillRect(
-      Math.round((x - half + offset) / q) * q,
-      Math.round((y + yy) / q) * q,
-      Math.ceil((half * 2) / q) * q,
-      q,
-    );
-  }
-}
-export function drawBlast(ctx: CanvasRenderingContext2D, b: Blast) {
-  const t = b.age;
+  const penetration = b.kind === 'penetration',
+    row = penetration ? 0 : b.kind === 'wreck' || !b.soil ? 2 : 1;
+  const times = penetration
+    ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
+    : row === 2
+      ? [0, 0.08, 0.2, 0.4, 0.75, 1.3, 2.3, 4]
+      : [0, 0.065, 0.14, 0.25, 0.48, 0.85, 1.6, 3];
+  let index = 0;
+  while (index < 7 && b.age >= times[index + 1]) index++;
+  const sprite = frames[row][index];
+  const width = penetration
+    ? 48
+    : b.kind === 'wreck'
+      ? Math.max(240, Math.min(340, b.radius * 5.2))
+      : b.kind === 'artillery'
+        ? Math.max(190, Math.min(350, b.radius * 7))
+        : Math.max(80, Math.min(260, b.radius * 5.5));
+  const height = (width * sprite.height) / sprite.width,
+    anchor = [268 / 300, 261 / 300, 263 / 300][row];
   ctx.save();
-  if (b.kind === 'penetration') {
-    if (t < 0.09) {
-      ctx.fillStyle = t < 0.04 ? '#fff3d2' : '#e7b36c';
-      ctx.fillRect(b.x - 3, b.y - 2, 6, 4);
-      ctx.fillRect(b.x - 1, b.y - 4, 2, 8);
-    }
-    for (let i = 0; i < 9; i++) {
-      const a = -Math.PI + i * 0.7 + (b.seed % 7) * 0.1,
-        r = t * (80 + i * 14);
-      streak(
-        ctx,
-        b.x + Math.cos(a) * r,
-        b.y + Math.sin(a) * r + t * t * 110,
-        a,
-        4,
-        '#e8ba77',
-        1,
-        Math.max(0, 1 - t * 5),
-      );
-    }
-    ctx.restore();
-    return;
-  }
-  const scale =
-    Math.max(0.55, b.radius / 36) *
-    (b.kind === 'artillery' ? 1.6 : b.kind === 'wreck' ? 1.35 : 1.15);
-  // Low, broad soil shock, rising incandescent fragments, then several turbulent smoke columns.
-  if (b.soil && t < 2.5)
-    for (let i = 0; i < 11; i++) {
-      const dir = i - 5,
-        x = b.x + dir * (7 + Math.min(t, 1.1) * 13) * scale;
-      cloud(
-        ctx,
-        x,
-        b.y - 4 - (i % 3) * 3,
-        (10 + Math.min(t, 1) * 10) * scale,
-        (4 + Math.min(t, 1) * 5) * scale,
-        i % 2 ? '#887961' : '#ab9471',
-        Math.min(0.65, t * 6) * Math.min(1, (2.5 - t) / 1.3),
-        b.seed + i,
-      );
-    }
-  if (t > 0.07)
-    for (let i = 0; i < 9; i++) {
-      const phase = ((b.seed >>> i) % 13) / 13;
-      const rise = (12 + Math.min(t, 4) * 18 + (i % 3) * 11) * scale;
-      const sx =
-        b.x +
-        ((i - 4) * (5 + Math.min(t, 3) * 2) + Math.sin(t * 0.6 + i) * 6) *
-          scale;
-      const sy = b.y - rise;
-      const size = (8 + Math.min(t, 2) * 6 + phase * 5) * scale;
-      const opacity = Math.min(0.92, t * 4) * Math.min(1, (7 - t) / 2.6);
-      cloud(
-        ctx,
-        sx,
-        sy,
-        size,
-        size * (1.1 + phase * 0.25),
-        i % 3 === 0 ? '#282a27' : i % 3 === 1 ? '#4a4941' : '#636055',
-        opacity,
-        b.seed + i,
-      );
-      for (let l = 0; l < 3; l++)
-        cloud(
-          ctx,
-          sx + Math.sin(i + l * 2.1) * size * 0.55,
-          sy + Math.cos(i + l * 2.1) * size * 0.45,
-          size * 0.42,
-          size * 0.38,
-          l % 2 ? '#a19a83' : '#191e1b',
-          opacity * 0.18,
-          b.seed + i + l * 17,
-        );
-    }
-  if (t < 0.65) {
-    const expand = Math.min(1, t / 0.065),
-      fade = Math.min(1, (0.65 - t) / 0.3);
-    for (let i = 0; i < 11; i++) {
-      const a = -Math.PI + (i / 10) * Math.PI,
-        reach = (15 + ((i * 17 + b.seed) % 23)) * scale * expand;
-      const x = b.x + Math.cos(a) * reach * 0.85,
-        y = b.y + Math.sin(a) * reach - t * 14;
-      cloud(
-        ctx,
-        x,
-        y,
-        (7 + (i % 3) * 3) * scale,
-        (8 + (i % 4) * 3) * scale,
-        '#9e411d',
-        fade,
-        b.seed + i,
-      );
-      cloud(
-        ctx,
-        x,
-        y + 3,
-        5 * scale,
-        (6 + (i % 3) * 2) * scale,
-        '#f09936',
-        fade * 0.95,
-        b.seed + i + 8,
-      );
-      if (t < 0.25)
-        cloud(
-          ctx,
-          x,
-          y + 4,
-          3 * scale,
-          4 * scale,
-          '#ffe7a0',
-          fade,
-          b.seed + i + 3,
-        );
-    }
-    if (t < 0.075)
-      cloud(
-        ctx,
-        b.x,
-        b.y - 7 * scale,
-        19 * scale * expand,
-        13 * scale * expand,
-        '#fff3c6',
-        1,
-        b.seed,
-      );
-    for (let i = 0; i < 15; i++) {
-      const a = -Math.PI + 0.12 + i * 0.19,
-        velocity = (75 + ((i * 23) % 120)) * scale;
-      const x = b.x + Math.cos(a) * velocity * t,
-        y = b.y + Math.sin(a) * velocity * t + t * t * 130;
-      streak(
-        ctx,
-        x,
-        y,
-        a,
-        Math.max(2, 8 - t * 8),
-        '#e4b275',
-        1,
-        Math.max(0, 1 - t * 1.7),
-      );
-    }
-  }
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = penetration
+    ? Math.min(1, Math.max(0, (0.24 - b.age) / 0.04))
+    : Math.min(1, Math.max(0, (7 - b.age) / 3));
+  ctx.translate(Math.round(b.x), Math.round(b.y));
+  if (b.seed % 2) ctx.scale(-1, 1);
+  ctx.drawImage(
+    sprite,
+    Math.round(-width / 2),
+    Math.round(-height * anchor),
+    Math.round(width),
+    Math.round(height),
+  );
   ctx.restore();
 }

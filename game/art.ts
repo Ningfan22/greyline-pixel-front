@@ -10,6 +10,7 @@ export interface Art {
   reinforcements: HTMLCanvasElement[][];
   aircraft: ReturnType<typeof buildAircraft>;
   scenery: HTMLCanvasElement[];
+  explosions: HTMLCanvasElement[][];
   emplacements: Record<string, HTMLCanvasElement[]>;
 }
 let cached: Promise<Art> | null = null;
@@ -327,57 +328,96 @@ function stableTracks(list: HTMLCanvasElement[], height: number) {
     return out;
   });
 }
-function buildEmplacements() {
+function buildEmplacements(img: HTMLImageElement) {
+  const source = surface(img.width, img.height),
+    ctx = source.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const pixels = ctx.getImageData(0, 0, img.width, img.height),
+    w = img.width,
+    h = img.height,
+    labels = new Uint16Array(w * h),
+    queue = new Int32Array(w * h);
+  const groups: {
+    id: number;
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+    count: number;
+  }[] = [];
+  let id = 0;
+  for (let at = 0; at < w * h; at++) {
+    if (labels[at] || pixels.data[at * 4 + 3] < 128) continue;
+    id++;
+    let head = 0,
+      tail = 1;
+    queue[0] = at;
+    labels[at] = id;
+    let left = w,
+      right = 0,
+      top = h,
+      bottom = 0;
+    while (head < tail) {
+      const index = queue[head++],
+        x = index % w,
+        y = Math.floor(index / w);
+      left = Math.min(left, x);
+      right = Math.max(right, x);
+      top = Math.min(top, y);
+      bottom = Math.max(bottom, y);
+      for (const next of [
+        x > 0 ? index - 1 : -1,
+        x < w - 1 ? index + 1 : -1,
+        y > 0 ? index - w : -1,
+        y < h - 1 ? index + w : -1,
+      ])
+        if (next >= 0 && !labels[next] && pixels.data[next * 4 + 3] >= 128) {
+          labels[next] = id;
+          queue[tail++] = next;
+        }
+    }
+    groups.push({ id, left, right, top, bottom, count: tail });
+  }
+  const guns = groups
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3)
+    .sort((a, b) => a.left - b.left);
   return Object.fromEntries(
-    ['howitzer', 'at_gun', 'aa_gun'].map((kind) => [
-      kind,
-      [0, 1, 2, 3].map((frame) => {
+    guns.map((g, index) => {
+      const isolated = surface(g.right - g.left + 1, g.bottom - g.top + 1),
+        ic = isolated.getContext('2d')!,
+        data = ic.createImageData(isolated.width, isolated.height);
+      for (let y = g.top; y <= g.bottom; y++)
+        for (let x = g.left; x <= g.right; x++)
+          if (labels[y * w + x] === g.id) {
+            const from = (y * w + x) * 4,
+              to = ((y - g.top) * isolated.width + x - g.left) * 4;
+            for (let ch = 0; ch < 3; ch++)
+              data.data[to + ch] = pixels.data[from + ch];
+            data.data[to + 3] = 255;
+          }
+      ic.putImageData(data, 0, 0);
+      const base = croppedFrame(
+        isolated,
+        [0, 0, isolated.width, isolated.height],
+        80,
+        48,
+      );
+      const frames = [0, 1, 2, 3].map((frame) => {
         const out = surface(80, 48),
           c = out.getContext('2d')!;
-        const rect = (
-          x: number,
-          y: number,
-          w: number,
-          h: number,
-          color: string,
-        ) => {
-          c.fillStyle = color;
-          c.fillRect(x, y, w, h);
-        };
-        rect(8, 41, 43, 3, '#2e3930');
-        rect(12, 37, 21, 4, '#53604a');
-        rect(24, 31, 27, 5, '#5b664d');
-        for (const x of [22, 46]) {
-          rect(x, 35, 9, 10, '#252e29');
-          rect(x + 2, 37, 5, 6, '#747961');
-          rect(x + 3, 38, 3, 4, '#414c3d');
+        c.imageSmoothingEnabled = false;
+        c.drawImage(base, 0, 0);
+        // Recoil moves the barrel layer; wheels and stabilizers keep their anchor.
+        const shift = frame === 1 ? 2 : frame === 2 ? 1 : 0;
+        if (shift) {
+          c.clearRect(40, 0, 40, 35);
+          c.drawImage(base, 40, 0, 40, 35, 40 - shift, 0, 40, 35);
         }
-        rect(31, 25, 16, 10, '#4c5b43');
-        rect(29, 22, 20, 4, '#899173');
-        if (kind === 'aa_gun') {
-          rect(35, 13, 11, 14, '#58664d');
-          rect(31, 8, 4, 17, '#344233');
-          rect(39, 6, 4, 19, '#344233');
-          rect(31, 8, 2, 12, '#9ca085');
-          rect(39, 6, 2, 12, '#9ca085');
-          rect(24, 19, 9, 5, '#424f3e');
-          rect(45, 20, 10, 4, '#424f3e');
-        } else {
-          const lift = kind === 'howitzer' ? 10 : 0;
-          for (let i = 0; i < 34; i++) {
-            const y = 24 - Math.round((i * lift) / 34);
-            rect(42 + i - (frame === 1 ? 2 : 0), y, 2, 4, '#364634');
-            rect(42 + i - (frame === 1 ? 2 : 0), y, 2, 1, '#969d7d');
-          }
-          rect(30, 19, 8, 17, '#657154');
-          rect(30, 19, 3, 17, '#8d9575');
-          rect(25, 34, 9, 3, '#283a2d');
-        }
-        rect(14, 42, 8, 2, '#909476');
-        rect(52, 43, 13, 2, '#5a684c');
         return out;
-      }),
-    ]),
+      });
+      return [['howitzer', 'at_gun', 'aa_gun'][index], frames];
+    }),
   );
 }
 function sceneryFrames(img: HTMLImageElement) {
@@ -399,6 +439,34 @@ function sceneryFrames(img: HTMLImageElement) {
     croppedFrame(source, [1546, 516, 479, 196], 64, 28),
   ];
 }
+function explosionFrames(img: HTMLImageElement) {
+  const cw = img.width / 8,
+    ch = img.height / 3;
+  return Array.from({ length: 3 }, (_, row) =>
+    Array.from({ length: 8 }, (_, col) => {
+      const out = surface(96, Math.round((ch / cw) * 96)),
+        ctx = out.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      const x = Math.round(col * cw),
+        y = Math.round(row * ch),
+        right = Math.round((col + 1) * cw),
+        bottom = Math.round((row + 1) * ch);
+      // Keep the entire cell, preserving the common explosion origin through all frames.
+      ctx.drawImage(
+        img,
+        x,
+        y,
+        right - x,
+        bottom - y,
+        0,
+        0,
+        out.width,
+        out.height,
+      );
+      return out;
+    }),
+  );
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
@@ -409,6 +477,8 @@ export function loadArt() {
     loadImage('/art/reinforcements-v5.png'),
     loadImage('/art/reactions-v6.png'),
     loadImage('/art/destructible-scenery-v9.png'),
+    loadImage('/art/artillery-v9.png'),
+    loadImage('/art/explosions-v9.png'),
   ]).then(
     ([
       bg,
@@ -419,6 +489,8 @@ export function loadArt() {
       reinforcement,
       reactions,
       scenery,
+      emplacements,
+      explosions,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -438,8 +510,9 @@ export function loadArt() {
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
         aircraft: buildAircraft(vehicleArt[1]),
-        emplacements: buildEmplacements(),
+        emplacements: buildEmplacements(emplacements),
         scenery: sceneryFrames(scenery),
+        explosions: explosionFrames(explosions),
       };
     },
   );
@@ -487,7 +560,12 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
-  if (c.emplacement) return [150, 90];
+  if (c.emplacement)
+    return c.emplacement === 'howitzer'
+      ? [190, 100]
+      : c.emplacement === 'at_gun'
+        ? [190, 95]
+        : [150, 105];
   if (c.airframe === 'scout_drone') return [88, 48];
   if (c.airframe === 'attack_drone') return [176, 78];
   if (c.airframe === 'loiter_drone') return [104, 52];

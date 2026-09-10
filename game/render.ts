@@ -447,7 +447,8 @@ export function render(
   }
   for (const p of s.projectiles)
     if (pointVisible(s, 0, p.x, p.y)) drawProjectile(ctx, p);
-  for (const b of s.blasts) if (pointVisible(s, 0, b.x, b.y)) drawBlast(ctx, b);
+  for (const b of s.blasts)
+    if (pointVisible(s, 0, b.x, b.y)) drawBlast(ctx, b, art.explosions);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p);
   for (let x = Math.floor(left / 64) * 64; x < right; x += 64)
