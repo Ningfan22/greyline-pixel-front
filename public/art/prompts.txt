@@ -1,0 +1,53 @@
+Generated using built-in image_gen.imagegen in three parallel requests.
+
+ASSET1: soldier-locomotion.png
+
+Use case: stylized-concept
+Asset type: realistic adult infantry locomotion sprite animation atlas, GREYLINE v3.
+Create a PNG sprite sheet, FOUR columns and EIGHT rows, exactly32 frames, each cell contains ONE isolated RIGHT-FACING adult rifle soldier. Requested canvas1536x3072, equal384x384 cells. Genuine transparent alpha around every sprite.
+PRIMARY REQUIREMENT: The soldier has REALISTIC NORMAL ADULT HUMAN BODY PROPORTIONS, approximately SEVEN HEADS TALL, small head and small fitted helmet, long normal arms and legs, anatomically normal hands and feet. Full-grown realistic military person, not a child, not a toy, not cartoon, not chibi. Helmet is only approximately one-seventh standing body height. No oversized head, helmet, gloves or boots. Refer stylistically to restrained cinematic 1990s military simulation pixel art.
+PIXEL ART: Person built at32x48 logical pixels, around18 muted colors olive, charcoal, tan. Enlarge with nearest-neighbor. Sharp visible discrete pixel clusters, hard edges, no gradients, no blur, no soft rendering, no painterly textures. Realistic body silhouette matters most. Small detailed-enough rifle, adult torso, narrow shoulders relative to full height. Same individual, same uniform and equipment throughout.
+LAYOUT: Invisible4-column×8-row grid. Keep each full sprite including rifle within its equal cell, with generous transparent margins; no object crosses a cell boundary. Sprite around half the height of its cell, so there is abundant whitespace for extended limbs and fallen poses. All standing sprite feet share the same baseline within a row. Keep adult body scale consistent across every pose. Every sprite wholly isolated.
+ROW1: STANDING IDLE, four frames of subtle breathing/weight shifts while holding rifle. Full-height realistic standing person.
+ROW2: WALKING, four distinctly different stride phases with natural arm/leg alternation.
+ROW3: RUNNING, four dynamic running strides, bent knees and forward lean, clearly different from walking.
+ROW4: WALL CLIMBING, four successive poses: both arms reaching up; arms pulling body upward; one knee lifted up onto imagined ledge; body shifting over imagined wall top. Render PERSON ONLY, NO WALL and no scenery in any frame.
+ROW5: CROUCHING, four low crouched-aim or crouch-step frames, knees bent naturally, compact adult pose.
+ROW6: PRONE CRAWLING, four crawling frames, adult body lying fully horizontal with rifle pointed right, elbow and knee movements. Entire elongated body and rifle fit inside its cell.
+ROW7: FIRING, four successive frames: aiming; recoil; tiny blocky muzzle flash; recovering aim. Small flash, no glow halo.
+ROW8: HIT AND DEATH, four consecutive frames: flinching; dropping to one knee; falling; lying horizontal. No blood or gore.
+ABSOLUTE CONSTRAINTS: exactly4 columns by8 rows, no text/numbers/labels, no gridlines/borders, no checkerboard texture or backdrop. GENUINE PNG alpha. Every character must retain realistic adult seven-head proportions in all32 frames. NO CHIBI. NO CUTE STYLE. NO TOY FIGURES.
+
+ASSET2: vehicle-support.png
+
+Use case: stylized-concept
+Asset type: realistic pixel-art military vehicle animation and support atlas, GREYLINE v3.
+Create an isolated sprite PNG with GENUINE TRANSPARENT ALPHA, requested2048x768, exactly FOUR columns by THREE rows, invisible equal512x256 cells. One isolated object per cell, generous transparent padding. No object crosses a cell boundary.
+STYLE: Restrained cinematic 1990s military simulation pixel art. REALISTIC long low adult-world modern vehicle proportions, accurate silhouette, small understated highlights. Logical64x32-pixel vehicle forms enlarged nearest-neighbor. Visible sharp pixel clusters, limited olive-gray, charcoal, muted tan colors. No gradients, no glow, no blur, no painterly texture, no tiny microscopic detail. Not cute, not chibi, not plastic toys, no exaggerated cartoon proportions, no bright glossy highlights.
+ROW1: four side-view frames of the SAME modern olive-gray main battle tank, right-facing. Long low hull, small low angular turret, long narrow gun barrel, realistic tracks and wheels. Stable tank/turret/body shape and position; four different track-tread phases for track motion.
+ROW2: four side-view frames of the SAME realistic olive-gray attack helicopter, right-facing. Long narrow fuselage and tail, realistically proportioned cockpit, understated military silhouette. Stable helicopter body position; four different main-rotor phases: full width horizontal, diagonal short, narrow foreshortened, opposite diagonal short. All blades fit inside the cell.
+ROW3 COLUMN1: realistic compact military command post with small antenna.
+ROW3 COLUMN2: a short low ruined concrete wall with sandbags, suitable as climbable cover, no characters.
+ROW3 COLUMN3: isolated tripod-mounted machine gun, right-facing, no people.
+ROW3 COLUMN4: isolated shoulder-fired rocket launcher, right-facing, no people.
+CONSTRAINTS: exactly12 sprites in a4x3 matrix, row and column order strictly as stated. Real PNG transparency around each. No colored backdrop, no checkerboard pattern, no text, no labels, no borders, no gridlines, no logos, no glow halos. Neutral realistic military proportions.
+
+ASSET3: battlefield-panorama.png
+
+Use case: stylized-concept
+Asset type: realistic pixel-art battlefield village panorama, GREYLINE v3.
+Create an opaque very wide3:1 panorama of an empty rural European village battlefield, intended as a2D side-scrolling modern military game background. Full scene in straight SIDE VIEW.
+STYLE: Restrained cinematic realistic pixel art, subdued colors and realistic building/tree proportions. Logical640x214-resolution pixel clusters enlarged nearest-neighbor. Clearly visible sharp stepped pixel shapes but no cute simplified toy scenery. No gradients, no blur, no painterly microscopic details. Restricted desaturated palette. Weathered buildings with realistic rectangular masonry walls and dark-gray or muted-rust roofs, understated signs of abandonment.
+SCENE: Overcast pale-gray sky with broad subtle block clouds, desaturated layered distant forest, realistic pine and birch tree silhouettes, a few modest weathered houses in lower half, abandoned and empty. Slightly somber atmosphere, soft even overcast daylight. Top40percent mostly open palegray sky. A flat grass ground baseline at84percent image height, suitable for a2D side-view game. No perspective path receding into the image.
+CONSTRAINTS: no characters, soldiers, troops, vehicles, UI, text, logos, weapons, explosions or smoke. Natural realistic scale, not cute, not toy-like. Output ideally1920x640 at3:1 aspect ratio.
+
+ASSET4: terrain-texture.png
+Mode: built-in image_gen
+
+Use case: stylized-concept
+Asset type: one horizontally seamless tileable foreground ground texture for a somber military side-scrolling pixel-art browser game.
+Primary request: A SIDE-VIEW CUTAWAY STRIP OF GROUND MATERIAL ONLY. Very wide 4:1 horizontal canvas, ideally 1536 by 384 pixels, drawn at logical 512 by 128 pixels and expanded 3x with crisp nearest-neighbor pixel clusters.
+Composition: The entire rectangular image is occupied by ground material from the very top edge to the very bottom edge. At the very top, a narrow irregular dry olive grass turf band with roots occupies approximately 12 percent of image height. The remaining 88 percent is exposed brown-gray natural soil in irregular horizontal strata, with small embedded angular stones, sparse branching roots and gravel. Soil gets progressively darker toward the bottom. A flat orthographic side view, not an aerial view or perspective.
+Palette and mood: realistic somber military pixel art; muted brown, charcoal, taupe and dusty gray soil with sparse muted dry olive grass. Detailed yet readable chunky pixel clusters, purposeful hand-placed pixel texture, no smooth airbrushing. Soil is visually rich and clearly brown-gray, NEVER a flat green surface.
+Production constraints: Seamless horizontally tileable left and right edges. Texture layers join across both edges. Must remain readable compressed into a 1440 by 120 pixel foreground strip. Bomb craters will clip away the top and expose deeper soil, so all depths must contain convincing soil texture. Ground texture fills every pixel; NO sky, NO empty space above the turf, NO aboveground objects, NO characters, NO vehicles, NO weapons, NO UI, NO letters, NO frame or borders, NO watermark. Create exactly one texture, no sheet of alternatives.
+
