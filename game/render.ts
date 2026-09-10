@@ -5,7 +5,7 @@ import {
   drawParticle,
   drawBlast,
 } from './ballistics';
-import { modelOf } from './cards';
+import { modelOf, weaponModel } from './cards';
 import {
   CARDS,
   ground,
@@ -21,7 +21,8 @@ import {
 } from './engine';
 import {
   drawSprite,
-  cardFrame,
+  unitFrame,
+  unitSize,
   soldierEquipment,
   uniformFrame,
   type Art,
@@ -138,11 +139,9 @@ export function render(
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
       isTank = modelOf(u.id) === 'tank',
-      isIFV = modelOf(u.id) === 'ifv',
       isAir = !!c.air,
       isDead = u.hp <= 0;
-    const w = isTank ? 205 : isIFV ? 165 : isAir ? 235 : 96,
-      h = isTank ? 108 : isIFV ? 105 : isAir ? 118 : 72;
+    const [w, h] = unitSize(u.id);
     let row = 0,
       frame = 0;
     if (c.members) {
@@ -187,9 +186,7 @@ export function render(
     } else frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
     let img = c.members
       ? art.soldiers[row][frame]
-      : isIFV
-        ? art.reinforcements[0][frame]
-        : art.vehicles[isTank ? 0 : 1][frame];
+      : unitFrame(art, u.id, frame);
     if (c.members && !isDead && !u.wounded) {
       if (u.motion === 'jump') {
         const frame =
@@ -214,7 +211,7 @@ export function render(
     }
     if (
       c.members &&
-      u.tactic === 'retreat' &&
+      (u.tactic === 'retreat' || u.evadeUntil > s.time) &&
       u.motion === 'ground' &&
       !u.climbing &&
       u.moving
@@ -250,7 +247,7 @@ export function render(
       u.y + u.lane + 3,
       w,
       h,
-      c.members ? u.facing < 0 : u.side === 1,
+      c.members || c.air ? u.facing < 0 : u.side === 1,
       alpha,
       c.armored ? u.hullAngle : 0,
     );
@@ -260,11 +257,11 @@ export function render(
       !isDead &&
       !u.surrendered &&
       !u.wounded &&
-      modelOf(u.id) !== 'infantry' &&
+      weaponModel(u) !== 'infantry' &&
       u.pose !== 'climb' &&
       u.motion === 'ground'
     ) {
-      const weapon = soldierEquipment(art, u.id);
+      const weapon = soldierEquipment(art, u.id, u.member);
       const wy = u.y - muzzleHeight(u);
       drawSprite(
         ctx,
@@ -312,6 +309,12 @@ export function render(
       ctx.fillText('投降', u.x, u.y - 78);
       continue;
     }
+    if (u.evadeUntil > s.time) {
+      ctx.fillStyle = '#e3b975';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(u.moving ? '分散' : '避炮', u.x, u.y - 78);
+    }
     if (u.secondaryFire > 0)
       drawMuzzle(
         ctx,
@@ -321,7 +324,7 @@ export function render(
         'machinegun',
         0.09 - u.secondaryFire,
       );
-    if (u.tactic === 'retreat') {
+    if (u.tactic === 'retreat' && u.evadeUntil <= s.time) {
       ctx.fillStyle = '#e3b975';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
@@ -333,7 +336,7 @@ export function render(
         u.muzzleX,
         u.muzzleY,
         u.shotAngle,
-        ammunition(u.id),
+        ammunition(u.id, u.member),
         0.25 - u.fire,
       );
     if (u.healing > 0 || u.repairTime > 0) {
@@ -436,23 +439,11 @@ export function render(
           : { y: ground(s, x), angle: 0 };
         drawSprite(
           ctx,
-          cardFrame(art, c.atlas),
+          unitFrame(art, c.id),
           x,
-          c.air ? AIR_ALTITUDE + 3 : contact.y + 3,
-          modelOf(c.id) === 'tank'
-            ? 205
-            : modelOf(c.id) === 'ifv'
-              ? 165
-              : c.air
-                ? 235
-                : 96,
-          modelOf(c.id) === 'tank'
-            ? 108
-            : modelOf(c.id) === 'ifv'
-              ? 105
-              : c.air
-                ? 118
-                : 72,
+          c.air ? (c.altitude ?? AIR_ALTITUDE) + 3 : contact.y + 3,
+          unitSize(c.id)[0],
+          unitSize(c.id)[1],
           false,
           valid ? (i ? 0.4 : 0.65) : 0.2,
           contact.angle,

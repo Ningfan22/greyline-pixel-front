@@ -143,7 +143,8 @@ export default function Home() {
                   ))}
               </div>
               <p>
-                从 40 种卡牌中选 20 种，每种一张。用过的牌在牌库抽空后重新洗入。
+                从 {Object.keys(CARDS).length} 种卡牌中选 20
+                种，每种一张。用过的牌在牌库抽空后重新洗入。
               </p>
             </div>
             <aside className="ops-briefing">
@@ -171,7 +172,7 @@ export default function Home() {
         />
       )}
       <footer className="ops-footer">
-        <span>GREYLINE / 战术演习 0.7</span>
+        <span>GREYLINE / 战术演习 0.8</span>
         <span>可破坏地形 · 独立士兵动作 · 手机触控</span>
       </footer>
     </main>

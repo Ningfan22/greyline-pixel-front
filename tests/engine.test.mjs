@@ -1,4 +1,5 @@
 import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
+import { weaponCard, weaponModel } from '../game/cards.ts';
 import assert from 'node:assert/strict';
 import {
   createGame,
@@ -590,8 +591,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('40种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 40);
+check('45种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 45);
   assert(validDeck(DECK));
   assert(!validDeck([...DECK.slice(0, 19), DECK[0]]));
   assert(!validDeck([...DECK.slice(0, 19), 'unknown']));
@@ -1313,6 +1314,335 @@ check('爆炸火光和烟雾独立存在四秒，不受粒子上限或暂停影�
   advance(s, 2);
   assert.equal(s.blasts.length, 0);
 });
+check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减员不改武器', () => {
+  for (const id of ['machinegun', 'heavy_mg']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 1100);
+    const squad = [...s.units];
+    assert.equal(
+      squad.filter((u) => weaponModel(u) === 'machinegun').length,
+      1,
+    );
+    for (const u of squad) {
+      const c = weaponCard(u);
+      assert.equal(c.members, 1);
+      assert.equal(
+        ammunition(u.id, u.member),
+        u.member === 0 ? 'machinegun' : 'rifle',
+      );
+      assert.equal(c.antiAir, u.member === 0);
+      assert.equal(c.range, u.member === 0 ? CARDS[id].range : 380);
+      if (u.member > 0) {
+        assert.equal(c.damage, 4);
+        assert.equal(c.rate, 1);
+      }
+    }
+    spawnUnit(s, 1, 'helicopter', 1200);
+    const target = s.units.at(-1);
+    target.cooldown = 100;
+    target.pace = 0;
+    squad.forEach((u) => {
+      u.cooldown = 0;
+      u.decisionIn = 100;
+    });
+    setOrder(s, 0, 'hold');
+    tick(s, 1 / 60);
+    const shots = s.projectiles.filter((p) => p.side === 0);
+    assert.equal(shots.length, 1);
+    assert.equal(shots[0].sourceUid, squad[0].uid);
+    squad[0].hp = 0;
+    squad[0].deadFor = 0;
+    s.projectiles = [];
+    advance(s, 0.5);
+    assert(!s.projectiles.some((p) => p.side === 0));
+    assert(squad.slice(1).every((u) => weaponModel(u) === 'infantry'));
+  }
+});
+check('炮击使双方班组分散并保持卧倒，驻守和治疗不会反复拉起', () => {
+  for (const side of [0, 1]) {
+    const s = arena();
+    spawnUnit(s, side, 'infantry', side === 0 ? 1000 : 810);
+    const original = s.units.map((u) => u.x);
+    for (const u of s.units) {
+      u.cooldown = 100;
+      u.decisionIn = 100;
+      u.hp = u.maxHp = 10000;
+    }
+    setOrder(s, side, 'hold');
+    s.markers.push({
+      uid: ++s.uid,
+      x: 905,
+      timer: 2.8,
+      side: side === 0 ? 1 : 0,
+      wave: 0,
+      kind: 'artillery',
+      impacts: [835, 905, 975],
+    });
+    advance(s, 0.8);
+    assert(s.units.every((u, i) => Math.abs(u.x - original[i]) > 20));
+    assert(
+      new Set(s.units.map((u) => Math.round(u.evadeGoal ?? u.x))).size >= 5,
+    );
+    assert(s.units.some((u, i) => u.x < original[i]));
+    assert(s.units.some((u, i) => u.x > original[i]));
+    advance(s, 1.65);
+    assert(
+      s.units.every((u) => u.pose === 'prone' && !u.moving && u.fire === 0),
+    );
+    advance(s, 2.6);
+    assert.equal(s.markers.length, 0);
+    assert(s.units.every((u) => u.pose === 'prone'));
+    advance(s, 0.7);
+    assert(s.units.every((u) => u.evadeUntil < s.time));
+  }
+});
+check('避炮不预知随机落点，友军炮击和伤员、装甲、空军不触发逃散', () => {
+  const stages = [];
+  for (const impacts of [
+    [800, 900, 1000],
+    [827, 928, 970],
+  ]) {
+    const s = arena();
+    spawnUnit(s, 0, 'infantry', 1000);
+    s.markers.push({
+      uid: ++s.uid,
+      x: 905,
+      timer: 2.8,
+      side: 1,
+      wave: 0,
+      kind: 'artillery',
+      impacts,
+    });
+    advance(s, 0.8);
+    stages.push(s.units.map((u) => [u.x, u.evadeGoal]));
+  }
+  assert.deepEqual(stages[0], stages[1]);
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 1000);
+  s.markers.push({
+    uid: ++s.uid,
+    x: 905,
+    timer: 2.8,
+    side: 0,
+    wave: 0,
+    kind: 'artillery',
+  });
+  tick(s, 1 / 60);
+  assert(s.units.every((u) => u.evadeUntil === 0));
+  const wounded = s.units[0];
+  wounded.wounded = true;
+  wounded.bleedOut = 25;
+  const x = wounded.x;
+  spawnUnit(s, 0, 'tank', 905);
+  spawnUnit(s, 0, 'scout_drone', 905);
+  s.markers[0].side = 1;
+  tick(s, 1 / 60);
+  assert.equal(wounded.x, x);
+  assert.equal(wounded.evadeUntil, 0);
+  assert(
+    s.units
+      .filter((u) => !CARDS[u.id].members)
+      .every((u) => u.evadeUntil === 0 && u.pose !== 'prone'),
+  );
+});
+check('五种新航空卡可部署、各有固定高度，AI编队涵盖无人机和制空机', () => {
+  for (const id of [
+    'rocket_heli',
+    'scout_drone',
+    'attack_drone',
+    'loiter_drone',
+    'interceptor',
+  ]) {
+    const s = arena();
+    s.players[0].energy = 10;
+    assert(playCard(s, 0, hand(s, id).uid, 320).ok);
+    const u = s.units[0];
+    assert.equal(u.y, CARDS[id].altitude);
+    advance(s, 1);
+    assert.equal(u.y, CARDS[id].altitude);
+    assert.equal(u.motion, 'ground');
+    assert.equal(u.climbing, 0);
+  }
+  const choices = new Set();
+  for (let seed = 0; seed < 50; seed++) {
+    const deck = chooseAiDeck(seed);
+    assert(validDeck(deck));
+    deck.forEach((id) => choices.add(id));
+  }
+  for (const id of [
+    'scout_drone',
+    'attack_drone',
+    'loiter_drone',
+    'interceptor',
+    'rocket_heli',
+  ])
+    assert(choices.has(id));
+});
+check('全军增益覆盖巡航、无人机移动及同轴机枪侦察射程', () => {
+  for (const id of ['interceptor', 'scout_drone']) {
+    const stages = [];
+    for (const morale of [0, 8]) {
+      const s = arena();
+      spawnUnit(s, 0, id, 300);
+      s.players[0].morale = morale;
+      advance(s, 1);
+      stages.push(s.units[0].x - 300);
+    }
+    assert(Math.abs(stages[1] - stages[0] * 1.2) < 0.001);
+  }
+  const s = arena();
+  spawnUnit(s, 0, 'tank', 1100);
+  const tank = s.units[0];
+  tank.cooldown = 100;
+  tank.pace = 0;
+  spawnUnit(s, 1, 'infantry', 1540);
+  s.units = [tank, s.units[1]];
+  s.units[1].cooldown = 100;
+  spawnUnit(s, 0, 'scout_drone', 1250);
+  tank.secondaryCooldown = 0;
+  tick(s, 1 / 60);
+  assert(s.projectiles.some((p) => p.weapon === 'coax'));
+});
+check('侦察无人机不射击，提供局部穿烟与射程，受干扰或被击落后失效', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 1100);
+  const u = s.units[0];
+  s.units = [u];
+  setOrder(s, 0, 'hold');
+  spawnUnit(s, 0, 'scout_drone', 1300);
+  const drone = s.units[1];
+  s.smokes.push({ x: 1250, life: 8, side: 1 });
+  assert.equal(unitRange(s, u), 380 * 1.1);
+  assert.equal(smokeBlocks(s, 0, 1100, 1500), false);
+  assert.equal(smokeBlocks(s, 0, 350, 900), false); // Outside smoke.
+  s.players[0].jam = 5;
+  assert.equal(unitRange(s, u), 380);
+  assert(smokeBlocks(s, 0, 1100, 1500));
+  s.players[0].jam = 0;
+  drone.x = 2200;
+  assert.equal(unitRange(s, u), 380);
+  drone.x = 1300;
+  advance(s, 2);
+  assert.equal(drone.fire, 0);
+  assert.equal(drone.shots, 0);
+  drone.hp = 0;
+  assert.equal(unitRange(s, u), 380);
+  assert(smokeBlocks(s, 0, 1100, 1500));
+});
+check('截击机持续飞行且只对前方空中目标开火，边界可返航', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'interceptor', 800);
+  const jet = s.units[0];
+  jet.cooldown = 0;
+  spawnUnit(s, 1, 'tank', 1000);
+  tick(s, 1 / 60);
+  assert.equal(jet.fire, 0);
+  assert(jet.x > 800);
+  spawnUnit(s, 1, 'helicopter', 1100);
+  const heli = s.units.at(-1);
+  heli.pace = 0;
+  heli.cooldown = 100;
+  const x = jet.x;
+  tick(s, 1 / 60);
+  assert(jet.fire > 0);
+  assert(jet.x > x);
+  assert(jet.moving);
+  assert(
+    s.projectiles.some(
+      (p) => p.sourceUid === jet.uid && p.targetUid === heli.uid,
+    ),
+  );
+  jet.x = W - 126;
+  tick(s, 1 / 60);
+  assert.equal(jet.patrolDir, -1);
+  assert.equal(jet.facing, -1);
+  const turn = jet.x;
+  tick(s, 1 / 60);
+  assert(jet.x < turn);
+  assert.equal(jet.y, CARDS.interceptor.altitude);
+});
+check('察打与反甲直升机发射导弹，巡飞弹只俯冲一次且自身消耗不计阵亡', () => {
+  for (const id of ['rocket_heli', 'attack_drone', 'loiter_drone']) {
+    const s = arena();
+    spawnUnit(s, 0, id, 800);
+    const u = s.units[0];
+    u.cooldown = 0;
+    spawnUnit(s, 1, 'tank', 1100);
+    const tank = s.units[1];
+    tank.pace = 0;
+    tank.cooldown = tank.secondaryCooldown = 100;
+    tick(s, 1 / 60);
+    const p = s.projectiles.find((p) => p.sourceUid === u.uid);
+    assert(p);
+    assert(p.radius > 0);
+    assert.equal(p.ammunition, id === 'loiter_drone' ? 'drone' : 'rocket');
+    assert(p.armorMultiplier > 1);
+    if (id === 'loiter_drone') {
+      assert(!s.units.includes(u));
+      assert.equal(s.players[1].kills, 0);
+      advance(s, 2);
+      assert.equal(s.explosions, 1);
+      assert(tank.hp < tank.maxHp);
+    }
+  }
+});
+check(
+  '撤退穿过真实友军射线会受伤，未经过射线不会随机扣血且误伤不计战果',
+  () => {
+    for (const retreat of [false, true]) {
+      const s = arena();
+      spawnUnit(s, 0, 'infantry', 800);
+      const shooter = s.units[0],
+        u = s.units[1];
+      s.units = [shooter, u];
+      shooter.x = 600;
+      u.x = 700;
+      u.lane = 0;
+      u.tactic = retreat ? 'retreat' : 'advance';
+      u.retreatUntil = 100;
+      s.units.forEach((v) => {
+        v.cooldown = 100;
+        v.decisionIn = 100;
+      });
+      setOrder(s, 0, 'hold');
+      const shot = (damage) =>
+        s.projectiles.push({
+          sourceUid: shooter.uid,
+          x: 620,
+          y: 337,
+          startX: 620,
+          startY: 337,
+          tx: 900,
+          ty: 337,
+          side: 0,
+          targetUid: null,
+          base: null,
+          damage,
+          radius: 0,
+          life: 0.05,
+          total: 0.05,
+          ammunition: 'rifle',
+        });
+      const before = u.hp;
+      s.injurySeed = 0;
+      shot(20);
+      tick(s, 0.05);
+      if (retreat) {
+        assert(u.hp < before);
+        assert(u.wounded);
+        shot(999);
+        s.projectiles.at(-1).y =
+          s.projectiles.at(-1).startY =
+          s.projectiles.at(-1).ty =
+            365;
+        tick(s, 0.05);
+        assert.equal(u.hp, 0);
+        assert.equal(s.players[0].kills, 0);
+        assert.equal(s.players[1].kills, 0);
+      } else assert.equal(u.hp, before);
+    }
+  },
+);
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
   for (const seed of [13, 71, 102]) {
     const s = createGame(seed);

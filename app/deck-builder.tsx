@@ -307,7 +307,9 @@ export default function DeckBuilder({
             </RadioGroup>
           </div>
           <div className="armory-results">
-            <span>{visible.length} / 40 张 · 按费用排列</span>
+            <span>
+              {visible.length} / {pool.length} 张 · 按费用排列
+            </span>
             <RadioGroup
               value={owned}
               onValueChange={(v) => setOwned(String(v))}

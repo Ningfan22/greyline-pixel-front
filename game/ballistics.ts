@@ -7,9 +7,14 @@ export type Ammunition =
   | 'cannon'
   | 'rocket'
   | 'grenade'
-  | 'mortar';
-export function ammunition(id: CardId): Ammunition {
+  | 'mortar'
+  | 'drone';
+export function ammunition(id: CardId, member = 0): Ammunition {
   const model = modelOf(id);
+  if (model === 'machinegun' && member > 0) return 'rifle';
+  if (CARDS[id].oneWay) return 'drone';
+  if (id === 'rocket_heli' || id === 'attack_drone') return 'rocket';
+  if (id === 'interceptor') return 'autocannon';
   if (CARDS[id].indirect) return 'mortar';
   if (id === 'grenadiers') return 'grenade';
   if (model === 'rocket') return 'rocket';
@@ -29,6 +34,7 @@ export const FLIGHT: Record<
   rocket: { speed: 680, minimum: 0.16, arc: 6 },
   grenade: { speed: 650, minimum: 0.25, arc: 70 },
   mortar: { speed: 550, minimum: 0.9, arc: 170 },
+  drone: { speed: 250, minimum: 0.35, arc: 0 },
 };
 export function isTracer(kind: Ammunition, shot: number) {
   return kind === 'machinegun'
@@ -66,7 +72,28 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
     vy = Math.sin(angle);
   const travelled = Math.hypot(p.x - p.startX, p.y - p.startY);
   ctx.save();
-  if (kind === 'rocket') {
+  if (kind === 'drone') {
+    streak(ctx, p.x, p.y, angle, 13, '#384239', 3);
+    streak(
+      ctx,
+      p.x - dx * 5,
+      p.y - vy * 5,
+      angle + Math.PI / 2,
+      10,
+      '#687360',
+      2,
+    );
+    streak(
+      ctx,
+      p.x - dx * 5,
+      p.y - vy * 5,
+      angle - Math.PI / 2,
+      10,
+      '#687360',
+      2,
+    );
+    streak(ctx, p.x, p.y, angle, 7, '#a1a795');
+  } else if (kind === 'rocket') {
     streak(ctx, p.x, p.y, angle, 7, '#3e443b', 2);
     streak(ctx, p.x, p.y - 1, angle, 5, '#b6b7a3');
     streak(ctx, p.x - dx * 7, p.y - vy * 7, angle, 3, '#d7a467', 1, 0.85);
@@ -115,6 +142,7 @@ export function drawMuzzle(
   kind: Ammunition,
   age: number,
 ) {
+  if (kind === 'drone') return;
   const heavy = kind === 'cannon',
     duration = heavy ? 0.07 : 0.035;
   if (age < 0 || age > duration) return;

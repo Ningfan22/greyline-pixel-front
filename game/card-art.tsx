@@ -11,7 +11,7 @@ import {
   Radio,
 } from 'lucide-react';
 import { CARDS, modelOf, type CardId } from './engine';
-import { loadArt, drawSprite, cardFrame, soldierEquipment } from './art';
+import { loadArt, drawSprite, unitFrame, soldierEquipment } from './art';
 export function SpriteArt({
   id,
   className = '',
@@ -35,11 +35,11 @@ export function SpriteArt({
           ? ['marine', 'police', 'recon', 'assault'].indexOf(card.uniform)
           : -1;
         const frame =
-          uniform >= 0 ? art.reactions[1][uniform] : cardFrame(art, card.atlas);
+          uniform >= 0 ? art.reactions[1][uniform] : unitFrame(art, id);
         if (card.members) {
-          for (const x of [90, 146]) {
+          for (const [member, x] of [90, 146].entries()) {
             drawSprite(ctx, frame, x, 145, 140, 105);
-            const item = soldierEquipment(art, id);
+            const item = soldierEquipment(art, id, member);
             if (item)
               drawSprite(
                 ctx,

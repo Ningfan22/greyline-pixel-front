@@ -1,4 +1,5 @@
-import { modelOf, type CardId } from './cards';
+import { CARDS, modelOf, weaponModel, type CardId } from './cards';
+import { buildAircraft } from './aircraft';
 export interface Art {
   reactions: HTMLCanvasElement[][];
   background: HTMLCanvasElement;
@@ -7,6 +8,7 @@ export interface Art {
   vehicles: HTMLCanvasElement[][];
   locomotion: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
+  aircraft: ReturnType<typeof buildAircraft>;
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -294,8 +296,8 @@ export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
   variants.set(uniform, out);
   return out;
 }
-export function soldierEquipment(art: Art, cardId: CardId) {
-  const id = modelOf(cardId);
+export function soldierEquipment(art: Art, cardId: CardId, member = 0) {
+  const id = weaponModel({ id: cardId, member });
   if (id === 'machinegun') return art.vehicles[2][2];
   if (id === 'rocket') return art.vehicles[2][3];
   if (id === 'sniper') return art.reinforcements[1][0];
@@ -359,6 +361,7 @@ export function loadArt() {
         soldiers: frames(soldiers, 4, 8, 64, 48, true),
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
+        aircraft: buildAircraft(vehicleArt[1]),
       };
     },
   );
@@ -394,4 +397,27 @@ export function cardFrame(art: Art, index: number) {
   if (index === 3) return art.vehicles[0][0];
   if (index === 4) return art.vehicles[1][0];
   return art.vehicles[2][0];
+}
+export function unitFrame(art: Art, id: CardId, frame = 0) {
+  const c = CARDS[id];
+  if (c.airframe) return art.aircraft[c.airframe][frame];
+  if (c.air) return art.vehicles[1][frame];
+  if (modelOf(id) === 'tank') return art.vehicles[0][frame];
+  if (modelOf(id) === 'ifv') return art.reinforcements[0][frame];
+  return cardFrame(art, c.atlas);
+}
+export function unitSize(id: CardId): [number, number] {
+  const c = CARDS[id];
+  if (c.airframe === 'scout_drone') return [88, 48];
+  if (c.airframe === 'attack_drone') return [176, 78];
+  if (c.airframe === 'loiter_drone') return [104, 52];
+  if (c.airframe === 'interceptor') return [198, 84];
+  if (c.airframe === 'rocket_heli') return [220, 110];
+  return modelOf(id) === 'tank'
+    ? [205, 108]
+    : modelOf(id) === 'ifv'
+      ? [165, 105]
+      : c.air
+        ? [235, 118]
+        : [96, 72];
 }

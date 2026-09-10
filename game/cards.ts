@@ -34,6 +34,11 @@ export type CardId =
   | 'heavy_mg'
   | 'light_tank'
   | 'heavy_tank'
+  | 'rocket_heli'
+  | 'scout_drone'
+  | 'attack_drone'
+  | 'loiter_drone'
+  | 'interceptor'
   | 'rally'
   | 'ammo'
   | 'emp'
@@ -65,6 +70,16 @@ export interface Card {
   speed?: number;
   rate?: number;
   air?: boolean;
+  airframe?:
+    | 'rocket_heli'
+    | 'scout_drone'
+    | 'attack_drone'
+    | 'loiter_drone'
+    | 'interceptor';
+  altitude?: number;
+  patrol?: boolean;
+  observer?: boolean;
+  oneWay?: boolean;
   antiAir?: boolean;
   radius?: number;
   members?: number;
@@ -115,15 +130,15 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     cost: 3,
     type: 'unit',
     tag: '压制 · 对空',
-    description: '持续压制，可对空',
+    description: '1 名机枪手，4 名步枪护卫',
     detail:
-      '5 名独立机枪手 · 全班 225 生命，每 0.35 秒共 12 伤害。压制步兵，也能攻击直升机。',
+      '1 名机枪手与 4 名步枪护卫 · 全班 225 生命。机枪每 0.22 秒 5 伤害、射程 500，可对空；护卫各 4 伤害 / 秒、射程 380，仅对地。',
     atlas: 1,
     hp: 225,
-    damage: 12,
+    damage: 5,
     range: 500,
     speed: 54,
-    rate: 0.35,
+    rate: 0.22,
     antiAir: true,
     members: 5,
   },
@@ -605,7 +620,7 @@ export const CARDS: Record<CardId, Card> = {
     'manpads',
     '便携防空组',
     4,
-    '3 人防空组，专门拦截直升机，不攻击地面目标。',
+    '3 人防空组，专门拦截直升机、战机与无人机，不攻击地面目标。',
     {
       members: 3,
       hp: 165,
@@ -625,12 +640,12 @@ export const CARDS: Record<CardId, Card> = {
     'heavy_mg',
     '重机枪组',
     4,
-    '3 人重机枪组，远距持续压制，火力强但移动缓慢，可对空。',
+    '1 名重机枪手与 2 名步枪护卫。重机枪每 0.2 秒 7 伤害、射程 620，可对空；护卫各 4 伤害 / 秒、射程 380，仅对地。',
     {
       members: 3,
       hp: 225,
-      damage: 15,
-      rate: 0.3,
+      damage: 7,
+      rate: 0.2,
       range: 620,
       speed: 34,
       doctrine: 'defensive',
@@ -666,6 +681,117 @@ export const CARDS: Record<CardId, Card> = {
       range: 560,
       speed: 28,
       tag: '重装甲 · 突破',
+    },
+  ),
+  rocket_heli: variant(
+    'helicopter',
+    'rocket_heli',
+    '反装甲直升机',
+    7,
+    '远距导弹猎杀装甲，机体较脆弱。',
+    {
+      en: 'ANTI-ARMOR HELICOPTER',
+      hp: 220,
+      damage: 60,
+      rate: 2.8,
+      range: 650,
+      speed: 76,
+      radius: 26,
+      armorMultiplier: 1.4,
+      airframe: 'rocket_heli',
+      altitude: 224,
+      tag: '航空 · 反装甲',
+      detail:
+        '220 生命 · 射程 650，每 2.8 秒发射 60 伤害导弹，半径 26，对装甲伤害 ×1.4。无法对空，容易被防空组拦截。',
+    },
+  ),
+  scout_drone: variant(
+    'helicopter',
+    'scout_drone',
+    '侦察四旋翼',
+    2,
+    '跟随前线，为附近友军提供视野。',
+    {
+      en: 'RECON QUADCOPTER',
+      hp: 55,
+      damage: 0,
+      rate: 1,
+      range: 0,
+      speed: 86,
+      observer: true,
+      airframe: 'scout_drone',
+      altitude: 190,
+      tag: '无人机 · 侦察',
+      detail:
+        '55 生命，无武器。跟随己方前线，650 距离内友军射程 +10%、能穿烟瞄准。通讯干扰期间侦察失效，可被对空火力击落。',
+    },
+  ),
+  attack_drone: variant(
+    'helicopter',
+    'attack_drone',
+    '察打一体无人机',
+    4,
+    '长航时空中支援，发射小型反甲导弹。',
+    {
+      en: 'ARMED UAV',
+      hp: 90,
+      damage: 32,
+      rate: 3.6,
+      range: 620,
+      speed: 80,
+      radius: 20,
+      armorMultiplier: 1.35,
+      airframe: 'attack_drone',
+      altitude: 172,
+      tag: '无人机 · 精确火力',
+      detail:
+        '90 生命 · 射程 620，每 3.6 秒 32 伤害，半径 20，对装甲 ×1.35。无法对空，靠射程和友军防空保护自身。',
+    },
+  ),
+  loiter_drone: variant(
+    'helicopter',
+    'loiter_drone',
+    '巡飞弹无人机',
+    3,
+    '锁定目标后俯冲，自毁造成局部爆炸。',
+    {
+      en: 'LOITERING MUNITION',
+      hp: 40,
+      damage: 85,
+      rate: 1,
+      range: 420,
+      speed: 116,
+      radius: 24,
+      armorMultiplier: 1.25,
+      oneWay: true,
+      airframe: 'loiter_drone',
+      altitude: 198,
+      tag: '无人机 · 一次性突击',
+      detail:
+        '40 生命 · 420 距离内优先锁定装甲，俯冲后自身消耗，命中造成 85 伤害、半径 24，对装甲 ×1.25。出击前可被对空火力击落。',
+    },
+  ),
+  interceptor: variant(
+    'helicopter',
+    'interceptor',
+    '低空截击机',
+    5,
+    '持续巡航，专门争夺制空权。',
+    {
+      en: 'AIR INTERCEPTOR',
+      hp: 150,
+      damage: 36,
+      rate: 1.4,
+      range: 700,
+      speed: 230,
+      antiAir: true,
+      airOnly: true,
+      patrol: true,
+      airframe: 'interceptor',
+      altitude: 140,
+      tag: '航空 · 专职制空',
+      detail:
+        '150 生命 · 射程 700，每 1.4 秒 36 伤害。持续往返巡航，只攻击前方空中目标，不停在原地悬浮，也不攻击地面或基地。',
     },
   ),
   rally: variant(
@@ -728,6 +854,26 @@ export const CARDS: Record<CardId, Card> = {
 export function modelOf(id: CardId): BaseCardId {
   return CARDS[id].model ?? (id as BaseCardId);
 }
+export function weaponCard(u: { id: CardId; member: number }): Card {
+  const c = CARDS[u.id];
+  if (modelOf(u.id) !== 'machinegun') return c;
+  return u.member === 0
+    ? { ...c, members: 1 }
+    : {
+        ...c,
+        members: 1,
+        model: 'infantry',
+        damage: 4,
+        rate: 1,
+        range: 380,
+        antiAir: false,
+      };
+}
+export function weaponModel(u: { id: CardId; member: number }): BaseCardId {
+  return modelOf(u.id) === 'machinegun' && u.member > 0
+    ? 'infantry'
+    : modelOf(u.id);
+}
 export function doctrineOf(id: CardId): Doctrine {
   return (
     CARDS[id].doctrine ??
@@ -746,9 +892,9 @@ export const DECK: CardId[] = [
   'infantry',
   'marines',
   'armed_police',
-  'rangers',
+  'scout_drone',
   'assault',
-  'engineers',
+  'attack_drone',
   'machinegun',
   'rocket',
   'sniper',
@@ -820,15 +966,15 @@ const AI_DECKS: CardId[][] = [
   [
     'marines',
     'assault',
-    'rangers',
-    'paratroopers',
-    'militia',
+    'scout_drone',
+    'interceptor',
+    'loiter_drone',
     'grenadiers',
     'rocket',
-    'scouts',
+    'manpads',
     'medic',
-    'mortar',
-    'light_tank',
+    'attack_drone',
+    'rocket_heli',
     'ifv',
     'helicopter',
     'morale',

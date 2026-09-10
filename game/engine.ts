@@ -5,6 +5,7 @@ import {
   validDeck,
   chooseAiDeck,
   modelOf,
+  weaponCard,
   doctrineOf,
   type CardId,
   type Doctrine,
@@ -121,8 +122,14 @@ export interface Unit {
   supportCooldown: number;
   healing: number;
   repairTime: number;
+  patrolDir: number;
+  evadeGoal: number | null;
+  evadeUntil: number;
+  evadeMarker: number | null;
+  friendlyWarnAt: number;
 }
 export interface Projectile {
+  sourceUid?: number;
   x: number;
   y: number;
   tx: number;
@@ -155,6 +162,7 @@ export interface Particle {
   size: number;
 }
 export interface Marker {
+  uid?: number;
   x: number;
   timer: number;
   side: Side;
@@ -355,7 +363,7 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       side,
       x: px,
       y: c.air
-        ? AIR_ALTITUDE
+        ? (c.altitude ?? AIR_ALTITUDE)
         : c.armored
           ? vehicleContact(s, px, id).y
           : ground(s, px),
@@ -418,6 +426,11 @@ export function spawnUnit(s: GameState, side: Side, id: CardId, x: number) {
       supportCooldown: 0,
       healing: 0,
       repairTime: 0,
+      patrolDir: side === 0 ? 1 : -1,
+      evadeGoal: null,
+      evadeUntil: 0,
+      evadeMarker: null,
+      friendlyWarnAt: -10,
     });
   }
 }
@@ -513,7 +526,15 @@ function callArtillery(
       ),
     ),
   );
-  s.markers.push({ x, timer: c.delay, side, wave: 0, kind, impacts });
+  s.markers.push({
+    uid: ++s.uid,
+    x,
+    timer: c.delay,
+    side,
+    wave: 0,
+    kind,
+    impacts,
+  });
 }
 export function playCard(
   s: GameState,
@@ -712,6 +733,7 @@ function muzzleParticles(
   sy: number,
   secondary = false,
 ) {
+  if (kind === 'drone') return;
   const heavy = kind === 'cannon';
   s.particles.push({
     kind: 'smoke',
@@ -856,7 +878,7 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
   u.moving = false;
   u.fire = 0;
   u.secondaryFire = 0;
-  s.players[side].kills++;
+  if (side !== u.side) s.players[side].kills++;
   for (const friend of s.units)
     if (friend !== u && friend.squad === u.squad && isCombatant(friend)) {
       friend.personalMorale = Math.max(0, friend.personalMorale - 9);
@@ -967,7 +989,62 @@ export function terrainIntercept(
   }
   return null;
 }
+function retreatingFriendlyHit(
+  s: GameState,
+  p: Projectile,
+  sx: number,
+  sy: number,
+  tx: number,
+  ty: number,
+) {
+  if (p.radius || p.sourceUid === undefined) return null;
+  let nearest: { u: Unit; t: number; x: number; y: number } | null = null;
+  for (const u of s.units) {
+    if (
+      u.uid === p.sourceUid ||
+      u.side !== p.side ||
+      u.tactic !== 'retreat' ||
+      !canTakeDamage(u) ||
+      !CARDS[u.id].members
+    )
+      continue;
+    const height =
+      u.wounded || u.pose === 'prone' ? 14 : u.pose === 'crouch' ? 32 : 56;
+    let near = 0,
+      far = 1;
+    for (const [start, delta, min, max] of [
+      [sx, tx - sx, u.x - 5, u.x + 5],
+      [sy, ty - sy, u.y - height, u.y - 3],
+    ]) {
+      if (Math.abs(delta) < 1e-8) {
+        if (start < min || start > max) {
+          near = 2;
+          break;
+        }
+      } else {
+        const a = (min - start) / delta,
+          b = (max - start) / delta;
+        near = Math.max(near, Math.min(a, b));
+        far = Math.min(far, Math.max(a, b));
+      }
+    }
+    if (near <= far && near >= 0 && near <= 1 && (!nearest || near < nearest.t))
+      nearest = {
+        u,
+        t: near,
+        x: sx + (tx - sx) * near,
+        y: sy + (ty - sy) * near,
+      };
+  }
+  return nearest;
+}
 export function muzzleOffset(u: Unit) {
+  if (CARDS[u.id].airframe)
+    return CARDS[u.id].airframe === 'rocket_heli'
+      ? 72
+      : CARDS[u.id].airframe === 'interceptor'
+        ? 75
+        : 20;
   return modelOf(u.id) === 'tank'
     ? 88
     : modelOf(u.id) === 'ifv'
@@ -1014,10 +1091,30 @@ function bodyHeight(u: Unit) {
       : 27;
 }
 export function unitRange(s: GameState, u: Unit) {
-  return CARDS[u.id].range! * (s.players[u.side].recon > 0 ? 1.2 : 1);
+  return (
+    weaponCard(u).range! *
+    (s.players[u.side].recon > 0 ? 1.2 : droneRecon(s, u.side, u.x) ? 1.1 : 1)
+  );
+}
+export function droneRecon(s: GameState, side: Side, x: number) {
+  return (
+    s.players[side].jam <= 0 &&
+    s.units.some(
+      (u) =>
+        u.side === side &&
+        CARDS[u.id].observer &&
+        isCombatant(u) &&
+        Math.abs(u.x - x) <= 650,
+    )
+  );
 }
 export function smokeBlocks(s: GameState, side: Side, sx: number, tx: number) {
-  if (s.players[side].recon > 0 || Math.abs(tx - sx) <= 110) return false;
+  if (
+    s.players[side].recon > 0 ||
+    droneRecon(s, side, sx) ||
+    Math.abs(tx - sx) <= 110
+  )
+    return false;
   const left = Math.min(sx, tx),
     right = Math.max(sx, tx);
   return s.smokes.some(
@@ -1302,6 +1399,92 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
       ? 'prone'
       : list[(u.member + rotation * 3) % list.length];
 }
+function evadeArtillery(s: GameState, u: Unit, dt: number) {
+  const threats = s.markers
+    .filter((m) => {
+      const c = ARTILLERY[m.kind ?? 'artillery'];
+      return (
+        m.side !== u.side &&
+        Math.abs(u.x - m.x) <
+          ((c.count - 1) * c.spacing) / 2 + c.radius + c.scatter + 45
+      );
+    })
+    .sort((a, b) => a.timer - b.timer);
+  for (const m of threats) {
+    const c = ARTILLERY[m.kind ?? 'artillery'];
+    u.evadeUntil = Math.max(
+      u.evadeUntil,
+      s.time + m.timer + (c.count - m.wave - 1) * c.interval + 0.7,
+    );
+  }
+  const alarm = threats[0],
+    key = alarm ? (alarm.uid ?? -1) : null;
+  if (alarm && key !== u.evadeMarker) {
+    const preferred =
+      Math.abs(u.x - alarm.x) > 18
+        ? Math.sign(u.x - alarm.x)
+        : (u.member + u.side) % 2
+          ? 1
+          : -1;
+    const candidates = [0, 40, 64, 88, 112, 136, -40, -64, -88, -112, -136]
+      .map((d) => {
+        const x = Math.max(130, Math.min(W - 130, u.x + d));
+        let score = Math.abs(d) * 0.07 + (Math.sign(d) === preferred ? -3 : 0);
+        for (const m of threats) {
+          const c = ARTILLERY[m.kind ?? 'artillery'];
+          for (let wave = m.wave; wave < c.count; wave++) {
+            const center = m.x + (wave - (c.count - 1) / 2) * c.spacing;
+            score +=
+              Math.max(0, c.radius + c.scatter + 24 - Math.abs(x - center)) * 2;
+          }
+        }
+        for (const v of s.units)
+          if (
+            v !== u &&
+            v.side === u.side &&
+            isCombatant(v) &&
+            CARDS[v.id].members
+          )
+            score += Math.max(0, 32 - Math.abs(x - (v.evadeGoal ?? v.x))) * 4;
+        score += Math.max(0, Math.abs(ground(s, x) - u.y) - 18) * 3;
+        return { x, score };
+      })
+      .sort((a, b) => a.score - b.score);
+    u.evadeMarker = key;
+    u.evadeGoal = candidates[0].x;
+    u.coverGoal = null;
+    u.cover = 0;
+  }
+  if (u.evadeUntil <= s.time) {
+    if (u.evadeGoal !== null) {
+      u.evadeGoal = null;
+      u.decisionIn = 0;
+    }
+    return false;
+  }
+  u.fire = 0;
+  u.secondaryFire = 0;
+  if (alarm && alarm.timer <= 0.4) u.evadeGoal = null;
+  if (u.evadeGoal !== null && Math.abs(u.evadeGoal - u.x) > 4) {
+    u.pose = 'run';
+    moveSoldier(
+      s,
+      u,
+      Math.sign(u.evadeGoal - u.x),
+      CARDS[u.id].speed! *
+        u.pace *
+        1.75 *
+        (s.players[u.side].morale > 0 ? 1.2 : 1),
+      dt,
+    );
+    if (u.moving || u.climbing || u.motion !== 'ground') return true;
+    u.evadeGoal = null;
+  }
+  u.evadeGoal = null;
+  u.pose = 'prone';
+  u.moving = false;
+  return true;
+}
 function fireCoax(s: GameState, u: Unit) {
   if (u.secondaryCooldown > 0) return;
   const target = s.units
@@ -1310,7 +1493,13 @@ function fireCoax(s: GameState, u: Unit) {
         v.side !== u.side &&
         isCombatant(v) &&
         CARDS[v.id].members &&
-        Math.abs(v.x - u.x) <= 420 * (s.players[u.side].recon > 0 ? 1.2 : 1),
+        Math.abs(v.x - u.x) <=
+          420 *
+            (s.players[u.side].recon > 0
+              ? 1.2
+              : droneRecon(s, u.side, u.x)
+                ? 1.1
+                : 1),
     )
     .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))
     .find((v) => {
@@ -1339,6 +1528,7 @@ function fireCoax(s: GameState, u: Unit) {
   u.secondaryCooldown = 0.18;
   u.secondaryFire = 0.09;
   s.projectiles.push({
+    sourceUid: u.uid,
     x: sx,
     y: sy,
     tx: target.x,
@@ -1393,6 +1583,8 @@ function updateAI(s: GameState) {
           (own.length < 2 ? 3 : 0) +
           (air && c.antiAir ? 4 : 0) +
           (modelOf(c.id) === 'tank' && p.energy >= 7 ? 2 : 0);
+      if (c.airOnly && !air) score -= 12;
+      if (c.observer) score += own.length > 2 ? 2 : -2;
       if (modelOf(c.id) === 'artillery')
         score += groundFoes.length > 1 ? 7 : groundFoes.length ? 2 : -10;
       if (modelOf(c.id) === 'morale') score += own.length > 2 ? 6 : -8;
@@ -1527,7 +1719,7 @@ export function tick(s: GameState, dt: number) {
       u.y = ground(s, u.x);
       continue;
     }
-    const c = CARDS[u.id],
+    const c = weaponCard(u),
       dir = u.side === 0 ? 1 : -1,
       enemySide: Side = u.side === 0 ? 1 : 0,
       baseX = enemySide === 0 ? 70 : W - 70;
@@ -1588,14 +1780,52 @@ export function tick(s: GameState, dt: number) {
     )
       beginDrop(u, dir, 0, true);
     if (c.members && traverse(s, u, dt)) continue;
+    if (c.members && !c.air && evadeArtillery(s, u, dt)) continue;
     if (c.members && u.tactic === 'retreat') {
       u.cover = 0;
       u.coverGoal = null;
       u.fire = 0;
       u.pose = 'run';
       u.facing = -dir;
-      moveSoldier(s, u, -dir, c.speed! * u.pace * 1.2, dt);
+      moveSoldier(s, u, -dir, c.speed! * u.pace * 1.2 * (morale ? 1.2 : 1), dt);
       if (!u.moving && u.motion === 'ground') u.pose = 'idle';
+      continue;
+    }
+
+    if (c.air && c.patrol) {
+      u.x = Math.max(
+        125,
+        Math.min(
+          W - 125,
+          u.x + u.patrolDir * c.speed! * (morale ? 1.2 : 1) * dt,
+        ),
+      );
+      if (u.x <= 125 || u.x >= W - 125) u.patrolDir *= -1;
+      u.facing = u.patrolDir;
+      u.moving = true;
+    }
+    if (c.observer) {
+      const front = s.units.filter(
+        (v) =>
+          v !== u && v.side === u.side && isCombatant(v) && !CARDS[v.id].air,
+      );
+      const frontX = front.length
+        ? dir === 1
+          ? Math.max(...front.map((v) => v.x))
+          : Math.min(...front.map((v) => v.x))
+        : dir === 1
+          ? 650
+          : W - 650;
+      const goal = Math.max(250, Math.min(W - 250, frontX + dir * 180));
+      const change = Math.max(
+        -c.speed! * (morale ? 1.2 : 1) * dt,
+        Math.min(c.speed! * (morale ? 1.2 : 1) * dt, goal - u.x),
+      );
+      u.x += change;
+      u.moving = Math.abs(change) > 0.1;
+      u.facing = Math.sign(change) || dir;
+      u.y = c.altitude ?? AIR_ALTITUDE;
+      u.fire = 0;
       continue;
     }
 
@@ -1644,6 +1874,7 @@ export function tick(s: GameState, dt: number) {
           isCombatant(v) &&
           (!CARDS[v.id].air || c.antiAir) &&
           (!c.airOnly || CARDS[v.id].air) &&
+          (!c.patrol || (v.x - u.x) * u.patrolDir >= 0) &&
           Math.abs(v.x - u.x) <= range &&
           Math.abs(v.x - u.x) >= (c.minRange ?? 0),
       )
@@ -1728,7 +1959,7 @@ export function tick(s: GameState, dt: number) {
         if (c.indirect || !terrainIntercept(s, sx, sy, tx, ty)) {
           u.cooldown = c.rate!;
           u.fire = 0.25;
-          const kind = ammunition(u.id),
+          const kind = ammunition(u.id, u.member),
             flight = FLIGHT[kind];
           const total = Math.max(
             flight.minimum,
@@ -1741,6 +1972,7 @@ export function tick(s: GameState, dt: number) {
           u.shotAngle = Math.atan2(ty - sy, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
           s.projectiles.push({
+            sourceUid: u.uid,
             x: sx,
             y: sy,
             tx,
@@ -1768,6 +2000,11 @@ export function tick(s: GameState, dt: number) {
             startX: sx,
             startY: sy,
           });
+          if (c.oneWay) {
+            u.hp = 0;
+            u.deadFor = 0;
+            u.fire = 0;
+          }
         } else if (c.members && u.pose === 'prone') u.pose = 'crouch';
       }
     } else if (
@@ -1818,7 +2055,7 @@ export function tick(s: GameState, dt: number) {
           seeking ? Math.min(speed, Math.abs(u.coverGoal! - u.x) / dt) : speed,
           dt,
         );
-      else {
+      else if (!c.patrol) {
         u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
         u.moving = true;
       }
@@ -1837,7 +2074,7 @@ export function tick(s: GameState, dt: number) {
       u.y += (contact.y - u.y) * blend;
       u.hullAngle += (contact.angle - u.hullAngle) * blend;
     } else if (!c.members || u.motion === 'ground')
-      u.y = c.air ? AIR_ALTITUDE : ground(s, u.x);
+      u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
   }
   for (const p of s.projectiles) {
     const oldX = p.x,
@@ -1868,6 +2105,24 @@ export function tick(s: GameState, dt: number) {
       }
     }
     const impact = terrainIntercept(s, oldX, oldY, p.x, p.y);
+    const friendly = retreatingFriendlyHit(s, p, oldX, oldY, p.x, p.y);
+    if (
+      friendly &&
+      (!impact ||
+        Math.hypot(friendly.x - oldX, friendly.y - oldY) <
+          Math.hypot(impact.x - oldX, impact.y - oldY))
+    ) {
+      p.life = 0;
+      p.x = friendly.x;
+      p.y = friendly.y;
+      if (s.time - friendly.u.friendlyWarnAt > 3) {
+        notify(s, '撤退队员进入友军射线，发生误伤', 'warn');
+        friendly.u.friendlyWarnAt = s.time;
+      }
+      hitUnit(s, friendly.u, p.damage, p.side);
+      bulletImpact(s, p.x, p.y, 'cloth', Math.sign(p.tx - p.startX));
+      continue;
+    }
     if (impact) {
       p.life = 0;
       if (p.radius)
