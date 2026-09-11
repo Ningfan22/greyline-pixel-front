@@ -86,6 +86,8 @@ export interface Card {
     | 'loiter_drone'
     | 'interceptor';
   sortie?: boolean;
+  attackRun?: 'strafe' | 'bomb';
+  sortieAmmo?: number;
   returnCost?: number;
   sortieCooldown?: number;
   sight?: number;
@@ -566,16 +568,18 @@ export const CARDS: Record<CardId, Card> = {
     'strike_jet',
     '对地攻击机',
     6,
-    '快速通场扫射，返航后低费再次派遣。',
+    '快速通场连续扫射，每架次最多 24 发，返航后低费再次派遣。',
     {
       hp: 170,
-      damage: 18,
-      rate: 0.25,
+      damage: 10,
+      rate: 0.08,
       range: 630,
       speed: 560,
       altitude: 158,
       airframe: 'interceptor',
       sortie: true,
+      attackRun: 'strafe',
+      sortieAmmo: 24,
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
@@ -584,7 +588,7 @@ export const CARDS: Record<CardId, Card> = {
       baseMultiplier: 0.15,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，快速单次穿过战场并对地扫射。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 10 伤枪弹，对步兵 ×1.3，每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(
@@ -592,17 +596,19 @@ export const CARDS: Record<CardId, Card> = {
     'bomber',
     '战术轰炸机',
     7,
-    '通场投弹，大范围爆破，返航后补充弹药。',
+    '沿航线连续投下 6 枚高爆弹，返航后补充弹药。',
     {
       hp: 230,
-      damage: 62,
-      rate: 1.8,
+      damage: 78,
+      rate: 0.16,
       range: 390,
       speed: 430,
       radius: 46,
       altitude: 136,
       airframe: 'attack_drone',
       sortie: true,
+      attackRun: 'bomb',
+      sortieAmmo: 6,
       returnCost: 2,
       sortieCooldown: 24,
       sight: 760,
@@ -610,7 +616,7 @@ export const CARDS: Record<CardId, Card> = {
       baseMultiplier: 0.15,
       tag: '航空 · 通场轰炸',
       detail:
-        '230 生命，快速飞越并投下高爆弹。成功离场回手，满手则弃牌；冷却 24 秒，后续该张卡花费 2。被击落会失去返航优惠。',
+        '230 生命，发现前方目标后沿航线连续投下 6 枚高爆弹；每枚 78 伤害、半径 46，约每 0.16 秒释放一枚。成功离场回手，满手则弃牌；冷却 24 秒，后续该张卡花费 2。被击落会失去返航优惠。',
     },
   ),
   marines: variant(

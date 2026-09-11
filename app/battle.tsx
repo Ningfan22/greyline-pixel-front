@@ -61,6 +61,13 @@ import { CardFace } from '@/game/card-art';
 import { CARD_COPY } from '@/game/card-copy';
 import { render } from '@/game/render';
 import { loadArt, type Art } from '@/game/art';
+import {
+  DEFAULT_AUDIO,
+  getBattleAudio,
+  type BattleAudio,
+  type AudioSettings,
+} from '@/game/audio';
+import { assetUrl } from '@/game/asset-url';
 
 const timeString = (t: number) =>
   `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -124,8 +131,8 @@ export default function Battle({
   } | null>(null);
   const portraitGate = useRef(false);
   const panelPause = useRef(false);
-  const [sound, setSound] = useState(false);
-  const soundRef = useRef(false);
+  const [audioSettings, setAudioSettings] = useState({ ...DEFAULT_AUDIO });
+  const sound = audioSettings.enabled;
   const [assetsReady, setAssetsReady] = useState(false);
   const [assetError, setAssetError] = useState(false);
   const [message, setMessage] = useState('');
@@ -152,7 +159,26 @@ export default function Battle({
     art = useRef<Art | null>(null),
     hover = useRef<number | null>(null),
     pointerScreen = useRef<number | null>(null),
-    audio = useRef<AudioContext | null>(null);
+    audio = useRef<BattleAudio | null>(null);
+  useEffect(() => {
+    const mixer = getBattleAudio();
+    audio.current = mixer;
+    let mounted = true;
+    queueMicrotask(() => {
+      if (mounted) setAudioSettings({ ...mixer.settings });
+    });
+    const unlock = () => {
+      void mixer.unlock();
+    };
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    return () => {
+      mounted = false;
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      mixer.setActive(false);
+    };
+  }, []);
   const refresh = useCallback(() => setView(snapshot(game.current!)), []);
   const toast = useCallback((text: string) => {
     setMessage(text);
@@ -311,7 +337,6 @@ export default function Battle({
     let raf = 0,
       last = performance.now(),
       lastView = 0,
-      lastExplosion = 0,
       accumulator = 0;
     const reduced = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
@@ -352,28 +377,12 @@ export default function Battle({
           camera.current,
           viewport.current,
         );
-      if (
-        s.audibleExplosions[0] > lastExplosion &&
-        soundRef.current &&
-        audio.current
-      ) {
-        const ac = audio.current;
-        const oscillator = ac.createOscillator(),
-          gain = ac.createGain();
-        oscillator.type = 'triangle';
-        oscillator.frequency.setValueAtTime(95, ac.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(
-          28,
-          ac.currentTime + 0.18,
-        );
-        gain.gain.setValueAtTime(0.14, ac.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.22);
-        oscillator.connect(gain);
-        gain.connect(ac.destination);
-        oscillator.start();
-        oscillator.stop(ac.currentTime + 0.24);
-      }
-      lastExplosion = s.audibleExplosions[0];
+      audio.current?.update(
+        s,
+        camera.current,
+        viewport.current,
+        !document.hidden && !portraitGate.current && s.status === 'playing',
+      );
       if (now - lastView > 90) {
         setView(snapshot(s));
         setCameraView(camera.current);
@@ -399,6 +408,7 @@ export default function Battle({
     const visibility = () => {
       last = performance.now();
       keys.current.clear();
+      if (document.hidden) audio.current?.setActive(false);
       if (document.hidden && game.current!.status === 'playing') {
         game.current!.status = 'paused';
         refresh();
@@ -408,6 +418,7 @@ export default function Battle({
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);
+      audio.current?.setActive(false);
       document.removeEventListener('visibilitychange', visibility);
       el.removeEventListener('wheel', wheel);
       if (messageTimer.current) clearTimeout(messageTimer.current);
@@ -620,15 +631,13 @@ export default function Battle({
       bottom: Math.max(rect.bottom, ...boxes.map((b) => b.bottom)),
     };
   };
-  const toggleSound = () => {
-    const next = !sound;
-    soundRef.current = next;
-    setSound(next);
-    if (next) {
-      audio.current ??= new AudioContext();
-      void audio.current.resume();
-    }
+  const changeAudio = (patch: Partial<AudioSettings>) => {
+    const mixer = audio.current ?? getBattleAudio();
+    mixer.configure(patch);
+    setAudioSettings({ ...mixer.settings });
+    if (mixer.settings.enabled) void mixer.unlock();
   };
+  const toggleSound = () => changeAudio({ enabled: !sound });
   return (
     <main
       className={`game-shell ${touchMode ? 'touch-battle' : ''} ${view.status !== 'playing' || panel ? 'is-interrupted' : ''}`}
@@ -720,8 +729,8 @@ export default function Battle({
           </button>
           <button
             className="icon-button"
-            aria-label={sound ? '关闭音效' : '开启音效'}
-            title={sound ? '关闭音效' : '开启音效'}
+            aria-label={sound ? '关闭声音' : '开启声音'}
+            title={sound ? '关闭声音' : '开启声音'}
             onClick={toggleSound}
           >
             {sound ? <Volume2 size={18} /> : <VolumeX size={18} />}
@@ -977,10 +986,51 @@ export default function Battle({
                 <RotateCcw size={14} />
                 重新整备
               </button>
+              <div className="audio-settings">
+                <div className="audio-settings-heading">
+                  <span>战场声音</span>
+                  <button onClick={toggleSound} aria-pressed={sound}>
+                    {sound ? <Volume2 size={15} /> : <VolumeX size={15} />}
+                    {sound ? '已开启' : '已静音'}
+                  </button>
+                </div>
+                <label>
+                  <span>音效</span>
+                  <input
+                    aria-label="音效音量"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round(audioSettings.effects * 100)}
+                    onChange={(e) =>
+                      changeAudio({ effects: Number(e.target.value) / 100 })
+                    }
+                  />
+                  <output>{Math.round(audioSettings.effects * 100)}%</output>
+                </label>
+                <label>
+                  <span>音乐</span>
+                  <input
+                    aria-label="音乐音量"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={Math.round(audioSettings.music * 100)}
+                    onChange={(e) =>
+                      changeAudio({ music: Number(e.target.value) / 100 })
+                    }
+                  />
+                  <output>{Math.round(audioSettings.music * 100)}%</output>
+                </label>
+                <a
+                  href={assetUrl('/audio/credits.html')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  音乐与音效来源
+                </a>
+              </div>
               <div className="mobile-pause-options">
-                <button onClick={toggleSound}>
-                  {sound ? '关闭音效' : '开启音效'}
-                </button>
                 <button onClick={() => openPanel('deck')}>检阅牌库</button>
                 <button onClick={onExit}>返回整备</button>
               </div>

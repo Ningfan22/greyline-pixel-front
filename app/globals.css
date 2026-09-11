@@ -5414,3 +5414,68 @@ body:has(.game-shell.touch-battle) {
   color: #f0aa8d;
   border-color: #b85b48;
 }
+
+/* Sound controls stay inside pause so the battlefield remains unobstructed. */
+.audio-settings {
+  margin: 18px auto 12px;
+  padding-top: 14px;
+  border-top: 1px solid #d5c6a72b;
+  max-width: 300px;
+  text-align: left;
+}
+.audio-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #d1c7b0;
+}
+.audio-settings-heading button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #d5c6a7;
+  padding: 4px 7px;
+  border: 1px solid #d5c6a738;
+}
+.audio-settings label {
+  display: grid;
+  grid-template-columns: 32px 1fr 34px;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+  margin: 8px 0;
+}
+.audio-settings input {
+  width: 100%;
+  accent-color: #d3b678;
+  cursor: pointer;
+}
+.audio-settings output {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.audio-settings > a {
+  display: block;
+  font-size: 10px;
+  text-align: right;
+  color: #a39e8c;
+  text-decoration: underline;
+  margin-top: 10px;
+}
+.game-shell.touch-battle .audio-settings {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.game-shell.touch-battle .audio-settings label {
+  margin: 4px 0;
+}
+.game-shell.touch-battle .audio-settings-heading {
+  margin-bottom: 4px;
+}
+
+.pause-card {
+  max-height: calc(100% - 16px);
+  overflow-y: auto;
+}

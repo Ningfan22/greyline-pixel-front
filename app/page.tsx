@@ -10,6 +10,7 @@ import {
 } from '@/game/engine';
 import { CardFace } from '@/game/card-art';
 import Battle from './battle';
+import { getBattleAudio } from '@/game/audio';
 import DeckBuilder from './deck-builder';
 const STORAGE = 'greyline-deck-v6';
 export default function Home() {
@@ -51,6 +52,7 @@ export default function Home() {
   };
   const begin = (chosen: CardId[]) => {
     if (!validDeck(chosen)) return;
+    void getBattleAudio().unlock();
     const seed = Date.now();
     setMatch({ seed, player: [...chosen], ai: chooseAiDeck(seed) });
     setPage('battle');

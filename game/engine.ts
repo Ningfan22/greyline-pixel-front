@@ -1,3 +1,5 @@
+import { infantryGeometry } from './infantry-geometry';
+import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
 import {
   ammunition,
   FLIGHT,
@@ -90,6 +92,7 @@ export interface Unit {
   retreatUntil: number;
   hullAngle: number;
   wounded: boolean;
+  woundedFromPose?: Unit['pose'];
   woundedTime: number;
   bleedOut: number;
   woundedBy: Side;
@@ -99,6 +102,13 @@ export interface Unit {
   lastThreat?: { x: number; y: number; until: number };
   aimUntil?: number;
   exposedUntil?: number;
+  firingGoal?: number | null;
+  firingSearchAt?: number;
+  lastCombatShotAt?: number;
+  breachPropId?: number;
+  breachShots?: number;
+  boundStartedAt?: number;
+  boundRestUntil?: number;
   originalSquad?: number;
   regroupHost?: number;
   emplaced?: boolean;
@@ -155,6 +165,8 @@ export interface Unit {
   stepCooldown: number;
   cover: number;
   coverGoal: number | null;
+  trafficWait?: number;
+  passingLane?: number;
   coverSearch: number;
   supportCooldown: number;
   healing: number;
@@ -165,6 +177,7 @@ export interface Unit {
   evadeMarker: number | null;
   friendlyWarnAt: number;
   sortieCard: HandCard | null;
+  bombsLeft?: number;
   slowedUntil: number;
   destroyed: boolean;
 }
@@ -972,6 +985,7 @@ function hitUnit(
   ) {
     s.injurySeed = (Math.imul(1664525, s.injurySeed) + 1013904223) >>> 0;
     if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
+      u.woundedFromPose = u.pose;
       u.wounded = true;
       u.woundedTime = 0;
       u.bleedOut = 25;
@@ -1014,6 +1028,9 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
     id: u.uid,
     cardId: u.id,
     side: u.side,
+    pose: u.pose,
+    facing: u.facing,
+    lane: u.lane,
     x: u.x,
     y: u.y,
     angle: u.hullAngle,
@@ -1116,10 +1133,10 @@ export function explode(
         sin = Math.sin(u.hullAngle),
         localX = dx * cos + dy * sin,
         localY = -dx * sin + dy * cos,
-        half = modelOf(u.id) === 'tank' ? 62 : 48;
+        half = armorHalf(u.id);
       dist = Math.hypot(
         Math.max(0, Math.abs(localX) - half),
-        Math.max(0, localY, -48 - localY),
+        Math.max(0, localY, -armorHeight(u.id) - localY),
       );
     }
     if (dist < radius + 12)
@@ -1263,6 +1280,10 @@ function retreatingFriendlyHit(
   return nearest;
 }
 export function muzzleOffset(u: Unit) {
+  if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
+    return infantryGeometry(u).muzzleX;
+  const tank = tankGeometry(u.id);
+  if (tank) return tank.muzzleX;
   if (CARDS[u.id].emplacement)
     return CARDS[u.id].emplacement === 'aa_gun' ? 45 : 90;
   if (CARDS[u.id].airframe)
@@ -1282,6 +1303,10 @@ export function muzzleOffset(u: Unit) {
           : 18;
 }
 export function muzzleHeight(u: Unit) {
+  if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
+    return infantryGeometry(u).muzzleHeight;
+  const tank = tankGeometry(u.id);
+  if (tank) return tank.muzzleY;
   if (CARDS[u.id].emplacement)
     return CARDS[u.id].emplacement === 'aa_gun'
       ? 92
@@ -1308,14 +1333,20 @@ export function muzzlePoint(
   height = muzzleHeight(u),
   coax = false,
 ) {
-  const dx = Math.sign(tx - u.x) * (coax ? 58 : muzzleOffset(u)),
-    dy = -height;
+  const tank = tankGeometry(u.id);
+  const dx =
+      Math.sign(tx - u.x) * (coax ? (tank?.coaxX ?? 58) : muzzleOffset(u)),
+    dy = -(coax ? (tank?.coaxY ?? height) : height);
   const angle = CARDS[u.id].armored ? u.hullAngle : 0,
     c = Math.cos(angle),
     sn = Math.sin(angle);
   return { x: u.x + dx * c - dy * sn, y: u.y + dx * sn + dy * c };
 }
-function bodyHeight(u: Pick<Unit, 'pose'>) {
+function bodyHeight(
+  u: Pick<Unit, 'pose'> & Partial<Pick<Unit, 'id' | 'moving'>>,
+) {
+  if (u.id && CARDS[u.id].members) return infantryGeometry(u).bodyHeight;
+  if (u.id && CARDS[u.id].armored) return armorHeight(u.id) * 0.55;
   return u.pose === 'prone'
     ? 7
     : u.pose === 'crouch' || u.pose === 'land'
@@ -1344,13 +1375,13 @@ export function smokeBlocks(s: GameState, side: Side, sx: number, tx: number) {
   if (
     s.players[side].recon > 0 ||
     droneRecon(s, side, sx) ||
-    Math.abs(tx - sx) <= 110
+    Math.abs(tx - sx) <= 140
   )
     return false;
   const left = Math.min(sx, tx),
     right = Math.max(sx, tx);
   return s.smokes.some(
-    (f) => f.life > 0 && f.x + 110 > left && f.x - 110 < right,
+    (f) => f.life > 0 && f.x + 95 > left && f.x - 95 < right,
   );
 }
 function firingHeight(
@@ -1360,20 +1391,31 @@ function firingHeight(
   ty: number,
 ): number | null {
   const c = CARDS[u.id],
-    height = muzzleHeight(u),
-    point = muzzlePoint(u, tx, height),
-    sx = point.x;
+    height = muzzleHeight(u);
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
-  if (u.id === 'javelin') return height;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
-  if (!terrainIntercept(s, sx, point.y, tx, ty, softCover)) return height;
-  // A crouched soldier can briefly rise to fire, rather than stall behind a slope.
-  if (c.members && !terrainIntercept(s, sx, u.y - 47, tx, ty, softCover))
-    return 47;
+  const clear = (shooter: Unit, h: number) => {
+    const point = muzzlePoint(shooter, tx, h);
+    // A long prone barrel cannot start a projectile inside or beyond a nearby wall.
+    if (
+      c.members &&
+      terrainIntercept(s, shooter.x, shooter.y - h, point.x, point.y, softCover)
+    )
+      return false;
+    return (
+      u.id === 'javelin' ||
+      !terrainIntercept(s, point.x, point.y, tx, ty, softCover)
+    );
+  };
+  if (clear(u, height)) return height;
+  // Check both the standing height and its shorter barrel before rising to fire.
+  if (c.members && clear({ ...u, pose: 'idle', moving: false }, 47)) return 47;
   return null;
 }
-type CoverTarget = Pick<Unit, 'x' | 'y'> & Partial<Pick<Unit, 'pose'>>;
+
+type CoverTarget = Pick<Unit, 'x' | 'y'> &
+  Partial<Pick<Unit, 'pose' | 'id' | 'moving'>>;
 function canFireFromCover(
   s: GameState,
   u: Unit,
@@ -1385,7 +1427,12 @@ function canFireFromCover(
       s,
       { ...u, x, y: ground(s, x), pose: 'idle' },
       target.x,
-      target.y - bodyHeight({ pose: target.pose ?? 'prone' }),
+      target.y -
+        bodyHeight({
+          id: target.id,
+          moving: target.moving,
+          pose: target.pose ?? 'prone',
+        }),
     ) !== null
   );
 }
@@ -1416,7 +1463,9 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
           v !== u &&
           v.side === u.side &&
           isCombatant(v) &&
-          Math.abs((v.coverGoal ?? v.x) - x) < 18,
+          [v.x, v.coverGoal, v.firingGoal].some(
+            (reserved) => reserved != null && Math.abs(reserved - x) < 26,
+          ),
       )
     )
       continue;
@@ -1428,6 +1477,128 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
   }
   return best;
 }
+function coveringMate(s: GameState, u: Unit, target: Unit) {
+  return s.units.some((v) => {
+    if (v === u || v.side !== u.side || v.squad !== u.squad || !isCombatant(v))
+      return false;
+    const c = weaponCard(v);
+    if (
+      !c.members ||
+      c.indirect ||
+      v.moving ||
+      v.motion !== 'ground' ||
+      v.climbing > 0 ||
+      v.tactic === 'retreat' ||
+      (v.coverGoal !== null && Math.abs(v.coverGoal - v.x) > 0.5) ||
+      (v.firingGoal != null && Math.abs(v.firingGoal - v.x) > 0.5) ||
+      v.evadeUntil > s.time
+    )
+      return false;
+    const distance = Math.abs(v.x - target.x);
+    return (
+      distance <= unitRange(s, v) &&
+      distance >= (c.minRange ?? 0) &&
+      visibleToSide(s, v.side, target) &&
+      firingHeight(s, v, target.x, target.y - bodyHeight(target)) !== null &&
+      (v.cooldown <= 0 ||
+        s.time - (v.lastCombatShotAt ?? -Infinity) <=
+          Math.max(0.8, c.rate! * 1.35))
+    );
+  });
+}
+
+function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
+  const range = unitRange(s, u),
+    currentDistance = Math.abs(target.x - u.x);
+  // Reposition around this contact; never turn an obstructed ray into an unlimited charge.
+  const minimumDistance = Math.min(
+    range * 0.62,
+    Math.max(110, currentDistance - 48),
+  );
+  let best: number | null = null,
+    bestScore = -Infinity;
+  for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64]) {
+    const x = u.x + offset,
+      distance = Math.abs(target.x - x);
+    if (
+      x < 125 ||
+      x > W - 125 ||
+      distance < minimumDistance ||
+      distance > range
+    )
+      continue;
+    if (
+      obstacleBoxes(s).some(
+        (b) => !b.foliage && x > b.x - 10 && x < b.x + b.w + 10,
+      )
+    )
+      continue;
+    if (
+      s.units.some(
+        (v) =>
+          v !== u &&
+          v.side === u.side &&
+          isCombatant(v) &&
+          [v.x, v.coverGoal, v.firingGoal].some(
+            (reserved) => reserved != null && Math.abs(reserved - x) < 26,
+          ),
+      )
+    )
+      continue;
+    if (!canFireFromCover(s, u, x, target)) continue;
+    const score = craterCover(s, x, target.x) * 20 - Math.abs(offset);
+    if (score > bestScore) {
+      bestScore = score;
+      best = x;
+    }
+  }
+  return best;
+}
+
+function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
+  const c = weaponCard(u);
+  if (
+    !target ||
+    !c.members ||
+    c.indirect ||
+    !c.radius ||
+    ammunition(u.id, u.member) !== 'rocket' ||
+    u.id === 'javelin' ||
+    CARDS[target.id].air ||
+    !visibleToSide(s, u.side, target) ||
+    smokeBlocks(s, u.side, u.x, target.x)
+  )
+    return null;
+  const standing = { ...u, pose: 'idle' as const, moving: false };
+  const point = muzzlePoint(standing, target.x, 47),
+    ty = target.y - bodyHeight(target);
+  if (terrainIntercept(s, u.x, u.y - 47, point.x, point.y)) return null;
+  const hit = sceneryIntercept(s, point.x, point.y, target.x, ty);
+  if (!hit?.box.prop || hit.box.rubble) return null;
+  const first = terrainIntercept(s, point.x, point.y, target.x, ty);
+  if (!first || Math.hypot(first.x - hit.x, first.y - hit.y) > 3) return null;
+  const distance = Math.abs(target.x - u.x),
+    toEnemy = Math.abs(target.x - hit.x);
+  // Only attack an enemy-side obstruction. Do not shell the squad's own nearby shelter.
+  if (
+    toEnemy > Math.min(230, distance * 0.65) ||
+    Math.abs(hit.x - u.x) < Math.max(120, c.radius * 2.5)
+  )
+    return null;
+  if (
+    s.units.some(
+      (v) =>
+        v.side === u.side &&
+        canTakeDamage(v) &&
+        Math.hypot(v.x - hit.x, v.y - 20 - hit.y) < c.radius! + 45,
+    )
+  )
+    return null;
+  if (u.breachPropId === hit.box.prop.id && (u.breachShots ?? 0) >= 2)
+    return null;
+  return { x: hit.x, y: hit.y, propId: hit.box.prop.id };
+}
+
 function beginDrop(u: Unit, dir: number, speed: number, falling = false) {
   u.motion = 'jump';
   u.motionTime = 0;
@@ -1524,7 +1695,13 @@ function moveSoldier(
   if (debris && u.stepCooldown <= 0 && u.coverGoal === null) {
     u.motion = 'bank';
     u.motionTime = 0;
-    u.motionDuration = 0.65 + debris.w / 150;
+    const crossing = Math.abs(
+      (dir > 0 ? debris.x + debris.w + 18 : debris.x - 18) - u.x,
+    );
+    u.motionDuration = Math.max(
+      0.65 + debris.w / 150,
+      crossing / Math.max(1, speed * 0.8),
+    );
     u.motionFromX = u.x;
     u.motionFromY = u.y;
     u.motionToX = dir > 0 ? debris.x + debris.w + 18 : debris.x - 18;
@@ -1558,27 +1735,63 @@ function moveSoldier(
     u.pose = 'climb';
     return;
   }
-  const blocker = s.units
-    .filter(
-      (v) =>
-        v !== u &&
-        v.side === u.side &&
-        isCombatant(v) &&
-        visibleToSide(s, u.side, v) &&
-        CARDS[v.id].members &&
-        v.facing === dir &&
-        Math.abs(v.lane - u.lane) < 4 &&
-        (v.x - u.x) * dir > 0,
-    )
-    .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
-  if (blocker)
-    speed *= Math.max(0, Math.min(1, (Math.abs(blocker.x - u.x) - 24) / 12));
+  const neighbors = s.units.filter(
+    (v) =>
+      v !== u &&
+      v.side === u.side &&
+      isCombatant(v) &&
+      CARDS[v.id].members &&
+      Math.abs(v.x - u.x) < 72,
+  );
+  const nearestBlocker = () =>
+    neighbors
+      .filter(
+        (v) =>
+          v.facing === dir &&
+          Math.abs(v.lane - u.lane) < 4 &&
+          (v.x - u.x) * dir > 0,
+      )
+      .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
+  const flow = (v: Unit | undefined) =>
+    v ? Math.max(0, Math.min(1, (Math.abs(v.x - u.x) - 24) / 12)) : 1;
+  const laneFree = (lane: number) =>
+    !neighbors.some(
+      (v) => Math.abs(v.x - u.x) < 36 && Math.abs(v.lane - lane) < 4,
+    );
+  const blocker = nearestBlocker();
+  u.trafficWait =
+    blocker && flow(blocker) < 0.35 ? (u.trafficWait ?? 0) + dt : 0;
+  if (u.passingLane === undefined && u.trafficWait > 0.4) {
+    const preferred = u.uid % 2 ? 1 : -1;
+    u.passingLane = [
+      preferred * 6,
+      -preferred * 6,
+      preferred * 12,
+      -preferred * 12,
+    ]
+      .map((offset) => u.lane + offset)
+      .find((lane) => Math.abs(lane) <= 15 && laneFree(lane));
+  }
+  const beforeLane = u.lane;
+  if (u.passingLane !== undefined) {
+    if (!laneFree(u.passingLane)) u.passingLane = undefined;
+    else {
+      const change = u.passingLane - u.lane;
+      u.lane += Math.max(-12 * dt, Math.min(12 * dt, change));
+      if (Math.abs(change) <= 12 * dt) {
+        u.lane = u.passingLane;
+        u.passingLane = undefined;
+        u.trafficWait = 0;
+      }
+    }
+  }
+  speed *= flow(nearestBlocker());
   const beforeX = u.x;
   u.facing = dir;
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
-  const distance = Math.abs(u.x - beforeX);
+  const distance = Math.hypot(u.x - beforeX, u.lane - beforeLane);
   // Gait advances by travelled distance so feet stop when the soldier stops.
-  u.walk += distance / (u.pose === 'run' ? 8 : u.pose === 'prone' ? 4 : 6);
+  u.walk += distance / (u.pose === 'prone' ? 4 : 6);
   u.y = ground(s, u.x);
   u.moving = distance > 0.001;
 }
@@ -1589,12 +1802,12 @@ export function canTakeDamage(u: Unit) {
   return u.hp > 0 && !u.surrendered;
 }
 export function vehicleContact(s: GameState, x: number, id: CardId) {
-  const half = modelOf(id) === 'tank' ? 62 : 48;
+  const half = armorHalf(id);
   const left = ground(s, x - half),
     right = ground(s, x + half);
   const slope = Math.max(-0.18, Math.min(0.18, (right - left) / (half * 2)));
   let y = (left + right) / 2;
-  for (let i = -half; i <= half; i += 2)
+  for (let i = -half; i <= half; i++)
     y = Math.min(y, ground(s, x + i) - slope * i);
   return { y, angle: Math.atan(slope) };
 }
@@ -1678,14 +1891,8 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   }
   const doctrine = doctrineOf(u.id),
     list = roles[doctrine];
-  const rotation =
-    doctrine === 'assault' || doctrine === 'elite' || doctrine === 'balanced'
-      ? Math.floor(s.time / 4) % 2
-      : 0;
-  u.tactic =
-    u.suppression > 65
-      ? 'prone'
-      : list[(u.member + rotation * 3) % list.length];
+  // Stable member roles; short bounds alternate locally while contact continues.
+  u.tactic = u.suppression > 65 ? 'prone' : list[u.member % list.length];
 }
 function evadeArtillery(s: GameState, u: Unit, dt: number) {
   const incoming = s.projectiles.find(
@@ -2316,6 +2523,70 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
   return false;
 }
 
+// A bomber releases a bounded salvo at fixed forward landing points.
+function fireBombRun(s: GameState, u: Unit) {
+  const c = CARDS[u.id],
+    dir = u.side === 0 ? 1 : -1;
+  if (u.bombsLeft === undefined) {
+    const contact = s.units.some(
+      (v) =>
+        v.side !== u.side &&
+        isCombatant(v) &&
+        !CARDS[v.id].air &&
+        visibleToSide(s, u.side, v) &&
+        (v.x - u.x) * dir >= 0 &&
+        (v.x - u.x) * dir <= 180,
+    );
+    const baseX = u.side === 0 ? W - 70 : 70;
+    const baseContact = (baseX - u.x) * dir >= 0 && (baseX - u.x) * dir <= 180;
+    if (!contact && !baseContact) return;
+    u.bombsLeft = c.sortieAmmo ?? 6;
+  }
+  if (u.bombsLeft <= 0 || u.cooldown > 0 || u.shots >= (c.sortieAmmo ?? 6))
+    return;
+  const sx = u.x,
+    sy = u.y + 10;
+  const tx = sx + dir * 160;
+  const ty = ground(s, tx) - 8;
+  const total = Math.max(0.5, Math.sqrt(Math.max(0, (2 * (ty - sy)) / 800)));
+  u.bombsLeft--;
+  u.cooldown = c.rate!;
+  u.shots++;
+  u.lastCombatShotAt = s.time;
+  u.lastAmmo = 'mortar';
+  u.fire = 0.12;
+  u.muzzleX = sx;
+  u.muzzleY = sy;
+  u.shotAngle = Math.atan2(ty - sy, tx - sx);
+  s.projectiles.push({
+    uid: ++s.uid,
+    sourceUid: u.uid,
+    side: u.side,
+    x: sx,
+    y: sy,
+    startX: sx,
+    startY: sy,
+    tx,
+    ty,
+    targetUid: null,
+    base: null,
+    // This value makes the shared parabola y = startY + (ty-startY)*t*t.
+    arc: Math.max(0, (ty - sy) / 4),
+    total,
+    life: total,
+    guided: false,
+    shell: true,
+    ammunition: 'mortar',
+    effect: 'artillery',
+    damage: c.damage! * (s.players[u.side].morale > 0 ? 1.35 : 1),
+    radius: c.radius ?? 42,
+    armorMultiplier: c.armorMultiplier,
+    infantryMultiplier: c.infantryMultiplier,
+    baseMultiplier: c.baseMultiplier,
+    tracer: false,
+  });
+}
+
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
   dt = Math.min(0.05, Math.max(0, dt));
@@ -2418,7 +2689,9 @@ export function tick(s: GameState, dt: number) {
           ? 'prone'
           : u.tactic === 'prone'
             ? 'prone'
-            : u.tactic === 'crouch' || u.tactic === 'cover'
+            : u.tactic === 'crouch' ||
+                u.tactic === 'cover' ||
+                u.tactic === 'bound'
               ? 'crouch'
               : 'idle'
       : 'idle';
@@ -2443,7 +2716,7 @@ export function tick(s: GameState, dt: number) {
     }
     if (
       c.members &&
-      (u.motion === 'ground' || u.motion === 'bank') &&
+      u.motion === 'ground' &&
       ground(s, u.x) - u.y > DROP_HEIGHT
     )
       beginDrop(u, dir, 0, true);
@@ -2467,6 +2740,11 @@ export function tick(s: GameState, dt: number) {
       u.x += dir * c.speed! * (morale ? 1.2 : 1) * dt;
       u.facing = dir;
       u.moving = true;
+    }
+    if (c.attackRun === 'bomb') {
+      fireBombRun(s, u);
+      u.y = c.altitude ?? AIR_ALTITUDE;
+      continue;
     }
     if (c.observer) {
       const front = s.units.filter(
@@ -2540,16 +2818,20 @@ export function tick(s: GameState, dt: number) {
           (!CARDS[v.id].air || c.antiAir) &&
           (!c.airOnly || CARDS[v.id].air) &&
           (!c.sortie || (v.x - u.x) * dir >= -40) &&
+          (c.attackRun !== 'strafe' ||
+            (v.x - u.x) * dir > muzzleOffset(u) + 16) &&
           Math.abs(v.x - u.x) <= range &&
           Math.abs(v.x - u.x) >= (c.minRange ?? 0),
       )
       .sort(
         (a, b) =>
-          (modelOf(u.id) === 'sniper'
+          (c.attackRun === 'strafe'
             ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
-            : modelOf(u.id) === 'tank' || c.armorMultiplier
-              ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
-              : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
+            : modelOf(u.id) === 'sniper'
+              ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
+              : modelOf(u.id) === 'tank' || c.armorMultiplier
+                ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
+                : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
       );
     if (candidates[0])
       u.lastThreat = {
@@ -2566,6 +2848,8 @@ export function tick(s: GameState, dt: number) {
     const baseInRange =
       !target &&
       !c.airOnly &&
+      (c.attackRun !== 'strafe' ||
+        (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
       Math.abs(baseX - u.x) <= range &&
       Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
       firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
@@ -2603,7 +2887,34 @@ export function tick(s: GameState, dt: number) {
       u.cover = 0;
       u.coverGoal = null;
     }
-    const seeking = u.coverGoal !== null && Math.abs(u.coverGoal - u.x) > 0.5;
+    const coverShot =
+      !target && order !== 'hold' && order !== 'rush'
+        ? enemyCoverShot(s, u, candidates[0])
+        : null;
+    const blockedContact = !!(
+      c.members &&
+      !c.indirect &&
+      !target &&
+      !baseInRange &&
+      !closeThreat &&
+      threat &&
+      order !== 'rush' &&
+      Math.abs(threat.x - u.x) <= range + 15
+    );
+    if (blockedContact && !coverShot && order !== 'hold' && !treating) {
+      if (
+        u.firingGoal != null &&
+        !canFireFromCover(s, u, u.firingGoal, threat!)
+      )
+        u.firingGoal = null;
+      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null) {
+        u.firingGoal = nearbyFiringPosition(s, u, threat!);
+        u.firingSearchAt = s.time + 0.7;
+      }
+    } else u.firingGoal = null;
+    const moveGoal = u.coverGoal ?? u.firingGoal ?? null;
+    const seeking = moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5;
+    if (!seeking && threat && (u.exposedUntil ?? 0) > s.time) u.pose = 'idle';
     if (threat && c.members) u.aimUntil = s.time + 2.5;
     if (u.cover > 0.2 && !seeking && threat) {
       // Keep the firing stance through a whole engagement, not one reload cycle.
@@ -2611,31 +2922,52 @@ export function tick(s: GameState, dt: number) {
         u.exposedUntil = s.time + 2.5;
       u.pose = (u.exposedUntil ?? 0) > s.time ? 'idle' : 'crouch';
     }
-    const bounding =
+    let bounding =
       c.members &&
       order === 'advance' &&
       u.tactic === 'bound' &&
       target &&
-      Math.abs(target.x - u.x) > range * 0.62;
+      Math.abs(target.x - u.x) > range * 0.62 &&
+      coveringMate(s, u, target) &&
+      s.time >= (u.boundRestUntil ?? 0);
+    if (bounding) {
+      u.boundStartedAt ??= s.time;
+      if (s.time - u.boundStartedAt >= 0.55 + (u.uid % 3) * 0.08) {
+        bounding = false;
+        u.boundRestUntil = s.time + 1.35;
+        u.boundStartedAt = undefined;
+      }
+    } else u.boundStartedAt = undefined;
     const retreating = c.members && u.tactic === 'retreat';
     if (modelOf(u.id) === 'tank') fireCoax(s, u);
     if (
-      (target || baseInRange) &&
+      (target || coverShot || baseInRange) &&
       !seeking &&
       !closeThreat &&
       !treating &&
       !bounding &&
       !retreating
     ) {
-      let tx = target ? target.x : baseX;
-      let ty = target ? target.y - bodyHeight(target) : ground(s, baseX) - 25;
+      let tx = target ? target.x : coverShot ? coverShot.x : baseX;
+      let ty = target
+        ? target.y - bodyHeight(target)
+        : coverShot
+          ? coverShot.y
+          : ground(s, baseX) - 25;
+      if (coverShot) {
+        u.pose = 'idle';
+        u.exposedUntil = s.time + 2.5;
+      }
       if (c.indirect && u.cooldown <= 0) {
         const scatter = u.id === 'precision' ? 14 : c.emplacement ? 42 : 26;
         tx += (rnd(s) - 0.5) * scatter * 2;
         ty = ground(s, tx) - 8;
       }
       if (c.indirect) u.pose = 'crouch';
-      if (u.cooldown <= 0) {
+      if (
+        u.cooldown <= 0 &&
+        (c.sortieAmmo === undefined || u.shots < c.sortieAmmo)
+      ) {
         if (firingHeight(s, u, tx, ty) === 47) {
           u.pose = 'idle';
           u.exposedUntil = s.time + 2.5;
@@ -2644,6 +2976,7 @@ export function tick(s: GameState, dt: number) {
           sx = point.x,
           sy = point.y;
         if (
+          coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
           !terrainIntercept(
@@ -2664,8 +2997,17 @@ export function tick(s: GameState, dt: number) {
             c.indirect ? 2 : flight.minimum,
             Math.abs(tx - sx) / flight.speed,
           );
-          u.facing = Math.sign(tx - u.x) || dir;
+          u.facing =
+            c.attackRun === 'strafe' ? dir : Math.sign(tx - u.x) || dir;
           u.shots++;
+          if (target) u.lastCombatShotAt = s.time;
+          if (coverShot) {
+            u.breachShots =
+              u.breachPropId === coverShot.propId
+                ? (u.breachShots ?? 0) + 1
+                : 1;
+            u.breachPropId = coverShot.propId;
+          }
           u.lastAmmo = kind;
           u.muzzleX = sx;
           u.muzzleY = sy;
@@ -2699,7 +3041,7 @@ export function tick(s: GameState, dt: number) {
             ty,
             side: u.side,
             targetUid: target?.uid ?? null,
-            base: target ? null : enemySide,
+            base: target || coverShot ? null : enemySide,
             damage:
               ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               (morale ? 1.35 : 1) *
@@ -2733,7 +3075,10 @@ export function tick(s: GameState, dt: number) {
         bounding ||
         retreating ||
         !!closeThreat ||
-        (!target && !baseInRange && (!c.members || order !== 'hold')))
+        (!target &&
+          !baseInRange &&
+          !blockedContact &&
+          (!c.members || order !== 'hold')))
     ) {
       if (c.members)
         u.pose =
@@ -2770,14 +3115,14 @@ export function tick(s: GameState, dt: number) {
             ? 1
             : -1
           : seeking
-            ? Math.sign(u.coverGoal! - u.x)
+            ? Math.sign(moveGoal! - u.x)
             : dir;
       if (c.members)
         moveSoldier(
           s,
           u,
           moveDir,
-          seeking ? Math.min(speed, Math.abs(u.coverGoal! - u.x) / dt) : speed,
+          seeking ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt) : speed,
           dt,
         );
       else if (!c.sortie && !c.static) {
@@ -2945,7 +3290,11 @@ export function tick(s: GameState, dt: number) {
           u &&
           canTakeDamage(u) &&
           Math.abs(u.x - p.tx) <
-            (CARDS[u.id].armored ? 70 : CARDS[u.id].air ? 80 : 18) &&
+            (CARDS[u.id].armored
+              ? armorHalf(u.id) + 8
+              : CARDS[u.id].air
+                ? 80
+                : 18) &&
           !projectileIntercept(s, p, p.x, p.y, u.x, u.y - bodyHeight(u))
         ) {
           connected = true;
@@ -3038,7 +3387,7 @@ export function tick(s: GameState, dt: number) {
         u.side !== mine.side &&
         canTakeDamage(u) &&
         CARDS[u.id].armored &&
-        Math.abs(u.x - mine.x) < 24,
+        Math.abs(u.x - mine.x) < (tankGeometry(u.id)?.half ?? 24),
     );
     if (victim) {
       mine.armAt = Infinity;

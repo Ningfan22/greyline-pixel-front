@@ -5,7 +5,10 @@ function canvas(w: number, h: number) {
   c.height = h;
   return c;
 }
-export function transparentSheet(image: HTMLImageElement) {
+export function transparentSheet(
+  image: HTMLImageElement,
+  connectedMatte = false,
+) {
   const out = canvas(image.width, image.height),
     ctx = out.getContext('2d')!;
   ctx.drawImage(image, 0, 0);
@@ -14,6 +17,43 @@ export function transparentSheet(image: HTMLImageElement) {
   let transparent = 0;
   for (let i = 3; i < data.length; i += 4) if (data[i] < 128) transparent++;
   if (transparent > out.width * out.height * 0.02) return out;
+  // Architectural highlights share the matte's colors. Remove only neutral
+  // pixels connected to the sheet boundary, preserving enclosed plaster walls.
+  if (connectedMatte) {
+    const width = out.width,
+      height = out.height;
+    const visited = new Uint8Array(width * height);
+    const queue = new Int32Array(width * height);
+    let head = 0,
+      tail = 0;
+    const enqueue = (index: number) => {
+      if (visited[index]) return;
+      visited[index] = 1;
+      const at = index * 4;
+      const low = Math.min(data[at], data[at + 1], data[at + 2]);
+      const high = Math.max(data[at], data[at + 1], data[at + 2]);
+      if (low >= 170 && high - low <= 24) queue[tail++] = index;
+    };
+    for (let x = 0; x < width; x++) {
+      enqueue(x);
+      enqueue((height - 1) * width + x);
+    }
+    for (let y = 0; y < height; y++) {
+      enqueue(y * width);
+      enqueue(y * width + width - 1);
+    }
+    while (head < tail) {
+      const index = queue[head++],
+        x = index % width;
+      data[index * 4 + 3] = 0;
+      if (x > 0) enqueue(index - 1);
+      if (x < width - 1) enqueue(index + 1);
+      if (index >= width) enqueue(index - width);
+      if (index + width < width * height) enqueue(index + width);
+    }
+    ctx.putImageData(pixels, 0, 0);
+    return out;
+  }
   // Some generator exports bake their pale checker preview into RGB. Key that
   // neutral matte, including gaps between a rifle and arm, at texture import.
   for (let at = 0; at < data.length; at += 4) {
@@ -43,6 +83,7 @@ export function figureFrames(
   groupRows = rows,
   rowCuts?: number[],
   sharedScale = false,
+  groundedRows: number[] = [],
 ) {
   const source = transparentSheet(image),
     sw = source.width,
@@ -153,6 +194,38 @@ export function figureFrames(
     const right = Math.max(
       ...row.map((b, col) => b.x - Math.round((col * sw) / columns) + b.w),
     );
+    const grounded = person && groundedRows.includes(r);
+    // Anchor the upper torso, excluding the long rifle and swinging boots.
+    const anchors = row.map((b) => {
+      let sum = 0,
+        count = 0;
+      for (
+        let y = Math.floor(b.y + b.h * 0.38);
+        y <= Math.floor(b.y + b.h * 0.58);
+        y++
+      )
+        for (let x = b.x; x < b.x + b.w; x++) {
+          const at = y * sw + x;
+          if (b.label ? labels[at] === b.label : data[at * 4 + 3] >= 120) {
+            sum += x;
+            count++;
+          }
+        }
+      return count ? sum / count : b.x + b.w / 2;
+    });
+    const anchorMin =
+      1 + Math.max(...row.map((b, col) => anchors[col] - b.x)) * scale;
+    const anchorMax =
+      width -
+      1 -
+      Math.max(...row.map((b, col) => b.x + b.w - anchors[col])) * scale;
+    const anchorAt = Math.max(
+      anchorMin,
+      Math.min(
+        anchorMax,
+        width / 2 + (anchors[0] - row[0].x - row[0].w / 2) * scale,
+      ),
+    );
     return row.map((b, col) => {
       const out = canvas(width, height),
         ctx = out.getContext('2d')!;
@@ -184,13 +257,15 @@ export function figureFrames(
         sy,
         b.w,
         b.h,
-        person
-          ? Math.round((width - w) / 2)
-          : Math.round(
-              (width - (right - left) * scale) / 2 +
-                (b.x - Math.round((col * sw) / columns) - left) * scale,
-            ),
-        height - h - Math.round((baseline - b.bottom) * scale),
+        grounded && anchorMin <= anchorMax
+          ? Math.round(anchorAt - (anchors[col] - b.x) * scale)
+          : person
+            ? Math.round((width - w) / 2)
+            : Math.round(
+                (width - (right - left) * scale) / 2 +
+                  (b.x - Math.round((col * sw) / columns) - left) * scale,
+              ),
+        height - h - (grounded ? 0 : Math.round((baseline - b.bottom) * scale)),
         w,
         h,
       );

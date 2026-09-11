@@ -1,3 +1,11 @@
+import { specialistSprite } from './adult-specialists';
+import { projectileForRender } from './render-depth';
+import {
+  adultIdentity,
+  adultFrameChoice,
+  adultWreckChoice,
+} from './adult-animation';
+import { tankGeometry } from './vehicle-geometry';
 import { drawScenery } from './scenery-art';
 import { pointVisible, visibleToSide } from './world';
 import {
@@ -7,25 +15,19 @@ import {
   drawParticle,
   drawBlast,
 } from './ballistics';
-import { modelOf, weaponModel } from './cards';
+import { modelOf } from './cards';
 import {
   CARDS,
   ground,
   H,
   W,
   VIEW_W,
-  muzzleHeight,
+  type Projectile,
   type GameState,
   type CardId,
 } from './engine';
-import {
-  drawSprite,
-  unitFrame,
-  unitSize,
-  soldierEquipment,
-  uniformFrame,
-  type Art,
-} from './art';
+import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
+const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -112,7 +114,14 @@ export function render(
     }
     for (const prop of Object.values(s.knownScenery[0]))
       if (prop.x > camera - 160 && prop.x < camera + viewportWidth + 160)
-        drawScenery(ctx, prop, s.time, art.scenery);
+        drawScenery(
+          ctx,
+          prop,
+          s.time,
+          art.scenery,
+          art.buildings,
+          visibleGround,
+        );
     for (const w of s.wrecks) {
       if (
         w.x < camera - 200 ||
@@ -122,18 +131,37 @@ export function render(
         continue;
       const c = CARDS[w.cardId],
         [width, height] = unitSize(w.cardId);
+      const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
+      const wreckChoice = adultWreck ? adultWreckChoice(w.age, w.pose) : null;
+      const wreckImage =
+        adultWreck && wreckChoice
+          ? uniformFrame(
+              adultWreck[wreckChoice.group][wreckChoice.index],
+              c.uniform === 'recon' || c.uniform === 'assault'
+                ? c.uniform
+                : undefined,
+            )
+          : unitFrame(art, w.cardId, 0);
       ctx.save();
       ctx.filter = 'saturate(.2) brightness(.48)';
       drawSprite(
         ctx,
-        c.members
-          ? art.soldiers[7][Math.min(3, Math.floor(w.age * 8))]
-          : unitFrame(art, w.cardId, 0),
-        w.x,
-        w.y + 3,
-        c.members ? 96 : width * (w.falling ? 1 : 0.88),
-        c.members ? 72 : height * (w.falling ? 1 : 0.48),
-        w.side === 1,
+        wreckImage,
+        w.x +
+          (tankGeometry(w.cardId)?.spriteOffset ?? 0) *
+            0.88 *
+            (w.side === 0 ? 1 : -1) *
+            Math.cos(w.angle),
+        w.y +
+          (c.members ? (w.lane ?? 0) : 0) +
+          (tankGeometry(w.cardId) ? 0 : 3) +
+          (tankGeometry(w.cardId)?.spriteOffset ?? 0) *
+            0.88 *
+            (w.side === 0 ? 1 : -1) *
+            Math.sin(w.angle),
+        c.members ? wreckImage.width : width * (w.falling ? 1 : 0.88),
+        c.members ? wreckImage.height : height * (w.falling ? 1 : 0.48),
+        c.members ? (w.facing ?? (w.side === 0 ? 1 : -1)) < 0 : w.side === 1,
         1,
         w.angle,
       );
@@ -176,6 +204,7 @@ export function render(
     ctx.fillStyle = '#ebeed8';
     ctx.fillText(side === 0 ? 'BLUE / HQ' : 'RED / HQ', x, y + 24);
   }
+  const sourceOffsets = new Map<number, { x: number; y: number }>();
   const sorted = [...s.units].sort(
     (a, b) =>
       Number(!!CARDS[a.id].air) - Number(!!CARDS[b.id].air) || a.lane - b.lane,
@@ -193,122 +222,36 @@ export function render(
       isAir = !!c.air,
       isDead = u.hp <= 0;
     const [w, h] = unitSize(u.id);
-    let row = 0,
-      frame = 0;
-    if (c.members) {
-      if (u.wounded) {
-        row = 7;
-        frame = Math.min(3, Math.floor(u.woundedTime * 7));
-      } else if (isDead) {
-        row = 7;
-        frame = Math.min(3, Math.floor((1.5 - u.deadFor) * 4));
-      } else if (
-        u.flash > 0 &&
-        !u.moving &&
-        u.tactic !== 'retreat' &&
-        !u.cover &&
-        u.motion === 'ground' &&
-        !u.climbing
-      ) {
-        row = 7;
-        frame = 0;
-      } else if (u.pose === 'climb') {
-        row = 3;
-        frame = Math.min(3, Math.floor((1 - u.climbing / u.climbDuration) * 4));
-      } else if (u.pose === 'crouch') {
-        row = 4;
-        frame = u.moving ? Math.floor(u.walk) % 4 : 0;
-      } else if (u.pose === 'prone') {
-        row = 5;
-        frame = u.moving ? Math.floor(u.walk) % 4 : 0;
-      } else if ((u.aimUntil ?? 0) > s.time && !u.moving) {
-        row = 6;
-        frame = u.fire > 0 ? 1 : 0;
-      } else if (u.pose === 'run') {
-        row = 2;
-        frame = Math.floor(u.walk) % 4;
-      } else if (u.moving) {
-        row = 1;
-        frame = Math.floor(u.walk) % 4;
-      } else {
-        row = 0;
-        frame = Math.floor(s.time * 2 + u.uid) % 4;
-      }
-    } else frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
+    const tankOffset =
+      (tankGeometry(u.id)?.spriteOffset ?? 0) * (u.side === 0 ? 1 : -1);
+    let frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
     if (c.emplacement && u.fire > 0.1) frame = 1;
-    let img = c.members
-      ? art.soldiers[row][frame]
+    const adult = c.members ? art.adults[adultIdentity(u.id)] : null;
+    const choice = c.members ? adultFrameChoice(u) : null;
+    const body = adult && choice ? adult[choice.group][choice.index] : null;
+    const specialist =
+      body && choice
+        ? specialistSprite(body, choice, u, art.adultSpecialists)
+        : null;
+    const img = body
+      ? uniformFrame(
+          specialist?.image ?? body,
+          c.uniform === 'recon' || c.uniform === 'assault'
+            ? c.uniform
+            : undefined,
+        )
       : unitFrame(art, u.id, frame);
-    if (c.members && !u.surrendered) {
-      const identity =
-        u.id === 'militia'
-          ? 3
-          : c.uniform === 'police'
-            ? 2
-            : ['marines', 'paratroopers', 'rangers'].includes(u.id)
-              ? 1
-              : 0;
-      const cycle = Math.floor(u.walk) % 8;
-      if (identity > 0) {
-        const poses = art.identities[identity * 2 + 1];
-        img =
-          isDead || u.wounded
-            ? poses[7]
-            : u.motion === 'jump'
-              ? poses[6]
-              : u.motion === 'land'
-                ? poses[1]
-                : u.climbing || u.motion === 'bank'
-                  ? poses[4 + (Math.floor(u.motionTime * 8) % 2)]
-                  : u.pose === 'prone'
-                    ? poses[u.moving ? 2 + (cycle % 2) : 2]
-                    : u.pose === 'crouch' && !u.moving
-                      ? poses[1]
-                      : u.moving
-                        ? art.identities[identity * 2][cycle]
-                        : poses[0];
-      } else if (!isDead && !u.wounded) {
-        const progress = Math.min(
-          7,
-          Math.floor((u.motionTime / Math.max(0.1, u.motionDuration)) * 8),
-        );
-        img =
-          u.motion === 'jump'
-            ? art.motions[6][Math.min(7, Math.floor(u.motionTime * 12))]
-            : u.motion === 'land'
-              ? art.motions[7][Math.min(7, Math.floor(u.motionTime * 22))]
-              : u.motion === 'bank'
-                ? art.motions[3][progress]
-                : u.climbing
-                  ? art.motions[3][
-                      Math.min(
-                        7,
-                        Math.floor((1 - u.climbing / u.climbDuration) * 8),
-                      )
-                    ]
-                  : u.pose === 'prone'
-                    ? art.identities[1][u.moving ? 2 + (cycle % 2) : 2]
-                    : u.pose === 'crouch'
-                      ? art.motions[4][u.moving ? cycle : 0]
-                      : u.moving
-                        ? art.motions[
-                            u.pose === 'run' || u.tactic === 'retreat' ? 2 : 1
-                          ][cycle]
-                        : art.motions[0][Math.floor(s.time * 4 + u.uid) % 8];
-      }
-      if (!identity) img = uniformFrame(img, c.uniform);
-    }
-    if (u.surrendered)
-      img =
-        art.reactions[0][
-          u.surrenderTime < 0.35
-            ? 0
-            : u.surrenderTime < 0.75
-              ? 1
-              : u.surrenderTime < 2.5
-                ? 2
-                : 3
-        ];
+    const visualMuzzle = specialist?.muzzle
+      ? {
+          x: u.x + u.facing * specialist.muzzle.x,
+          y: u.y + 3 - specialist.muzzle.height,
+        }
+      : null;
+    if (visualMuzzle && u.fire > 0)
+      sourceOffsets.set(u.uid, {
+        x: visualMuzzle.x - u.muzzleX,
+        y: visualMuzzle.y - u.muzzleY,
+      });
 
     ctx.fillStyle = isAir ? '#25372b14' : '#25372b33';
     ctx.fillRect(u.x - w * 0.23, ground(s, u.x) + u.lane, w * 0.46, 3);
@@ -324,54 +267,15 @@ export function render(
     drawSprite(
       ctx,
       img,
-      u.x + (isTank && u.fire > 0 ? (u.side === 0 ? -2 : 2) : 0),
-      u.y + u.lane + 3,
-      w,
-      c.members ? img.height * 1.5 : h,
+      u.x + tankOffset * Math.cos(u.hullAngle),
+      u.y + u.lane + (isTank ? 0 : 3) + tankOffset * Math.sin(u.hullAngle),
+      c.members ? img.width : w,
+      c.members ? img.height : h,
       c.members || c.air ? u.facing < 0 : u.side === 1,
       alpha,
       c.armored ? u.hullAngle : 0,
     );
     if (!c.members && isDead) ctx.restore();
-    if (
-      c.members &&
-      !isDead &&
-      !u.surrendered &&
-      !u.wounded &&
-      weaponModel(u) !== 'infantry' &&
-      u.pose !== 'climb' &&
-      u.motion === 'ground'
-    ) {
-      const weapon = soldierEquipment(art, u.id, u.member);
-      const wy = u.y - muzzleHeight(u);
-      drawSprite(
-        ctx,
-        weapon,
-        u.x +
-          u.facing *
-            (modelOf(u.id) === 'medic'
-              ? -8
-              : modelOf(u.id) === 'mortar'
-                ? u.moving
-                  ? -8
-                  : 17
-                : 6),
-        modelOf(u.id) === 'mortar'
-          ? u.y - (u.moving ? 12 : 0)
-          : modelOf(u.id) === 'medic'
-            ? u.y - 25
-            : wy + 7,
-        modelOf(u.id) === 'medic'
-          ? 14
-          : modelOf(u.id) === 'mortar'
-            ? 27
-            : modelOf(u.id) === 'sniper'
-              ? 43
-              : 36,
-        modelOf(u.id) === 'medic' ? 17 : modelOf(u.id) === 'mortar' ? 30 : 15,
-        u.facing < 0,
-      );
-    }
     if (isDead) continue;
     if (u.wounded) {
       const by = u.y - 25;
@@ -400,7 +304,7 @@ export function render(
       drawMuzzle(
         ctx,
         u.secondaryMuzzleX,
-        u.secondaryMuzzleY,
+        u.secondaryMuzzleY + (c.members ? u.lane : 0),
         u.secondaryAngle,
         'machinegun',
         0.09 - u.secondaryFire,
@@ -422,8 +326,8 @@ export function render(
     if (u.fire > 0 && u.motion === 'ground' && !u.climbing)
       drawMuzzle(
         ctx,
-        u.muzzleX,
-        u.muzzleY,
+        visualMuzzle?.x ?? u.muzzleX,
+        (visualMuzzle?.y ?? u.muzzleY) + (c.members ? u.lane : 0),
         u.shotAngle,
         u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
@@ -483,8 +387,18 @@ export function render(
     ctx.fillStyle = '#e7e9d1';
     ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
   }
-  for (const p of s.projectiles)
-    if (pointVisible(s, 0, p.x, p.y)) drawProjectile(ctx, p);
+  for (const p of s.projectiles) {
+    if (!pointVisible(s, 0, p.x, p.y)) continue;
+    let offset = projectileOffsets.get(p);
+    if (!offset) {
+      offset =
+        p.sourceUid === undefined
+          ? { x: 0, y: 0 }
+          : (sourceOffsets.get(p.sourceUid) ?? { x: 0, y: 0 });
+      projectileOffsets.set(p, offset);
+    }
+    drawProjectile(ctx, projectileForRender(s, p, offset));
+  }
   for (const b of s.blasts)
     if (pointVisible(s, 0, b.x, b.y))
       drawBlast(ctx, b, art.explosions, art.combatExplosions);
