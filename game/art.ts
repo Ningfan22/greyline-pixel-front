@@ -1,5 +1,5 @@
 import { CARDS, modelOf, weaponModel, type CardId } from './cards';
-import { buildAircraft } from './aircraft';
+import { figureFrames, transparentSheet } from './sprite-atlas';
 import { assetUrl } from './asset-url';
 export interface Art {
   reactions: HTMLCanvasElement[][];
@@ -9,10 +9,15 @@ export interface Art {
   vehicles: HTMLCanvasElement[][];
   locomotion: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
-  aircraft: ReturnType<typeof buildAircraft>;
+  aircraft: Record<string, HTMLCanvasElement[]>;
   scenery: HTMLCanvasElement[];
   explosions: HTMLCanvasElement[][];
   emplacements: Record<string, HTMLCanvasElement[]>;
+  impacts: HTMLCanvasElement[][];
+  motions: HTMLCanvasElement[][];
+  identities: HTMLCanvasElement[][];
+  armor: Record<string, HTMLCanvasElement[]>;
+  combatExplosions: HTMLCanvasElement[][];
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -193,6 +198,74 @@ function stableHelicopters(img: HTMLImageElement) {
     ctx.clearRect(12, 6, 52, 11);
     ctx.drawImage(rotor, 12, 6, 52, 11, 12, 6, 52, 11);
     return out;
+  });
+}
+function generatedRotors(image: HTMLImageElement) {
+  const source = transparentSheet(image),
+    cuts = [0, 444, 887, 1331, 1774];
+  // Native coordinates keep the complete rotor phase and fixed body on one grid.
+  const rows = [
+    {
+      top: 0,
+      bottom: 209,
+      crop: [89, 84, 288, 95],
+      band: [84, 121],
+      cap: [100, 109, 210, 12],
+    },
+    {
+      top: 209,
+      bottom: 430,
+      crop: [7, 237, 430, 170],
+      band: [237, 314],
+      cap: [140, 304, 304, 10],
+    },
+    {
+      top: 430,
+      bottom: 654,
+      crop: [40, 451, 387, 182],
+      band: [451, 535],
+      cap: [155, 524, 150, 11],
+    },
+    {
+      top: 654,
+      bottom: 887,
+      crop: [13, 673, 427, 154],
+      band: [688, 729],
+      cap: [140, 724, 304, 5],
+    },
+  ];
+  return rows.map((row) => {
+    const raw = cuts.slice(0, 4).map((x, col) => {
+      const frame = surface(444, row.bottom - row.top);
+      frame
+        .getContext('2d')!
+        .drawImage(
+          source,
+          x,
+          row.top,
+          cuts[col + 1] - x,
+          frame.height,
+          0,
+          0,
+          cuts[col + 1] - x,
+          frame.height,
+        );
+      return frame;
+    });
+    return raw.map((phase) => {
+      const frame = surface(444, row.bottom - row.top),
+        c = frame.getContext('2d')!;
+      const top = row.band[0] - row.top,
+        height = row.band[1] - row.band[0];
+      c.drawImage(raw[0], 0, 0);
+      c.clearRect(0, top, 444, height);
+      c.drawImage(phase, 0, top, 444, height, 0, top, 444, height);
+      const [x, y, w, h] = row.cap;
+      c.clearRect(x, y - row.top, w, h);
+      c.drawImage(raw[0], x, y - row.top, w, h, x, y - row.top, w, h);
+      const [cx, cy, cw, ch] = row.crop;
+      return croppedFrame(frame, [cx, cy - row.top, cw, ch], 128, 64);
+    });
   });
 }
 function reinforcementFrames(img: HTMLImageElement) {
@@ -468,6 +541,36 @@ function explosionFrames(img: HTMLImageElement) {
     }),
   );
 }
+function atlasFrames(
+  img: HTMLImageElement | HTMLCanvasElement,
+  columns: number,
+  rows: number,
+  width = 96,
+) {
+  const cw = img.width / columns,
+    ch = img.height / rows;
+  return Array.from({ length: rows }, (_, row) =>
+    Array.from({ length: columns }, (_, column) => {
+      const frame = surface(width, Math.round((width * ch) / cw));
+      const ctx = frame.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      const x = Math.round(column * cw),
+        y = Math.round(row * ch);
+      ctx.drawImage(
+        img,
+        x,
+        y,
+        Math.round((column + 1) * cw) - x,
+        Math.round((row + 1) * ch) - y,
+        0,
+        0,
+        frame.width,
+        frame.height,
+      );
+      return frame;
+    }),
+  );
+}
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
@@ -480,6 +583,13 @@ export function loadArt() {
     loadImage('/art/destructible-scenery-v9.png'),
     loadImage('/art/artillery-v9.png'),
     loadImage('/art/explosions-v9.png'),
+    loadImage('/art/impacts-v12.png'),
+    loadImage('/art/fixed-wing-v12.png'),
+    loadImage('/art/rotorcraft-v12.png'),
+    loadImage('/art/tanks-v12.png'),
+    loadImage('/art/soldier-actions-v12.png'),
+    loadImage('/art/infantry-identities-v12.png'),
+    loadImage('/art/explosions-v12.png'),
   ]).then(
     ([
       bg,
@@ -492,6 +602,13 @@ export function loadArt() {
       scenery,
       emplacements,
       explosions,
+      impacts,
+      fixedWing,
+      rotorcraft,
+      tanks,
+      motions,
+      identities,
+      combatExplosions,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -501,6 +618,29 @@ export function loadArt() {
       vehicleArt[1] = stableHelicopters(vehicles);
       vehicleArt[0] = stableTracks(vehicleArt[0], 5);
       const reinforcementArt = reinforcementFrames(reinforcement);
+      const wingArt = figureFrames(
+        fixedWing,
+        4,
+        5,
+        128,
+        64,
+        false,
+        5,
+        [0, 239, 392, 593, 767, 992],
+      );
+      const rotors = generatedRotors(rotorcraft);
+      const tankArt = figureFrames(
+        tanks,
+        4,
+        3,
+        128,
+        64,
+        false,
+        3,
+        [0, 249, 475, 768],
+        true,
+      );
+      const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       return {
         background,
@@ -510,10 +650,61 @@ export function loadArt() {
         soldiers: frames(soldiers, 4, 8, 64, 48, true),
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
-        aircraft: buildAircraft(vehicleArt[1]),
+        aircraft: {
+          ...Object.fromEntries(
+            ['scout_drone', 'helicopter', 'rocket_heli', 'medevac'].map(
+              (id, row) => [id, rotors[row]],
+            ),
+          ),
+          ...Object.fromEntries(
+            [
+              'attack_drone',
+              'loiter_drone',
+              'interceptor',
+              'strike_jet',
+              'bomber',
+            ].map((id, row) => [id, wingArt[row]]),
+          ),
+        },
         emplacements: buildEmplacements(emplacements),
         scenery: sceneryFrames(scenery),
         explosions: explosionFrames(explosions),
+        impacts: atlasFrames(impacts, 8, 2, 48),
+        motions: figureFrames(
+          motions,
+          8,
+          8,
+          64,
+          64,
+          true,
+          8,
+          [0, 176, 339, 488, 674, 812, 915, 1086, 1254],
+        ),
+        identities: figureFrames(
+          identities,
+          8,
+          8,
+          64,
+          64,
+          true,
+          2,
+          [0, 173, 337, 495, 663, 831, 1007, 1164, 1355],
+        ),
+        armor: Object.fromEntries(
+          ['light_tank', 'tank', 'heavy_tank'].map((id, row) => [
+            id,
+            stableTracks(tankArt[row], 10),
+          ]),
+        ),
+        combatExplosions: [
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx[Math.floor(i / 8)][i % 8],
+          ),
+          [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 7, 11, 12, 13, 14, 15].map(
+            (i) => fx[2 + Math.floor(i / 8)][i % 8],
+          ),
+          fx[4].concat(fx[5]),
+        ],
       };
     },
   );
@@ -553,14 +744,26 @@ export function cardFrame(art: Art, index: number) {
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
   if (c.emplacement) return art.emplacements[c.emplacement][frame];
+  if (art.aircraft[id])
+    return art.aircraft[id][
+      c.airframe === 'scout_drone' ||
+      c.airframe === 'rocket_heli' ||
+      id === 'helicopter'
+        ? frame
+        : 0
+    ];
   if (c.airframe) return art.aircraft[c.airframe][frame];
   if (c.air) return art.vehicles[1][frame];
-  if (modelOf(id) === 'tank') return art.vehicles[0][frame];
+  if (modelOf(id) === 'tank') return (art.armor[id] ?? art.armor.tank)[frame];
   if (modelOf(id) === 'ifv') return art.reinforcements[0][frame];
   return cardFrame(art, c.atlas);
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
+  if (id === 'bomber') return [260, 108];
+  if (id === 'strike_jet') return [210, 90];
+  if (id === 'light_tank') return [172, 91];
+  if (id === 'heavy_tank') return [234, 120];
   if (c.emplacement)
     return c.emplacement === 'howitzer'
       ? [190, 100]

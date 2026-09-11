@@ -170,10 +170,7 @@ export default function Battle({
   const execute = useCallback(
     (uid: number, x?: number) => {
       const h = game.current.players[0].hand.find((h) => h.uid === uid);
-      const entryOrTarget =
-        h && CARDS[h.id].type === 'unit'
-          ? Math.min(W - 112, camera.current + 64)
-          : x;
+      const entryOrTarget = h && CARDS[h.id].type === 'unit' ? undefined : x;
       const result = playCard(game.current!, 0, uid, entryOrTarget);
       if (result.ok) choose(null);
       else toast(result.message);
@@ -560,7 +557,7 @@ export default function Battle({
     register({
       name: 'play_battle_card',
       description:
-        '打出当前手牌。单位从当前视野左侧入场，无需 x；烟幕和地雷以 x 指定 0–3840 内的目标；其他技能无需 x。',
+        '打出当前手牌。单位固定从己方基地入场，无需 x；烟幕和地雷以 x 指定 0–3840 内的目标；其他技能无需 x。',
       inputSchema: {
         type: 'object',
         properties: { uid: { type: 'integer' }, x: { type: 'number' } },
@@ -819,7 +816,7 @@ export default function Battle({
           width={viewportWidth}
           height={H}
           tabIndex={0}
-          aria-label="左右拖动战场移动视野。拖出底部手牌区并松手出牌，单位从画面左侧入场。数字键选牌，回车出牌；目标技能可用方向键调整位置。"
+          aria-label="左右拖动战场移动视野。拖出底部手牌区并松手出牌，单位从己方基地入场。数字键选牌，回车出牌；目标技能可用方向键调整位置。"
           onPointerDown={(e) => {
             if (e.button !== 0 || cardGesture.current) return;
             if (e.pointerType !== 'mouse') setTouchMode(true);
@@ -1280,7 +1277,7 @@ export default function Battle({
                 <span className="target-hint">
                   <Crosshair size={13} />
                   {card.type === 'unit'
-                    ? '拖出手牌区松手，从画面左侧入场'
+                    ? '拖出手牌区松手，从己方基地入场'
                     : card.targetGround
                       ? '拖出手牌区，以松手位置为目标'
                       : '拖出手牌区松手使用'}
@@ -1625,7 +1622,7 @@ export default function Battle({
                   <h3>拖出手牌，松手下令</h3>
                   <p>
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
-                    移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。单位从当前画面左侧入场，固定炮兵在入场位置架设。烟幕和地雷以松手位置为目标。每个班组由
+                    移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。单位从己方基地入场。炮兵随前线护卫牵引，到达有效射程后架设固定。烟幕和地雷以松手位置为目标。每个班组由
                     2–7
                     名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。小起伏直接步行通过，较大落差才会下跳、缓冲和攀出。
                   </p>

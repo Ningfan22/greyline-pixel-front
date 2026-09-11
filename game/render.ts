@@ -83,63 +83,76 @@ export function render(
       broken = y > s.original[x] + 5;
     ctx.fillStyle = broken ? '#746959' : '#6b7050';
     ctx.fillRect(x, y - 2, 3, 3);
+    if (broken) {
+      ctx.fillStyle = '#423e35';
+      ctx.fillRect(x, y, 3, 3);
+      ctx.fillStyle = '#b09a70';
+      ctx.fillRect(x, y - 3, 3, 1);
+    }
     if (!broken && x % 12 === 0) {
       ctx.fillStyle = '#929078';
       ctx.fillRect(x, y - 4, 2, 3);
     }
   }
-  for (const wall of Object.values(s.knownWalls[0])) {
-    if (wall.hp > 0)
-      drawSprite(
-        ctx,
-        art.vehicles[2][1],
-        wall.x,
-        ground(s, wall.x) + 3,
-        58,
-        wall.height + 12,
-      );
-    else {
-      ctx.fillStyle = '#656452';
-      ctx.fillRect(wall.x - 21, ground(s, wall.x) - 2, 42, 5);
-    }
-  }
-  for (const prop of Object.values(s.knownScenery[0]))
-    if (prop.x > camera - 160 && prop.x < camera + viewportWidth + 160)
-      drawScenery(ctx, prop, s.time, art.scenery);
-  for (const w of s.wrecks) {
-    if (
-      w.x < camera - 200 ||
-      w.x > camera + viewportWidth + 200 ||
-      !(w.side === 0 || pointVisible(s, 0, w.x, w.y - 12))
-    )
-      continue;
-    const c = CARDS[w.cardId],
-      [width, height] = unitSize(w.cardId);
-    ctx.save();
-    ctx.filter = 'saturate(.2) brightness(.48)';
-    drawSprite(
-      ctx,
-      c.members
-        ? art.soldiers[7][Math.min(3, Math.floor(w.age * 8))]
-        : unitFrame(art, w.cardId, 0),
-      w.x,
-      w.y + 3,
-      c.members ? 96 : width * (w.falling ? 1 : 0.88),
-      c.members ? 72 : height * (w.falling ? 1 : 0.48),
-      w.side === 1,
-      1,
-      w.angle,
-    );
-    ctx.restore();
-    if (!c.members && !w.falling) {
-      ctx.fillStyle = '#252d26';
-      ctx.fillRect(w.x - 40, w.y - 4, 80, 5);
-      for (let i = 0; i < 8; i++) {
-        ctx.fillStyle = i % 2 ? '#535a4b' : '#30392e';
-        ctx.fillRect(w.x - 62 + ((i * 19) % 121), w.y - 6 - (i % 3) * 3, 7, 3);
+  const drawCoverProps = () => {
+    for (const wall of Object.values(s.knownWalls[0])) {
+      if (wall.hp > 0)
+        drawSprite(
+          ctx,
+          art.vehicles[2][1],
+          wall.x,
+          ground(s, wall.x) + 3,
+          58,
+          wall.height + 12,
+        );
+      else {
+        ctx.fillStyle = '#656452';
+        ctx.fillRect(wall.x - 21, ground(s, wall.x) - 2, 42, 5);
       }
     }
-  }
+    for (const prop of Object.values(s.knownScenery[0]))
+      if (prop.x > camera - 160 && prop.x < camera + viewportWidth + 160)
+        drawScenery(ctx, prop, s.time, art.scenery);
+    for (const w of s.wrecks) {
+      if (
+        w.x < camera - 200 ||
+        w.x > camera + viewportWidth + 200 ||
+        !(w.side === 0 || pointVisible(s, 0, w.x, w.y - 12))
+      )
+        continue;
+      const c = CARDS[w.cardId],
+        [width, height] = unitSize(w.cardId);
+      ctx.save();
+      ctx.filter = 'saturate(.2) brightness(.48)';
+      drawSprite(
+        ctx,
+        c.members
+          ? art.soldiers[7][Math.min(3, Math.floor(w.age * 8))]
+          : unitFrame(art, w.cardId, 0),
+        w.x,
+        w.y + 3,
+        c.members ? 96 : width * (w.falling ? 1 : 0.88),
+        c.members ? 72 : height * (w.falling ? 1 : 0.48),
+        w.side === 1,
+        1,
+        w.angle,
+      );
+      ctx.restore();
+      if (!c.members && !w.falling) {
+        ctx.fillStyle = '#252d26';
+        ctx.fillRect(w.x - 40, w.y - 4, 80, 5);
+        for (let i = 0; i < 8; i++) {
+          ctx.fillStyle = i % 2 ? '#535a4b' : '#30392e';
+          ctx.fillRect(
+            w.x - 62 + ((i * 19) % 121),
+            w.y - 6 - (i % 3) * 3,
+            7,
+            3,
+          );
+        }
+      }
+    }
+  };
   for (const m of s.mines)
     if (m.side === 0) {
       ctx.fillStyle = s.time < m.armAt ? '#b2a16a' : '#748c6c';
@@ -167,7 +180,12 @@ export function render(
     (a, b) =>
       Number(!!CARDS[a.id].air) - Number(!!CARDS[b.id].air) || a.lane - b.lane,
   );
+  let coverDrawn = false;
   for (const u of sorted) {
+    if (CARDS[u.id].air && !coverDrawn) {
+      drawCoverProps();
+      coverDrawn = true;
+    }
     if (!visibleToSide(s, 0, u)) continue;
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
@@ -203,9 +221,9 @@ export function render(
       } else if (u.pose === 'prone') {
         row = 5;
         frame = u.moving ? Math.floor(u.walk) % 4 : 0;
-      } else if (u.fire > 0) {
+      } else if ((u.aimUntil ?? 0) > s.time && !u.moving) {
         row = 6;
-        frame = Math.floor((0.25 - u.fire) * 16) % 4;
+        frame = u.fire > 0 ? 1 : 0;
       } else if (u.pose === 'run') {
         row = 2;
         frame = Math.floor(u.walk) % 4;
@@ -221,36 +239,65 @@ export function render(
     let img = c.members
       ? art.soldiers[row][frame]
       : unitFrame(art, u.id, frame);
-    if (c.members && !isDead && !u.wounded) {
-      if (u.motion === 'jump') {
-        const frame =
-          u.motionTime < 0.07 ? 1 : u.vy < 0 ? 2 : u.vy < 65 ? 3 : 4;
-        img = art.locomotion[1][frame];
-      } else if (u.motion === 'land')
-        img = art.locomotion[1][u.motionTime < 0.12 ? 6 : 7];
-      else if (u.motion === 'bank')
+    if (c.members && !u.surrendered) {
+      const identity =
+        u.id === 'militia'
+          ? 3
+          : c.uniform === 'police'
+            ? 2
+            : ['marines', 'paratroopers', 'rangers'].includes(u.id)
+              ? 1
+              : 0;
+      const cycle = Math.floor(u.walk) % 8;
+      if (identity > 0) {
+        const poses = art.identities[identity * 2 + 1];
         img =
-          art.locomotion[2][
-            [5, 6, 6, 5, 4, 4, 7, 7][
-              Math.min(7, Math.floor((u.motionTime / u.motionDuration) * 8))
-            ]
-          ];
-      else if (u.climbing > 0)
+          isDead || u.wounded
+            ? poses[7]
+            : u.motion === 'jump'
+              ? poses[6]
+              : u.motion === 'land'
+                ? poses[1]
+                : u.climbing || u.motion === 'bank'
+                  ? poses[4 + (Math.floor(u.motionTime * 8) % 2)]
+                  : u.pose === 'prone'
+                    ? poses[u.moving ? 2 + (cycle % 2) : 2]
+                    : u.pose === 'crouch' && !u.moving
+                      ? poses[1]
+                      : u.moving
+                        ? art.identities[identity * 2][cycle]
+                        : poses[0];
+      } else if (!isDead && !u.wounded) {
+        const progress = Math.min(
+          7,
+          Math.floor((u.motionTime / Math.max(0.1, u.motionDuration)) * 8),
+        );
         img =
-          art.locomotion[2][
-            Math.min(7, Math.floor((1 - u.climbing / u.climbDuration) * 8))
-          ];
-      else if (u.pose === 'walk' && u.moving)
-        img = art.locomotion[0][Math.floor(u.walk) % 8];
+          u.motion === 'jump'
+            ? art.motions[6][Math.min(7, Math.floor(u.motionTime * 12))]
+            : u.motion === 'land'
+              ? art.motions[7][Math.min(7, Math.floor(u.motionTime * 22))]
+              : u.motion === 'bank'
+                ? art.motions[3][progress]
+                : u.climbing
+                  ? art.motions[3][
+                      Math.min(
+                        7,
+                        Math.floor((1 - u.climbing / u.climbDuration) * 8),
+                      )
+                    ]
+                  : u.pose === 'prone'
+                    ? art.identities[1][u.moving ? 2 + (cycle % 2) : 2]
+                    : u.pose === 'crouch'
+                      ? art.motions[4][u.moving ? cycle : 0]
+                      : u.moving
+                        ? art.motions[
+                            u.pose === 'run' || u.tactic === 'retreat' ? 2 : 1
+                          ][cycle]
+                        : art.motions[0][Math.floor(s.time * 4 + u.uid) % 8];
+      }
+      if (!identity) img = uniformFrame(img, c.uniform);
     }
-    if (
-      c.members &&
-      (u.tactic === 'retreat' || u.evadeUntil > s.time) &&
-      u.motion === 'ground' &&
-      !u.climbing &&
-      u.moving
-    )
-      img = art.locomotion[0][Math.floor(u.walk) % 8];
     if (u.surrendered)
       img =
         art.reactions[0][
@@ -262,7 +309,7 @@ export function render(
                 ? 2
                 : 3
         ];
-    if (c.members) img = uniformFrame(img, c.uniform);
+
     ctx.fillStyle = isAir ? '#25372b14' : '#25372b33';
     ctx.fillRect(u.x - w * 0.23, ground(s, u.x) + u.lane, w * 0.46, 3);
     const alpha = isDead
@@ -280,7 +327,7 @@ export function render(
       u.x + (isTank && u.fire > 0 ? (u.side === 0 ? -2 : 2) : 0),
       u.y + u.lane + 3,
       w,
-      h,
+      c.members ? img.height * 1.5 : h,
       c.members || c.air ? u.facing < 0 : u.side === 1,
       alpha,
       c.armored ? u.hullAngle : 0,
@@ -362,7 +409,15 @@ export function render(
       ctx.fillStyle = '#e3b975';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('撤退', u.x, u.y - 78);
+      ctx.fillText(
+        (u.regroupProgress ?? 0) > 0
+          ? '重整'
+          : (u.conflictUntil ?? 0) > s.time
+            ? '冲突'
+            : '撤退',
+        u.x,
+        u.y - 78,
+      );
     }
     if (u.fire > 0 && u.motion === 'ground' && !u.climbing)
       drawMuzzle(
@@ -406,6 +461,7 @@ export function render(
       3,
     );
   }
+  if (!coverDrawn) drawCoverProps();
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
@@ -430,9 +486,10 @@ export function render(
   for (const p of s.projectiles)
     if (pointVisible(s, 0, p.x, p.y)) drawProjectile(ctx, p);
   for (const b of s.blasts)
-    if (pointVisible(s, 0, b.x, b.y)) drawBlast(ctx, b, art.explosions);
+    if (pointVisible(s, 0, b.x, b.y))
+      drawBlast(ctx, b, art.explosions, art.combatExplosions);
   for (const p of s.particles)
-    if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p);
+    if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts);
   ctx.save();
   // Saturation blending removes color while preserving the scene's luminance.
   ctx.globalCompositeOperation = 'saturation';
