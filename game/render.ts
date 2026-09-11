@@ -1,3 +1,4 @@
+import { mapDefinition, type MapId } from './maps';
 import { specialistSprite } from './adult-specialists';
 import { projectileForRender } from './render-depth';
 import {
@@ -16,7 +17,6 @@ import {
   drawParticle,
   drawBlast,
 } from './ballistics';
-import { modelOf } from './cards';
 import {
   CARDS,
   ground,
@@ -29,6 +29,67 @@ import {
 } from './engine';
 import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+
+const mapTerrainTextures = new WeakMap<
+  HTMLImageElement,
+  Map<MapId, HTMLCanvasElement>
+>();
+function terrainTexture(
+  art: Art,
+  id: MapId,
+): CanvasImageSource & { width: number; height: number } {
+  const palette = mapDefinition(id).palette;
+  if (id === 'greyline') return art.terrain;
+  let textures = mapTerrainTextures.get(art.terrain);
+  if (!textures) {
+    textures = new Map();
+    mapTerrainTextures.set(art.terrain, textures);
+  }
+  const existing = textures.get(id);
+  if (existing) return existing;
+  const canvas = document.createElement('canvas');
+  canvas.width = art.terrain.width;
+  canvas.height = art.terrain.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.filter = palette.terrainFilter;
+  ctx.drawImage(art.terrain, 0, 0);
+  ctx.filter = 'none';
+  ctx.globalCompositeOperation = 'color';
+  ctx.globalAlpha = palette.tintStrength;
+  ctx.fillStyle = palette.terrainTint;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  textures.set(id, canvas);
+  return canvas;
+}
+function drawMapBackground(
+  ctx: CanvasRenderingContext2D,
+  art: Art,
+  id: MapId,
+  camera: number,
+  viewportWidth: number,
+) {
+  // Optional for saved QA fixtures and while the separately generated map art is loading.
+  const mapArt = art as Art & {
+    mapBackgrounds?: Partial<Record<MapId, CanvasImageSource>>;
+  };
+  const background = mapArt.mapBackgrounds?.[id] ?? art.background;
+  const offset = camera * 0.3,
+    firstTile = Math.floor(offset / VIEW_W);
+  ctx.fillStyle = mapDefinition(id).palette.sky;
+  ctx.fillRect(0, 0, viewportWidth, H);
+  for (let tile = firstTile; tile * VIEW_W - offset < viewportWidth; tile++) {
+    const x = tile * VIEW_W - offset;
+    // Neighboring generated tiles share the identical edge; camera motion never changes a tile's orientation.
+    const mirrored = id !== 'greyline' && Math.abs(tile % 2) === 1;
+    ctx.save();
+    ctx.translate(x + (mirrored ? VIEW_W : 0), -24);
+    if (mirrored) ctx.scale(-1, 1);
+    ctx.drawImage(background, 0, 0, VIEW_W, H);
+    ctx.restore();
+  }
+}
+
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -47,9 +108,10 @@ export function render(
       Math.sin(s.time * 134) * s.shake,
       Math.cos(s.time * 123) * s.shake * 0.4,
     );
-  const parallax = (camera * 0.3) % VIEW_W;
-  for (let x = -parallax; x < viewportWidth; x += VIEW_W)
-    ctx.drawImage(art.background, x, -24, VIEW_W, H);
+  const map = mapDefinition((s as GameState & { mapId?: MapId }).mapId),
+    palette = map.palette,
+    terrainArt = terrainTexture(art, map.id);
+  drawMapBackground(ctx, art, map.id, camera, viewportWidth);
   ctx.translate(-Math.round(camera), 0);
   const visibleGround = (x: number) =>
     s.knownTerrain[0][Math.max(0, Math.min(W - 1, Math.floor(x)))];
@@ -64,12 +126,12 @@ export function render(
   ctx.lineTo(right, H + 3);
   ctx.closePath();
   ctx.clip();
-  const tw = art.terrain.width,
-    th = art.terrain.height;
+  const tw = terrainArt.width,
+    th = terrainArt.height;
   for (let x = left; x < right; x += 3) {
     const sourceX = ((x % 1023) / 1023) * tw;
     ctx.drawImage(
-      art.terrain,
+      terrainArt,
       sourceX,
       0,
       (tw * 3) / 1023,
@@ -84,16 +146,16 @@ export function render(
   for (let x = left; x < right; x += 3) {
     const y = Math.round(visibleGround(x)),
       broken = y > s.original[x] + 5;
-    ctx.fillStyle = broken ? '#746959' : '#6b7050';
+    ctx.fillStyle = broken ? palette.disturbed : palette.surface;
     ctx.fillRect(x, y - 2, 3, 3);
     if (broken) {
-      ctx.fillStyle = '#423e35';
+      ctx.fillStyle = palette.darkSoil;
       ctx.fillRect(x, y, 3, 3);
-      ctx.fillStyle = '#b09a70';
+      ctx.fillStyle = palette.exposedSoil;
       ctx.fillRect(x, y - 3, 3, 1);
     }
     if (!broken && x % 12 === 0) {
-      ctx.fillStyle = '#929078';
+      ctx.fillStyle = palette.grass;
       ctx.fillRect(x, y - 4, 2, 3);
     }
   }
@@ -133,12 +195,15 @@ export function render(
       const c = CARDS[w.cardId];
       if (!c.members) {
         const frame = art.wrecks[wreckKind(w.cardId)];
-        const inset = (1 - wreckGeometry(w.cardId).support[2]) * frame.height;
+        const shape = wreckGeometry(w.cardId);
+        const inset = (1 - shape.support[2]) * frame.height;
+        const offset =
+          shape.spriteOffset * (w.facing ?? (w.side === 0 ? 1 : -1));
         drawSprite(
           ctx,
           frame,
-          w.x - Math.sin(w.angle) * inset,
-          w.y + Math.cos(w.angle) * inset,
+          w.x + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
+          w.y + Math.sin(w.angle) * offset + Math.cos(w.angle) * inset,
           frame.width,
           frame.height,
           (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
@@ -211,13 +276,16 @@ export function render(
     if (!visibleToSide(s, 0, u)) continue;
     if (u.x < camera - 180 || u.x > camera + viewportWidth + 180) continue;
     const c = CARDS[u.id],
-      isTank = modelOf(u.id) === 'tank',
+      geometry = tankGeometry(u.id),
+      isTank = !!geometry,
       isAir = !!c.air,
       isDead = u.hp <= 0;
     const [w, h] = unitSize(u.id);
-    const tankOffset =
-      (tankGeometry(u.id)?.spriteOffset ?? 0) * (u.side === 0 ? 1 : -1);
-    let frame = Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) % 4;
+    const tankOffset = (geometry?.spriteOffset ?? 0) * (u.side === 0 ? 1 : -1);
+    const groundInset = geometry?.spriteGroundInset ?? 0;
+    let frame =
+      Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) %
+      (art.mobileVehicles?.[u.id]?.length ?? 4);
     if (c.emplacement && u.fire > 0.1) frame = 1;
     const adult = c.members ? art.adults[adultIdentity(u.id)] : null;
     const choice = c.members ? adultFrameChoice(u) : null;
@@ -257,16 +325,38 @@ export function render(
       ctx.save();
       ctx.filter = 'grayscale(1) brightness(.5)';
     }
+    if (u.rappelling) {
+      const carrier = s.units.find(
+        (v) =>
+          v.airlift?.squad === u.squad &&
+          v.hp > 0 &&
+          v.airlift.phase === 'unload',
+      );
+      if (carrier) {
+        ctx.strokeStyle = '#b8b29a';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(carrier.x), Math.round(carrier.y - 3));
+        ctx.lineTo(Math.round(u.x), Math.round(u.y - 51));
+        ctx.stroke();
+      }
+    }
     drawSprite(
       ctx,
       img,
-      u.x + tankOffset * Math.cos(u.hullAngle),
-      u.y + u.lane + (isTank ? 0 : 3) + tankOffset * Math.sin(u.hullAngle),
+      u.x +
+        tankOffset * Math.cos(u.hullAngle) -
+        groundInset * Math.sin(u.hullAngle),
+      u.y +
+        u.lane +
+        (isTank ? 0 : 3) +
+        tankOffset * Math.sin(u.hullAngle) +
+        groundInset * Math.cos(u.hullAngle),
       c.members ? img.width : w,
       c.members ? img.height : h,
       c.members || c.air ? u.facing < 0 : u.side === 1,
       alpha,
-      c.armored ? u.hullAngle : 0,
+      c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
     );
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;

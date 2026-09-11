@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Info,
   Layers3,
+  Minus,
   Plus,
   Search,
   Undo2,
@@ -18,7 +19,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { CARDS, DECK, validDeck, copyLimit, type CardId } from '@/game/cards';
+import { CARDS, validDeck, copyLimit, type CardId } from '@/game/cards';
+import { DECK_PRESETS } from '@/game/deck-presets';
 import { CardFace, cardStats } from '@/game/card-art';
 import { CARD_COPY } from '@/game/card-copy';
 const pool = Object.values(CARDS).sort(
@@ -46,6 +48,36 @@ export default function DeckBuilder({
     [drawer, setDrawer] = useState(false);
   const [message, setMessage] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const press = useRef<{
+    id: CardId;
+    pointer: number;
+    x: number;
+    y: number;
+    active: boolean;
+    consumed: boolean;
+  } | null>(null);
+  const clearPressTimer = () => {
+    if (pressTimer.current !== null) clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+  };
+  const cancelPress = () => {
+    clearPressTimer();
+    if (press.current?.active) {
+      press.current.active = false;
+      press.current.consumed = true;
+    }
+  };
+  const controlPress = (event: { stopPropagation: () => void }) => {
+    event.stopPropagation();
+    cancelPress();
+  };
+  useEffect(
+    () => () => {
+      if (pressTimer.current !== null) clearTimeout(pressTimer.current);
+    },
+    [],
+  );
   const dirty = [...deck].sort().join('|') !== [...draft].sort().join('|');
   const countOf = (id: CardId) => draft.filter((v) => v === id).length;
   const ordered = [...new Set(draft)].sort(
@@ -79,6 +111,13 @@ export default function DeckBuilder({
     setMessage(`选择一张旧卡，替换为「${CARDS[id].name}」`);
     if (window.matchMedia('(max-width:900px)').matches) setDrawer(true);
   };
+  const remove = (id: CardId) => {
+    const index = draft.indexOf(id);
+    if (index < 0) return;
+    const next = [...draft];
+    next.splice(index, 1);
+    apply(next, `已减少一张${CARDS[id].name}`);
+  };
   const changeSlot = (id: CardId) => {
     const index = draft.indexOf(id);
     if (index < 0) return;
@@ -111,7 +150,7 @@ export default function DeckBuilder({
       (type === 'all' ||
         (type === 'infantry' && c.members) ||
         (type === 'artillery' && c.emplacement) ||
-        (type === 'armor' && c.armored) ||
+        (type === 'armor' && (c.armored || c.vehicle)) ||
         (type === 'air' && c.air) ||
         (type === 'skill' && c.type === 'skill')) &&
       (cost === 'all' || cost === '6'
@@ -220,12 +259,31 @@ export default function DeckBuilder({
         >
           <Undo2 size={13} /> 撤销
         </button>
-        <button onClick={() => apply([...DECK], '已载入推荐编队')}>推荐</button>
+        <select
+          aria-label="推荐编队"
+          value=""
+          onChange={(event) => {
+            const preset = DECK_PRESETS.find(
+              (p) => p.id === event.target.value,
+            );
+            if (preset)
+              apply([...preset.cards], `${preset.name}：${preset.plan}`);
+          }}
+        >
+          <option value="" disabled>
+            推荐编队
+          </option>
+          {DECK_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
         <button onClick={() => apply([], '编队已清空，可撤销')}>清空</button>
       </div>
       <output className="armory-status">
         {message ||
-          (dirty ? '有未保存的修改' : '卡池点一次增加一张，编队点一次减少一张')}
+          (dirty ? '有未保存的修改' : '卡面加减调整数量，长按查看详情')}
       </output>
       <div className="armory-save">
         <button
@@ -257,7 +315,7 @@ export default function DeckBuilder({
           <h1>编组室</h1>
         </div>
         <p>
-          点击卡池增加，点击编队减少
+          卡面加减调整数量，长按查看详情
           <br />
           <b>满 20 张后，点新卡再选旧卡替换</b>
         </p>
@@ -274,7 +332,7 @@ export default function DeckBuilder({
               {[
                 ['all', '全部'],
                 ['infantry', '步兵'],
-                ['armor', '装甲'],
+                ['armor', '载具'],
                 ['artillery', '火炮'],
                 ['air', '航空'],
                 ['skill', '指令'],
@@ -348,26 +406,107 @@ export default function DeckBuilder({
                 >
                   <button
                     className="armory-card-select"
-                    onClick={() => pick(c.id)}
+                    onPointerDown={(event) => {
+                      if (!event.isPrimary || event.button !== 0) return;
+                      clearPressTimer();
+                      press.current = {
+                        id: c.id,
+                        pointer: event.pointerId,
+                        x: event.clientX,
+                        y: event.clientY,
+                        active: true,
+                        consumed: false,
+                      };
+                      pressTimer.current = setTimeout(() => {
+                        pressTimer.current = null;
+                        if (
+                          press.current?.active &&
+                          press.current.id === c.id
+                        ) {
+                          press.current.consumed = true;
+                          setDetail(c.id);
+                        }
+                      }, 450);
+                    }}
+                    onPointerMove={(event) => {
+                      const current = press.current;
+                      if (
+                        current?.pointer === event.pointerId &&
+                        Math.hypot(
+                          event.clientX - current.x,
+                          event.clientY - current.y,
+                        ) > 10
+                      )
+                        cancelPress();
+                    }}
+                    onPointerUp={() => {
+                      clearPressTimer();
+                      if (press.current) press.current.active = false;
+                    }}
+                    onPointerCancel={cancelPress}
+                    onLostPointerCapture={cancelPress}
+                    onPointerLeave={cancelPress}
+                    onContextMenu={(event) => event.preventDefault()}
+                    onDragStart={(event) => event.preventDefault()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      const consumed =
+                        press.current?.id === c.id && press.current.consumed;
+                      press.current = null;
+                      if (event.detail > 0 && consumed) return;
+                      pick(c.id);
+                    }}
                     aria-pressed={picked}
                     aria-label={`${draft.length === 20 ? '替换为' : '增加一张'}${c.name}，${c.cost} 点，${c.description}`}
                   >
                     <CardFace id={c.id} />
-                    <span className="armory-card-owned">
-                      {pending === c.id
-                        ? '选择旧卡替换'
-                        : picked
-                          ? `已编入 ${countOf(c.id)} / ${copyLimit(c.id)}`
-                          : `+ 编入 · 上限 ${copyLimit(c.id)} 张`}
+                  </button>
+                  <div className="armory-card-controls">
+                    <button
+                      type="button"
+                      disabled={countOf(c.id) === 0}
+                      onPointerDown={controlPress}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        remove(c.id);
+                      }}
+                      aria-label={`减少一张${c.name}`}
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span
+                      className="armory-card-count"
+                      aria-label={`${c.name}已编入${countOf(c.id)}张，上限${copyLimit(c.id)}张`}
+                    >
+                      <b>{countOf(c.id)}</b> / {copyLimit(c.id)}
                     </span>
-                  </button>
-                  <button
-                    className="armory-card-info"
-                    onClick={() => setDetail(c.id)}
-                    aria-label={`查看${c.name}详情`}
-                  >
-                    <Info size={13} /> 详情
-                  </button>
+                    <button
+                      type="button"
+                      disabled={
+                        draft.length >= 20 || countOf(c.id) >= copyLimit(c.id)
+                      }
+                      onPointerDown={controlPress}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (draft.length < 20) pick(c.id);
+                      }}
+                      aria-label={`增加一张${c.name}`}
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <button
+                      type="button"
+                      className="armory-card-info"
+                      onPointerDown={controlPress}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setDetail(c.id);
+                      }}
+                      aria-label={`查看${c.name}详情`}
+                    >
+                      <Info size={15} />
+                    </button>
+                  </div>
                 </article>
               );
             })}
@@ -392,18 +531,30 @@ export default function DeckBuilder({
       </div>
       <div className="mobile-deck-bar">
         <button onClick={() => setDrawer(true)}>
-          <Layers3 size={18} />
+          <Layers3 size={16} />
           <span>
-            我的编队 <b>{draft.length}/20</b>
-            {pending && <small>选择要替换的卡</small>}
+            <span className="mobile-deck-label">我的编队</span>{' '}
+            <b>{draft.length}/20</b>
           </span>
+        </button>
+        <output className="mobile-deck-status" aria-live="polite">
+          {pending
+            ? '选择要替换的卡'
+            : message || (dirty ? '有未保存的修改' : '')}
+        </output>
+        <button
+          className="secondary-button"
+          disabled={!validDeck(draft)}
+          onClick={save}
+        >
+          保存
         </button>
         <button
           className="primary-button"
           disabled={!validDeck(draft)}
           onClick={start}
         >
-          保存并出战 <ArrowRight size={16} />
+          出战 <ArrowRight size={14} />
         </button>
       </div>
       <Dialog open={drawer} onOpenChange={setDrawer}>

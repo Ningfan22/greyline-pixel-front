@@ -34,6 +34,7 @@ const cycle = (walk: number, length: number) =>
 /** Every living, casualty and surrender state uses the same adult anatomy. */
 export function adultFrameChoice(u: Unit): AdultFrameChoice {
   if (u.hp <= 0) return action(15);
+  if (u.rappelling) return action(8 + (3 - cycle(u.walk, 4)));
   if (u.surrendered)
     return reaction(
       u.surrenderTime < 0.35

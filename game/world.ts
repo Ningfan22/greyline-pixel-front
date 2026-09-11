@@ -1,3 +1,4 @@
+import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import type { GameState, Side, Unit } from './engine';
@@ -63,11 +64,14 @@ export interface Mine {
 }
 const floorAt = (s: GameState, x: number) =>
   s.terrain[Math.max(0, Math.min(s.terrain.length - 1, Math.floor(x)))];
-export function createScenery(terrain: number[]): Scenery[] {
-  return [
-    620, 820, 1040, 1250, 1450, 1680, 1910, 2140, 2370, 2570, 2790, 3000, 3220,
-  ].flatMap((x, i) => {
-    const house = i % 3 === 0,
+export function createScenery(
+  terrain: number[],
+  sites: readonly MapScenerySite[] = villageScenerySites(terrain.length),
+): Scenery[] {
+  return sites.map((site, i) => {
+    const x = Math.max(0, Math.min(terrain.length - 1, Math.round(site.x))),
+      house = site.kind === 'house',
+      building = house ? (site.building ?? Math.floor(i / 3) % 3) : undefined,
       y = terrain[x],
       parts: SceneryPart[] = [];
     const add = (
@@ -90,8 +94,8 @@ export function createScenery(terrain: number[]): Scenery[] {
         brokenAt: -1,
       });
     if (house) {
-      const profile = HOUSE_PROFILES[Math.floor(i / 3) % 3];
-      const width = profile.width * 0.9,
+      const profile = HOUSE_PROFILES[building!],
+        width = profile.width * 0.9,
         segment = width / 3;
       add(
         'wall',
@@ -129,32 +133,18 @@ export function createScenery(terrain: number[]): Scenery[] {
       add('trunk', -6, -85, 12, 85, 60);
       add('crown', -50, -136, 100, 98, 40);
     }
-    const base: Scenery = {
-      id: i * 2,
-      kind: house ? 'house' : 'tree',
+    return {
+      id: site.id ?? i,
+      kind: site.kind,
       x,
       y,
       parts,
-      seed: 119 + i * 47,
-      building: house ? Math.floor(i / 3) % 3 : undefined,
+      seed: site.seed,
+      building,
     };
-    if (house) return [base];
-    const xx = x + 72,
-      yy = terrain[xx];
-    return [
-      base,
-      {
-        ...base,
-        id: i * 2 + 1,
-        x: xx,
-        y: yy,
-        seed: base.seed + 7,
-        parts: parts.map((p) => ({ ...p, x: p.x + 72, y: p.y + yy - y })),
-      },
-    ];
   });
 }
-function segmentBox(
+export function segmentBox(
   sx: number,
   sy: number,
   tx: number,

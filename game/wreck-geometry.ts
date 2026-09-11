@@ -1,4 +1,5 @@
 import { CARDS, modelOf, type CardId } from './cards';
+import { FPV_WRECK_PROFILE } from './art-v16';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
@@ -11,6 +12,7 @@ export type WreckKind =
   | 'at_gun'
   | 'aa_gun'
   | 'scout_drone'
+  | 'fpv_drone'
   | 'helicopter'
   | 'rocket_heli'
   | 'medevac'
@@ -18,14 +20,21 @@ export type WreckKind =
   | 'loiter_drone'
   | 'interceptor'
   | 'strike_jet'
-  | 'bomber';
+  | 'bomber'
+  | 'pickup'
+  | 'tow_ifv'
+  | 'mortar_carrier'
+  | 'recovery_vehicle'
+  | 'command_vehicle'
+  | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv';
   source: Rect;
   width: number;
   height: number;
   parts: Rect[];
   support: [number, number, number];
+  spriteOffset: number;
 }
 function shape(
   atlas: WreckGeometry['atlas'],
@@ -33,6 +42,7 @@ function shape(
   width: number,
   parts: Rect[],
   support: WreckGeometry['support'],
+  spriteOffset = 0,
 ): WreckGeometry {
   return {
     atlas,
@@ -41,10 +51,102 @@ function shape(
     height: Math.round((width * source[3]) / source[2]),
     parts,
     support,
+    spriteOffset,
   };
 }
 /** Authored silhouettes measured from the generated atlases; no live-sprite scaling ratios. */
 export const WRECKS: Record<WreckKind, WreckGeometry> = {
+  fpv_drone: { atlas: 'fpv', ...FPV_WRECK_PROFILE },
+  pickup: shape(
+    'mobile',
+    [1597, 215, 350, 143],
+    190,
+    [
+      [0.034, 0.364, 0.331, 0.238],
+      [0.509, 0.308, 0.131, 0.378],
+      [0.097, 0.643, 0.577, 0.126],
+      [0.151, 0.713, 0.111, 0.168],
+      [0.694, 0.51, 0.177, 0.182],
+      [0.837, 0.825, 0.126, 0.105],
+    ],
+    [0.131, 0.769, 0.909],
+    9.5,
+  ),
+  tow_ifv: shape(
+    'mobile',
+    [1599, 473, 351, 195],
+    240,
+    [
+      [0.063, 0.538, 0.809, 0.231],
+      [0.131, 0.8, 0.678, 0.128],
+      [0.088, 0.385, 0.199, 0.138],
+      [0.578, 0.364, 0.205, 0.159],
+      [0.604, 0.215, 0.202, 0.062],
+      [0.926, 0.795, 0.043, 0.072],
+    ],
+    [0.14, 0.823, 0.954],
+    4.44,
+  ),
+  mortar_carrier: shape(
+    'support',
+    [1185, 102, 307, 153],
+    210,
+    [
+      [0.046, 0.464, 0.329, 0.209],
+      [0.567, 0.405, 0.225, 0.268],
+      [0.837, 0.556, 0.111, 0.176],
+      [0.111, 0.712, 0.681, 0.098],
+      [0.166, 0.752, 0.101, 0.17],
+      [0.423, 0.771, 0.107, 0.157],
+      [0.694, 0.895, 0.127, 0.072],
+      [0.332, 0.301, 0.192, 0.111],
+    ],
+    [0.173, 0.782, 0.961],
+    4.79,
+  ),
+  recovery_vehicle: shape(
+    'support',
+    [1167, 330, 343, 175],
+    220,
+    [
+      [0.087, 0.646, 0.746, 0.183],
+      [0.093, 0.326, 0.411, 0.28],
+      [0.513, 0.474, 0.245, 0.16],
+      [0.364, 0.177, 0.047, 0.109],
+      [0.519, 0.286, 0.149, 0.057],
+    ],
+    [0.114, 0.837, 0.886],
+    5.45,
+  ),
+  command_vehicle: shape(
+    'support',
+    [1184, 532, 328, 219],
+    210,
+    [
+      [0.082, 0.461, 0.527, 0.297],
+      [0.646, 0.53, 0.107, 0.205],
+      [0.793, 0.667, 0.119, 0.11],
+      [0.195, 0.799, 0.107, 0.114],
+      [0.652, 0.9, 0.107, 0.05],
+    ],
+    [0.171, 0.72, 0.945],
+    11.52,
+  ),
+  mine_clearer: shape(
+    'support',
+    [1164, 800, 360, 172],
+    245,
+    [
+      [0.092, 0.465, 0.469, 0.192],
+      [0.142, 0.302, 0.217, 0.134],
+      [0.086, 0.709, 0.456, 0.14],
+      [0.656, 0.564, 0.069, 0.145],
+      [0.856, 0.698, 0.089, 0.18],
+      [0.689, 0.814, 0.153, 0.047],
+    ],
+    [0.075, 0.558, 0.89],
+    44.92,
+  ),
   light_tank: shape(
     'ground',
     [17, 159, 413, 193],
@@ -290,6 +392,7 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
 };
 export function wreckKind(id: CardId): WreckKind {
   const c = CARDS[id];
+  if (c.airlift) return 'medevac';
   if (c.emplacement) return c.emplacement;
   if (Object.hasOwn(WRECKS, id)) return id as WreckKind;
   return modelOf(id) === 'tank' ? 'tank' : c.air ? 'helicopter' : 'ifv';
@@ -321,7 +424,7 @@ export function wreckObstacles(w: Placement) {
       [x, y + height],
       [x + width, y + height],
     ].map(([px, py]) => {
-      const dx = (px - 0.5) * g.width * dir,
+      const dx = ((px - 0.5) * g.width + g.spriteOffset) * dir,
         dy = (py - g.support[2]) * g.height;
       return { x: w.x + dx * cos - dy * sin, y: w.y + dx * sin + dy * cos };
     });
@@ -344,7 +447,7 @@ export function wreckContact(
     dir = facing(w);
   const ends = g.support
     .slice(0, 2)
-    .map((p) => (p - 0.5) * g.width * dir)
+    .map((p) => ((p - 0.5) * g.width + g.spriteOffset) * dir)
     .sort((a, b) => a - b);
   const [left, right] = ends;
   const slope = Math.max(

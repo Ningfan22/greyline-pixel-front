@@ -68,6 +68,7 @@ import {
   type AudioSettings,
 } from '@/game/audio';
 import { assetUrl } from '@/game/asset-url';
+import { DEFAULT_MAP, type MapId } from '@/game/maps';
 
 const timeString = (t: number) =>
   `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -98,14 +99,18 @@ export default function Battle({
   playerDeck,
   aiDeck,
   seed,
+  mapId = DEFAULT_MAP,
   onExit,
 }: {
   playerDeck: CardId[];
   aiDeck: CardId[];
   seed: number;
+  mapId?: MapId;
   onExit: () => void;
 }) {
-  const [initialGame] = useState(() => createGame(seed, playerDeck, aiDeck));
+  const [initialGame] = useState(() =>
+    createGame(seed, playerDeck, aiDeck, mapId),
+  );
   const game = useRef<GameState>(initialGame);
   const [view, setView] = useState(() => snapshot(initialGame));
   const [selected, setSelected] = useState<number | null>(null);
@@ -196,7 +201,7 @@ export default function Battle({
   const execute = useCallback(
     (uid: number, x?: number) => {
       const h = game.current.players[0].hand.find((h) => h.uid === uid);
-      const entryOrTarget = h && CARDS[h.id].type === 'unit' ? undefined : x;
+      const entryOrTarget = h && needsTarget(h.id) ? x : undefined;
       const result = playCard(game.current!, 0, uid, entryOrTarget);
       if (result.ok) choose(null);
       else toast(result.message);
@@ -233,7 +238,12 @@ export default function Battle({
   const reset = useCallback(() => {
     interruptCardHold();
     const nextSeed = Date.now();
-    game.current = createGame(nextSeed, playerDeck, chooseAiDeck(nextSeed));
+    game.current = createGame(
+      nextSeed,
+      playerDeck,
+      chooseAiDeck(nextSeed),
+      mapId,
+    );
     startGame(game.current);
     choose(null);
     hover.current = null;
@@ -241,7 +251,7 @@ export default function Battle({
     setCameraView(0);
     setMessage('');
     refresh();
-  }, [choose, refresh, playerDeck, interruptCardHold]);
+  }, [choose, refresh, playerDeck, mapId, interruptCardHold]);
   const pause = useCallback(() => {
     interruptCardHold();
     const s = game.current!;

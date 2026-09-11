@@ -2,10 +2,19 @@ import { transparentSheet } from './sprite-atlas';
 import { WRECKS, type WreckKind } from './wreck-geometry';
 
 /** Extract authored wrecks; no live sprite, tint or vertical compression is used. */
-export function wreckFrames(ground: HTMLImageElement, air: HTMLImageElement) {
+export function wreckFrames(
+  ground: HTMLImageElement,
+  air: HTMLImageElement,
+  mobile: HTMLImageElement,
+  support: HTMLImageElement,
+  fpv: HTMLImageElement,
+) {
   const sheets = {
     ground: transparentSheet(ground),
     air: transparentSheet(air),
+    mobile: transparentSheet(mobile),
+    support: transparentSheet(support),
+    fpv,
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {

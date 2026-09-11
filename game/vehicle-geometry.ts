@@ -4,6 +4,7 @@ import { modelOf, type CardId } from './cards';
 export interface TankGeometry {
   size: [number, number];
   spriteOffset: number;
+  spriteGroundInset?: number;
   half: number;
   hullHeight: number;
   muzzleX: number;
@@ -12,6 +13,72 @@ export interface TankGeometry {
   coaxY: number;
 }
 const TANKS: Record<string, TankGeometry> = {
+  pickup: {
+    size: [190, 105],
+    spriteOffset: -7.48,
+    spriteGroundInset: 0,
+    half: 74,
+    hullHeight: 75,
+    muzzleX: 20.5,
+    muzzleY: 90.85,
+    coaxX: 20.5,
+    coaxY: 90.85,
+  },
+  tow_ifv: {
+    size: [240, 138],
+    spriteOffset: -0.66,
+    spriteGroundInset: 0,
+    half: 108,
+    hullHeight: 94,
+    muzzleX: 2.65,
+    muzzleY: 127.29,
+    coaxX: 53.7,
+    coaxY: 106.74,
+  },
+  mortar_carrier: {
+    size: [210, 127],
+    spriteOffset: 6.05,
+    spriteGroundInset: 0,
+    half: 77,
+    hullHeight: 91,
+    muzzleX: -19.93,
+    muzzleY: 122.44,
+    coaxX: 88.98,
+    coaxY: 76.88,
+  },
+  recovery_vehicle: {
+    size: [220, 119],
+    spriteOffset: 2.56,
+    spriteGroundInset: 0,
+    half: 103,
+    hullHeight: 75,
+    muzzleX: 85.7,
+    muzzleY: 69.71,
+    coaxX: 85.7,
+    coaxY: 69.71,
+  },
+  command_vehicle: {
+    size: [210, 160],
+    spriteOffset: -2.44,
+    spriteGroundInset: 0,
+    half: 76,
+    hullHeight: 96,
+    muzzleX: 48.14,
+    muzzleY: 108.84,
+    coaxX: 48.14,
+    coaxY: 108.84,
+  },
+  mine_clearer: {
+    size: [245, 114],
+    spriteOffset: 43.11,
+    spriteGroundInset: 7.53,
+    half: 77,
+    hullHeight: 79,
+    muzzleX: 46.54,
+    muzzleY: 88.28,
+    coaxX: 46.54,
+    coaxY: 88.28,
+  },
   light_tank: {
     size: [220, 110],
     spriteOffset: 18,
@@ -44,7 +111,7 @@ const TANKS: Record<string, TankGeometry> = {
   },
 };
 export function tankGeometry(id: CardId): TankGeometry | null {
-  return modelOf(id) === 'tank' ? (TANKS[id] ?? TANKS.tank) : null;
+  return TANKS[id] ?? (modelOf(id) === 'tank' ? TANKS.tank : null);
 }
 export function armorHalf(id: CardId) {
   return tankGeometry(id)?.half ?? 48;
