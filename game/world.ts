@@ -1,3 +1,4 @@
+import { armoredWreckSize } from './vehicle-geometry';
 import { CARDS } from './cards';
 import type { GameState, Side, Unit } from './engine';
 export interface SceneryPart {
@@ -18,8 +19,31 @@ export interface Scenery {
   y: number;
   seed: number;
   parts: SceneryPart[];
+  building?: number;
+  damageAt?: number;
+  fromStage?: number;
+}
+export const HOUSE_PROFILES = [
+  { width: 176, height: 180, wallHeight: 121 },
+  { width: 196, height: 188, wallHeight: 137 },
+  { width: 220, height: 122, wallHeight: 80 },
+] as const;
+export function buildingType(p: Scenery) {
+  return p.building ?? Math.floor(p.id / 6) % HOUSE_PROFILES.length;
+}
+export function buildingStage(p: Scenery) {
+  const walls = p.parts.filter((part) => part.kind === 'wall');
+  if (walls.length && walls.every((part) => part.hp <= 0)) return 3;
+  const health = p.parts.reduce((n, part) => n + Math.max(0, part.hp), 0);
+  const full = p.parts.reduce((n, part) => n + part.maxHp, 0);
+  const broken = p.parts.filter((part) => part.hp <= 0).length;
+  return health < full * 0.48 || broken > 0 ? 2 : health < full * 0.83 ? 1 : 0;
 }
 export interface Wreck {
+  /** Preserve the casualty's final presentation; old serialized wrecks can omit these. */
+  pose?: Unit['pose'];
+  facing?: number;
+  lane?: number;
   id: number;
   cardId: Unit['id'];
   side: Side;
@@ -66,10 +90,41 @@ export function createScenery(terrain: number[]): Scenery[] {
         brokenAt: -1,
       });
     if (house) {
-      add('wall', -52, -103, 34, 103, 100);
-      add('wall', -18, -103, 36, 103, 110);
-      add('wall', 18, -103, 34, 103, 100);
-      add('roof', -61, -153, 122, 52, 85);
+      const profile = HOUSE_PROFILES[Math.floor(i / 3) % 3];
+      const width = profile.width * 0.9,
+        segment = width / 3;
+      add(
+        'wall',
+        -width / 2,
+        -profile.wallHeight,
+        segment,
+        profile.wallHeight,
+        100,
+      );
+      add(
+        'wall',
+        -width / 2 + segment,
+        -profile.wallHeight,
+        segment,
+        profile.wallHeight,
+        110,
+      );
+      add(
+        'wall',
+        -width / 2 + segment * 2,
+        -profile.wallHeight,
+        segment,
+        profile.wallHeight,
+        100,
+      );
+      add(
+        'roof',
+        -profile.width / 2,
+        -profile.height,
+        profile.width,
+        profile.height - profile.wallHeight + 2,
+        85,
+      );
     } else {
       add('trunk', -6, -85, 12, 85, 60);
       add('crown', -50, -136, 100, 98, 40);
@@ -81,6 +136,7 @@ export function createScenery(terrain: number[]): Scenery[] {
       y,
       parts,
       seed: 119 + i * 47,
+      building: house ? Math.floor(i / 3) % 3 : undefined,
     };
     if (house) return [base];
     const xx = x + 72,
@@ -133,6 +189,58 @@ export interface Obstacle {
   rubble?: boolean;
   foliage?: boolean;
 }
+/** Surviving structure after a partial collapse, matching the generated facade.
+ * Once floors fail the remaining HP belongs to these connected masonry sections,
+ * rather than to rectangular wall slices that no longer exist in the artwork. */
+// Measured from the imported game-sized stage-2 sprites. Every rectangle is
+// inside opaque generated structure; coordinates are relative to its ground anchor.
+const PARTIAL_BUILDING_RECTS = [
+  [
+    [-80, -121, 80, 107],
+    [-64, -150, 52, 31],
+    [-70, -14, 158, 14],
+  ],
+  [
+    [-90, -137, 90, 123],
+    [-64, -168, 40, 33],
+    [-78, -14, 176, 12],
+  ],
+  [
+    [-101, -80, 101, 66],
+    [-96, -102, 90, 24],
+    [-88, -14, 196, 12],
+  ],
+] as const;
+const SETTLED_BUILDING_RECTS = [
+  [-79, -22, 149, 22],
+  [-88, -22, 158, 22],
+  [-99, -22, 181, 22],
+] as const;
+export function buildingHull(
+  p: Scenery,
+  groundAt: (x: number) => number,
+): Obstacle[] {
+  const stage = buildingStage(p),
+    row = buildingType(p);
+  if (stage < 2)
+    return p.parts
+      .filter((part) => part.hp > 0)
+      .map((part) => ({ ...part, prop: p, part }));
+  // The partial building is painted at its original foundation, including its
+  // rubble. Only the completely settled ruin follows the current ground.
+  const base = stage === 2 ? p.y : groundAt(p.x);
+  const rects =
+    stage === 2 ? PARTIAL_BUILDING_RECTS[row] : [SETTLED_BUILDING_RECTS[row]];
+  return rects.map(([x, y, w, h], index) => ({
+    x: p.x + x,
+    y: base + y,
+    w,
+    h,
+    prop: p,
+    rubble: stage === 3 || index === 2,
+  }));
+}
+
 const geometryCache = new WeakMap<
   GameState,
   { time: number; scenery: Scenery[]; wreckCount: number; boxes: Obstacle[] }
@@ -148,6 +256,10 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
     return cached.boxes;
   const boxes: Obstacle[] = [];
   for (const prop of s.scenery) {
+    if (prop.kind === 'house') {
+      boxes.push(...buildingHull(prop, (x) => floorAt(s, x)));
+      continue;
+    }
     for (const part of prop.parts) {
       if (part.hp > 0)
         boxes.push({ ...part, prop, part, foliage: part.kind === 'crown' });
@@ -178,8 +290,8 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
   for (const wreck of s.wrecks)
     if (!wreck.falling && !CARDS[wreck.cardId].members) {
       const c = CARDS[wreck.cardId],
-        w = c.armored ? 126 : c.air ? 112 : 84,
-        h = c.armored ? 34 : c.air ? 28 : 24;
+        w = c.armored ? armoredWreckSize(wreck.cardId)[0] : c.air ? 112 : 84,
+        h = c.armored ? armoredWreckSize(wreck.cardId)[1] : c.air ? 28 : 24;
       boxes.push({
         x: wreck.x - w / 2,
         y: wreck.y - h,
@@ -416,7 +528,36 @@ export function damageScenery(
   damage: number,
 ) {
   geometryCache.delete(s);
-  for (const prop of s.scenery)
+  const stages = new Map(
+    s.scenery
+      .filter((p) => p.kind === 'house')
+      .map((p) => [p.id, buildingStage(p)]),
+  );
+  for (const prop of s.scenery) {
+    if (prop.kind === 'house' && buildingStage(prop) >= 2) {
+      if (buildingStage(prop) === 3) continue;
+      const distance = Math.min(
+        ...buildingHull(prop, (at) => floorAt(s, at)).map((box) =>
+          Math.hypot(
+            Math.max(box.x - x, 0, x - box.x - box.w),
+            Math.max(box.y - y, 0, y - box.y - box.h),
+          ),
+        ),
+      );
+      if (distance > radius) continue;
+      const health = prop.parts.reduce(
+        (n, part) => n + Math.max(0, part.hp),
+        0,
+      );
+      const hit = damage * Math.max(0.15, 1 - distance / (radius + 1));
+      const fraction = Math.max(0, 1 - hit / Math.max(0.001, health));
+      for (const part of prop.parts)
+        if (part.hp > 0) {
+          part.hp = fraction < 0.00001 ? 0 : part.hp * fraction;
+          if (!part.hp) part.brokenAt = s.time;
+        }
+      continue;
+    }
     for (const p of prop.parts) {
       if (p.hp <= 0) continue;
       const distance = Math.hypot(
@@ -430,6 +571,7 @@ export function damageScenery(
       );
       if (!p.hp) p.brokenAt = s.time;
     }
+  }
   for (const prop of s.scenery) {
     const support = prop.parts.filter(
       (p) => p.kind === 'wall' || p.kind === 'trunk',
@@ -440,5 +582,13 @@ export function damageScenery(
           p.hp = 0;
           p.brokenAt = s.time;
         }
+  }
+  for (const prop of s.scenery) {
+    if (prop.kind !== 'house') continue;
+    const previous = stages.get(prop.id) ?? 0;
+    if (buildingStage(prop) > previous) {
+      prop.damageAt = s.time;
+      prop.fromStage = previous;
+    }
   }
 }

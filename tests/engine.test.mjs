@@ -1,3 +1,10 @@
+import { tankGeometry } from '../game/vehicle-geometry.ts';
+import {
+  adultIdentity,
+  adultFrameChoice,
+  adultWreckChoice,
+} from '../game/adult-animation.ts';
+import { projectileForRender } from '../game/render-depth.ts';
 import {
   damageScenery,
   obstacleBoxes,
@@ -5,6 +12,13 @@ import {
   observationPenalty,
   pointVisible,
 } from '../game/world.ts';
+import {
+  buildingStage,
+  buildingType,
+  buildingHull,
+  HOUSE_PROFILES,
+} from '../game/world.ts';
+import { buildingAnimation } from '../game/building-art.ts';
 import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
 import assert from 'node:assert/strict';
@@ -44,7 +58,6 @@ import {
   canTakeDamage,
   validDeck,
   chooseAiDeck,
-  modelOf,
   isCombatant,
 } from '../game/engine.ts';
 const advance = (s, seconds) => {
@@ -305,7 +318,7 @@ check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
       for (const state of ['jump', 'land', 'bank', 'ground'])
         assert(
           seen.has(state),
-          `${side} ${order} missed ${state}: ${[...seen]}`,
+          `${side} ${order} missed ${state}: ${[...seen].join(', ')}`,
         );
       assert(side === 0 ? u.x > 945 : u.x < 855);
     }
@@ -1233,6 +1246,8 @@ check('普通火炮不能一轮清空满编队伍，边缘伤害衰减且移动�
   const moving = arena();
   spawnUnit(moving, 1, 'tank', 1800);
   const tank = moving.units[0];
+  // Clear the entire enlarged hull before the fixed shell arrives.
+  tank.pace = 3;
   moving.players[0].energy = 10;
   moving.projectiles.push({
     uid: ++moving.uid,
@@ -1957,7 +1972,7 @@ check('房屋分部受损，倒树与废墙永久形成低掩体并拦截弹道'
   damageScenery(s, wall.x + 4, wall.y + 20, 2, 1000);
   assert.equal(wall.hp, 0);
   assert(house.parts.some((p) => p.kind === 'wall' && p.hp > 0));
-  assert(obstacleBoxes(s).some((b) => b.part === wall && b.rubble));
+  assert(obstacleBoxes(s).some((b) => b.prop === house && b.rubble));
   damageScenery(s, tree.x, tree.y - 45, 12, 1000);
   assert(tree.parts.every((p) => p.hp === 0));
   const fallen = obstacleBoxes(s).find((b) => b.prop === tree && b.rubble);
@@ -2732,6 +2747,875 @@ check('AI 缺反甲时付费搜牌，抽牌冷却期间保留费用', () => {
   assert(s.players[1].energy >= 3 && s.players[1].energy < 3.01);
   assert.equal(s.players[1].hand.length, 2);
 });
+check('三类房屋使用独立占地，部件损毁驱动局部与整体坍塌', () => {
+  const s = createGame(37);
+  startGame(s);
+  const houses = s.scenery.filter((p) => p.kind === 'house');
+  assert.deepEqual(houses.slice(0, 3).map(buildingType), [0, 1, 2]);
+  for (const p of houses) {
+    assert.equal(
+      p.parts.find((part) => part.kind === 'roof').w,
+      HOUSE_PROFILES[buildingType(p)].width,
+    );
+  }
+  const house = houses[0],
+    walls = house.parts.filter((p) => p.kind === 'wall');
+  const strike = (part, damage) =>
+    damageScenery(s, part.x + part.w / 2, part.y + part.h / 2, 1, damage);
+  assert.equal(buildingStage(house), 0);
+  s.time = 1;
+  strike(walls[0], 70);
+  assert.equal(buildingStage(house), 1);
+  assert.equal(house.damageAt, 1);
+  assert.equal(house.fromStage, 0);
+  assert.equal(buildingAnimation(house, 1.1), 0);
+  s.time = 1.1;
+  strike(walls[0], 1);
+  assert.equal(
+    house.damageAt,
+    1,
+    'same-stage chip damage must not restart animation',
+  );
+  s.time = 2;
+  strike(walls[0], 100);
+  assert.equal(buildingStage(house), 2);
+  const hull = buildingHull(house, (x) => ground(s, x));
+  assert(hull.some((box) => !box.rubble && box.x < house.x));
+  assert(
+    !hull.some((box) => !box.rubble && box.x > house.x),
+    'collapsed opening must not have an invisible wall',
+  );
+  assert.equal(buildingAnimation(house, 2.3), 3);
+  assert.equal(
+    buildingAnimation(house, 2.8),
+    null,
+    'partial collapse stops at the painted structural state',
+  );
+  const before = house.parts.reduce((n, p) => n + p.hp, 0);
+  damageScenery(s, house.x + 65, house.y - 90, 1, 100);
+  assert.equal(
+    house.parts.reduce((n, p) => n + p.hp, 0),
+    before,
+    'empty collapsed side does not absorb hits',
+  );
+  const surviving = hull.find((box) => !box.rubble);
+  s.time = 3;
+  damageScenery(
+    s,
+    surviving.x + surviving.w / 2,
+    surviving.y + surviving.h / 2,
+    1,
+    1000,
+  );
+  assert.equal(buildingStage(house), 3);
+  assert(house.parts.every((p) => p.hp === 0));
+  assert.equal(house.fromStage, 2);
+  assert.equal(
+    buildingAnimation(house, 3),
+    4,
+    'destroyed floors never reappear at start of final collapse',
+  );
+  assert.equal(buildingAnimation(house, 10), null);
+  assert(
+    obstacleBoxes(s).some((p) => p.rubble && Math.abs(p.x - house.x) < 100),
+  );
+  const event = house.damageAt;
+  s.time = 30;
+  strike(walls[0], 500);
+  assert.equal(
+    house.damageAt,
+    event,
+    'settled ruins do not repeatedly collapse',
+  );
+});
+
+const v13MovementSolo = (s, side, id, x, lane = 0) => {
+  const index = s.units.length;
+  spawnUnit(s, side, id, x);
+  const u = s.units[index];
+  s.units.splice(index + 1);
+  u.lane = lane;
+  u.pace = 1;
+  u.tactic = 'advance';
+  u.decisionIn = 100;
+  return u;
+};
+
+check('三条友军队列同时停火时，后排两侧均可绕行进入射程', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      x = (value) => (side === 0 ? value : W - value);
+    setOrder(s, side, 'advance');
+    setOrder(s, 1 - side, 'hold');
+    for (const lane of [-3, 0, 3]) {
+      const lead = v13MovementSolo(s, side, 'machinegun', x(1000), lane);
+      lead.cooldown = 100;
+    }
+    const rifles = [-3, 0, 3].map((lane) =>
+      v13MovementSolo(s, side, 'infantry', x(900), lane),
+    );
+    const target = v13MovementSolo(s, 1 - side, 'infantry', x(1450));
+    target.cooldown = 100;
+    target.hp = target.maxHp = 1000;
+    advance(s, 12);
+    for (const u of rifles) {
+      assert(u.shots >= 3, `side ${side}: blocked rifle did not engage`);
+      assert(Math.abs(target.x - u.x) <= unitRange(s, u) + 0.1);
+      assert(Math.abs(u.lane) <= 15.001);
+    }
+  }
+});
+
+check('三个完整班组重叠入场后，十八人均能持续向己方进攻方向行进', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      dir = side === 0 ? 1 : -1;
+    setOrder(s, side, 'advance');
+    for (let i = 0; i < 3; i++)
+      spawnUnit(s, side, 'infantry', side === 0 ? 400 : W - 400);
+    const starts = new Map(s.units.map((u) => [u.uid, u.x]));
+    const last = new Map(starts);
+    for (let frame = 0; frame < 600; frame++) {
+      tick(s, 1 / 60);
+      for (const u of s.units) {
+        assert(Math.abs(u.x - last.get(u.uid)) < 1.4, 'no forward teleport');
+        assert(Math.abs(u.lane) <= 15.001);
+        last.set(u.uid, u.x);
+      }
+    }
+    assert.equal(s.units.length, 18);
+    assert.equal(new Set(s.units.map((u) => u.squad)).size, 3);
+    for (const u of s.units) {
+      assert((u.x - starts.get(u.uid)) * dir > 450, 'no permanent queue');
+      assert.equal(u.facing, dir);
+    }
+  }
+});
+
+check('友军已占掩体边缘时，后来者选可抵达位置并持续开火', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      x = (value) => (side === 0 ? value : W - value);
+    setOrder(s, side, 'advance');
+    setOrder(s, 1 - side, 'hold');
+    s.wrecks.push({
+      id: 1,
+      cardId: 'tank',
+      side,
+      x: x(1000),
+      y: 374,
+      angle: 0,
+      age: 10,
+      falling: false,
+      vx: 0,
+      vy: 0,
+    });
+    const u = v13MovementSolo(s, side, 'infantry', x(900));
+    u.tactic = 'cover';
+    const friend = v13MovementSolo(s, side, 'infantry', x(933));
+    friend.cooldown = 100;
+    const target = v13MovementSolo(s, 1 - side, 'infantry', x(1280));
+    target.cooldown = 100;
+    target.hp = target.maxHp = 1000;
+    advance(s, 8);
+    assert(u.cover > 0.2);
+    assert(
+      u.shots >= 4,
+      `side ${side}: unreachable cover must not suppress fire`,
+    );
+    assert(u.coverGoal === null || Math.abs(u.coverGoal - u.x) <= 0.5);
+  }
+});
+
+check('跨越残骸与三类倒塌房屋时，攀爬不会中途变成坠落且左右均可通过', () => {
+  const houses = createGame(37)
+    .scenery.filter((p) => p.kind === 'house')
+    .slice(0, 3);
+  for (const side of [0, 1])
+    for (const kind of ['wreck', 0, 1, 2]) {
+      const s = arena(),
+        dir = side === 0 ? 1 : -1;
+      setOrder(s, side, 'advance');
+      if (kind === 'wreck') {
+        s.wrecks.push({
+          id: 1,
+          cardId: 'tank',
+          side,
+          x: 1000,
+          y: 374,
+          angle: 0,
+          age: 10,
+          falling: false,
+          vx: 0,
+          vy: 0,
+        });
+      } else {
+        const prop = structuredClone(houses[kind]);
+        const dx = 1000 - prop.x,
+          dy = 374 - prop.y;
+        prop.x += dx;
+        prop.y += dy;
+        for (const part of prop.parts) {
+          part.x += dx;
+          part.y += dy;
+        }
+        s.scenery = [prop];
+        damageScenery(s, 1000, 300, 400, 10000);
+        assert(prop.parts.every((part) => part.hp === 0));
+      }
+      const u = v13MovementSolo(s, side, 'infantry', side === 0 ? 800 : 1200);
+      let climbed = false;
+      for (let frame = 0; frame < 600; frame++) {
+        tick(s, 1 / 60);
+        climbed ||= u.motion === 'bank';
+        assert(
+          u.motion !== 'jump' && u.motion !== 'land',
+          'bank lift is not a fall',
+        );
+      }
+      assert(climbed);
+      assert((u.x - 1000) * dir > 150, `${side}/${kind}: crossed obstacle`);
+      assert.equal(u.motion, 'ground');
+      assert(Math.abs(u.y - ground(s, u.x)) < 0.01);
+    }
+});
+
+check('撤退归队后恢复两侧正确行进方向，不保留拥堵或撤退状态', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      dir = side === 0 ? 1 : -1;
+    setOrder(s, side, 'advance');
+    const u = v13MovementSolo(s, side, 'machinegun', 2000);
+    u.tactic = 'retreat';
+    u.retreatUntil = 100;
+    u.personalMorale = 25;
+    u.hp = 17;
+    const before = { uid: u.uid, id: u.id, member: u.member, hp: u.hp };
+    spawnUnit(s, side, 'infantry', side === 0 ? 2095 : 1905);
+    for (const v of s.units) {
+      v.cooldown = 100;
+      v.decisionIn = 100;
+    }
+    const host = s.units.at(-1).squad;
+    advance(s, 1.3);
+    assert.equal(u.squad, host);
+    const joinX = u.x;
+    advance(s, 3);
+    assert((u.x - joinX) * dir > 100);
+    assert.equal(u.facing, dir);
+    assert.equal(u.tactic, 'advance');
+    for (const key of ['uid', 'id', 'member', 'hp'])
+      assert.equal(u[key], before[key]);
+  }
+});
+
+const v13EngageAdvance = (s, t) => {
+  for (let i = 0; i < t * 60; i++) tick(s, 1 / 60);
+};
+function v13EngageFresh() {
+  const s = createGame(37);
+  startGame(s);
+  s.aiIn = 1e6;
+  s.terrain.fill(374);
+  s.original.fill(374);
+  s.scenery = [];
+  s.walls = [];
+  return s;
+}
+function v13EngageSingle(s, side, id, x, tactic = 'prone') {
+  const before = s.units.length;
+  spawnUnit(s, side, id, x);
+  const u = s.units[before];
+  s.units = s.units.slice(0, before).concat(u);
+  u.tactic = tactic;
+  u.decisionIn = 1e6;
+  u.cooldown = 0;
+  return u;
+}
+function v13EngageEnemy(s, x) {
+  const v = v13EngageSingle(s, 1, 'infantry', x);
+  v.cooldown = 1e6;
+  setOrder(s, 1, 'hold');
+  return v;
+}
+function v13EngageHouse(s, x, hp = 10000) {
+  s.scenery = [
+    {
+      id: 501,
+      kind: 'house',
+      x,
+      y: 374,
+      seed: 1,
+      parts: [
+        {
+          id: 0,
+          x: x - 20,
+          y: 274,
+          w: 40,
+          h: 100,
+          hp,
+          maxHp: hp,
+          kind: 'wall',
+          brokenAt: -1,
+        },
+      ],
+    },
+  ];
+  return s.scenery[0].parts[0];
+}
+check('v13交战：烟幕中125距离已见敌军可原地开火', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600),
+    v = v13EngageEnemy(s, 725);
+  s.smokes = [{ x: 663, life: 10 }];
+  setOrder(s, 0, 'hold');
+  refreshVision(s);
+  assert(s.visible[0].includes(v.uid));
+  tick(s, 1 / 60);
+  assert(u.shots > 0);
+  assert.equal(u.x, 600);
+  return { shots: u.shots, distance: v.x - u.x };
+});
+check('v13交战：孤立跃进成员在360距离先交火', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600, 'bound');
+  u.member = 3;
+  v13EngageEnemy(s, 960);
+  refreshVision(s);
+  v13EngageAdvance(s, 0.5);
+  assert(u.shots > 0);
+  assert(u.x <= 603);
+  return { shots: u.shots, x: u.x };
+});
+check('v13交战：稳定同班掩护允许跃进且掩护倒下后停步还击', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600, 'bound'),
+    v = v13EngageSingle(s, 0, 'infantry', 560);
+  v.squad = u.squad;
+  v13EngageEnemy(s, 900);
+  refreshVision(s);
+  v13EngageAdvance(s, 0.2);
+  assert(u.x > 605);
+  assert(v.shots > 0);
+  const x = u.x;
+  v.wounded = true;
+  v.hp = 5;
+  v.bleedOut = 50;
+  v13EngageAdvance(s, 0.1);
+  assert(u.x <= x + 0.1);
+  assert(u.shots > 0);
+  return {
+    v13EngageAdvance: x - 600,
+    coveringShots: v.shots,
+    ownShots: u.shots,
+  };
+});
+// Heavy wrecks reach above the adult soldier's chest; lower tank debris can be fired over.
+check('v13交战：残骸完全挡线时保持位置而非贴身前冲', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600);
+  v13EngageEnemy(s, 900);
+  s.wrecks = [
+    {
+      id: 999,
+      cardId: 'heavy_tank',
+      side: 0,
+      x: 750,
+      y: 374,
+      angle: 0,
+      age: 0,
+      falling: false,
+      vx: 0,
+      vy: 0,
+    },
+  ];
+  refreshVision(s);
+  v13EngageAdvance(s, 2);
+  assert(u.x <= 603);
+  assert.equal(u.shots, 0);
+  return { x: u.x, shots: u.shots, goal: u.firingGoal };
+});
+check('v13交战：小幅换位后恢复约300距离交火', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 550);
+  v13EngageEnemy(s, 900);
+  for (let x = 640; x < 661; x++) s.terrain[x] = 335;
+  refreshVision(s);
+  v13EngageAdvance(s, 3);
+  assert(u.shots > 0);
+  assert(u.x > 550 && u.x <= 614);
+  assert(900 - u.x > 280);
+  return { x: u.x, shots: u.shots, range: 900 - u.x };
+});
+check('v13交战：火箭有限破障保留硬碰撞且不穿墙伤敌', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'rocket', 600);
+  const v = v13EngageEnemy(s, 900),
+    part = v13EngageHouse(s, 850);
+  refreshVision(s);
+  v13EngageAdvance(s, 8);
+  assert(u.shots > 0 && u.shots <= 2);
+  assert(part.hp < 10000);
+  assert.equal(v.hp, v.maxHp);
+  assert(u.x <= 603);
+  return { shots: u.shots, houseHp: part.hp, enemyHp: v.hp, x: u.x };
+});
+check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'rocket', 650);
+  v13EngageEnemy(s, 840);
+  v13EngageHouse(s, 720);
+  refreshVision(s);
+  v13EngageAdvance(s, 4);
+  assert.equal(u.shots, 0);
+  assert(u.x <= 698);
+  return { shots: u.shots, x: u.x };
+});
+check('v13交战：探身开火后装填期间不立即趴回地面', () => {
+  const s = v13EngageFresh();
+  s.terrain = createGame(37).terrain;
+  s.original = [...s.terrain];
+  const u = v13EngageSingle(s, 0, 'sniper', 590);
+  v13EngageEnemy(s, 1360);
+  spawnUnit(s, 0, 'scout_drone', 1200);
+  setOrder(s, 0, 'prone');
+  refreshVision(s);
+  tick(s, 1 / 60);
+  assert(u.fire > 0);
+  assert.equal(u.pose, 'idle');
+  tick(s, 1 / 60);
+  assert.equal(u.pose, 'idle');
+  return { pose: u.pose, exposedUntil: u.exposedUntil };
+});
+check('v13交战：已抵达掩体目标的同伴可以提供掩护', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600, 'bound'),
+    v = v13EngageSingle(s, 0, 'infantry', 560);
+  v.squad = u.squad;
+  v.coverGoal = v.x;
+  v13EngageEnemy(s, 900);
+  refreshVision(s);
+  tick(s, 1 / 60);
+  assert(u.x > 600);
+  return { x: u.x };
+});
+check('v13交战：短时跃进后停步还击而非连续奔跑', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600, 'bound'),
+    v = v13EngageSingle(s, 0, 'infantry', 570);
+  v.squad = u.squad;
+  const target = v13EngageEnemy(s, 930);
+  target.hp = target.maxHp = 10000;
+  refreshVision(s);
+  let movedFrames = 0,
+    stationaryAfterMove = 0,
+    maxRun = 0,
+    run = 0;
+  for (let i = 0; i < 100; i++) {
+    const x = u.x;
+    tick(s, 1 / 60);
+    if (u.x > x + 0.01) {
+      movedFrames++;
+      run++;
+      maxRun = Math.max(maxRun, run);
+    } else {
+      if (movedFrames) stationaryAfterMove++;
+      run = 0;
+    }
+  }
+  assert(movedFrames > 5);
+  assert(stationaryAfterMove > 30);
+  assert(maxRun <= 45);
+  assert(u.shots > 0);
+  return { movedFrames, stationaryAfterMove, maxRun, shots: u.shots };
+});
+check('v13交战：跨越全局四秒边界不会切换个人接敌分工', () => {
+  const s = v13EngageFresh(),
+    u = v13EngageSingle(s, 0, 'infantry', 600);
+  v13EngageEnemy(s, 900);
+  u.cooldown = 1e6;
+  setOrder(s, 0, 'hold');
+  refreshVision(s);
+  s.time = 3.9;
+  u.decisionIn = 0;
+  tick(s, 1 / 60);
+  const role = u.tactic;
+  s.time = 4.1;
+  u.decisionIn = 0;
+  tick(s, 1 / 60);
+  assert.equal(u.tactic, role);
+  return { role };
+});
+
+// Insert before the final failures/report block in tests/engine.test.mjs.
+// Existing public imports and arena/advance helpers are sufficient.
+check('轰炸机每架次沿航线投六弹，落点固定且炸弹只向下运动', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      dir = side === 0 ? 1 : -1;
+    const x = (value) => (side === 0 ? value : W - value);
+    setOrder(s, 1 - side, 'hold');
+    spawnUnit(s, side, 'bomber', x(1000));
+    const plane = s.units[0];
+    spawnUnit(s, 1 - side, 'infantry', x(1350));
+    const seen = new Map();
+    for (let frame = 0; frame < 180; frame++) {
+      tick(s, 1 / 60);
+      assert.equal(plane.facing, dir);
+      for (const p of s.projectiles.filter((p) => p.sourceUid === plane.uid)) {
+        const old = seen.get(p.uid);
+        assert.equal(p.guided, false);
+        assert((p.tx - p.startX) * dir > 0);
+        if (old) {
+          assert(p.y >= old.y - 1e-6, 'no mortar-like upward arc');
+          assert.equal(p.tx, old.tx, 'dropped bomb must not track targets');
+          assert.equal(p.ty, old.ty);
+        }
+        seen.set(p.uid, { x: p.startX, y: p.y, tx: p.tx, ty: p.ty });
+      }
+    }
+    assert.equal(plane.shots, 6);
+    assert.equal(seen.size, 6);
+    const drops = [...seen.values()];
+    for (let i = 1; i < drops.length; i++) {
+      const spacing = (drops[i].tx - drops[i - 1].tx) * dir;
+      assert(
+        spacing > 55 && spacing < 90,
+        'bombs form a bounded flight-path ribbon',
+      );
+    }
+  }
+});
+
+check('对地机优先扫射步兵，枪弹向机头前方飞行且飞机不反复翻转', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      dir = side === 0 ? 1 : -1;
+    const x = (value) => (side === 0 ? value : W - value);
+    setOrder(s, 1 - side, 'hold');
+    spawnUnit(s, side, 'strike_jet', x(1000));
+    const plane = s.units[0];
+    plane.cooldown = 0;
+    spawnUnit(s, 1 - side, 'infantry', x(1150));
+    const foot = new Set(s.units.slice(1).map((u) => u.uid));
+    spawnUnit(s, 1 - side, 'tank', x(1300));
+    s.units.filter((u) => u.side !== side).forEach((u) => (u.pace = 0));
+    tick(s, 1 / 60);
+    const first = s.projectiles.find((p) => p.sourceUid === plane.uid);
+    assert(
+      first && foot.has(first.targetUid),
+      'armor penalty is not armor priority',
+    );
+    for (let frame = 0; frame < 180; frame++) {
+      tick(s, 1 / 60);
+      assert.equal(plane.facing, dir);
+      for (const p of s.projectiles.filter(
+        (p) => p.sourceUid === plane.uid && !p.missed,
+      ))
+        assert(
+          (p.tx - p.startX) * dir > 0,
+          'no backward gunfire under the nose',
+        );
+    }
+    assert(plane.shots > 5 && plane.shots <= 24);
+  }
+});
+
+check('扫射和轰炸弹药逐架次复位，返航仍保留同一张卡与原有费用冷却', () => {
+  const deck = [
+    'strike_jet',
+    'bomber',
+    ...Array(6).fill('militia'),
+    ...Array(4).fill('infantry'),
+    ...Array(2).fill('machinegun'),
+    ...Array(2).fill('rocket'),
+    ...Array(2).fill('medic'),
+    ...Array(2).fill('supply'),
+  ];
+  for (const id of ['strike_jet', 'bomber']) {
+    const s = createGame(37, deck);
+    startGame(s);
+    s.aiIn = 1e6;
+    s.walls = [];
+    s.scenery = [];
+    s.terrain.fill(374);
+    s.original.fill(374);
+    setOrder(s, 1, 'hold');
+    for (const x of [1400, 2100, 2800]) spawnUnit(s, 1, 'infantry', x);
+    for (const u of s.units) {
+      u.hp = u.maxHp = 1000;
+      u.pace = 0;
+      u.cooldown = 100;
+    }
+    const p = s.players[0];
+    const tokens = () => [
+      ...p.hand,
+      ...p.deck,
+      ...p.discard,
+      ...s.units
+        .filter((u) => u.side === 0 && u.sortieCard)
+        .map((u) => u.sortieCard),
+    ];
+    const token = tokens().find((h) => h.id === id),
+      uid = token.uid;
+    for (const list of ['hand', 'deck', 'discard'])
+      p[list] = p[list].filter((h) => h !== token);
+    if (p.hand.length >= MAX_HAND) p.deck.push(p.hand.pop());
+    p.hand.push(token);
+    for (let sortie = 0; sortie < 2; sortie++) {
+      if (sortie) advance(s, cardReadyIn(s, token) + 1 / 60);
+      p.energy = 10;
+      const cost = cardCost(token);
+      assert.equal(cost, sortie ? 2 : CARDS[id].cost);
+      assert(playCard(s, 0, uid).ok);
+      assert.equal(p.energy, 10 - cost);
+      const plane = s.units.find((u) => u.side === 0 && u.sortieCard === token);
+      assert(plane && plane.shots === 0 && plane.bombsLeft === undefined);
+      const limit = id === 'bomber' ? 6 : 24;
+      while (plane.hp > 0 && s.status === 'playing') {
+        tick(s, 1 / 60);
+        assert(plane.shots <= limit);
+        assert.equal(tokens().length, 20);
+        assert.equal(new Set(tokens().map((h) => h.uid)).size, 20);
+      }
+      assert.equal(plane.shots, limit);
+      assert(token.returnedOnce);
+      assert.equal(token.uid, uid);
+      assert(Math.abs(cardReadyIn(s, token) - CARDS[id].sortieCooldown) < 0.02);
+    }
+  }
+});
+
+check('放大后的三种坦克履带、炮口、受弹与残骸使用相同尺寸', () => {
+  for (const id of ['light_tank', 'tank', 'heavy_tank']) {
+    const geometry = tankGeometry(id);
+    const s = arena();
+    spawnUnit(s, 0, id, 1200);
+    const unit = s.units[0];
+    unit.pace = 0;
+    for (const direction of [-1, 1]) {
+      unit.hullAngle = direction * 0.13;
+      const p = muzzlePoint(unit, unit.x + direction * 300);
+      const x = direction * geometry.muzzleX,
+        y = -geometry.muzzleY;
+      assert(
+        Math.abs(
+          p.x -
+            (unit.x +
+              x * Math.cos(unit.hullAngle) -
+              y * Math.sin(unit.hullAngle)),
+        ) < 1e-6,
+      );
+      assert(
+        Math.abs(
+          p.y -
+            (unit.y +
+              x * Math.sin(unit.hullAngle) +
+              y * Math.cos(unit.hullAngle)),
+        ) < 1e-6,
+      );
+      const coax = muzzlePoint(
+        { ...unit, hullAngle: 0 },
+        unit.x + direction * 300,
+        42,
+        true,
+      );
+      assert.equal(coax.x, unit.x + direction * geometry.coaxX);
+      assert.equal(coax.y, unit.y - geometry.coaxY);
+    }
+    unit.hullAngle = 0;
+    const oldHp = unit.hp;
+    explode(
+      s,
+      unit.x + geometry.half - 2,
+      unit.y - geometry.hullHeight / 2,
+      1,
+      30,
+      1,
+    );
+    assert(unit.hp < oldHp, '炮弹在可见车身边缘仍命中');
+    s.mines.push({ side: 1, x: unit.x + geometry.half - 2, armAt: 0 });
+    tick(s, 1 / 60);
+    assert.equal(s.mines.length, 0, '前缘履带触雷');
+    s.wrecks.push({
+      id: 999,
+      cardId: id,
+      side: 0,
+      x: 1500,
+      y: 374,
+      angle: 0,
+      age: 0,
+      falling: false,
+      vx: 0,
+      vy: 0,
+    });
+    s.time += 1 / 60;
+    const wreck = obstacleBoxes(s).find((b) => b.wreck?.id === 999);
+    assert.equal(wreck.w, geometry.half * 2 * 0.88);
+  }
+});
+
+check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 500);
+  const u = s.units[0];
+  u.moving = true;
+  u.pose = 'idle';
+  for (const [pose, group] of [
+    ['idle', 'walk8'],
+    ['crouch', 'crouch8'],
+  ]) {
+    u.pose = pose;
+    for (let step = 0; step < 16; step++) {
+      u.walk = step + 0.1;
+      assert.deepEqual(adultFrameChoice(u), { group, index: step % 8 });
+    }
+  }
+  u.pose = 'idle';
+  u.moving = false;
+  for (const fire of [0, 0.05, 0.2]) {
+    u.fire = fire;
+    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 0 });
+  }
+  u.pose = 'prone';
+  assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 2 });
+});
+check('成人四套服装的跳落、攀爬与终态不会退回旧图册', () => {
+  for (const [id, identity] of [
+    ['infantry', 'infantry'],
+    ['marines', 'marines'],
+    ['armed_police', 'police'],
+    ['militia', 'militia'],
+  ]) {
+    assert.equal(adultIdentity(id), identity);
+    const s = arena();
+    spawnUnit(s, 0, id, 500);
+    const u = s.units[0];
+    u.motion = 'jump';
+    u.motionTime = 0.2;
+    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 5 });
+    u.motion = 'ground';
+    u.climbing = 0.25;
+    u.climbDuration = 1;
+    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 11 });
+    u.surrendered = true;
+    u.surrenderTime = 3;
+    assert.deepEqual(adultFrameChoice(u), { group: 'reactions8', index: 3 });
+    u.hp = 0;
+    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 15 });
+  }
+});
+check('卧倒人员死亡保持倒地，尸体保存朝向与队列深度', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 500);
+  const u = s.units[0];
+  s.units = [u];
+  u.pose = 'prone';
+  u.facing = -1;
+  u.lane = 9;
+  u.wounded = true;
+  u.woundedFromPose = 'prone';
+  u.woundedTime = 0.1;
+  assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 14 });
+  u.woundedFromPose = 'crouch';
+  assert.equal(adultFrameChoice(u).index, 5);
+  explode(s, u.x, u.y, 20, 1000, 1);
+  const wreck = s.wrecks.find((w) => w.id === u.uid);
+  assert(wreck);
+  assert.equal(wreck.pose, 'prone');
+  assert.equal(wreck.facing, -1);
+  assert.equal(wreck.lane, 9);
+  assert.deepEqual(adultWreckChoice(0, wreck.pose), {
+    group: 'actions20',
+    index: 15,
+  });
+  assert.equal(adultWreckChoice(0, 'crouch').index, 5);
+  assert.equal(adultWreckChoice(0, 'idle').index, 4);
+});
+check('弹丸显示随班组深度连接枪口和目标，物理弹道保持不变', () => {
+  const s = arena();
+  spawnUnit(s, 0, 'infantry', 500);
+  spawnUnit(s, 1, 'infantry', 900);
+  const a = s.units.find((u) => u.side === 0),
+    b = s.units.find((u) => u.side === 1);
+  a.lane = 12;
+  b.lane = -6;
+  const p = {
+    sourceUid: a.uid,
+    targetUid: b.uid,
+    radius: 0,
+    missed: false,
+    life: 0.5,
+    total: 1,
+    startX: 531,
+    x: 700,
+    startY: 327,
+    ty: 340,
+    y: 333.5,
+  };
+  const original = { ...p },
+    visual = projectileForRender(s, p);
+  assert.deepEqual(p, original);
+  assert.notEqual(visual, p);
+  assert.equal(visual.startY, 339);
+  assert.equal(visual.ty, 334);
+  assert.equal(visual.y, 336.5);
+  const specialist = projectileForRender(s, p, { x: 10, y: -3 });
+  assert.equal(specialist.startX, 541);
+  assert.equal(specialist.x, 705);
+  assert.equal(specialist.startY, 336);
+  assert.equal(specialist.y, 335);
+  assert.deepEqual(p, original);
+});
+
+check('成人长枪管贴近墙边时不能从墙内起弹，两侧对称', () => {
+  for (const side of [0, 1]) {
+    const s = arena(),
+      flip = (x) => (side === 0 ? x : W - x);
+    spawnUnit(s, side, 'rocket', flip(657));
+    const u = s.units[0];
+    s.units = [u];
+    spawnUnit(s, 1 - side, 'infantry', flip(840));
+    const v = s.units.find((v) => v.side !== side);
+    s.units = [u, v];
+    for (const member of [u, v]) {
+      member.pose = 'prone';
+      member.tactic = 'prone';
+      member.decisionIn = 1e6;
+    }
+    u.cooldown = 0;
+    v.cooldown = 1e6;
+    setOrder(s, side, 'hold');
+    setOrder(s, 1 - side, 'hold');
+    s.scenery = [
+      {
+        id: 501,
+        kind: 'house',
+        x: flip(720),
+        y: 374,
+        seed: 1,
+        parts: [
+          {
+            id: 0,
+            x: side === 0 ? 700 : W - 740,
+            y: 274,
+            w: 40,
+            h: 100,
+            hp: 10000,
+            maxHp: 10000,
+            kind: 'wall',
+            brokenAt: -1,
+          },
+        ],
+      },
+    ];
+    refreshVision(s);
+    advance(s, 0.5);
+    assert.equal(u.shots, 0);
+    assert.equal(v.hp, v.maxHp);
+  }
+});
+
 console.log(`${count} gameplay checks passed`);
 if (failures.length)
   throw new Error(`${failures.length} failures: ${failures.join('; ')}`);

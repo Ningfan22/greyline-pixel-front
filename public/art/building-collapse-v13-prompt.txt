@@ -1,0 +1,23 @@
+Use case: stylized-concept.
+Asset type: game building-collapse sprite animation atlas.
+
+Input image 1 is the APPEARANCE REFERENCE for the exact same three buildings and material palettes. Do not reproduce its four-state layout. Make a NEW wide animation atlas with exactly EIGHT columns and THREE rows, target 3072 × 1152 pixels (8:3 landscape aspect), every cell 384 × 384. Transparent alpha background as in reference. No checker pattern, no backdrop, no labels, no grid lines.
+
+Row 1 is the reference two-storey weathered pale plaster house with right chimney and slate pitched roof.
+Row 2 is the reference red-brick two-storey workshop with broad dark green workshop door and slate roof.
+Row 3 is the reference low wide industrial warehouse with corrugated slate metal roof and metal loading doors.
+Preserve recognizability, realistic adult-scale military battlefield proportions, materials, front facade details, muted hues, and crisp texture of each reference row. Orthographic strict side-on/front elevation for a 2D lateral battlefield: no perspective or camera motion.
+
+Every row is ONE building progressively collapsing across EIGHT ordered frames, left to right:
+1. Cracked standing structure, windows broken, a small roof patch missing; just beginning instability, matching reference moderate damage.
+2. Roof buckles inward and facade cracks widen; a few falling bricks.
+3. Roof rafters snap and upper exterior wall breaks inward; detached structural fragments falling.
+4. Upper floor / rafters drop, jagged masonry wall tears apart, a brief dense ground-level dust plume begins.
+5. Floors and walls pancaking into broken masonry, clear tumbling beams and roof segments, wider grey-beige dust confined around ground.
+6. Building now low, masonry and timber land; dissipating ground dust reveals rubble and low jagged wall stubs.
+7. Remaining fragments drop into low rubble pile; only faint ground dust wisps.
+8. Dust gone, permanent low settled rubble ruin MATCHING the reference final column's materials and shape as closely as possible.
+
+Grid and fixed-anchor invariants are critical for playback. Exactly 24 separate sprites. EXACTLY 8 columns, 3 rows. Each building stays the SAME width, original height scale and same center at local cell x=192 throughout its row. Floor/baseline is local cell y=335 in ALL 24 cells, at absolute y=335,719,1103 for rows 1,2,3. The intact house/workshop fit within local x=56..328, y=56..335; warehouse height is lower but same ground anchor. During collapse structure shrinks only by falling, never scales or translates. All debris and dust must stay within local x=25..359 and below y=42; no pixel should touch another cell. Blank transparent row margins remain. Keep at least 35px transparent above and 40px below each row's occupied material. Equal horizontal spacing and fixed cell framing. Transparent negative space between all frames, never a panoramic connected scene. Do not draw the grid or frame numbers.
+
+Style: visibly CRISP PIXEL ART matching reference, deliberate 2–3-pixel clustered shading and hard stepped silhouettes at full size, architectural texture with dark exposed interiors; muted worn concrete, dust, red brick, slate and oxidized metal; restricted natural light palette. Dust is broken, dithered masonry dust with gaps, not a smooth rendered cloud. No fireballs, no flames, no generic explosion, no bright orange, no smoke columns, no cartoon houses, no toy buildings, no painterly blur. No ground strip, scenery, people, vehicles, weapons, sky, typography, watermark, or detached shadows. Ask for a real transparent background and preserve alpha.

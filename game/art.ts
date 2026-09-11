@@ -1,21 +1,28 @@
-import { CARDS, modelOf, weaponModel, type CardId } from './cards';
+import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
+import { adultAtlas } from './adult-atlas';
+import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
+import {
+  adultIdentity,
+  type AdultIdentity,
+  type AdultSprites,
+} from './adult-animation';
 import { assetUrl } from './asset-url';
+import { tankGeometry } from './vehicle-geometry';
+import { buildingFrames, type BuildingArt } from './building-art';
 export interface Art {
-  reactions: HTMLCanvasElement[][];
+  adults: Record<AdultIdentity, AdultSprites>;
+  adultSpecialists?: AdultSpecialists;
   background: HTMLCanvasElement;
   terrain: HTMLImageElement;
-  soldiers: HTMLCanvasElement[][];
   vehicles: HTMLCanvasElement[][];
-  locomotion: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
   aircraft: Record<string, HTMLCanvasElement[]>;
   scenery: HTMLCanvasElement[];
+  buildings: BuildingArt;
   explosions: HTMLCanvasElement[][];
   emplacements: Record<string, HTMLCanvasElement[]>;
   impacts: HTMLCanvasElement[][];
-  motions: HTMLCanvasElement[][];
-  identities: HTMLCanvasElement[][];
   armor: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
 }
@@ -40,7 +47,6 @@ function frames(
   rows: number,
   lw: number,
   lh: number,
-  soldier = false,
 ) {
   const src = surface(img.width, img.height),
     ctx = src.getContext('2d')!;
@@ -78,18 +84,7 @@ function frames(
       oc.imageSmoothingEnabled = false;
       const sw = maxX - minX + 1,
         sh = maxY - minY + 1;
-      const targetHeights = [42, 42, 40, 44, 29, 14, 42, 42];
-      const maxH = soldier
-        ? row === 7
-          ? [42, 29, 24, 12][col]
-          : targetHeights[row]
-        : lh - 2;
-      const maxW = soldier
-        ? row === 5 || (row === 7 && col >= 2)
-          ? 62
-          : 30
-        : lw - 2;
-      const scale = Math.min(maxW / sw, maxH / sh);
+      const scale = Math.min((lw - 2) / sw, (lh - 2) / sh);
       const w = Math.max(1, Math.round(sw * scale)),
         h = Math.max(1, Math.round(sh * scale));
       oc.drawImage(
@@ -108,60 +103,6 @@ function frames(
         px.data[i + 3] = px.data[i + 3] > 150 ? 255 : 0;
       }
       oc.putImageData(px, 0, 0);
-      return out;
-    }),
-  );
-}
-function locomotionFrames(img: HTMLImageElement) {
-  const source = surface(img.width, img.height),
-    ctx = source.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  const pixels = ctx.getImageData(0, 0, img.width, img.height);
-  // The delivered sheet has a neutral pale matte. Key it during texture import.
-  for (let i = 0; i < pixels.data.length; i += 4) {
-    const r = pixels.data[i],
-      g = pixels.data[i + 1],
-      b = pixels.data[i + 2];
-    if (Math.min(r, g, b) > 155 && Math.max(r, g, b) - Math.min(r, g, b) < 28)
-      pixels.data[i + 3] = 0;
-  }
-  ctx.putImageData(pixels, 0, 0);
-  const cw = img.width / 8,
-    ch = img.height / 3;
-  return Array.from({ length: 3 }, (_, row) =>
-    Array.from({ length: 8 }, (_, col) => {
-      let left = (col + 1) * cw,
-        right = col * cw,
-        top = (row + 1) * ch,
-        bottom = row * ch;
-      for (let y = Math.ceil(row * ch); y < Math.floor((row + 1) * ch); y++) {
-        for (let x = Math.ceil(col * cw); x < Math.floor((col + 1) * cw); x++) {
-          if (pixels.data[(y * img.width + x) * 4 + 3] > 0) {
-            left = Math.min(left, x);
-            right = Math.max(right, x);
-            top = Math.min(top, y);
-            bottom = Math.max(bottom, y);
-          }
-        }
-      }
-      const out = surface(64, 48),
-        oc = out.getContext('2d')!;
-      oc.imageSmoothingEnabled = false;
-      // One scale for the entire cycle preserves body proportions during crouch and jump.
-      const scale = 42 / (ch * 0.74),
-        w = Math.round((right - left + 1) * scale),
-        h = Math.round((bottom - top + 1) * scale);
-      oc.drawImage(
-        source,
-        left,
-        top,
-        right - left + 1,
-        bottom - top + 1,
-        Math.round(32 - w / 2),
-        48 - h,
-        w,
-        h,
-      );
       return out;
     }),
   );
@@ -279,61 +220,6 @@ function reinforcementFrames(img: HTMLImageElement) {
     ].map((rect) => croppedFrame(img, rect)),
   ];
 }
-function reactionFrames(img: HTMLImageElement) {
-  const source = surface(img.width, img.height),
-    ctx = source.getContext('2d')!;
-  ctx.drawImage(img, 0, 0);
-  const px = ctx.getImageData(0, 0, img.width, img.height);
-  for (let i = 0; i < px.data.length; i += 4) {
-    const r = px.data[i],
-      g = px.data[i + 1],
-      b = px.data[i + 2];
-    if (Math.min(r, g, b) > 155 && Math.max(r, g, b) - Math.min(r, g, b) < 28)
-      px.data[i + 3] = 0;
-  }
-  ctx.putImageData(px, 0, 0);
-  return [0, 1].map((row) =>
-    [0, 1, 2, 3].map((col) => {
-      let left = img.width,
-        right = 0,
-        top = img.height,
-        bottom = 0;
-      for (
-        let y = Math.round((row * img.height) / 2);
-        y < Math.round(((row + 1) * img.height) / 2);
-        y++
-      )
-        for (
-          let x = Math.round((col * img.width) / 4);
-          x < Math.round(((col + 1) * img.width) / 4);
-          x++
-        )
-          if (px.data[(y * img.width + x) * 4 + 3] > 0) {
-            left = Math.min(left, x);
-            right = Math.max(right, x);
-            top = Math.min(top, y);
-            bottom = Math.max(bottom, y);
-          }
-      const out = surface(64, 48),
-        oc = out.getContext('2d')!;
-      oc.imageSmoothingEnabled = false;
-      const w = Math.round((right - left + 1) * 0.112),
-        h = Math.round((bottom - top + 1) * 0.112);
-      oc.drawImage(
-        source,
-        left,
-        top,
-        right - left + 1,
-        bottom - top + 1,
-        32 - Math.round(w / 2),
-        48 - h,
-        w,
-        h,
-      );
-      return out;
-    }),
-  );
-}
 const uniformCache = new WeakMap<
   HTMLCanvasElement,
   Map<string, HTMLCanvasElement>
@@ -372,15 +258,6 @@ export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
   ctx.putImageData(px, 0, 0);
   variants.set(uniform, out);
   return out;
-}
-export function soldierEquipment(art: Art, cardId: CardId, member = 0) {
-  const id = weaponModel({ id: cardId, member });
-  if (id === 'machinegun') return art.vehicles[2][2];
-  if (id === 'rocket') return art.vehicles[2][3];
-  if (id === 'sniper') return art.reinforcements[1][0];
-  if (id === 'medic') return art.reinforcements[1][1];
-  if (id === 'mortar') return art.reinforcements[1][2];
-  return undefined;
 }
 function stableTracks(list: HTMLCanvasElement[], height: number) {
   return list.map((frame) => {
@@ -574,12 +451,9 @@ function atlasFrames(
 export function loadArt() {
   cached ??= Promise.all([
     loadImage('/art/battlefield-v3.png'),
-    loadImage('/art/soldiers-v3.png'),
     loadImage('/art/vehicles-v3.png'),
     loadImage('/art/terrain-texture.png'),
-    loadImage('/art/locomotion-v4.png'),
     loadImage('/art/reinforcements-v5.png'),
-    loadImage('/art/reactions-v6.png'),
     loadImage('/art/destructible-scenery-v9.png'),
     loadImage('/art/artillery-v9.png'),
     loadImage('/art/explosions-v9.png'),
@@ -587,18 +461,20 @@ export function loadArt() {
     loadImage('/art/fixed-wing-v12.png'),
     loadImage('/art/rotorcraft-v12.png'),
     loadImage('/art/tanks-v12.png'),
-    loadImage('/art/soldier-actions-v12.png'),
-    loadImage('/art/infantry-identities-v12.png'),
     loadImage('/art/explosions-v12.png'),
+    loadImage('/art/buildings-v13.png'),
+    loadImage('/art/building-collapse-v13.png'),
+    loadImage('/art/adult-infantry-v13.png'),
+    loadImage('/art/adult-marines-v13.png'),
+    loadImage('/art/adult-police-v13.png'),
+    loadImage('/art/adult-militia-v13.png'),
+    loadImage('/art/adult-specialists-v13.png'),
   ]).then(
     ([
       bg,
-      soldiers,
       vehicles,
       terrain,
-      locomotion,
       reinforcement,
-      reactions,
       scenery,
       emplacements,
       explosions,
@@ -606,9 +482,14 @@ export function loadArt() {
       fixedWing,
       rotorcraft,
       tanks,
-      motions,
-      identities,
       combatExplosions,
+      buildings,
+      collapse,
+      adultInfantry,
+      adultMarines,
+      adultPolice,
+      adultMilitia,
+      specialists,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -636,18 +517,22 @@ export function loadArt() {
         128,
         64,
         false,
-        3,
+        1,
         [0, 249, 475, 768],
         true,
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       return {
+        adults: {
+          infantry: adultAtlas(adultInfantry),
+          marines: adultAtlas(adultMarines),
+          police: adultAtlas(adultPolice),
+          militia: adultAtlas(adultMilitia),
+        },
+        adultSpecialists: specialistAtlas(specialists),
         background,
-        reactions: reactionFrames(reactions),
         terrain,
-        locomotion: locomotionFrames(locomotion),
-        soldiers: frames(soldiers, 4, 8, 64, 48, true),
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
         aircraft: {
@@ -668,28 +553,9 @@ export function loadArt() {
         },
         emplacements: buildEmplacements(emplacements),
         scenery: sceneryFrames(scenery),
+        buildings: buildingFrames(buildings, collapse),
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
-        motions: figureFrames(
-          motions,
-          8,
-          8,
-          64,
-          64,
-          true,
-          8,
-          [0, 176, 339, 488, 674, 812, 915, 1086, 1254],
-        ),
-        identities: figureFrames(
-          identities,
-          8,
-          8,
-          64,
-          64,
-          true,
-          2,
-          [0, 173, 337, 495, 663, 831, 1007, 1164, 1355],
-        ),
         armor: Object.fromEntries(
           ['light_tank', 'tank', 'heavy_tank'].map((id, row) => [
             id,
@@ -735,7 +601,8 @@ export function drawSprite(
   ctx.restore();
 }
 export function cardFrame(art: Art, index: number) {
-  if (index < 3 || (index >= 10 && index <= 12)) return art.soldiers[0][0];
+  if (index < 3 || (index >= 10 && index <= 12))
+    return art.adults.infantry.actions20[0];
   if (index === 13) return art.reinforcements[0][0];
   if (index === 3) return art.vehicles[0][0];
   if (index === 4) return art.vehicles[1][0];
@@ -743,6 +610,11 @@ export function cardFrame(art: Art, index: number) {
 }
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
+  if (c.members)
+    return uniformFrame(
+      art.adults[adultIdentity(id)].actions20[0],
+      c.uniform === 'recon' || c.uniform === 'assault' ? c.uniform : undefined,
+    );
   if (c.emplacement) return art.emplacements[c.emplacement][frame];
   if (art.aircraft[id])
     return art.aircraft[id][
@@ -762,8 +634,8 @@ export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];
-  if (id === 'light_tank') return [172, 91];
-  if (id === 'heavy_tank') return [234, 120];
+  const tank = tankGeometry(id);
+  if (tank) return tank.size;
   if (c.emplacement)
     return c.emplacement === 'howitzer'
       ? [190, 100]

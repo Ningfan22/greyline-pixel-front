@@ -1,0 +1,919 @@
+{
+  "source": "rifle-specialists.png",
+  "nativeDimensions": [
+    1536,
+    1024
+  ],
+  "nativeAlpha": false,
+  "importMask": "rangeRGB>18 OR meanRGB<120; associated components retained",
+  "layout": {
+    "columns": 5,
+    "rows": 3,
+    "cell": [
+      128,
+      96
+    ],
+    "dimensions": [
+      640,
+      288
+    ],
+    "frameAnchor": [
+      64,
+      96
+    ]
+  },
+  "scale": 0.168,
+  "standingReference": 375,
+  "frames": [
+    {
+      "id": 0,
+      "role": "machinegun",
+      "pose": "stand",
+      "sourceBBox": [
+        25,
+        83,
+        310,
+        371
+      ],
+      "sourceGroundY": 454,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          121,
+          258
+        ],
+        "shoulder": [
+          127,
+          160
+        ],
+        "muzzle": [
+          333,
+          171
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        0,
+        0,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.1032258064516,
+          63.24528301886792
+        ],
+        "shoulder": [
+          65.10967741935484,
+          46.867924528301884
+        ],
+        "muzzle": [
+          99.66451612903225,
+          48.706199460916444
+        ]
+      },
+      "muzzleRelativeToGround": [
+        35.66451612903225,
+        47.293800539083556
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 1,
+      "role": "rocket",
+      "pose": "stand",
+      "sourceBBox": [
+        350,
+        77,
+        244,
+        377
+      ],
+      "sourceGroundY": 454,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          448,
+          258
+        ],
+        "shoulder": [
+          455,
+          156
+        ],
+        "muzzle": [
+          591,
+          143
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        128,
+        0,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.4672131147541,
+          63.246684350132625
+        ],
+        "shoulder": [
+          65.64344262295081,
+          46.20159151193634
+        ],
+        "muzzle": [
+          88.49590163934425,
+          44.02917771883289
+        ]
+      },
+      "muzzleRelativeToGround": [
+        24.495901639344254,
+        51.97082228116711
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 2,
+      "role": "sniper",
+      "pose": "stand",
+      "sourceBBox": [
+        636,
+        84,
+        344,
+        370
+      ],
+      "sourceGroundY": 454,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          723,
+          258
+        ],
+        "shoulder": [
+          730,
+          161
+        ],
+        "muzzle": [
+          978,
+          155
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        256,
+        0,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.668604651162795,
+          63.15675675675676
+        ],
+        "shoulder": [
+          64.84883720930233,
+          46.902702702702705
+        ],
+        "muzzle": [
+          106.66279069767441,
+          45.8972972972973
+        ]
+      },
+      "muzzleRelativeToGround": [
+        42.66279069767441,
+        50.1027027027027
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 3,
+      "role": "medic",
+      "pose": "stand",
+      "sourceBBox": [
+        987,
+        83,
+        247,
+        371
+      ],
+      "sourceGroundY": 454,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1084,
+          259
+        ],
+        "shoulder": [
+          1095,
+          165
+        ],
+        "muzzle": [
+          1232,
+          172
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        384,
+        0,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.10121457489879,
+          63.41239892183289
+        ],
+        "shoulder": [
+          65.92712550607288,
+          47.703504043126685
+        ],
+        "muzzle": [
+          88.66801619433198,
+          48.8733153638814
+        ]
+      },
+      "muzzleRelativeToGround": [
+        24.668016194331983,
+        47.1266846361186
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 4,
+      "role": "mortar",
+      "pose": "stand",
+      "sourceBBox": [
+        1300,
+        75,
+        185,
+        379
+      ],
+      "sourceGroundY": 454,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1395,
+          259
+        ],
+        "shoulder": [
+          1400,
+          165
+        ],
+        "muzzle": null
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        512,
+        0,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.91891891891892,
+          63.071240105540895
+        ],
+        "shoulder": [
+          64.75675675675676,
+          47.19788918205805
+        ],
+        "muzzle": null
+      },
+      "muzzleRelativeToGround": null,
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true,
+      "carriedTubeTipSource": [
+        1365,
+        80
+      ]
+    },
+    {
+      "id": 5,
+      "role": "machinegun",
+      "pose": "crouch",
+      "sourceBBox": [
+        25,
+        518,
+        312,
+        258
+      ],
+      "sourceGroundY": 776,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          101,
+          680
+        ],
+        "shoulder": [
+          126,
+          593
+        ],
+        "muzzle": [
+          334,
+          599
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        0,
+        96,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.666666666666664,
+          80
+        ],
+        "shoulder": [
+          67.83333333333333,
+          65.5
+        ],
+        "muzzle": [
+          102.5,
+          66.5
+        ]
+      },
+      "muzzleRelativeToGround": [
+        38.5,
+        29.5
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 6,
+      "role": "rocket",
+      "pose": "crouch",
+      "sourceBBox": [
+        356,
+        512,
+        236,
+        264
+      ],
+      "sourceGroundY": 776,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          430,
+          681
+        ],
+        "shoulder": [
+          454,
+          587
+        ],
+        "muzzle": [
+          591,
+          573
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        128,
+        96,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.54237288135593,
+          80.16666666666667
+        ],
+        "shoulder": [
+          68.61016949152543,
+          64.5
+        ],
+        "muzzle": [
+          91.83050847457628,
+          62.166666666666664
+        ]
+      },
+      "muzzleRelativeToGround": [
+        27.830508474576277,
+        33.833333333333336
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 7,
+      "role": "sniper",
+      "pose": "crouch",
+      "sourceBBox": [
+        611,
+        532,
+        355,
+        244
+      ],
+      "sourceGroundY": 776,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          689,
+          690
+        ],
+        "shoulder": [
+          721,
+          610
+        ],
+        "muzzle": [
+          964,
+          603
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        256,
+        96,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.1830985915493,
+          81.54918032786885
+        ],
+        "shoulder": [
+          69.59154929577466,
+          68.10655737704919
+        ],
+        "muzzle": [
+          110.66197183098592,
+          66.93032786885246
+        ]
+      },
+      "muzzleRelativeToGround": [
+        46.66197183098592,
+        29.06967213114754
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 8,
+      "role": "medic",
+      "pose": "crouch",
+      "sourceBBox": [
+        981,
+        520,
+        249,
+        256
+      ],
+      "sourceGroundY": 776,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1056,
+          684
+        ],
+        "shoulder": [
+          1090,
+          598
+        ],
+        "muzzle": [
+          1227,
+          605
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        384,
+        96,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.65060240963855,
+          80.546875
+        ],
+        "shoulder": [
+          69.3855421686747,
+          66.1015625
+        ],
+        "muzzle": [
+          92.49397590361446,
+          67.27734375
+        ]
+      },
+      "muzzleRelativeToGround": [
+        28.493975903614455,
+        28.72265625
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true
+    },
+    {
+      "id": 9,
+      "role": "mortar",
+      "pose": "crouch",
+      "sourceBBox": [
+        1250,
+        545,
+        276,
+        231
+      ],
+      "sourceGroundY": 776,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1325,
+          699
+        ],
+        "shoulder": [
+          1366,
+          615
+        ],
+        "muzzle": [
+          1472,
+          608
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        512,
+        96,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.5,
+          83
+        ],
+        "shoulder": [
+          70.33333333333333,
+          68.81818181818181
+        ],
+        "muzzle": [
+          88,
+          67.63636363636364
+        ]
+      },
+      "muzzleRelativeToGround": [
+        24,
+        28.36363636363636
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": true,
+      "muzzleDirection": [
+        0.51,
+        -0.86
+      ]
+    },
+    {
+      "id": 10,
+      "role": "machinegun",
+      "pose": "prone_upper",
+      "sourceBBox": [
+        0,
+        845,
+        375,
+        129
+      ],
+      "sourceGroundY": 974,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          88,
+          953
+        ],
+        "shoulder": [
+          163,
+          911
+        ],
+        "muzzle": [
+          374,
+          912
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        0,
+        192,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.784,
+          92.4186046511628
+        ],
+        "shoulder": [
+          76.384,
+          85.25581395348837
+        ],
+        "muzzle": [
+          111.832,
+          85.42635658914729
+        ]
+      },
+      "muzzleRelativeToGround": [
+        47.831999999999994,
+        10.57364341085271
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": false
+    },
+    {
+      "id": 11,
+      "role": "rocket",
+      "pose": "prone_upper",
+      "sourceBBox": [
+        346,
+        844,
+        257,
+        130
+      ],
+      "sourceGroundY": 974,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          420,
+          952
+        ],
+        "shoulder": [
+          490,
+          909
+        ],
+        "muzzle": [
+          600,
+          899
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        128,
+        192,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.38132295719845,
+          92.27692307692308
+        ],
+        "shoulder": [
+          76.09338521400778,
+          85
+        ],
+        "muzzle": [
+          94.49805447470817,
+          83.3076923076923
+        ]
+      },
+      "muzzleRelativeToGround": [
+        30.49805447470817,
+        12.692307692307693
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": false
+    },
+    {
+      "id": 12,
+      "role": "sniper",
+      "pose": "prone_upper",
+      "sourceBBox": [
+        549,
+        861,
+        414,
+        113
+      ],
+      "sourceGroundY": 974,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          645,
+          955
+        ],
+        "shoulder": [
+          722,
+          921
+        ],
+        "muzzle": [
+          961,
+          916
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        256,
+        192,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          64.23188405797102,
+          92.80530973451327
+        ],
+        "shoulder": [
+          77.2512077294686,
+          87.08849557522124
+        ],
+        "muzzle": [
+          117.66183574879227,
+          86.24778761061947
+        ]
+      },
+      "muzzleRelativeToGround": [
+        53.66183574879227,
+        9.752212389380531
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": false
+    },
+    {
+      "id": 13,
+      "role": "medic",
+      "pose": "prone_upper",
+      "sourceBBox": [
+        911,
+        844,
+        311,
+        132
+      ],
+      "sourceGroundY": 976,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1006,
+          958
+        ],
+        "shoulder": [
+          1076,
+          917
+        ],
+        "muzzle": [
+          1220,
+          920
+        ]
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        384,
+        192,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.88424437299035,
+          93
+        ],
+        "shoulder": [
+          75.58842443729904,
+          86.16666666666667
+        ],
+        "muzzle": [
+          99.66559485530547,
+          86.66666666666667
+        ]
+      },
+      "muzzleRelativeToGround": [
+        35.66559485530547,
+        9.333333333333329
+      ],
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": false
+    },
+    {
+      "id": 14,
+      "role": "mortar",
+      "pose": "prone_upper",
+      "sourceBBox": [
+        1182,
+        861,
+        344,
+        115
+      ],
+      "sourceGroundY": 976,
+      "sourceComponents": 1,
+      "sourceLandmarks": {
+        "waist": [
+          1328,
+          958
+        ],
+        "shoulder": [
+          1423,
+          930
+        ],
+        "muzzle": null
+      },
+      "uniformScale": 0.168,
+      "referenceStandingHeight": 375,
+      "cell": [
+        512,
+        192,
+        128,
+        96
+      ],
+      "frameAnchor": [
+        64,
+        96
+      ],
+      "landmarks": {
+        "waist": [
+          63.616279069767444,
+          93.02608695652174
+        ],
+        "shoulder": [
+          79.63372093023256,
+          88.4
+        ],
+        "muzzle": null
+      },
+      "muzzleRelativeToGround": null,
+      "landmarkConfidence": "Manually inspected belt/shoulder/muzzle points, approximately ±2 native pixels (~0.34 runtime px).",
+      "hasFullLegs": false,
+      "carriedTubeTipSource": [
+        1411,
+        881
+      ]
+    }
+  ],
+  "issues": [
+    "Prone source row has only upper bodies and pants stubs; it is not a complete prone sprite. Preserve generic adult prone/crawl rear legs.",
+    "Generated source background was baked RGB checker, removed during import. Original pixels remain in the untouched native file.",
+    "Manual anatomical landmarks are assembly guides, not per-pixel skeletal rigging.",
+    "Mortar stand/prone carry a folded tube and must not use that carried tip as a firing muzzle; crouch row holds the deployed mortar."
+  ],
+  "file": "adult-specialists-v13.png",
+  "notes": [
+    "Generated specialist torsos and weapons are joined to generated adult legs for walk, crouch-walk, run and prone movement.",
+    "Green camouflage upper bodies; jump, climbing, wounded and surrender poses use the matching generic adult action."
+  ]
+}

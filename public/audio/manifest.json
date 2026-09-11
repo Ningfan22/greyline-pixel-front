@@ -1,0 +1,68 @@
+[
+  {
+    "file": "rifle-1.wav",
+    "original": "firearms/Prepared SFX Library/AR-15/D_24P.wav",
+    "sha256": "4c6a54ca0583150bbb32b7f658bc64da9ad9ba42fd3aca769c6120b44af8d3f0",
+    "bytes": 61962
+  },
+  {
+    "file": "rifle-2.wav",
+    "original": "firearms/Prepared SFX Library/AK-47/C_28P.wav",
+    "sha256": "e0934c1d79192d2216db62fdf6ab57bf9d5d585267af367a1cfb21f0972a537d",
+    "bytes": 61972
+  },
+  {
+    "file": "sniper.wav",
+    "original": "firearms/Prepared SFX Library/Tikka/W_24P.wav",
+    "sha256": "dceb44954c7308e86b15f5f52608643ca66adb977937794a860a6037de303bb4",
+    "bytes": 61934
+  },
+  {
+    "file": "explosion.wav",
+    "original": "explosions/explosions/explode.wav",
+    "sha256": "ea324b675203a509e1c5adf0c4acc94ab407684b30d9d4191507a2d4f72aea9a",
+    "bytes": 75862
+  },
+  {
+    "file": "explosion-small.wav",
+    "original": "explosions/explosions/explodemini.wav",
+    "sha256": "59eac39b32c9a89dfe9f18a3477b7ad6ca780e757e0aa1d92688beb46db1803a",
+    "bytes": 69270
+  },
+  {
+    "file": "rumble.wav",
+    "original": "distant-explosion.wav",
+    "sha256": "13a0bf75af94ec6d332bc71cba489b573466e05c4b17288158b3d683b41de39f",
+    "bytes": 220618
+  },
+  {
+    "file": "rotor.wav",
+    "original": "prop.flac",
+    "sha256": "9e44850a2dfdd984bc9476c207ff0a37457cb50d28bec5d2d4d69539cf2aeafd",
+    "bytes": 176478
+  },
+  {
+    "file": "step-1.wav",
+    "original": "footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL1.flac",
+    "sha256": "93a2630579a82507e3c6ceab9b012f71a50cf8922f4beadb14057dcc0636b099",
+    "bytes": 19330
+  },
+  {
+    "file": "step-2.wav",
+    "original": "footsteps/Fantozzi-footsteps/flac/Fantozzi-SandR1.flac",
+    "sha256": "3514d12f3369297233e915814364ed02902003d4103b010371c2ac15c2aa48fe",
+    "bytes": 17172
+  },
+  {
+    "file": "step-3.wav",
+    "original": "footsteps/Fantozzi-footsteps/flac/Fantozzi-SandL2.flac",
+    "sha256": "9bb57478cc96e1410cae27d926aa8d77d5f2d368d9776822f63cf0b37c6d2faf",
+    "bytes": 13724
+  },
+  {
+    "file": "searching.mp3",
+    "original": "Searching.ogg",
+    "sha256": "add2ee7931fd0c53f2804220e7355b10b38dbf5ab2b4dfdd415b61d8e14e51c8",
+    "bytes": 1465172
+  }
+]
