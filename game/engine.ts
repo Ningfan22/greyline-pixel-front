@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { wreckContact } from './wreck-geometry';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
 import {
   ammunition,
@@ -9,6 +10,7 @@ import {
 } from './ballistics';
 import {
   obstacleBoxes,
+  traversalBoxes,
   debrisCover,
   createScenery,
   refreshVision,
@@ -56,11 +58,11 @@ export const W = 3840,
   ENERGY_TIME = 3.6,
   MAX_HAND = 6;
 export const DRAW_COST = 2,
-  MAX_CRATER_DEPTH = 36,
+  MAX_CRATER_DEPTH = 28,
   SQUAD_SPACING = 38;
 export const AIR_ALTITUDE = 232,
-  DROP_HEIGHT = 20,
-  CLIMB_HEIGHT = 20;
+  DROP_HEIGHT = 26,
+  CLIMB_HEIGHT = 28;
 export interface HandCard {
   uid: number;
   id: CardId;
@@ -109,9 +111,16 @@ export interface Unit {
   breachShots?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
+  withdrawStartedAt?: number;
+  withdrawUntil?: number;
+  withdrawGoal?: number;
+  withdrawNextAt?: number;
+  withdrawGroup?: number;
   originalSquad?: number;
   regroupHost?: number;
   emplaced?: boolean;
+  emplacementIdleSince?: number;
+  emplacementSetupUntil?: number;
   conflictNextAt?: number;
   regroupProgress?: number;
   regroupedAt?: number;
@@ -810,11 +819,18 @@ export function crater(
       Math.max(s.terrain[i], centerY + dy),
     );
   }
+  // Loose crater banks settle into walkable slopes, including after overlapping impacts.
   for (let pass = 0; pass < 3; pass++) {
     for (let i = 126; i < W - 125; i++)
-      s.terrain[i] = Math.min(s.terrain[i], s.terrain[i - 1] + 1.25);
+      s.terrain[i] = Math.max(
+        s.original[i],
+        Math.min(s.terrain[i], s.terrain[i - 1] + 0.8),
+      );
     for (let i = W - 127; i >= 125; i--)
-      s.terrain[i] = Math.min(s.terrain[i], s.terrain[i + 1] + 1.25);
+      s.terrain[i] = Math.max(
+        s.original[i],
+        Math.min(s.terrain[i], s.terrain[i + 1] + 0.8),
+      );
   }
 }
 function burst(
@@ -1111,15 +1127,12 @@ export function explode(
   // Blast reach and the excavated soil footprint are deliberately separate.
   if (y > ground(s, x) - 80) {
     const small = kind === 'grenade';
-    const soilRadius = Math.min(
-      small ? 13 : 36,
-      radius * (small ? 0.35 : 0.65),
-    );
+    const soilRadius = Math.min(small ? 15 : 44, radius * (small ? 0.4 : 0.8));
     crater(
       s,
       x,
       soilRadius,
-      Math.min(small ? 4.5 : 14, radius * (small ? 0.12 : 0.25)),
+      Math.min(small ? 3.5 : 10, radius * (small ? 0.1 : 0.18)),
     );
   }
   for (const u of s.units) {
@@ -1170,10 +1183,10 @@ export function craterCover(s: GameState, x: number, threatX: number) {
   const y = ground(s, x),
     depth = y - s.original[Math.max(0, Math.min(W - 1, Math.floor(x)))];
   const debris = debrisCover(s, x, threatX);
-  if (depth < 7) return debris;
+  if (depth < 6) return debris;
   const dir = threatX >= x ? 1 : -1;
   let lip = y;
-  for (let d = 8; d <= 38; d += 2) lip = Math.min(lip, ground(s, x + dir * d));
+  for (let d = 8; d <= 60; d += 2) lip = Math.min(lip, ground(s, x + dir * d));
   return Math.max(debris, Math.max(0, Math.min(1, (y - lip - 4) / 15)));
 }
 export function terrainIntercept(
@@ -1439,9 +1452,12 @@ function canFireFromCover(
 function seekCover(s: GameState, u: Unit, target: CoverTarget) {
   let best: number | null = null,
     score = 0;
+  // Every rifleman can use nearby shelter; designated cover/scout roles search farther.
+  const reach =
+    CARDS[u.id].trait === 'scout' ? 120 : u.tactic === 'cover' ? 58 : 32;
   for (
-    let x = Math.max(125, u.x - (CARDS[u.id].trait === 'scout' ? 120 : 48));
-    x <= Math.min(W - 125, u.x + (CARDS[u.id].trait === 'scout' ? 120 : 58));
+    let x = Math.max(125, u.x - reach);
+    x <= Math.min(W - 125, u.x + reach);
     x += 4
   ) {
     if (Math.abs(target.x - x) > unitRange(s, u)) continue;
@@ -1511,13 +1527,13 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
   const range = unitRange(s, u),
     currentDistance = Math.abs(target.x - u.x);
   // Reposition around this contact; never turn an obstructed ray into an unlimited charge.
-  const minimumDistance = Math.min(
-    range * 0.62,
-    Math.max(110, currentDistance - 48),
-  );
+  const minimumDistance = Math.min(range * 0.62, currentDistance);
   let best: number | null = null,
     bestScore = -Infinity;
-  for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64]) {
+  const edges = obstacleBoxes(s)
+    .flatMap((box) => [box.x - 12 - u.x, box.x + box.w + 12 - u.x])
+    .filter((offset) => Math.abs(offset) > 64 && Math.abs(offset) <= 320);
+  for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64, ...edges]) {
     const x = u.x + offset,
       distance = Math.abs(target.x - x);
     if (
@@ -1653,7 +1669,9 @@ function moveSoldier(
   dir: number,
   speed: number,
   dt: number,
+  mayTraverse = true,
 ) {
+  u.facing = dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
   const depth = y - s.original[Math.floor(u.x)];
@@ -1666,16 +1684,28 @@ function moveSoldier(
     ahead - y >= DROP_HEIGHT &&
     depth < 12
   ) {
-    beginDrop(u, dir, speed);
+    if (mayTraverse) beginDrop(u, dir, speed);
     return;
   }
-  if (depth >= CLIMB_HEIGHT && y - ahead >= CLIMB_HEIGHT) {
+  if (
+    u.stepCooldown <= 0 &&
+    depth >= CLIMB_HEIGHT &&
+    y - ahead >= CLIMB_HEIGHT
+  ) {
+    if (!mayTraverse) return;
     let destination = u.x + dir * 12;
     for (let d = 12; d <= 52; d += 2) {
       destination = Math.max(125, Math.min(W - 125, u.x + dir * d));
       if (ground(s, destination) - s.original[Math.floor(destination)] < 3)
         break;
     }
+    const goal = u.coverGoal ?? u.firingGoal;
+    if (
+      goal != null &&
+      (goal - u.x) * dir > 0 &&
+      (destination - goal) * dir > 0
+    )
+      destination = goal;
     u.motion = 'bank';
     u.motionTime = 0;
     u.motionDuration = CARDS[u.id].trait === 'mountain' ? 0.5 : 0.8;
@@ -1683,16 +1713,27 @@ function moveSoldier(
     u.motionFromY = u.y;
     u.motionToX = destination;
     u.motionToY = ground(s, destination);
+    u.motionLift = 4;
     u.pose = 'climb';
     return;
   }
-  const debris = obstacleBoxes(s).find(
+  const debris = traversalBoxes(s).find(
     (b) =>
       b.rubble &&
+      b.h >= CLIMB_HEIGHT &&
       (dir > 0 ? b.x - u.x : u.x - b.x - b.w) > 0 &&
       (dir > 0 ? b.x - u.x : u.x - b.x - b.w) < 17,
   );
-  if (debris && u.stepCooldown <= 0 && u.coverGoal === null) {
+  if (
+    debris &&
+    u.stepCooldown <= 0 &&
+    ((u.coverGoal ?? u.firingGoal) == null ||
+      ((u.coverGoal ?? u.firingGoal)! -
+        (dir > 0 ? debris.x + debris.w : debris.x)) *
+        dir >
+        0)
+  ) {
+    if (!mayTraverse) return;
     u.motion = 'bank';
     u.motionTime = 0;
     const crossing = Math.abs(
@@ -1718,6 +1759,7 @@ function moveSoldier(
       Math.abs(w.x - u.x) < w.width / 2 + 18,
   );
   if (wall) {
+    if (!mayTraverse) return;
     if (CARDS[u.id].trait === 'engineer') {
       u.pose = 'crouch';
       if (u.supportCooldown <= 0) {
@@ -1820,6 +1862,58 @@ const roles: Record<Doctrine, Unit['tactic'][]> = {
   irregular: ['crouch', 'cover', 'prone', 'bound'],
   elite: ['bound', 'cover', 'bound', 'prone'],
 };
+function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
+  const order = s.players[u.side].order;
+  if (
+    order === 'hold' ||
+    order === 'rush' ||
+    CARDS[u.id].indirect ||
+    CARDS[u.id].airOnly ||
+    s.time < (u.withdrawNextAt ?? 0) ||
+    Math.abs(threat.x - u.x) > Math.min(560, unitRange(s, u))
+  )
+    return;
+  const fighters = s.units.filter(
+    (v) =>
+      isCombatant(v) &&
+      !CARDS[v.id].air &&
+      !weaponCard(v).airOnly &&
+      v.tactic !== 'retreat' &&
+      (!CARDS[v.id].members || v.personalMorale >= 35),
+  );
+  const friends = fighters.filter(
+    (v) => v.side === u.side && Math.abs(v.x - u.x) <= 260,
+  );
+  const foes = fighters.filter(
+    (v) =>
+      v.side !== u.side &&
+      visibleToSide(s, u.side, v) &&
+      Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 80),
+  );
+  const strength = (v: Unit) =>
+    (CARDS[v.id].cost / (CARDS[v.id].members ?? 1)) *
+    Math.max(0.25, Math.min(1, v.hp / v.maxHp));
+  const friendlyPower = friends.reduce((n, v) => n + strength(v), 0),
+    enemyPower = foes.reduce((n, v) => n + strength(v), 0);
+  if (enemyPower < Math.max(1.5, friendlyPower * 2.1)) return;
+  const squad = friends
+    .filter(
+      (v) =>
+        v.squad === u.squad && CARDS[v.id].members && !CARDS[v.id].indirect,
+    )
+    .sort((a, b) => a.uid - b.uid);
+  const away = Math.sign(u.x - threat.x) || (u.side === 0 ? -1 : 1);
+  for (const [index, mate] of squad.entries()) {
+    mate.withdrawStartedAt = s.time;
+    mate.withdrawUntil = s.time + 4.8;
+    mate.withdrawNextAt = s.time + 10;
+    mate.withdrawGroup = index % 2;
+    mate.withdrawGoal = Math.max(80, Math.min(W - 80, mate.x + away * 72));
+    mate.coverGoal = null;
+    mate.firingGoal = null;
+  }
+}
+
 function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn -= dt;
   if (u.decisionIn > 0) return;
@@ -1889,6 +1983,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.coverGoal = null;
     return;
   }
+  planWithdrawal(s, u, threat);
   const doctrine = doctrineOf(u.id),
     list = roles[doctrine];
   // Stable member roles; short bounds alternate locally while contact continues.
@@ -2039,10 +2134,67 @@ function emplacementPosition(s: GameState, side: Side, id: CardId) {
     : Math.min(base, Math.max(220, goal));
 }
 
-// Shared by both sides: a gun follows its own screen until it can engage, then
-// stays emplaced permanently. No teleport, no fire while towing, no stat bonus.
+// A howitzer can redeploy after its observed firing sector has stayed empty.
+// Reloading and brief losses of sight never make it pack up between shots.
+function towHowitzer(s: GameState, u: Unit, dt: number) {
+  const c = CARDS[u.id],
+    range = unitRange(s, u),
+    baseX = u.side === 0 ? W - 70 : 70,
+    baseDistance = Math.abs(baseX - u.x);
+  const canEngage =
+    (baseDistance >= (c.minRange ?? 0) && baseDistance <= range) ||
+    s.units.some(
+      (v) =>
+        v.side !== u.side &&
+        isCombatant(v) &&
+        !CARDS[v.id].air &&
+        visibleToSide(s, u.side, v) &&
+        Math.abs(v.x - u.x) >= (c.minRange ?? 0) &&
+        Math.abs(v.x - u.x) <= range,
+    );
+  if (canEngage) {
+    u.emplacementIdleSince = undefined;
+    if (!u.emplaced) {
+      u.emplaced = true;
+      u.emplacementSetupUntil = s.time + 1.2;
+    }
+    if (s.time < (u.emplacementSetupUntil ?? 0)) {
+      u.moving = false;
+      u.fire = 0;
+      u.secondaryFire = 0;
+      return true;
+    }
+    return false;
+  }
+  const goal = emplacementPosition(s, u.side, u.id),
+    delta = goal - u.x;
+  if (u.emplaced) {
+    u.emplacementIdleSince ??= s.time;
+    if (
+      s.players[u.side].order === 'hold' ||
+      s.time - u.emplacementIdleSince < 6 ||
+      Math.abs(delta) < 1
+    )
+      return false;
+    u.emplaced = false;
+    u.emplacementSetupUntil = undefined;
+  }
+  if (s.players[u.side].order === 'hold' || Math.abs(delta) < 1) return false;
+  const change = Math.sign(delta) * Math.min(Math.abs(delta), 28 * dt);
+  u.x += change;
+  u.y = ground(s, u.x);
+  u.facing = Math.sign(change);
+  u.moving = true;
+  u.walk += Math.abs(change) / 6;
+  u.fire = 0;
+  u.secondaryFire = 0;
+  return true;
+}
+
+// Direct-fire emplacements remain fixed after their initial deployment.
 function towEmplacement(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
+  if (c.emplacement === 'howitzer') return towHowitzer(s, u, dt);
   if (!c.emplacement || u.emplaced) return false;
   const canEngage = s.units.some(
     (v) =>
@@ -2090,26 +2242,56 @@ function updateAI(s: GameState) {
     (u) => !CARDS[u.id].observer && u.tactic !== 'retreat',
   );
   const cohorts = groups(fighters.filter((u) => !CARDS[u.id].air));
+  const armedAir = air.filter((u) => !CARDS[u.id].observer);
+  // Count healthy counters already travelling to this contact, so reinforcements
+  // are combined arms instead of spending every new point on the same role.
+  const canSupportContact = (u: Unit, target: Unit) => {
+    const c = weaponCard(u),
+      distance = Math.abs(target.x - u.x);
+    if (c.members && (u.personalMorale < 40 || u.hp < u.maxHp * 0.35))
+      return false;
+    if (distance >= (c.minRange ?? 0) && distance <= unitRange(s, u))
+      return (
+        firingHeight(s, u, target.x, target.y - bodyHeight(target)) !== null
+      );
+    if (u.x <= target.x || (c.static && u.emplaced)) return false;
+    const travelSpeed = c.emplacement
+      ? 28
+      : (c.speed ?? 0) * (c.members ? 0.8 : 1);
+    return distance - unitRange(s, u) <= travelSpeed * 20;
+  };
   const antitank = groups(
     fighters.filter((u) => {
       const c = weaponCard(u);
       if (c.airOnly || !((c.armorMultiplier ?? 1) >= 1.5 || c.penetration))
         return false;
-      // A shaken or currently unusable counter cannot protect the visible front.
-      if (c.members && u.personalMorale < 40) return false;
-      return armor.some((target) => {
-        const distance = Math.abs(target.x - u.x);
-        return (
-          distance >= (c.minRange ?? 0) &&
-          distance <= unitRange(s, u) &&
-          firingHeight(s, u, target.x, target.y - bodyHeight(target)) !== null
-        );
-      });
+      return armor.some((target) => canSupportContact(u, target));
     }),
   );
-  const antiair = groups(fighters.filter((u) => weaponCard(u).antiAir));
+  const antiair = groups(
+    fighters.filter(
+      (u) =>
+        weaponCard(u).antiAir &&
+        armedAir.some((target) => canSupportContact(u, target)),
+    ),
+  );
   const urgentArmor = armor.length > antitank,
-    urgentAir = air.length > antiair;
+    urgentAir = armedAir.length > antiair;
+  const lineInfantry = (id: CardId) => {
+    const c = CARDS[id];
+    return (
+      !!c.members &&
+      !c.indirect &&
+      !c.airOnly &&
+      !c.heal &&
+      (c.armorMultiplier ?? 1) < 1.5
+    );
+  };
+  const screens = groups(fighters.filter((u) => lineInfantry(u.id)));
+  const pressure = (list: Unit[]) =>
+    list.reduce((n, u) => n + 0.4 + Math.max(0, (u.x - (W - 1800)) / 1800), 0);
+  const armorPressure = pressure(armor) / Math.max(1, antitank),
+    airPressure = pressure(armedAir) / Math.max(1, antiair);
   const emergency = groundFoes.some((u) => u.x > W - 650);
   const battle = foes.some((v) =>
     fighters.some((u) => Math.abs(v.x - u.x) < 850),
@@ -2136,7 +2318,11 @@ function updateAI(s: GameState) {
   if (!cohorts) s.aiWaveUntil = s.time + 7;
   const staging =
     !emergency && !battle && cohorts < 2 && s.time < (s.aiWaveUntil ?? 0);
-  p.order = emergency ? 'crouch' : staging ? 'hold' : 'advance';
+  // Double-time only between contacts. Once a threat is close, normal advance
+  // gives each squad its own firing/cover decisions instead of a global rush.
+  p.order = staging ? 'hold' : !battle && cohorts >= 2 ? 'rush' : 'advance';
+  if (emergency && fighters.filter((u) => u.x > W - 850).length < foot.length)
+    p.order = 'crouch';
 
   const options = p.hand
     .filter((h) => cardReadyIn(s, h) <= 0)
@@ -2149,14 +2335,20 @@ function updateAI(s: GameState) {
         score = 6 + (cohorts < 2 ? 4 : 0);
         const counterArmor =
           !c.airOnly && ((c.armorMultiplier ?? 1) >= 1.5 || !!c.penetration);
-        if (counterArmor) score += armor.length ? (urgentArmor ? 19 : 3) : 0;
-        if (c.antiAir) score += air.length ? (urgentAir ? 19 : 3) : 0;
+        if (counterArmor) score += armor.length ? (urgentArmor ? 19 : -2) : 0;
+        if (c.antiAir) score += armedAir.length ? (urgentAir ? 19 : -2) : 0;
+        if (lineInfantry(c.id))
+          score += screens === 0 ? 12 : screens < 2 ? 7 : 2;
+        if (c.members && counterArmor && !armor.length && screens === 0)
+          score -= 3;
         if (c.airOnly && !air.length) score = -100;
         if (c.observer)
           score = own.some((u) => CARDS[u.id].observer)
             ? -100
             : cohorts
-              ? 10
+              ? own.some((u) => (CARDS[u.id].range ?? 0) >= 700)
+                ? 16
+                : 10
               : 1;
         if (c.heal) score = patients.length ? 13 : cohorts >= 2 ? 5 : 0;
         if (foot.length >= 4 && (model === 'machinegun' || c.indirect))
@@ -2165,6 +2357,15 @@ function updateAI(s: GameState) {
         if (c.deployDraw && p.hand.length <= 4) score += 3;
         if (c.armored && !c.airOnly && cohorts >= 1) score += 3;
         if (c.sortie && !foes.length) score -= 4;
+        if (c.air && !c.observer && !c.airOnly) {
+          const enemyAA = groups(foes.filter((u) => weaponCard(u).antiAir));
+          score +=
+            (c.attackRun === 'strafe' || c.attackRun === 'bomb') &&
+            foot.length >= 6
+              ? 12
+              : 0;
+          score -= Math.min(12, enemyAA * 5);
+        }
         if (c.emplacement) {
           const position = emplacementPosition(s, 1, c.id);
           const valid = foes.some(
@@ -2178,7 +2379,7 @@ function updateAI(s: GameState) {
           if (!valid) score = -100;
         }
         // Avoid continuously buying a specialised role already covered by own units.
-        score -= Math.min(3, groups(own.filter((u) => u.id === c.id)));
+        score -= Math.min(6, groups(own.filter((u) => u.id === c.id)) * 2);
       } else if (c.id === 'antitank_mine') {
         x = armor
           .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
@@ -2252,7 +2453,6 @@ function updateAI(s: GameState) {
     fighters.some(
       (u) => role(u.id) && (!CARDS[u.id].members || u.personalMorale >= 40),
     );
-  const armedAir = air.filter((u) => !CARDS[u.id].observer);
   if (armor.length) s.aiArmorSeenUntil = s.time + 15;
   if (armedAir.length) s.aiAirSeenUntil = s.time + 15;
   const seekArmor =
@@ -2284,7 +2484,21 @@ function updateAI(s: GameState) {
             : undefined;
         return mine ? [{ h, x: mine.x }] : [];
       })
-      .sort((a, b) => cardCost(a.h) - cardCost(b.h) || a.h.uid - b.h.uid);
+      .sort((a, b) => {
+        const importance = (choice: typeof a) =>
+          Math.max(
+            seekArmor &&
+              (armorRole(choice.h.id) || choice.h.id === 'antitank_mine')
+              ? armorPressure
+              : 0,
+            seekAir && airRole(choice.h.id) ? airPressure : 0,
+          );
+        return (
+          importance(b) - importance(a) ||
+          cardCost(a.h) - cardCost(b.h) ||
+          a.h.uid - b.h.uid
+        );
+      });
     if (counterChoices.length) {
       const counter = counterChoices[0];
       if (cardCost(counter.h) <= p.energy + 1e-6)
@@ -2337,6 +2551,17 @@ function updateAI(s: GameState) {
   }
 
   const best = options[0];
+  // When points would otherwise cap, prepare the next choice while keeping the
+  // budget for the current one. Urgent counters have already been handled above.
+  if (
+    !emergency &&
+    p.energy >= 9 &&
+    p.hand.length <= 3 &&
+    (!best || best.score < 16) &&
+    (!best || p.energy >= cardCost(best.h) + DRAW_COST) &&
+    requestDraw(s, 1).ok
+  )
+    return;
   if (best && cardCost(best.h) > p.energy + 1e-6) {
     // Reserve real command points for the best ready card, including counters.
     // An urgent HQ fight may use an already affordable useful defender instead.
@@ -2477,6 +2702,13 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
       u.suppression = Math.min(100, u.suppression + 10);
       u.fire = 0.25;
       const point = muzzlePoint(u, former.x, 47);
+      // The conflict shot must also clear the solid wreck between shoulder and muzzle.
+      if (
+        sceneryIntercept(s, u.x, u.y - 47, point.x, point.y, false, true, true)
+      ) {
+        u.fire = 0;
+        return true;
+      }
       u.muzzleX = point.x;
       u.muzzleY = point.y;
       u.shotAngle = Math.atan2(former.y - 27 - point.y, former.x - point.x);
@@ -2853,23 +3085,37 @@ export function tick(s: GameState, dt: number) {
       Math.abs(baseX - u.x) <= range &&
       Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
       firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
-    const closeThreat = c.minRange
-      ? s.units.find(
-          (v) =>
-            v.side !== u.side &&
-            isCombatant(v) &&
-            visibleToSide(s, u.side, v) &&
-            !CARDS[v.id].air &&
-            Math.abs(v.x - u.x) < c.minRange!,
-        )
-      : null;
+    // A howitzer's dead zone excludes that target, not a separate valid distant target.
+    const closeThreat =
+      c.minRange && !(c.emplacement === 'howitzer' && (target || baseInRange))
+        ? s.units.find(
+            (v) =>
+              v.side !== u.side &&
+              isCombatant(v) &&
+              visibleToSide(s, u.side, v) &&
+              !CARDS[v.id].air &&
+              Math.abs(v.x - u.x) < c.minRange!,
+          )
+        : null;
+    const withdrawing = !!(
+      c.members &&
+      (u.withdrawUntil ?? 0) > s.time &&
+      u.withdrawGoal !== undefined &&
+      order !== 'hold' &&
+      order !== 'rush'
+    );
+    const withdrawalStep =
+      withdrawing &&
+      Math.abs(u.withdrawGoal! - u.x) > 0.5 &&
+      Math.floor((s.time - u.withdrawStartedAt!) / 0.85) % 2 ===
+        u.withdrawGroup;
     if (
       c.members &&
       threat &&
+      !withdrawing &&
       order !== 'rush' &&
       !c.indirect &&
-      !treating &&
-      (u.tactic === 'cover' || u.cover > 0.2)
+      !treating
     ) {
       if (
         u.coverGoal !== null &&
@@ -2878,11 +3124,18 @@ export function tick(s: GameState, dt: number) {
           !canFireFromCover(s, u, u.coverGoal, threat))
       )
         u.coverGoal = null;
+      u.cover = craterCover(s, u.x, threat.x);
+      // Hold an already useful firing position instead of climbing out or bounding past it.
+      if (
+        u.coverGoal === null &&
+        u.cover > 0.2 &&
+        canFireFromCover(s, u, u.x, threat)
+      )
+        u.coverGoal = u.x;
       if (u.coverGoal === null && order !== 'hold' && u.coverSearch <= 0) {
         u.coverGoal = seekCover(s, u, threat);
         u.coverSearch = 0.7;
       }
-      u.cover = craterCover(s, u.x, threat.x);
     } else {
       u.cover = 0;
       u.coverGoal = null;
@@ -2901,7 +3154,13 @@ export function tick(s: GameState, dt: number) {
       order !== 'rush' &&
       Math.abs(threat.x - u.x) <= range + 15
     );
-    if (blockedContact && !coverShot && order !== 'hold' && !treating) {
+    if (
+      blockedContact &&
+      !coverShot &&
+      order !== 'hold' &&
+      !treating &&
+      !withdrawing
+    ) {
       if (
         u.firingGoal != null &&
         !canFireFromCover(s, u, u.firingGoal, threat!)
@@ -2912,20 +3171,40 @@ export function tick(s: GameState, dt: number) {
         u.firingSearchAt = s.time + 0.7;
       }
     } else u.firingGoal = null;
-    const moveGoal = u.coverGoal ?? u.firingGoal ?? null;
-    const seeking = moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5;
+    const moveGoal = withdrawing
+      ? u.withdrawGoal!
+      : (u.coverGoal ?? u.firingGoal ?? null);
+    const seeking =
+      !withdrawing && moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5;
+    // A ready weapon gets a short stable firing window before another ground move.
+    const contactFire = !!(
+      c.members &&
+      target &&
+      (u.cooldown <= 0 ||
+        s.time - (u.lastCombatShotAt ?? -Infinity) <
+          Math.min(0.18, c.rate! * 0.35))
+    );
     if (!seeking && threat && (u.exposedUntil ?? 0) > s.time) u.pose = 'idle';
     if (threat && c.members) u.aimUntil = s.time + 2.5;
     if (u.cover > 0.2 && !seeking && threat) {
       // Keep the firing stance through a whole engagement, not one reload cycle.
       if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
         u.exposedUntil = s.time + 2.5;
-      u.pose = (u.exposedUntil ?? 0) > s.time ? 'idle' : 'crouch';
+      u.pose =
+        (u.exposedUntil ?? 0) > s.time
+          ? 'idle'
+          : u.tactic === 'prone' || order === 'prone'
+            ? 'prone'
+            : 'crouch';
     }
     let bounding =
       c.members &&
+      !withdrawing &&
+      !contactFire &&
       order === 'advance' &&
       u.tactic === 'bound' &&
+      u.cover <= 0.2 &&
+      u.coverGoal === null &&
       target &&
       Math.abs(target.x - u.x) > range * 0.62 &&
       coveringMate(s, u, target) &&
@@ -2942,10 +3221,11 @@ export function tick(s: GameState, dt: number) {
     if (modelOf(u.id) === 'tank') fireCoax(s, u);
     if (
       (target || coverShot || baseInRange) &&
-      !seeking &&
+      (!seeking || contactFire) &&
       !closeThreat &&
       !treating &&
-      !bounding &&
+      (!bounding || contactFire) &&
+      (!withdrawalStep || contactFire) &&
       !retreating
     ) {
       let tx = target ? target.x : coverShot ? coverShot.x : baseX;
@@ -3071,11 +3351,13 @@ export function tick(s: GameState, dt: number) {
       }
     } else if (
       !treating &&
-      (seeking ||
+      (withdrawalStep ||
+        seeking ||
         bounding ||
         retreating ||
         !!closeThreat ||
-        (!target &&
+        (!withdrawing &&
+          !target &&
           !baseInRange &&
           !blockedContact &&
           (!c.members || order !== 'hold')))
@@ -3084,7 +3366,7 @@ export function tick(s: GameState, dt: number) {
         u.pose =
           order === 'rush' || bounding || retreating
             ? 'run'
-            : order === 'crouch'
+            : order === 'crouch' || (withdrawing && order !== 'prone')
               ? 'crouch'
               : order === 'prone'
                 ? 'prone'
@@ -3108,24 +3390,32 @@ export function tick(s: GameState, dt: number) {
         orderSpeed *
         (morale ? 1.2 : 1) *
         (u.slowedUntil > s.time ? 0.5 : 1);
-      const moveDir = retreating
-        ? -dir
-        : closeThreat
-          ? u.x > closeThreat.x
-            ? 1
-            : -1
-          : seeking
-            ? Math.sign(moveGoal! - u.x)
-            : dir;
-      if (c.members)
+      const moveDir = withdrawing
+        ? Math.sign(u.withdrawGoal! - u.x)
+        : retreating
+          ? -dir
+          : closeThreat
+            ? u.x > closeThreat.x
+              ? 1
+              : -1
+            : seeking
+              ? Math.sign(moveGoal! - u.x)
+              : dir;
+      if (c.members) {
+        // Our atlas turns to travel; never keep a muzzle flash facing the old target.
+        u.fire = 0;
+        u.secondaryFire = 0;
         moveSoldier(
           s,
           u,
           moveDir,
-          seeking ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt) : speed,
+          seeking || withdrawing
+            ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt)
+            : speed,
           dt,
+          !target || withdrawing,
         );
-      else if (!c.sortie && !c.static) {
+      } else if (!c.sortie && !c.static) {
         u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
         u.moving = true;
       }
@@ -3406,19 +3696,25 @@ export function tick(s: GameState, dt: number) {
     }
   for (const w of s.wrecks) {
     w.age += dt;
+    const contact = CARDS[w.cardId].members
+      ? null
+      : wreckContact((x) => ground(s, x), w);
     if (w.falling) {
       w.x = Math.max(20, Math.min(W - 20, w.x + w.vx * dt));
       w.vy += 250 * dt;
       w.y += w.vy * dt;
       w.angle += dt * 0.7 * Math.sign(w.vx || 1);
-      if (w.y >= ground(s, w.x)) {
+      if (w.y >= contact!.y) {
         w.falling = false;
-        w.y = ground(s, w.x);
-        w.angle = 0.09 * Math.sign(w.vx || 1);
+        Object.assign(
+          w,
+          wreckContact((x) => ground(s, x), w),
+        );
         burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         s.visionIn = 0;
       }
-    } else w.y = ground(s, w.x);
+    } else if (contact) Object.assign(w, contact);
+    else w.y = ground(s, w.x);
   }
   s.units = s.units.filter(
     (u) =>

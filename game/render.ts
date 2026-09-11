@@ -6,6 +6,7 @@ import {
   adultWreckChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
+import { wreckKind, wreckGeometry } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { pointVisible, visibleToSide } from './world';
 import {
@@ -129,8 +130,23 @@ export function render(
         !(w.side === 0 || pointVisible(s, 0, w.x, w.y - 12))
       )
         continue;
-      const c = CARDS[w.cardId],
-        [width, height] = unitSize(w.cardId);
+      const c = CARDS[w.cardId];
+      if (!c.members) {
+        const frame = art.wrecks[wreckKind(w.cardId)];
+        const inset = (1 - wreckGeometry(w.cardId).support[2]) * frame.height;
+        drawSprite(
+          ctx,
+          frame,
+          w.x - Math.sin(w.angle) * inset,
+          w.y + Math.cos(w.angle) * inset,
+          frame.width,
+          frame.height,
+          (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
+          1,
+          w.angle,
+        );
+        continue;
+      }
       const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
       const wreckChoice = adultWreck ? adultWreckChoice(w.age, w.pose) : null;
       const wreckImage =
@@ -147,38 +163,15 @@ export function render(
       drawSprite(
         ctx,
         wreckImage,
-        w.x +
-          (tankGeometry(w.cardId)?.spriteOffset ?? 0) *
-            0.88 *
-            (w.side === 0 ? 1 : -1) *
-            Math.cos(w.angle),
-        w.y +
-          (c.members ? (w.lane ?? 0) : 0) +
-          (tankGeometry(w.cardId) ? 0 : 3) +
-          (tankGeometry(w.cardId)?.spriteOffset ?? 0) *
-            0.88 *
-            (w.side === 0 ? 1 : -1) *
-            Math.sin(w.angle),
-        c.members ? wreckImage.width : width * (w.falling ? 1 : 0.88),
-        c.members ? wreckImage.height : height * (w.falling ? 1 : 0.48),
-        c.members ? (w.facing ?? (w.side === 0 ? 1 : -1)) < 0 : w.side === 1,
+        w.x,
+        w.y + (w.lane ?? 0) + 3,
+        wreckImage.width,
+        wreckImage.height,
+        (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
         1,
         w.angle,
       );
       ctx.restore();
-      if (!c.members && !w.falling) {
-        ctx.fillStyle = '#252d26';
-        ctx.fillRect(w.x - 40, w.y - 4, 80, 5);
-        for (let i = 0; i < 8; i++) {
-          ctx.fillStyle = i % 2 ? '#535a4b' : '#30392e';
-          ctx.fillRect(
-            w.x - 62 + ((i * 19) % 121),
-            w.y - 6 - (i % 3) * 3,
-            7,
-            3,
-          );
-        }
-      }
     }
   };
   for (const m of s.mines)
