@@ -1,3 +1,4 @@
+import { DECK_PRESETS } from './deck-presets';
 export type BaseCardId =
   | 'infantry'
   | 'machinegun'
@@ -38,12 +39,20 @@ export type CardId =
   | 'scout_drone'
   | 'attack_drone'
   | 'loiter_drone'
+  | 'fpv_drone'
+  | 'air_assault'
   | 'interceptor'
   | 'javelin'
   | 'anti_tank_gun'
   | 'antitank_mine'
   | 'aa_gun'
   | 'sam_vehicle'
+  | 'pickup'
+  | 'tow_ifv'
+  | 'mortar_carrier'
+  | 'recovery_vehicle'
+  | 'command_vehicle'
+  | 'mine_clearer'
   | 'steadfast'
   | 'supply_team'
   | 'strike_jet'
@@ -84,6 +93,8 @@ export interface Card {
     | 'scout_drone'
     | 'attack_drone'
     | 'loiter_drone'
+    | 'fpv_drone'
+    | 'transport_heli'
     | 'interceptor';
   sortie?: boolean;
   attackRun?: 'strafe' | 'bomb';
@@ -103,6 +114,7 @@ export interface Card {
   patrol?: boolean;
   observer?: boolean;
   oneWay?: boolean;
+  airlift?: CardId;
   antiAir?: boolean;
   radius?: number;
   members?: number;
@@ -110,10 +122,22 @@ export interface Card {
   indirect?: boolean;
   heal?: number;
   armored?: boolean;
+  /** A ground vehicle body; armor damage resistance still requires armored. */
+  vehicle?: boolean;
+  vehicleSupport?: 'repair' | 'command' | 'mine_clear';
   targetGround?: boolean;
   model?: BaseCardId;
   doctrine?: Doctrine;
   discipline?: number;
+  infantryAbility?:
+    | 'cohesion'
+    | 'guard'
+    | 'smoke_assault'
+    | 'ambush'
+    | 'rapid'
+    | 'mountain_fire'
+    | 'buddy_rally'
+    | 'elite';
   trait?: 'close_assault' | 'armor_vest' | 'engineer' | 'mountain' | 'scout';
   armorMultiplier?: number;
   airOnly?: boolean;
@@ -417,6 +441,197 @@ function variant(
 }
 export const CARDS: Record<CardId, Card> = {
   ...BASE_CARDS,
+  fpv_drone: variant(
+    'helicopter',
+    'fpv_drone',
+    'FPV突击无人机',
+    2,
+    '低空接近，优先俯冲装甲；一次性撞击。',
+    {
+      en: 'FPV STRIKE DRONE',
+      hp: 24,
+      damage: 90,
+      rate: 1,
+      range: 500,
+      speed: 170,
+      sight: 560,
+      radius: 14,
+      armorMultiplier: 2.4,
+      infantryMultiplier: 0.45,
+      baseMultiplier: 0,
+      oneWay: true,
+      antiAir: false,
+      airframe: 'fpv_drone',
+      altitude: 244,
+      tag: '无人机 · 廉价反甲',
+      detail:
+        '2费24生命。低空搜索已发现的地面目标，优先装甲，进入500范围后俯冲；撞击90伤害、对甲×2.4、对步兵×0.45，半径14。不会攻击基地，可被防空击落或被墙屋拦截；失去视野后只撞向最后发现的位置。',
+    },
+  ),
+  air_assault: variant(
+    'helicopter',
+    'air_assault',
+    '机降突击队',
+    5,
+    '直升机飞往指定落点，索降五人后撤离。',
+    {
+      en: 'AIR ASSAULT TEAM',
+      hp: 300,
+      damage: 0,
+      rate: 1,
+      range: 0,
+      speed: 220,
+      sight: 430,
+      antiAir: false,
+      airframe: 'transport_heli',
+      altitude: 154,
+      targetGround: true,
+      airlift: 'paratroopers',
+      tag: '机降 · 纵深突袭',
+      detail:
+        '5费派遣无武装运输直升机（300生命）。拖牌松手位置决定落点，避开两端基地480距离；飞抵后逐一索降5名空降兵，共220生命，随后撤回己方。运输机被击落时尚未下机的士兵一同损失，已下机者继续作战。',
+    },
+  ),
+  pickup: variant('ifv', 'pickup', '机枪皮卡', 2, '廉价机动机枪车，压制步兵', {
+    en: 'MACHINE GUN TECHNICAL',
+    vehicle: true,
+    armored: false,
+    antiAir: false,
+    hp: 150,
+    damage: 4.5,
+    rate: 0.14,
+    range: 480,
+    speed: 94,
+    armorMultiplier: 0.15,
+    baseMultiplier: 0.2,
+    sight: 540,
+    tag: '轻车 · 机枪压制',
+    detail:
+      '150 生命，无装甲。每 0.14 秒机枪射击，单发 4.5 伤害，射程 480；优先步兵，对装甲伤害为 15%，无法对空。速度快，但廉价反甲火力也能迅速击毁它。',
+  }),
+  tow_ifv: variant(
+    'ifv',
+    'tow_ifv',
+    '陶式反坦克战车',
+    5,
+    '导弹猎甲，机枪独立压制',
+    {
+      en: 'TOW MISSILE CARRIER',
+      vehicle: true,
+      antiAir: false,
+      hp: 330,
+      damage: 96,
+      rate: 3.8,
+      range: 900,
+      minRange: 100,
+      speed: 42,
+      radius: 8,
+      guided: true,
+      armorMultiplier: 2.6,
+      infantryMultiplier: 0.2,
+      baseMultiplier: 0.15,
+      sight: 550,
+      tag: '制导 · 装甲猎手',
+      detail:
+        '330 生命。每 3.8 秒发射陶式制导导弹，96 伤害、射程 100–900，对装甲 ×2.6、步兵 ×0.2。另有独立机枪：射程 420，每 0.18 秒对步兵造成 3 伤害；导弹装填时仍可掩护近身。',
+    },
+  ),
+  mortar_carrier: variant(
+    'ifv',
+    'mortar_carrier',
+    '自行迫击炮车',
+    4,
+    '曲射支援，近敌后撤转移',
+    {
+      en: 'MORTAR CARRIER',
+      vehicle: true,
+      antiAir: false,
+      hp: 270,
+      damage: 42,
+      rate: 5.2,
+      range: 780,
+      minRange: 170,
+      speed: 48,
+      radius: 26,
+      indirect: true,
+      baseMultiplier: 0.15,
+      sight: 430,
+      tag: '炮兵 · 机动曲射',
+      detail:
+        '270 生命。每 5.2 秒发射迫击炮弹，42 范围伤害，射程 170–780。曲射上升段越过树屋，下降段仍会被拦截；近敌进入死角时后撤，随后继续支援。',
+    },
+  ),
+  recovery_vehicle: variant(
+    'ifv',
+    'recovery_vehicle',
+    '装甲抢修车',
+    4,
+    '停车抢修受损装甲',
+    {
+      en: 'ARMORED RECOVERY VEHICLE',
+      vehicle: true,
+      antiAir: false,
+      hp: 350,
+      damage: 0,
+      rate: 1,
+      range: 0,
+      speed: 38,
+      vehicleSupport: 'repair',
+      sight: 480,
+      tag: '后勤 · 装甲抢修',
+      detail:
+        '350 生命，无武器。停车抢修 180 距离内一辆受损己方装甲，每 0.5 秒恢复 9 生命。同一目标维修不叠加，不修自己、其他抢修车、无甲皮卡、飞机或已毁车辆。',
+    },
+  ),
+  command_vehicle: variant(
+    'ifv',
+    'command_vehicle',
+    '前线指挥车',
+    5,
+    '部署抽牌，支援附近步兵',
+    {
+      en: 'FORWARD COMMAND VEHICLE',
+      vehicle: true,
+      antiAir: false,
+      hp: 360,
+      damage: 4,
+      rate: 0.4,
+      range: 360,
+      speed: 40,
+      armorMultiplier: 0.15,
+      baseMultiplier: 0.15,
+      vehicleSupport: 'command',
+      deployDraw: 1,
+      sight: 720,
+      tag: '指挥 · 无线电协同',
+      detail:
+        '360 生命，部署后从自己的卡堆抽 1 张牌。每秒为 220 距离内己方步兵恢复 2 士气（最多恢复至 85）、减少 3 压制与 0.12 秒装填；多车协同不叠加。自卫机枪射程 360，单发 4 伤害。',
+    },
+  ),
+  mine_clearer: variant(
+    'ifv',
+    'mine_clearer',
+    '装甲扫雷车',
+    4,
+    '近距排雷，停车处理路障',
+    {
+      en: 'ARMORED MINE CLEARER',
+      vehicle: true,
+      antiAir: false,
+      hp: 430,
+      damage: 4,
+      rate: 0.5,
+      range: 300,
+      speed: 32,
+      armorMultiplier: 0.15,
+      baseMultiplier: 0.15,
+      vehicleSupport: 'mine_clear',
+      sight: 440,
+      tag: '工程 · 排雷开路',
+      detail:
+        '430 生命。自动探测附近 110 距离的敌方地雷，停车每 0.6 秒排除一枚，优先保障履带前方安全；不展示远处隐藏地雷。遇到近处矮墙时停车，每 0.6 秒清除 90 耐久。',
+    },
+  ),
   javelin: variant(
     'rocket',
     'javelin',
@@ -1081,6 +1296,29 @@ export function modelOf(id: CardId): BaseCardId {
 }
 export function weaponCard(u: { id: CardId; member: number }): Card {
   const c = CARDS[u.id];
+  if (u.id === 'antiarmor')
+    return u.member === 0
+      ? {
+          ...c,
+          members: 1,
+          damage: 48,
+          rate: 3,
+          range: 580,
+          radius: 14,
+          armorMultiplier: 1.8,
+          infantryMultiplier: 0.45,
+        }
+      : {
+          ...c,
+          members: 1,
+          model: 'infantry',
+          damage: 3,
+          rate: 1.1,
+          range: 340,
+          radius: 0,
+          armorMultiplier: 0.15,
+          infantryMultiplier: 1,
+        };
   if (modelOf(u.id) !== 'machinegun') return c;
   return u.member === 0
     ? { ...c, members: 1 }
@@ -1095,7 +1333,8 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
       };
 }
 export function weaponModel(u: { id: CardId; member: number }): BaseCardId {
-  return modelOf(u.id) === 'machinegun' && u.member > 0
+  return (modelOf(u.id) === 'machinegun' || u.id === 'antiarmor') &&
+    u.member > 0
     ? 'infantry'
     : modelOf(u.id);
 }
@@ -1112,29 +1351,131 @@ export function doctrineOf(id: CardId): Doctrine {
 export function needsTarget(id: CardId) {
   return !!CARDS[id].targetGround;
 }
+// Infantry roles use shared real-time rules; card cost never adds an action fee.
+Object.assign(CARDS.infantry, {
+  infantryAbility: 'cohesion',
+  tag: '班组 · 协同抗压',
+  description: '六人基础班，相邻同班队员共同抗压。',
+  detail:
+    '2费6人210生命。身边90内有两名同班战友时，受击压制和士气损失降低35%；生命伤害不减免。',
+});
+Object.assign(CARDS.armed_police, {
+  cost: 2,
+  hp: 200,
+  damage: 16,
+  range: 300,
+  infantryAbility: 'guard',
+  tag: '守备 · 护卫',
+  description: '停步后护卫90内友军步兵，吸引可见枪手火力。',
+  detail:
+    '2费5人200生命。停步0.65秒后护卫90内友军步兵。敌方普通枪手只在能看见并能命中守备者时转移目标；炮击和火箭不受影响。',
+});
+Object.assign(CARDS.marines, {
+  infantryAbility: 'buddy_rally',
+  tag: '陆战 · 战友整队',
+  description: '同班战友重伤时，一次性鼓舞附近幸存队员。',
+  detail:
+    '3费6人270生命。96内同班战友重伤时，每班仅一次：附近幸存者恢复10士气并降低15压制，不超过自身纪律上限；不治疗伤员。保留近距增伤。',
+});
+Object.assign(CARDS.assault, {
+  infantryAbility: 'smoke_assault',
+  tag: '突击 · 接敌烟幕',
+  description: '140内发现敌军时，每班释放一次短烟并集中射击。',
+  detail:
+    '3费5人260生命。140内可见地面敌军触发每班一次4秒烟幕，附近同班成员4秒内对140内目标装填缩短35%；不穿烟观察远敌。',
+});
+Object.assign(CARDS.rangers, {
+  hp: 180,
+  damage: 28,
+  range: 500,
+  sight: 720,
+  infantryAbility: 'ambush',
+  tag: '侦察 · 伏击首枪',
+  description: '停步蓄势，下一发对步兵增强；移动或射击重置。',
+  detail:
+    '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。',
+});
+Object.assign(CARDS.paratroopers, {
+  infantryAbility: 'rapid',
+  tag: '快援 · 入场冲刺',
+  description: '入场8秒内加速增援，首发射击后恢复常速。',
+  detail:
+    '3费5人220生命。部署后8秒内正常推进移速乘1.8；首次射击立即结束加速，后撤不享受加速。仍从己方基地入场。',
+});
+Object.assign(CARDS.mountain, {
+  infantryAbility: 'mountain_fire',
+  tag: '山地 · 掩体远射',
+  description: '稳定掩体中扩大射程，离开后恢复常规射程。',
+  detail:
+    '3费4人200生命。稳定停步0.65秒且身处有效掩体时射程增加25%；移动或离开掩体后失效。保留快速越障。',
+});
+Object.assign(CARDS.commandos, {
+  cost: 5,
+  members: 3,
+  hp: 300,
+  damage: 36,
+  range: 400,
+  infantryAbility: 'elite',
+  neverSurrender: true,
+  tag: '精锐 · 快速伏击',
+  description: '少人精锐，快速准备伏击，个人抗压且不投降。',
+  detail:
+    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。',
+});
+Object.assign(CARDS.scouts, {
+  cost: 1,
+  members: 2,
+  hp: 46,
+  damage: 4,
+  rate: 1.5,
+  range: 260,
+  sight: 760,
+  speed: 74,
+  tag: '侦察 · 低费观察',
+  description: '远处接敌时停步观察，双人自卫火力微弱。',
+  detail:
+    '1费2人46生命，观察760、射程260，每1.5秒全组4伤害。600内发现地面敌军时停步观察，不主动进入步枪射程；强行推进命令可覆盖。为全军共享正常视野，烟幕和地形规则不变。',
+});
+Object.assign(CARDS.medic, {
+  cost: 1,
+  members: 2,
+  hp: 60,
+  damage: 4,
+  heal: 3,
+  tag: '医疗 · 低费救援',
+  detail:
+    '1费2人60生命。每0.8秒每人治疗3生命，优先抢救伤员；全组自卫伤害4，不能救活死者或修理载具。',
+});
+Object.assign(CARDS.engineers, {
+  cost: 1,
+  members: 2,
+  hp: 70,
+  damage: 6,
+  range: 260,
+  tag: '工程 · 破障排雷',
+  description: '双人工具组，近身拆墙排雷，自卫火力有限。',
+  detail:
+    '1费2人70生命。接近矮墙拆除障碍，36内每1.2秒排除一枚敌方地雷；不能发现远处地雷。全组6伤害。',
+});
+Object.assign(CARDS.antiarmor, {
+  cost: 2,
+  members: 4,
+  hp: 160,
+  damage: 57,
+  range: 580,
+  rate: 3,
+  radius: 14,
+  armorMultiplier: 1.8,
+  doctrine: 'support',
+  tag: '反甲 · RPG混编',
+  description: '一名RPG手与三名步枪护卫，压制轻甲。',
+  detail:
+    '2费4人160生命。1名RPG手每3秒48伤害、射程580、对甲乘1.8；3名护卫各每1.1秒3伤害、射程340。火箭直飞不制导，无法替代标枪。',
+});
+
 export const DECK_SIZE = 20;
-export const DECK: CardId[] = [
-  'infantry',
-  'infantry',
-  'marines',
-  'militia',
-  'scout_drone',
-  'machinegun',
-  'javelin',
-  'anti_tank_gun',
-  'antitank_mine',
-  'manpads',
-  'aa_gun',
-  'medic',
-  'tank',
-  'helicopter',
-  'strike_jet',
-  'artillery',
-  'morale',
-  'smoke',
-  'supply',
-  'supply_team',
-];
+export const DECK: CardId[] = [...DECK_PRESETS[0].cards];
+
 export function validDeck(value: unknown): value is CardId[] {
   return (
     Array.isArray(value) &&
@@ -1147,77 +1488,8 @@ export function validDeck(value: unknown): value is CardId[] {
     )
   );
 }
-const AI_DECKS: CardId[][] = [
-  // Mechanised screen: inexpensive rifles and supply support its vehicles.
-  [
-    'infantry',
-    'infantry',
-    'militia',
-    'militia',
-    'machinegun',
-    'machinegun',
-    'javelin',
-    'javelin',
-    'manpads',
-    'manpads',
-    'scout_drone',
-    'ifv',
-    'ifv',
-    'tank',
-    'supply_team',
-    'supply_team',
-    'supply',
-    'supply',
-    'repair',
-    'morale',
-  ],
-  // Observed fire support: a real infantry screen feeds targets to its gun.
-  [
-    'infantry',
-    'infantry',
-    'militia',
-    'marines',
-    'machinegun',
-    'javelin',
-    'javelin',
-    'anti_tank_gun',
-    'antitank_mine',
-    'manpads',
-    'sam_vehicle',
-    'scout_drone',
-    'artillery',
-    'ifv',
-    'supply_team',
-    'supply_team',
-    'supply',
-    'supply',
-    'medic',
-    'tank',
-  ],
-  // Air-ground pressure retains enough rifles and counters to survive a grounded hand.
-  [
-    'infantry',
-    'infantry',
-    'militia',
-    'militia',
-    'machinegun',
-    'javelin',
-    'javelin',
-    'manpads',
-    'scout_drone',
-    'supply_team',
-    'supply_team',
-    'supply',
-    'supply',
-    'ifv',
-    'rocket',
-    'attack_drone',
-    'strike_jet',
-    'helicopter',
-    'antitank_mine',
-    'sam_vehicle',
-  ],
-];
+const AI_DECKS: CardId[][] = DECK_PRESETS.map((preset) => [...preset.cards]);
+
 export function chooseAiDeck(seed: number): CardId[] {
   return [
     ...AI_DECKS[
@@ -1232,7 +1504,7 @@ for (const id of ['tank', 'light_tank', 'heavy_tank'] as const)
 
 export function copyLimit(id: CardId) {
   if (id === 'militia') return 6;
-  if (id === 'infantry') return 4;
+  if (id === 'infantry' || id === 'pickup') return 4;
   if (['heavy_tank', 'rocket_heli', 'barrage', 'bomber'].includes(id)) return 1;
   if (
     [
@@ -1256,6 +1528,7 @@ export function copyLimit(id: CardId) {
       'rally',
       'scout_drone',
       'loiter_drone',
+      'fpv_drone',
       'antitank_mine',
     ].includes(id)
   )
@@ -1365,3 +1638,65 @@ for (const card of Object.values(CARDS)) {
   if (card.emplacement)
     card.detail += ' 从己方基地入场，随前线护卫牵引至射程内，架设后固定。';
 }
+
+// Tactical orders are situational alternatives to buying another squad.
+Object.assign(CARDS.rally, {
+  cost: 1,
+  description: '一费稳住溃退班组',
+  detail:
+    '存活且未投降的己方步兵恢复40士气，清除80%压制并立即重新判断战术。不会复活、解除投降或强制仍然恐慌的士兵返战。',
+});
+Object.assign(CARDS.jam, {
+  cost: 1,
+  description: '封锁敌方主动抽牌9秒',
+  detail:
+    '封锁敌方主动抽牌9秒；不影响补给卡和部署抽牌。重复使用刷新时间，不累加。',
+});
+Object.assign(CARDS.smoke, {
+  cost: 1,
+  description: '十秒烟幕，掩护接近与抢救',
+  detail:
+    '在指定位置释放半径110的烟幕，持续10秒。遮蔽双方远距直射；近距交火、曲射火炮与穿烟侦察仍然有效。',
+});
+Object.assign(CARDS.recon, {
+  cost: 1,
+  description: '十二秒共享校射与穿烟观察',
+  detail:
+    '全军射程提升20%，扩大观察并穿透烟幕，持续12秒。需要己方观察范围内的目标，不能读取全地图敌人。重复使用刷新时间。',
+});
+Object.assign(CARDS.fortify, {
+  cost: 1,
+  description: '静止步兵十秒减伤三成',
+  detail:
+    '在场己方步兵恢复10士气；10秒内静止步兵受到的伤害减少30%，移动即失去该减伤。不会替玩家下达驻守命令，重复使用不叠加倍率。',
+});
+Object.assign(CARDS.sabotage, {
+  cost: 2,
+  description: '压住已发现敌军三秒火力',
+  detail:
+    '令已发现敌军的主武器和同轴机枪至少再装填3秒。不可见敌人不受影响，已发射弹药不消失；重复使用只刷新停火窗口。',
+});
+Object.assign(CARDS.emp, {
+  cost: 3,
+  description: '干扰已见空中与制导武器',
+  detail:
+    '封锁主动抽牌14秒并取消敌方校射；已发现的飞机、无人机与制导武器至少停火4秒。不会伤害单位或停止飞行，不影响隐藏目标。',
+});
+Object.assign(CARDS.repair, {
+  cost: 2,
+  description: '立即抢修一辆重伤装甲',
+  detail:
+    '优先选择缺血最多的一辆存活地面装甲，立即恢复30生命，随后6秒每秒修复20。不能修复无甲车辆、飞机或残骸；重复使用只刷新维修时间。',
+});
+Object.assign(CARDS.morale, {
+  cost: 2,
+  description: '鼓舞全军，八秒协同进攻',
+  detail:
+    '在场步兵恢复15士气并清除40%压制；全军8秒伤害增加35%、移速增加20%。适合在双方接敌时使用，重复使用不叠加倍率。',
+});
+Object.assign(CARDS.medevac, {
+  cost: 2,
+  description: '优先抢救伤员与附近步兵',
+  detail:
+    '优先选择一名伤员或受伤最重的步兵，为其220范围内的友军步兵恢复18生命和8士气。伤员得到救护进度，达到恢复门槛后起身；死亡和投降者不复活。',
+});

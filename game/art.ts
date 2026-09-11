@@ -11,11 +11,15 @@ import { assetUrl } from './asset-url';
 import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
+import { mobileVehicleFrames } from './mobile-vehicle-art';
+import { loadV16Art } from './art-v16';
+import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
   background: HTMLCanvasElement;
+  mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
   terrain: HTMLImageElement;
   vehicles: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
@@ -26,6 +30,7 @@ export interface Art {
   emplacements: Record<string, HTMLCanvasElement[]>;
   impacts: HTMLCanvasElement[][];
   armor: Record<string, HTMLCanvasElement[]>;
+  mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
   wrecks: Record<WreckKind, HTMLCanvasElement>;
 }
@@ -453,50 +458,60 @@ function atlasFrames(
 }
 export function loadArt() {
   cached ??= Promise.all([
-    loadImage('/art/battlefield-v3.png'),
-    loadImage('/art/vehicles-v3.png'),
-    loadImage('/art/terrain-texture.png'),
-    loadImage('/art/reinforcements-v5.png'),
-    loadImage('/art/destructible-scenery-v9.png'),
-    loadImage('/art/artillery-v9.png'),
-    loadImage('/art/explosions-v9.png'),
-    loadImage('/art/impacts-v12.png'),
-    loadImage('/art/fixed-wing-v12.png'),
-    loadImage('/art/rotorcraft-v12.png'),
-    loadImage('/art/tanks-v12.png'),
-    loadImage('/art/explosions-v12.png'),
-    loadImage('/art/buildings-v13.png'),
-    loadImage('/art/building-collapse-v13.png'),
-    loadImage('/art/adult-infantry-v13.png'),
-    loadImage('/art/adult-marines-v13.png'),
-    loadImage('/art/adult-police-v13.png'),
-    loadImage('/art/adult-militia-v13.png'),
-    loadImage('/art/adult-specialists-v13.png'),
-    loadImage('/art/ground-wrecks-v14.png'),
-    loadImage('/art/air-wrecks-v14.png'),
+    Promise.all([
+      loadImage('/art/battlefield-v3.png'),
+      loadImage('/art/vehicles-v3.png'),
+      loadImage('/art/terrain-texture.png'),
+      loadImage('/art/reinforcements-v5.png'),
+      loadImage('/art/destructible-scenery-v9.png'),
+      loadImage('/art/artillery-v9.png'),
+      loadImage('/art/explosions-v9.png'),
+      loadImage('/art/impacts-v12.png'),
+      loadImage('/art/fixed-wing-v12.png'),
+      loadImage('/art/rotorcraft-v12.png'),
+      loadImage('/art/tanks-v12.png'),
+      loadImage('/art/explosions-v12.png'),
+      loadImage('/art/buildings-v13.png'),
+      loadImage('/art/building-collapse-v13.png'),
+      loadImage('/art/adult-infantry-v13.png'),
+      loadImage('/art/adult-marines-v13.png'),
+      loadImage('/art/adult-police-v13.png'),
+      loadImage('/art/adult-militia-v13.png'),
+      loadImage('/art/adult-specialists-v13.png'),
+      loadImage('/art/ground-wrecks-v14.png'),
+      loadImage('/art/air-wrecks-v14.png'),
+      loadImage('/art/mobile-vehicles-v14.png'),
+      loadImage('/art/support-vehicles-v14.png'),
+    ]),
+    loadV16Art(),
   ]).then(
     ([
-      bg,
-      vehicles,
-      terrain,
-      reinforcement,
-      scenery,
-      emplacements,
-      explosions,
-      impacts,
-      fixedWing,
-      rotorcraft,
-      tanks,
-      combatExplosions,
-      buildings,
-      collapse,
-      adultInfantry,
-      adultMarines,
-      adultPolice,
-      adultMilitia,
-      specialists,
-      groundWrecks,
-      airWrecks,
+      [
+        bg,
+        vehicles,
+        terrain,
+        reinforcement,
+        scenery,
+        emplacements,
+        explosions,
+        impacts,
+        fixedWing,
+        rotorcraft,
+        tanks,
+        combatExplosions,
+        buildings,
+        collapse,
+        adultInfantry,
+        adultMarines,
+        adultPolice,
+        adultMilitia,
+        specialists,
+        groundWrecks,
+        airWrecks,
+        mobileVehicles,
+        supportVehicles,
+      ],
+      extra,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -538,12 +553,21 @@ export function loadArt() {
           militia: adultAtlas(adultMilitia),
         },
         adultSpecialists: specialistAtlas(specialists),
-        wrecks: wreckFrames(groundWrecks, airWrecks),
+        wrecks: wreckFrames(
+          groundWrecks,
+          airWrecks,
+          mobileVehicles,
+          supportVehicles,
+          extra.fpvSheet,
+        ),
+        mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),
         background,
+        mapBackgrounds: extra.mapBackgrounds,
         terrain,
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
         aircraft: {
+          fpv_drone: extra.fpvFrames,
           ...Object.fromEntries(
             ['scout_drone', 'helicopter', 'rocket_heli', 'medevac'].map(
               (id, row) => [id, rotors[row]],
@@ -623,10 +647,14 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
       art.adults[adultIdentity(id)].actions20[0],
       c.uniform === 'recon' || c.uniform === 'assault' ? c.uniform : undefined,
     );
+  const mobile = art.mobileVehicles?.[id];
+  if (mobile) return mobile[frame % mobile.length];
   if (c.emplacement) return art.emplacements[c.emplacement][frame];
+  if (c.airlift) return art.aircraft.medevac[frame % 4];
   if (art.aircraft[id])
     return art.aircraft[id][
       c.airframe === 'scout_drone' ||
+      c.airframe === 'fpv_drone' ||
       c.airframe === 'rocket_heli' ||
       id === 'helicopter'
         ? frame
@@ -642,6 +670,8 @@ export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];
+  if (id === 'fpv_drone') return [54, 28];
+  if (id === 'air_assault') return [240, 112];
   const tank = tankGeometry(id);
   if (tank) return tank.size;
   if (c.emplacement)

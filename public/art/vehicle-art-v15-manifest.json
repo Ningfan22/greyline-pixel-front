@@ -1,0 +1,46 @@
+{
+  "source": "Existing generated v14-cards/assets, originals untouched. Extracted at runtime with uniform nearest-neighbor scaling; no new generation.",
+  "runtimeAssets": [
+    {
+      "path": "/art/mobile-vehicles-v14.png",
+      "sha256": "2be2d18bbce51dc0766517cbb36e18a6e83edba2caa4651d78282adb5e3e310e"
+    },
+    {
+      "path": "/art/support-vehicles-v14.png",
+      "sha256": "b46355aa36dbcca228be2237bdfecb4b86756e6f840bb947fc5b9f9d834f9ca0"
+    },
+    {
+      "path": "/art/cards-v15/pickup.webp",
+      "sha256": "e7543165c5377c73c497095f13a6eb732001c3d06941b0f1dec6e9d0e6eaf371"
+    },
+    {
+      "path": "/art/cards-v15/tow_ifv.webp",
+      "sha256": "1b0cc577aeec32c8db8eb53fe4faffecb581bef90e651b7c9befd2611c00aabe"
+    },
+    {
+      "path": "/art/cards-v15/mortar_carrier.webp",
+      "sha256": "4fe504b386976f92130dd712ad29186959c03d96ea4e90d5790d3f7e0b9e5ace"
+    },
+    {
+      "path": "/art/cards-v15/recovery_vehicle.webp",
+      "sha256": "59d57720e2e5ae606aedae1d2c14b491b378e79bfcf271a38ad51dd256288ef4"
+    },
+    {
+      "path": "/art/cards-v15/command_vehicle.webp",
+      "sha256": "852fd2d01e6adcf9d205d0e96d02ac9dc0b4b19a29ad31cddb303d7055f0971c"
+    },
+    {
+      "path": "/art/cards-v15/mine_clearer.webp",
+      "sha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240"
+    }
+  ],
+  "geometrySource": "game/mobile-vehicle-art.ts and game/wreck-geometry.ts",
+  "newIDs": [
+    "pickup",
+    "tow_ifv",
+    "mortar_carrier",
+    "recovery_vehicle",
+    "command_vehicle",
+    "mine_clearer"
+  ]
+}

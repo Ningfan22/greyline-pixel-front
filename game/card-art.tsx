@@ -4,6 +4,22 @@ import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
 
+const ADDITIONAL_CARD_ART = new Set([
+  'pickup',
+  'tow_ifv',
+  'mortar_carrier',
+  'recovery_vehicle',
+  'command_vehicle',
+  'mine_clearer',
+]);
+export function cardPictureUrl(id: CardId) {
+  if (id === 'fpv_drone' || id === 'air_assault')
+    return assetUrl(`/art/v16-air/cards/${id}.webp`);
+  return assetUrl(
+    `/art/${ADDITIONAL_CARD_ART.has(id) ? 'cards-v15' : 'cards-v10'}/${id}.webp`,
+  );
+}
+
 export function cardStats(id: CardId, cost = CARDS[id].cost) {
   const c = CARDS[id];
   return c.type === 'skill'
@@ -18,11 +34,13 @@ export function cardStats(id: CardId, cost = CARDS[id].cost) {
           '编制',
           c.members
             ? `${c.members}人`
-            : c.emplacement
-              ? '1门'
-              : c.air
-                ? '1架'
-                : '1辆',
+            : c.airlift
+              ? '1机5人'
+              : c.emplacement
+                ? '1门'
+                : c.air
+                  ? '1架'
+                  : '1辆',
         ],
         ['生命', String(c.hp ?? '—')],
         ['火力', String(c.damage || '—')],
@@ -68,7 +86,7 @@ export function CardFace({
         width={720}
         height={720}
         className="printed-card-picture"
-        src={assetUrl(`/art/cards-v10/${id}.webp`)}
+        src={cardPictureUrl(id)}
         alt=""
         aria-hidden="true"
         loading={eager ? 'eager' : 'lazy'}

@@ -9,6 +9,8 @@ import {
 } from '@/game/audio';
 import { assetUrl } from '@/game/asset-url';
 import styles from './home-menu.module.css';
+import MapSelector from './map-selector';
+import type { MapId } from '@/game/maps';
 
 export type LobbyPage = 'home' | 'builder' | 'settings' | 'guide';
 const navigation: { page: LobbyPage; label: string }[] = [
@@ -116,7 +118,7 @@ function Guide() {
       <div>
         <h2>出牌与抽牌</h2>
         <p>
-          把卡牌拖出底部扇形区域后松手，即可使用；拖回则取消。长按查看详情。单位从己方基地出发，烟幕和地雷使用松手位置。
+          把卡牌拖出底部扇形区域后松手，即可使用；拖回则取消。长按查看详情。单位从己方基地出发，烟幕、地雷和机降落点使用松手位置。机降直升机会飞抵落点后放下步兵，途中可被防空击落。
         </p>
         <p>点击牌堆，消耗 2 点指挥点抽牌，冷却 9 秒。手牌最多 6 张。</p>
       </div>
@@ -142,6 +144,8 @@ export default function HomeMenu({
   page,
   ready,
   deckCount,
+  mapId,
+  onMapChange,
   onNavigate,
   onStart,
   children,
@@ -149,6 +153,8 @@ export default function HomeMenu({
   page: LobbyPage;
   ready: boolean;
   deckCount: number;
+  mapId: MapId;
+  onMapChange: (id: MapId) => void;
   onNavigate: (page: LobbyPage) => void;
   onStart: () => void;
   children: ReactNode;
@@ -186,6 +192,7 @@ export default function HomeMenu({
             </button>
           ))}
         </nav>
+        <MapSelector value={mapId} onChange={onMapChange} disabled={!ready} />
         <div className={styles.deckStatus}>
           <span>当前编队</span>
           <strong>
