@@ -134,7 +134,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'JAVELIN TEAM',
     typeLabel: '制导反甲',
     ability: '制导追踪',
-    rule: '制导追踪，反甲强而反步兵弱。',
+    rule: '高抛制导打装甲，对步兵弱。',
     flavor: '先别锁定，电池还在充。',
   },
   anti_tank_gun: {

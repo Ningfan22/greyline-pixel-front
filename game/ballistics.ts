@@ -68,13 +68,13 @@ function streak(
   const dx = Math.cos(angle),
     dy = Math.sin(angle);
   for (let i = 0; i < length; i++)
-    ctx.fillRect(Math.round(x - dx * i), Math.round(y - dy * i), width, 1);
+    ctx.fillRect(Math.round(x - dx * i), Math.round(y - dy * i), width, width);
 }
 export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
   const kind = p.ammunition ?? (p.radius ? 'cannon' : 'rifle');
   const t = 1 - Math.max(0, p.life) / p.total;
-  const dy = p.ty - p.startY - Math.PI * (p.arc ?? 0) * Math.cos(Math.PI * t);
-  const angle = Math.atan2(dy, p.tx - p.startX);
+  const dy = p.ty - p.startY - 4 * (p.arc ?? 0) * (1 - 2 * t);
+  const angle = p.heading ?? Math.atan2(dy, p.tx - p.startX);
   const dx = Math.cos(angle),
     vy = Math.sin(angle);
   const travelled = Math.hypot(p.x - p.startX, p.y - p.startY);
@@ -125,28 +125,28 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
   } else if (p.tracer) {
     const length = Math.min(
       p.weapon === 'coax'
-        ? 20
+        ? 46
         : kind === 'autocannon'
-          ? 14
+          ? 40
           : kind === 'machinegun'
-            ? 14
-            : 7,
+            ? 34
+            : 22,
       Math.max(1, Math.floor(travelled)),
     );
-    streak(ctx, p.x, p.y, angle, length, '#b39259', 1, 0.24);
+    streak(ctx, p.x, p.y, angle, length, '#e7a847', 2, 0.55);
     streak(
       ctx,
       p.x,
       p.y,
       angle,
       Math.max(1, Math.floor(length * 0.55)),
-      '#f2c983',
+      '#fff0bc',
       1,
       0.95,
     );
-    streak(ctx, p.x, p.y, angle, 2, '#e5d6ab', 1, 0.9);
+    streak(ctx, p.x, p.y, angle, 3, '#fffad8', 2, 1);
   } else {
-    streak(ctx, p.x, p.y, angle, 2, '#c1c3b1', 1, 0.32);
+    streak(ctx, p.x, p.y, angle, 5, '#e2d5ae', 1, 0.7);
   }
   ctx.restore();
 }
@@ -200,11 +200,48 @@ export function drawMuzzle(
     );
   ctx.restore();
 }
-export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
+export function drawParticle(
+  ctx: CanvasRenderingContext2D,
+  p: Particle,
+  impacts?: HTMLCanvasElement[][],
+) {
   const life = Math.max(0, p.life / p.maxLife),
     smoke = p.kind === 'smoke' || p.kind === 'dust';
+  if (p.kind === 'impact') {
+    if (impacts) {
+      const row = p.variant ?? 0;
+      const sprite = impacts[row][Math.min(7, Math.floor((1 - life) * 8))];
+      const height = (p.size * sprite.height) / sprite.width;
+      ctx.globalAlpha = Math.min(1, life * 4);
+      ctx.drawImage(
+        sprite,
+        Math.round(p.x - p.size / 2),
+        Math.round(p.y - height * (row ? 0.79 : 0.885)),
+        p.size,
+        height,
+      );
+      ctx.globalAlpha = 1;
+    }
+    return;
+  }
+  if (p.kind === 'tracer') {
+    const dx = (p.endX ?? p.x) - p.x,
+      dy = (p.endY ?? p.y) - p.y;
+    streak(
+      ctx,
+      p.endX ?? p.x,
+      p.endY ?? p.y,
+      Math.atan2(dy, dx),
+      Math.min(65, Math.hypot(dx, dy)),
+      '#f8d28e',
+      1,
+      life * 0.55,
+    );
+    ctx.globalAlpha = 1;
+    return;
+  }
   ctx.globalAlpha = smoke
-    ? life * (p.kind === 'smoke' ? 0.22 : 0.32)
+    ? life * (p.kind === 'smoke' ? 0.22 : 0.46)
     : Math.min(1, life * 2);
   ctx.fillStyle = p.color;
   const size = smoke
@@ -234,39 +271,63 @@ export function drawParticle(ctx: CanvasRenderingContext2D, p: Particle) {
 export function drawBlast(
   ctx: CanvasRenderingContext2D,
   b: Blast,
-  frames: HTMLCanvasElement[][],
+  legacy: HTMLCanvasElement[][],
+  generated?: HTMLCanvasElement[][],
 ) {
   const penetration = b.kind === 'penetration',
-    grenade = b.kind === 'grenade',
-    row = penetration ? 0 : grenade ? 1 : b.kind === 'wreck' || !b.soil ? 2 : 1;
-  const times = penetration
-    ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
+    grenade = b.kind === 'grenade';
+  const air = b.kind === 'air',
+    crash = b.kind === 'crash';
+  const duration = penetration
+    ? 0.24
     : grenade
-      ? [0, 0.035, 0.075, 0.13, 0.22, 0.36, 0.58, 0.85]
-      : row === 2
-        ? [0, 0.08, 0.2, 0.4, 0.75, 1.3, 2.3, 4]
-        : [0, 0.065, 0.14, 0.25, 0.48, 0.85, 1.6, 3];
+      ? 1.25
+      : air
+        ? 1.6
+        : crash
+          ? 3.2
+          : 5;
+  const frames =
+    penetration || !generated
+      ? legacy[penetration ? 0 : 1]
+      : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
+  // More of the first second is spent on expansion; the last frames dissipate slowly.
+  const phases = penetration
+    ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
+    : [
+        0, 0.012, 0.026, 0.044, 0.066, 0.095, 0.13, 0.175, 0.22, 0.29, 0.38,
+        0.48, 0.59, 0.71, 0.84, 0.94,
+      ].map((t) => t * duration);
   let index = 0;
-  while (index < 7 && b.age >= times[index + 1]) index++;
-  const sprite = frames[row][index];
+  while (index < frames.length - 1 && b.age >= phases[index + 1]) index++;
+  const sprite = frames[index];
   const width = penetration
     ? 48
     : grenade
       ? Math.max(52, Math.min(76, b.radius * 1.8))
-      : b.kind === 'wreck'
-        ? Math.max(240, Math.min(340, b.radius * 5.2))
-        : b.kind === 'artillery'
-          ? Math.max(190, Math.min(350, b.radius * 7))
-          : Math.max(80, Math.min(260, b.radius * 5.5));
-  const height = (width * sprite.height) / sprite.width,
-    anchor = [268 / 300, 261 / 300, 263 / 300][row];
+      : air
+        ? Math.max(48, Math.min(110, b.radius * 3.2))
+        : crash
+          ? Math.max(82, Math.min(138, b.radius * 4))
+          : b.kind === 'wreck'
+            ? Math.max(210, Math.min(290, b.radius * 4.8))
+            : b.kind === 'artillery'
+              ? Math.max(210, Math.min(320, b.radius * 6))
+              : Math.max(90, Math.min(250, b.radius * 5));
+  const height = (width * sprite.height) / sprite.width;
+  const anchor = penetration
+    ? 268 / 300
+    : air
+      ? 0.6
+      : generated
+        ? 0.975
+        : 261 / 300;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.globalAlpha = penetration
-    ? Math.min(1, Math.max(0, (0.24 - b.age) / 0.04))
-    : grenade
-      ? Math.min(1, Math.max(0, (1.25 - b.age) / 0.65))
-      : Math.min(1, Math.max(0, (7 - b.age) / 3));
+  ctx.globalAlpha = Math.min(
+    1,
+    Math.max(0, (duration - b.age) / (duration * 0.16)),
+  );
   ctx.translate(Math.round(b.x), Math.round(b.y));
   if (b.seed % 2) ctx.scale(-1, 1);
   ctx.drawImage(

@@ -1,0 +1,172 @@
+explosions-v12-alpha.txt
+Background extraction only. Remove the entire baked grey-and-white checkerboard background from this exact forty-eight-frame explosion sprite sheet and replace it with genuine PNG transparency (alpha zero), including every gap between sparks, soil fragments and smoke wisps. Preserve all explosion pixels, pixel-art texture, colors, silhouettes, dimensions, row order and eight-frame positions exactly. Keep the 1448 x 1086 canvas and the existing eight-column, six-row layout. Do not redraw, move, resize or add effects. Do not replace the background with any visible color, pattern, shadow or glow. Deliver a real RGBA cutout atlas with empty pixels fully transparent. Preserve naturally translucent smoke edges with partial alpha.
+
+explosions-v12.txt
+Generate a crisp pixel-art explosion animation sprite sheet for a realistic 2D military game. Transparent PNG cutout asset with a REAL RGBA alpha channel. Background pixels must have alpha=0. No checkerboard pattern, no white, gray or black matte, no scenery, labels, borders or dividing lines.
+
+Canvas: 2048 x 1536 pixels, EXACTLY 8 columns x 6 rows of equally sized 256 x 256 cells, 48 separate frames. All effects stay inside their own cell with generous margins. This is 3 animations of 16 frames each. Each clip reads left to right across its first row, then left to right across its second row. Row 2 continues row 1, row 4 continues row 3, row 6 continues row 5; never restart the explosion at the beginning of the second row. Reference image 1 is solely a palette/material style reference, NOT a layout reference.
+
+Style: clearly visible carefully shaded pixel clusters, hard pixel edges, realistic restrained burnt orange sparks, warm gray-brown soil dust, charcoal smoke, occasional pale hot core. Not smooth 3D, not cartoon cloud puffs. Each neighboring frame is a real temporal progression with changing expanding shape and fading opacity. No repeated full-strength explosions. No helicopters, airplane bodies, people, ground line or props.
+
+ROW 1, frames 1-8: GROUND HIGH EXPLOSIVE. Fixed impact origin cell-local (128,232), exactly constant in all 16 frames. Start with a tiny contact flash, fast bright narrow upward soil jet, angular expanding earth fragments, short restrained hot core and broad low brown dust. Peak around frames 4-6. Entire event grows upward from the bottom contact.
+ROW 2, frames 9-16 of that SAME ground blast: orange dies out, dusty smoke billows upward, then thins into smaller separated wisps and fades. End frame almost empty with a few wisps. The impact origin is still (128,232). No new blast.
+ROW 3, frames 1-8: SMALL AIRCRAFT GROUND CRASH COMBUSTION. Same fixed ground origin (128,232). Short modest low fuel flare followed by a compact twisting black smoke plume, small orange flame tongues. Restrained and smaller than the ground HE peak. No enormous spherical fireball, no giant mushroom cloud. No airplane drawing.
+ROW 4, frames 9-16 of SAME crash event: the low flame settles and fades while charcoal smoke rises, splits into wisps and disperses. Last frames are sparse small smoke wisps. Do not restart.
+ROW 5, frames 1-8: AIRBORNE EXPLOSION. Fixed center origin cell-local (128,128), expanding equally around the center. Tiny central ignition becomes a compact jagged burst of orange with gray smoke, a few fine sparks, and short curling trails. Floating entirely in the air, no bottom anchor and absolutely no flattened base, soil, dust ring or ground skirt.
+ROW 6, frames 9-16 of SAME airborne blast: centered smoke breaks apart into freely floating wisps on all sides, fades and becomes nearly empty. Do not turn into a grounded plume.
+
+Output only the evenly gridded 8x6 animation asset on genuine transparent alpha. Grid exists only as cell spacing; DO NOT draw grid lines, checkerboards or any background.
+
+fixed-wing-alpha.txt
+Background extraction only. Remove the entire baked grey-and-white checkerboard background from this exact twenty-aircraft sprite sheet and replace it with genuine PNG transparency (alpha zero), including every gap between wings, propellers, missiles and tails. Preserve all aircraft pixels, pixel-art texture, colors, silhouettes, dimensions, row order and four-frame positions exactly. Keep the 1586 x 992 canvas and the existing four-column, five-row layout. Do not redraw, move, resize or add aircraft. Do not replace the background with any visible color, pattern, shadow or glow. Deliver a real RGBA cutout atlas with empty pixels fully transparent.
+
+
+fixed-wing.txt
+Create a production pixel-art sprite atlas on a genuinely TRANSPARENT PNG background with real alpha=0 in every empty area. No checkerboard, colored matte, glow, shadow, text, labels or grid lines. Use the reference only for its realistic olive-grey military metal palette and crisp pixel-game rendering, not its objects or existing layout.
+
+Layout: exactly FOUR equal columns and FIVE equal rows, twenty isolated sprites. A wide canvas around 2048x1280 is appropriate; each cell is twice as wide as tall. Each row shows ONE aircraft in four consecutive subtle flight frames. Every aircraft faces RIGHT in true lateral side elevation, nose right and tail left. No isometric or top-down view. Keep at least 10% clear padding inside every cell, no clipped wings, propellers or tails. Within each row preserve identical aircraft dimensions, orientation and centered fuselage anchor; no camera motion.
+
+Rows from top to bottom:
+1. ARMED UAV: unmanned long slender fuselage, round sensor turret under the right-hand nose, long straight wings seen edge-on, rear pusher propeller on the left, V-tail, two small underwing missiles. No cockpit.
+2. LOITERING MUNITION: much smaller compact tubular unmanned aircraft, pointed nose, short cruciform wings, small rear pusher propeller, no cockpit and no hanging weapons. Clearly shorter and simpler than row 1.
+3. INTERCEPTOR: sleek pointed-nose single-engine fighter, narrow dark cockpit canopy, swept/delta wings, tall swept tail, two slim air-to-air missiles. Clean slender silhouette.
+4. STRIKE JET: rugged twin-engine ground-attack aircraft, blunt armored nose, broad straight wings seen edge-on, visible raised engine pod, twin tail surfaces and several compact underwing stores. Clearly bulkier than the interceptor.
+5. TACTICAL BOMBER: a substantially longer twin-jet military bomber, long enclosed fuselage, small cockpit, swept wing roots and a clearly visible underside bomb bay, heavier airframe than every row above.
+
+Four frames: keep jets structurally stable with only tiny exhaust flicker; UAV propeller blades change phase. No firing or explosions. Serious realistic military proportions, recognizable engineering, hard square pixel clusters about 3 pixels, restrained worn highlights. No smooth gradients, photorealistic noise, toys, cartoons, plastic 3D, logos, flags or people.
+
+
+infantry-identities-v12-8x8-complete.txt
+Create a COMPLETE military pixel-art sprite atlas on a transparent background. Use the attached four-type sprite sheet only as the exact reference for the four soldier identities and crisp pixel rendering.
+
+LAYOUT IS THE PRIORITY: eight columns AND eight FULL rows, 64 complete separate sprites. Use a PORTRAIT canvas, 1536 x 1792 preferred, conceptually each cell 192 wide by 224 tall. Leave generous transparent top and bottom padding in EVERY cell. Standing characters only 145 pixels tall per 224px cell. Maximum sprite width 170 pixels including prone rifles. Never fill the whole cell. No cropping at canvas edges, no touching neighboring sprites. The entire bottom eighth row must be visible with empty margin underneath it. No text or drawn lines, no scenery. All full bodies face RIGHT, same physical human scale, stable pixel-art style, no smooth vector/cartoon simplification. No ground props. Keep all rifles controlled.
+
+EXACT ROW ORDER, from top to bottom:
+1. Regular infantry, eight consecutive aimed-rifle walking frames.
+2. Regular infantry, eight DIFFERENT tactical poses specified below.
+3. Marines, eight consecutive aimed-rifle walking frames.
+4. Marines, eight DIFFERENT tactical poses specified below.
+5. Armed police, eight consecutive aimed-rifle walking frames.
+6. Armed police, eight DIFFERENT tactical poses specified below.
+7. Militia, eight consecutive aimed-rifle walking frames.
+8. Militia, eight DIFFERENT tactical poses specified below, all eight fully visible.
+
+TACTICAL POSE ROWS (2,4,6,8), exact columns left to right:
+1 standing aimed rifle; 2 crouched aimed rifle; 3 prone aimed rifle; 4 prone crawling; 5 climbing reach with rifle retained by sling; 6 climbing pull with one knee high; 7 airborne drop with tucked knees and rifle in hands; 8 downed on side, non-graphic, no blood.
+Each of these 8 poses must use the correct soldier identity, including all the militia poses in bottom row. Do not skip the militia climbing/drop poses.
+
+WALK ROWS (1,3,5,7): genuine eight-step walk loop with shoulder-level horizontal rifle throughout, alternating contact, weight-down, passing-knee, push-off phases. Keep full feet visible.
+
+FOUR IDENTITIES MUST REMAIN DIFFERENT THROUGH EVERY POSE:
+Regular infantry: round olive helmet, long sleeves, small olive pack, plain tactical vest, standard black service rifle.
+Marines: covered tan-green helmet with goggles, rolled sleeves showing forearms, bulky vest and large pack with visible horizontal sleeping roll, tan boots.
+Armed police: black helmet with clear raised face visor, dark navy body armor with rigid shoulder/knee/shin guards, no field backpack, compact black carbine.
+Militia: soft knit cap, loose long brown cloth jacket, small canvas hip satchel, no helmet or armor or kneepads, wood-furniture old rifle.
+
+Only the 64 pixel-art figures on empty transparent background. EXACTLY EIGHT FULL ROWS with substantial gaps between rows; small enough figures that bottom row cannot be cropped.
+
+infantry-identities-v12-8x8.txt
+Expand the four soldier designs in reference image 1 into ONE SQUARE animation sprite atlas, EXACTLY EIGHT COLUMNS BY EIGHT ROWS = 64 separate cells. Preserve the four visual identities faithfully but redraw coherent additional poses. Crisp realistic military PIXEL ART with visible square pixel clusters and clean dark silhouette, restrained original colors, no soft airbrush, no glossy cartoon redesign. Full bodies face RIGHT in strict side view. Same anatomical scale across every cell, standing person approximately 72% cell height; never enlarge crouching or prone poses. Each cell has empty safety margins and a common ground baseline at 92% of its height. No figures cross cell edges; horizontal prone frames must fit fully, including the entire rifle muzzle. Genuine transparent PNG alpha outside soldiers, no checkerboard, no matte. No letters, labels, frames, lines, symbols, environment or ground. Prefer 2048 x 2048 resolution.
+
+There are four TWO-ROW groups, ordered from top to bottom:
+ROWS 1-2 REGULAR INFANTRY: olive round helmet, long sleeves, olive uniform, modest ammunition vest, small conventional backpack, standard black rifle.
+ROWS 3-4 MARINES: tan-green covered helmet with goggles, rolled sleeves and visible forearms, distinctly bulky load vest, large waterproof backpack with horizontal sleeping roll, tan boots, black rifle.
+ROWS 5-6 ARMED POLICE: tall black ballistic helmet and clear rigid visor, navy uniform, hard shoulder/elbow/knee/shin armor, no field backpack, compact carbine. Preserve the visor and bulky protection in ALL low poses.
+ROWS 7-8 MILITIA: soft wool knit cap, loose brown civilian jacket with long hem, canvas bandolier and small hip satchel, loose trousers, no helmet, no body armor, no kneepads, older rifle with brown wooden furniture. Preserve the cap, coat and slim equipment outline in ALL poses.
+
+WALKING ROWS 1,3,5,7:
+Exactly eight genuine consecutive walk frames with stable shouldered rifle pointed right and alternating legs. Eight distinct phases: left contact / left weight down and rear heel raised / right knee passing under hips / right knee forward and left toe push / right contact / right weight down and rear heel raised / left knee passing under hips / left knee forward and right toe push. Loop seamlessly. Do not duplicate the same wide-stride pose in neighboring cells.
+
+POSE ROWS 2,4,6,8:
+Eight explicitly different poses of that row-pair's SAME soldier, LEFT TO RIGHT:
+Column 1: standing still and aiming shouldered rifle horizontally right.
+Column 2: deep crouch or one-knee kneel, aiming rifle right.
+Column 3: prone flat on stomach, aiming rifle right. Naturally short, horizontal full body.
+Column 4: low crawling prone with one knee raised sideways and supporting elbow bent, controlled rifle in front aimed right.
+Column 5: first climbing pose, one hand reaching up toward an invisible ledge, rifle securely on a short sling. No visible ledge.
+Column 6: second climbing pose, leading knee raised and torso pulling upward, rear foot pushing, rifle still retained.
+Column 7: compact airborne drop with bent knees and both boots above the common ground baseline, rifle firmly held in front. No ledge or terrain.
+Column 8: downed wounded soldier lying on their side along the baseline, head still helmeted/capped, rifle at their side pointing right, calm readable non-graphic pose, no blood.
+
+The result must be a clear 8x8 grid of sprites, with each soldier type represented by its own 8-frame walk row AND its own 8 tactical poses row. Do not substitute regular infantry for the marine/police/militia low poses. No extra rows or missing cells.
+
+infantry-identities-v12.txt
+Create a transparent-background animation sprite sheet PNG, a production asset for a realistic pixel-art military side-scroller. Reference image 1 is ONLY for crisp pixel style and anatomical scale, not for the grid, uniform variations, or poses. Output exactly 8 columns and 4 rows, 32 sprites total, 2048x1024 preferred. Uniform equal square cells, 256x256 conceptual size. No lettering, markings, emblems, badges, flags, gridlines, borders, terrain, scenes or ground shadows. All backgrounds must be transparent alpha, not printed checker squares.
+
+All figures face RIGHT in strict side view. Same anatomical scale, standing height about 182 per 256px cell, common foot-contact baseline near y232, no sprite crosses its cell boundary. Clean dark outlines, clear square pixel clusters, subtle tactical fabric shading, olive/gray/earth palette, realistic human proportions, not chibi, not toy figures, not smooth painted 3D.
+
+EACH ROW IS A TRUE EIGHT-FRAME WALK CYCLE of one soldier. Rifle held in both hands, aimed horizontally to the right at shoulder height throughout. Preserve upper-body aim while the legs naturally articulate through distinct phases: (1) left heel extended forward / right toe back, (2) left-leg weight down / right foot lifting, (3) right foot passes under hips, (4) left toe push / right knee swings forward, (5) right heel forward / left toe back, (6) right-leg weight down / left foot lifting, (7) left foot passes under hips, (8) right toe push / left knee swings forward. The sequence must smoothly loop. Do not repeat the same two stride poses eight times. Distinguish left and right legs by consistent lighting.
+
+ROW 1 REGULAR INFANTRY: rounded olive ballistic helmet with no attachments, long-sleeved plain olive field uniform, conventional flat ammunition vest with small pouches, compact rectangular backpack, standard black full-length service rifle, regular trousers over black boots. Lean practical silhouette.
+ROW 2 MARINES: tan-green fabric helmet cover with low side goggles strapped around it, rolled sleeves revealing forearms, distinctly bulky amphibious load-bearing vest with high collar and broad chest pockets, broad waterproof rucksack with visible rolled sleeping mat across its top, compact black rifle. Heavier chest-and-shoulder outline than row 1, knee pads and tan boots. Not a recolor of regular infantry.
+ROW 3 ARMED POLICE: tall black ballistic helmet with raised clear visor, dark navy armored uniform, bulky angular protective shoulder plates, rigid forearm guards, prominent hard knee-and-shin armor, heavy black boots, no field backpack, short compact black carbine held aimed right. Strong upright armored silhouette and visible face-visor profile; no police text or logos.
+ROW 4 MILITIA: soft rumpled wool cap with no helmet, loose worn gray-brown civilian field jacket with long hem, light canvas bandolier slung diagonally over chest, small single hip satchel, NO plate armor or kneepads or military backpack, baggy civilian trousers and worn boots, visibly wood-stock older rifle. Lightweight irregular cloth outline distinct from the equipped troops; no comedic caricature.
+
+Prioritize 32 genuine sequential walking frames, exactly 8 per row; obvious differences in helmet shapes, sleeve lengths, armor bulk, backpack forms and rifle silhouettes; constant right-facing scale; and genuine transparent PNG background.
+
+rotorcraft-alpha.txt
+Background extraction only. Remove the entire baked grey-and-white checkerboard background from this exact sixteen-rotorcraft sprite sheet and replace it with genuine PNG transparency (alpha zero), including all gaps between rotor blades, landing wheels, weapons, tail rotors and cabin openings. Preserve all aircraft pixels, pixel-art texture, colors, silhouettes, dimensions, row order and four-frame positions exactly. Keep the 1774 x 887 canvas and existing four-column, four-row layout. Do not redraw, move, resize or add aircraft. Do not replace the background with any visible color, pattern, shadow or glow. Deliver a real RGBA cutout atlas with empty pixels fully transparent.
+
+
+rotorcraft.txt
+Create a new military pixel-art sprite atlas, a real RGBA PNG with fully transparent empty space. Use the reference for olive-grey metal colors, realistic pixel detail and genuine transparency only; create the new rotorcraft below.
+
+Exactly FOUR equal columns and FOUR equal rows, sixteen separate sprites on a wide canvas around 2048x1024. All face RIGHT in horizontal lateral side elevation. Keep complete rotors and tails inside their cells with clear padding. One model per row, four consecutive rotor-animation frames left to right. Preserve each row's identical body, scale and center position across all four frames; change only rotor blade phases. No camera bob or zoom.
+
+Rows top to bottom:
+1. RECON QUADCOPTER: small olive military four-rotor drone, a compact central electronic body with a dark camera gimbal facing right underneath, thin arms and four discrete rotor hubs. Unarmed, no cockpit. About half the width of the helicopters.
+2. ATTACK HELICOPTER: slim long tandem-cockpit gunship, a long tail boom with tail rotor, single main rotor, small stub wings and a chin-mounted cannon. Pointed right-hand nose, narrow armored body.
+3. ANTI-ARMOR HELICOPTER: distinctly heavier and wider gunship, two stacked coaxial rotors, broad armored cockpit, short stub wings with large visible missile racks and rocket pods. Bulkier silhouette than row 2, no tail rotor.
+4. MEDICAL EVACUATION HELICOPTER: practical military utility helicopter with broad cabin and large rectangular sliding side door, pale unmarked cabin panel, visible empty stretcher bay, long tail boom and landing wheels. No weapons, people, logos or written markings.
+
+Crisp hard-edged pixel clusters around three pixels, credible full-size military engineering and restrained worn highlights. No toy proportions, cartoons, smooth gradients, soft rotor blur, glow, ground, cast shadows, visible background pattern, text, borders or grid lines. All empty pixels must have alpha zero.
+
+
+soldier-actions-v12-alpha-2.txt
+请执行抠图去背景：把输入士兵图集的灰白棋盘背景彻底删除，输出具有真实透明通道的 PNG。灰白方格是要删除的背景，不是要保留的画面。所有士兵与武器保持原样，只提取前景；背景必须透明，不能填白、填黑或继续画棋盘。保持原始 1254×1254 尺寸和 8 列×8 行布局。
+
+soldier-actions-v12-alpha.txt
+Background extraction only. Remove the entire baked grey-and-white checkerboard background from this exact sixty-four-soldier sprite sheet and replace it with genuine PNG transparency (alpha zero), including every gap between rifles, arms, legs and backpacks. Preserve all soldier pixels, pixel-art texture, colors, silhouettes, dimensions, row order and eight-frame positions exactly. Keep the 1254 x 1254 canvas and the existing eight-column, eight-row layout. Do not redraw, move, resize or add soldiers. Do not replace the background with any visible color, pattern, shadow or glow. Deliver a real RGBA cutout atlas with empty pixels fully transparent.
+
+soldier-actions-v12-correction.txt
+Edit this exact 8 by 8 soldier animation atlas. Preserve all 64 cell positions, pixel style, soldier identity, scale, right facing direction and rifle design. Two corrections only:
+1. Remove the entire gray-and-white checkerboard backing. This must be an actual transparent PNG cutout with an RGBA alpha channel, not an image of transparency. All pixels outside soldiers must be fully transparent (alpha zero), including spaces within bent arms and legs. Keep crisp dark sprite edges.
+2. In ROW SIX, COLUMN EIGHT, replace the incorrectly crouching soldier with the final PRONE CRAWLING frame that smoothly loops into row six column one. He must lie completely horizontal, same low body height as the previous seven prone frames, rifle pointed right at ground level; no kneeling or standing in this row.
+Do not change other rows, do not add text, grid lines, matte, checkerboard, shadows, terrain or effects. Preserve exact 8 columns and 8 rows of equally sized cells. Deliver the corrected real-alpha PNG.
+
+soldier-actions-v12.txt
+Create a production animation sprite atlas PNG with GENUINE TRANSPARENT ALPHA, not a drawn checkerboard, black backdrop, or white backdrop. Image 1 is ONLY a visual style and soldier identity reference; do not reproduce its old grid or low-ready pose.
+
+CANVAS AND GRID: exactly 2048 x 2048 pixels if supported, square canvas, exactly 8 equally spaced columns and 8 equally spaced rows, 64 distinct animation frames. Each logical cell is 256 x 256. No labels, text, grid lines, frame borders, ground, platforms, environment, shadows outside the figure, or UI. Everything outside each soldier is transparent. Never allow a sprite to cross a cell boundary.
+
+STYLE AND CHARACTER: crisp clearly resolved pixel art suitable for a realistic 2D military side-scroller. Anatomically plausible adult soldier, same olive field uniform, rounded ballistic helmet, compact backpack, ammunition vest, dark boots, black modern rifle throughout. Restrained olive/brown/charcoal palette, hard intentional pixel clusters and clean dark silhouette, no blur or painterly smoothness, no toy or cartoon proportions. Full body, strict side view facing RIGHT in every cell. Same anatomical scale across all 64 frames; a standing soldier is about 182 pixels tall, crouching/prone height is naturally shorter, never enlarge short poses. Fixed cell-local foot contact baseline y=232, center of pelvis around x=120 for standing poses. Keep ample margins around all limbs and rifle. Prone body spans about 210 pixels.
+
+ANIMATION, READ EACH ROW LEFT TO RIGHT:
+ROW 1 (8 frames): continuous standing shouldered-rifle aiming idle. Rifle butt remains against shoulder, barrel horizontal facing right. Tiny meaningful sequential breathing / weight / support-hand changes. No lowering or holstering rifle. This is one subtle seamless eight-frame loop, not eight duplicate drawings.
+ROW 2 (8 frames): full walking cycle carrying a shouldered rifle pointed right, upper body and weapon stable, legs go through left contact / down / passing / up / opposite contact / down / passing / up. Strongly distinguish the intermediate leg phases, no marching in place repeated contacts.
+ROW 3 (8 frames): full tactical running cycle, rifle held firmly at shoulder height aimed right, forward body lean, both contact and flight phases, alternating legs, coherent eight-step phase progression.
+ROW 4 (8 frames): climbing up a ledge that is NOT rendered: reach / plant support hand / lift leading knee / push up / pull torso / trail knee clears / settle foot / regain shouldered rifle. Rifle retained securely on a short sling against chest while hands climb, never vanishes. Same full figure and scale.
+ROW 5 (8 frames): crouched shouldered-rifle aiming idle loop, low knee bend, barrel stays aimed right, subtle breathing and weight shift, continuous stable weapon.
+ROW 6 (8 frames): low prone crawling while aiming rifle right: elbows and knees alternate, torso stays very close to baseline, rifle is controlled in front rather than dropped, real smooth crawling intermediate poses.
+ROW 7 (8 frames): dropping down from an invisible crater lip: anticipatory bend / push off / slight airborne tuck / descent / feet reach / foot impact / deep landing compression / recovery. No terrain or ledge visible. For the airborne frames, the entire body genuinely rises above the common foot baseline, do not bottom-align those feet. Rifle firmly held in front throughout.
+ROW 8 (8 frames): continuous crouch to standing aimed-rifle transition, from deep squat through eight progressively taller body poses to fully upright; both hands keep the rifle horizontal, stock at shoulder, no down-up weapon reset. This row is a one-way transition, not a loop.
+
+Prioritize exact 8 by 8 layout, real progressive intermediate animation poses, consistent anatomical scale and RIGHT direction, persistent rifle control, and actual transparent PNG alpha. Do not bake a checker pattern or colored matte into the image.
+
+tanks-alpha.txt
+Remove the checkerboard background and make the background fully transparent. Keep all twelve tank sprites and their positions unchanged. Return a PNG with a real alpha channel, not an image depicting transparency. Preserve the 2048 x 768 dimensions, four columns and three rows. No other changes.
+
+
+tanks.txt
+Edit this existing transparent vehicle sprite sheet into a TANK-ONLY atlas. Preserve the original 2048x768 canvas, its real transparent alpha channel and its four-column, three-row grid. Do not paint anything in the transparent background. Remove all helicopters and bottom-row props, and replace the twelve cells with the tank rows described below. Keep the reference's serious olive-grey pixel art, worn steel detail and horizontal RIGHT-facing side view.
+
+Every row contains four animation frames of one identical tank. Each cell is 512x256, with clear padding and the tracks resting on the same local baseline y=220. The four columns change only track-pad phase and wheel-spoke rotation; keep hull, turret, cannon, antenna and scale stationary. No ground, shadows, labels, borders, symbols or text.
+
+Top row — LIGHT TANK: a visibly small, agile chassis around 290 pixels long, five modest road wheels, narrow shallow tracks, a small compact turret, lighter thin side armor and a slimmer medium-length gun. Open visible wheel silhouette, no heavy armor skirts.
+Middle row — MAIN BATTLE TANK: retain the reference's recognizable long-barreled modern main battle tank design, low broad wedge turret, chassis around 380 pixels, six or seven large road wheels and moderate track thickness, balanced sloped armor. A clearly longer barrel than the light tank.
+Bottom row — HEAVY ASSAULT TANK: the largest, thickest chassis around 420 pixels, very deep broad tracks, eight heavy road wheels, bulky layered side armor and large angular turret with thick frontal armor, a substantial heavy cannon. Clearly more massive than the middle row, never just a recolor.
+
+Maintain a consistent real-world scale across the three rows so light, main and heavy are visibly different sizes and silhouettes. Complete barrels fit within each cell. Crisp square pixel clusters and realistic adult-scale machinery; no toy, cartoon or smooth plastic rendering. Deliver genuine RGBA transparency exactly as in the input.
+
+
+Use case: stylized-concept. Asset type: production pixel-art sprite sheet for a realistic side-view modern warfare game, true transparent RGBA background. Create ONE precisely aligned sprite atlas with 8 equal columns and 2 equal rows (16 individual frames), no gaps lost, no text, no borders, no checkerboard painted into the art. Row 1: eight successive frames of a SINGLE SMALL rifle bullet striking dry earth: thin sharp diagonal jet of tan grit rising from a fixed bottom-center point, low compact dust puff grows then settles away. Row 2: eight successive frames of a SINGLE bullet striking masonry/wood: tiny pale fragments and gritty powder burst, then dissipate, same bottom-center anchor. Each cell is 192x192 pixels, sheet 1536x384 if possible; otherwise keep exact 8x2 uniform grid. Dark desaturated realistic battlefield palette, dusty earth browns, gray chalk, pinpoints of hot sparks. Strong crisp pixel clusters, hard pixel edges, restrained 24-color look, no soft brush or blur, no white outlines. At peak no explosion, no fireball, no mushroom smoke: this is small-arms impact dust only. Keep every frame fully inside its cell with 15% margins, common anchor 50% across and 86% down every cell. First frame tiny contact spark, middle four dust and grit billow progressively, final three dissipate into almost transparent wisps. These are authored animation in-between frames, not a collection of different impacts.
