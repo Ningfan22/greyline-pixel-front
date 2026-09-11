@@ -1,4 +1,5 @@
 import { tankGeometry } from '../game/vehicle-geometry.ts';
+import { wreckGeometry, wreckContact } from '../game/wreck-geometry.ts';
 import {
   adultIdentity,
   adultFrameChoice,
@@ -283,19 +284,23 @@ check('被炸毁的墙不再触发攀越', () => {
     assert.equal(s.units[0].climbing, 0);
   }
 });
-check('炮击伤害半径独立于小弹坑，连续命中保持限深', () => {
+check('炮击生成宽浅弹坑，伤害半径独立且连续命中保持限深', () => {
   const s = fresh();
   s.terrain.fill(374);
   s.original.fill(374);
   s.units = [];
   explode(s, 900, 366, 68, 55, 0);
   const changed = s.terrain.filter((y) => y > 374).length;
-  assert(changed >= 45 && changed <= 72);
-  assert(ground(s, 900) >= 384 && ground(s, 900) <= 388);
+  assert(changed >= 80 && changed <= 88);
+  assert(ground(s, 900) >= 383 && ground(s, 900) <= 384);
+  assert(
+    craterCover(s, 900, 1250) > 0.25,
+    'wide shallow pits still shelter infantry',
+  );
   for (let i = 0; i < 20; i++) explode(s, 900, ground(s, 900) - 8, 68, 55, 0);
   assert(ground(s, 900) <= 374 + MAX_CRATER_DEPTH);
 });
-check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
+check('双方各移动指令仍能跳入、落地并攀出真正陡峭的深沟', () => {
   for (const side of [0, 1])
     for (const order of ['advance', 'rush', 'crouch', 'prone']) {
       const s = fresh();
@@ -303,9 +308,11 @@ check('双方各移动指令均能跳入、落地并攀出弹坑', () => {
       s.walls = [];
       s.terrain.fill(374);
       s.original.fill(374);
-      crater(s, 900, 28, 30);
+      // A genuinely high bank, unlike the broad, shallow pits made by weapons.
+      for (let x = 860; x <= 940; x++)
+        s.terrain[x] = 374 + Math.min(44, (x - 860) * 2.2, (940 - x) * 2.2);
       setOrder(s, side, order);
-      spawnUnit(s, side, 'infantry', side === 0 ? 856 : 944);
+      spawnUnit(s, side, 'infantry', side === 0 ? 836 : 964);
       s.units = [s.units[0]];
       const u = s.units[0],
         seen = new Set();
@@ -1204,7 +1211,7 @@ check('三种火炮固定发射真实抛物线炮弹，落点有散布并周期�
     target.cooldown = target.secondaryCooldown = 100;
     target.hp = target.maxHp = 10000;
     spawnUnit(s, 0, 'scout_drone', 1000);
-    tick(s, 1 / 60);
+    advance(s, 1.25);
     const p = s.projectiles.find((p) => p.sourceUid === gun.uid);
     assert(p?.shell);
     assert(p.total >= 2);
@@ -2036,7 +2043,7 @@ check('观察员提供炮兵共享目标，撤离后不再向未知目标开火'
   assert.equal(gun.shots, 0);
   spawnUnit(s, 0, 'scout_drone', 1350);
   refreshVision(s);
-  tick(s, 1 / 60);
+  advance(s, 1.25);
   assert.equal(gun.shots, 1);
   s.units = s.units.filter((u) => u.id !== 'scout_drone');
   refreshVision(s);
@@ -2927,7 +2934,7 @@ check('友军已占掩体边缘时，后来者选可抵达位置并持续开火'
   }
 });
 
-check('跨越残骸与三类倒塌房屋时，攀爬不会中途变成坠落且左右均可通过', () => {
+check('高载具残骸保留攀越，三类低矮房屋废墟直接通过且不会反复起落', () => {
   const houses = createGame(37)
     .scenery.filter((p) => p.kind === 'house')
     .slice(0, 3);
@@ -2973,7 +2980,7 @@ check('跨越残骸与三类倒塌房屋时，攀爬不会中途变成坠落且�
           'bank lift is not a fall',
         );
       }
-      assert(climbed);
+      assert.equal(climbed, kind === 'wreck');
       assert((u.x - 1000) * dir > 150, `${side}/${kind}: crossed obstacle`);
       assert.equal(u.motion, 'ground');
       assert(Math.abs(u.y - ground(s, u.x)) < 0.01);
@@ -3094,7 +3101,10 @@ check('v13交战：稳定同班掩护允许跃进且掩护倒下后停步还击'
   v.squad = u.squad;
   v13EngageEnemy(s, 900);
   refreshVision(s);
-  v13EngageAdvance(s, 0.2);
+  tick(s, 1 / 60);
+  assert.equal(u.x, 600);
+  assert(u.shots > 0);
+  v13EngageAdvance(s, 0.35);
   assert(u.x > 605);
   assert(v.shots > 0);
   const x = u.x;
@@ -3196,7 +3206,11 @@ check('v13交战：已抵达掩体目标的同伴可以提供掩护', () => {
   v13EngageEnemy(s, 900);
   refreshVision(s);
   tick(s, 1 / 60);
+  assert.equal(u.x, 600);
+  assert(u.shots > 0);
+  v13EngageAdvance(s, 0.3);
   assert(u.x > 600);
+  assert(v.shots > 0);
   return { x: u.x };
 });
 check('v13交战：短时跃进后停步还击而非连续奔跑', () => {
@@ -3386,7 +3400,7 @@ check('扫射和轰炸弹药逐架次复位，返航仍保留同一张卡与原�
   }
 });
 
-check('放大后的三种坦克履带、炮口、受弹与残骸使用相同尺寸', () => {
+check('三种坦克履带炮口与受弹保持尺寸，残骸改用独立破损实体', () => {
   for (const id of ['light_tank', 'tank', 'heavy_tank']) {
     const geometry = tankGeometry(id);
     const s = arena();
@@ -3450,8 +3464,22 @@ check('放大后的三种坦克履带、炮口、受弹与残骸使用相同尺�
       vy: 0,
     });
     s.time += 1 / 60;
-    const wreck = obstacleBoxes(s).find((b) => b.wreck?.id === 999);
-    assert.equal(wreck.w, geometry.half * 2 * 0.88);
+    const pieces = obstacleBoxes(s).filter((b) => b.wreck?.id === 999);
+    const shape = wreckGeometry(id);
+    assert(
+      pieces.length >= 3,
+      'turret, hull and detached parts are separate solids',
+    );
+    assert(
+      pieces.every(
+        (p) =>
+          p.x >= 1500 - shape.width / 2 && p.x + p.w <= 1500 + shape.width / 2,
+      ),
+    );
+    assert(
+      Math.min(...pieces.map((p) => p.y)) < 374 - geometry.hullHeight * 0.48,
+      'the wreck retains structural height instead of a flattened live sprite',
+    );
   }
 });
 
@@ -3613,6 +3641,745 @@ check('成人长枪管贴近墙边时不能从墙内起弹，两侧对称', () =
     advance(s, 0.5);
     assert.equal(u.shots, 0);
     assert.equal(v.hp, v.maxHp);
+  }
+});
+
+check(
+  '连续炮击后的宽浅坑地带可以双向穿行，步行蹲行匍匐均不会陷入攀爬循环',
+  () => {
+    for (const side of [0, 1])
+      for (const order of ['advance', 'rush', 'crouch', 'prone']) {
+        const s = arena(),
+          dir = side === 0 ? 1 : -1;
+        setOrder(s, side, order);
+        for (let x = 900; x <= 1100; x += 40)
+          for (let hit = 0; hit < 4; hit++)
+            explode(s, x, ground(s, x) - 8, 68, 0, side);
+        const start = side === 0 ? 830 : 1170;
+        const u = v13MovementSolo(s, side, 'infantry', start);
+        let climbing = 0,
+          airborne = 0;
+        for (let frame = 0; frame < 30 * 60; frame++) {
+          tick(s, 1 / 60);
+          climbing += Number(u.pose === 'climb');
+          airborne += Number(u.motion !== 'ground');
+          assert(Number.isFinite(u.y));
+        }
+        assert(
+          (u.x - start) * dir > 340,
+          `${side}/${order}: crossed bombarded road`,
+        );
+        assert.equal(
+          climbing,
+          0,
+          `${side}/${order}: no climb cycle on ordinary pits`,
+        );
+        assert(airborne < 60, `${side}/${order}: most movement stays grounded`);
+      }
+  },
+);
+
+check('不同战术成员都能选用实际炮击生成的宽浅坑，并在掩体内持续交火', () => {
+  for (const side of [0, 1])
+    for (const tactic of ['cover', 'prone', 'crouch', 'bound']) {
+      const s = arena(),
+        x = (value) => (side === 0 ? value : W - value);
+      setOrder(s, side, 'advance');
+      setOrder(s, 1 - side, 'hold');
+      explode(s, x(900), 366, 68, 0, side);
+      const u = v13MovementSolo(s, side, 'infantry', x(860));
+      u.tactic = tactic;
+      const target = v13MovementSolo(s, 1 - side, 'infantry', x(1220));
+      target.hp = target.maxHp = 10000;
+      target.cooldown = 100;
+      let shelteredShots = 0,
+        lastShots = 0,
+        climbing = 0;
+      for (let frame = 0; frame < 10 * 60; frame++) {
+        tick(s, 1 / 60);
+        if (u.cover > 0.2) shelteredShots += u.shots - lastShots;
+        lastShots = u.shots;
+        climbing += Number(u.pose === 'climb');
+      }
+      assert(u.cover > 0.2, `${side}/${tactic}: uses shallow crater`);
+      assert(
+        shelteredShots >= 6,
+        `${side}/${tactic}: keeps firing from cover (${shelteredShots})`,
+      );
+      assert.equal(climbing, 0);
+      const position = u.x;
+      advance(s, 2);
+      assert(
+        Math.abs(u.x - position) < 1,
+        'stays at its firing position through reloads',
+      );
+      s.units = [u];
+      advance(s, 5);
+      assert(
+        (u.x - position) * (side === 0 ? 1 : -1) > 12,
+        'resumes advancing after contact is lost',
+      );
+    }
+});
+
+const v14GunScene = (side, id) => {
+  const s = arena(),
+    x = (value) => (side === 0 ? value : W - value);
+  const solo = (team, card, position) => {
+    const index = s.units.length;
+    spawnUnit(s, team, card, x(position));
+    const u = s.units[index];
+    s.units.splice(index + 1);
+    u.hp = u.maxHp = 100000;
+    u.personalMorale = 100;
+    u.cooldown = u.secondaryCooldown = 100000;
+    u.pace = 0;
+    u.decisionIn = 100000;
+    return u;
+  };
+  const gun = solo(side, id, 700);
+  gun.cooldown = 0;
+  setOrder(s, side, 'advance');
+  setOrder(s, 1 - side, 'hold');
+  return { s, x, solo, gun };
+};
+
+check('三类榴弹炮不会因近敌进入射界盲区而放弃另一个合法远目标', () => {
+  for (const side of [0, 1])
+    for (const id of ['artillery', 'barrage', 'precision']) {
+      const { s, solo, gun } = v14GunScene(side, id);
+      solo(side, 'infantry', 1000);
+      solo(1 - side, 'infantry', 850);
+      const far = solo(1 - side, 'tank', 1300);
+      refreshVision(s);
+      advance(s, 1);
+      assert.equal(gun.shots, 0, 'initial setup takes 1.2 seconds');
+      advance(s, 0.4);
+      const shell = s.projectiles.find((p) => p.sourceUid === gun.uid);
+      assert(shell?.shell);
+      assert.equal(
+        shell.targetUid,
+        far.uid,
+        'fires at the target outside minimum range',
+      );
+      advance(s, 20);
+      assert(
+        gun.shots >= 2,
+        `${side}/${id}: keeps firing despite nearby enemy`,
+      );
+    }
+});
+
+check(
+  '榴弹炮仅在连续6秒失去合法目标后转移，按牵引速度前进并重新架设开火',
+  () => {
+    for (const side of [0, 1])
+      for (const id of ['artillery', 'barrage', 'precision']) {
+        const { s, x, solo, gun } = v14GunScene(side, id);
+        const escort = solo(side, 'infantry', 1100),
+          target = solo(1 - side, 'tank', 1450);
+        refreshVision(s);
+        advance(s, 2);
+        assert.equal(gun.shots, 1);
+        const start = gun.x,
+          initialShots = gun.shots;
+        escort.x = x(2600);
+        target.x = x(3000);
+        refreshVision(s);
+        assert(
+          s.visible[side].includes(target.uid),
+          'forward escort really observes the target',
+        );
+        advance(s, 5.5);
+        assert.equal(
+          gun.x,
+          start,
+          'brief idle period does not trigger packing',
+        );
+        let sawTowing = false,
+          setupStarted = null,
+          lastX = gun.x,
+          lastShots = gun.shots;
+        for (let frame = 0; frame < 70 * 60; frame++) {
+          const wasEmplaced = gun.emplaced;
+          tick(s, 1 / 60);
+          assert(
+            Math.abs(gun.x - lastX) <= 28 / 60 + 1e-6,
+            'no teleport or towing speed boost',
+          );
+          if (gun.moving) {
+            sawTowing = true;
+            assert.equal(gun.shots, lastShots, 'cannot fire while towing');
+          }
+          if (!wasEmplaced && gun.emplaced) setupStarted = s.time;
+          if (setupStarted !== null && s.time < setupStarted + 1.2 - 1e-6)
+            assert.equal(
+              gun.shots,
+              initialShots,
+              'must finish setting up again',
+            );
+          lastX = gun.x;
+          lastShots = gun.shots;
+        }
+        assert(sawTowing);
+        assert(
+          setupStarted !== null,
+          JSON.stringify({
+            side,
+            id,
+            x: gun.x,
+            emplaced: gun.emplaced,
+            shots: gun.shots,
+            escort: escort.x,
+            target: target.x,
+            visible: s.visible[side],
+            uid: target.uid,
+          }),
+        );
+        assert(
+          gun.shots >= initialShots + 2,
+          `${side}/${id}: resumes periodic bombardment`,
+        );
+        assert.equal(gun.emplaced, true);
+        const settledX = gun.x,
+          setupDeadline = gun.emplacementSetupUntil;
+        advance(s, 16);
+        assert.equal(
+          gun.x,
+          settledX,
+          'does not alternate packing and firing at the same point',
+        );
+        assert.equal(gun.emplacementSetupUntil, setupDeadline);
+      }
+  },
+);
+
+check('榴弹炮尊重驻守命令，恢复推进后才跟随真实前线重新展开', () => {
+  for (const side of [0, 1]) {
+    const { s, x, solo, gun } = v14GunScene(side, 'artillery');
+    const escort = solo(side, 'infantry', 1100),
+      target = solo(1 - side, 'tank', 1450);
+    advance(s, 2);
+    const start = gun.x,
+      shots = gun.shots;
+    setOrder(s, side, 'hold');
+    escort.x = x(2600);
+    target.x = x(3000);
+    refreshVision(s);
+    advance(s, 20);
+    assert.equal(gun.x, start);
+    assert.equal(gun.shots, shots);
+    setOrder(s, side, 'advance');
+    advance(s, 70);
+    assert(Math.abs(gun.x - start) > 500);
+    assert(gun.shots > shots);
+  }
+});
+
+check('短暂丢失观察与正常装填不会触发榴弹炮反复收炮架设', () => {
+  for (const side of [0, 1])
+    for (const id of ['artillery', 'barrage', 'precision']) {
+      const { s, x, solo, gun } = v14GunScene(side, id);
+      const escort = solo(side, 'infantry', 1100);
+      solo(1 - side, 'tank', 1450);
+      advance(s, 2);
+      const start = gun.x,
+        deadline = gun.emplacementSetupUntil;
+      for (let cycle = 0; cycle < 3; cycle++) {
+        escort.x = x(700);
+        refreshVision(s);
+        advance(s, 4);
+        escort.x = x(1100);
+        refreshVision(s);
+        advance(s, 1);
+        assert.equal(gun.x, start);
+        assert.equal(gun.emplaced, true);
+        assert.equal(gun.emplacementSetupUntil, deadline);
+      }
+      advance(s, 30);
+      assert.equal(gun.x, start);
+      assert(gun.shots >= 3);
+    }
+});
+
+check('榴弹炮仍不攻击射界盲区内的唯一目标或未被观察的远敌', () => {
+  for (const side of [0, 1])
+    for (const id of ['artillery', 'barrage', 'precision']) {
+      for (const position of [850, 1500]) {
+        const { s, solo, gun } = v14GunScene(side, id);
+        solo(1 - side, 'tank', position);
+        setOrder(s, side, 'hold');
+        refreshVision(s);
+        advance(s, 20);
+        assert.equal(gun.shots, 0);
+        assert.equal(gun.x, side === 0 ? 700 : W - 700);
+      }
+    }
+});
+
+check('AI 把健康的在途反甲组计入增援，随后补步兵而非重复购买标枪', () => {
+  const s = v12Arena();
+  spawnUnit(s, 1, 'infantry', 2800);
+  spawnUnit(s, 1, 'javelin', 3728);
+  spawnUnit(s, 0, 'tank', 2450);
+  for (const u of s.units) u.cooldown = u.secondaryCooldown = 100;
+  refreshVision(s);
+  assert(
+    s.visible[1].some(
+      (uid) => s.units.find((u) => u.uid === uid)?.id === 'tank',
+    ),
+  );
+  v12AIHand(s, ['javelin', 'infantry'], 4);
+  s.aiIn = 0;
+  tick(s, 0.01);
+  assert.equal(
+    s.units.filter((u) => u.side === 1 && u.id === 'javelin').length,
+    2,
+  );
+  assert.equal(
+    new Set(
+      s.units
+        .filter((u) => u.side === 1 && u.id === 'infantry')
+        .map((u) => u.squad),
+    ).size,
+    2,
+  );
+  assert(s.players[1].energy >= 2 && s.players[1].energy < 2.01);
+});
+
+check(
+  '空地威胁并存时 AI 优先处理逼近基地的直升机，按正常费用及时部署防空',
+  () => {
+    const s = v12Arena();
+    spawnUnit(s, 1, 'infantry', 3550);
+    spawnUnit(s, 1, 'infantry', 2900);
+    spawnUnit(s, 0, 'tank', 2500);
+    spawnUnit(s, 0, 'helicopter', 3350);
+    const heli = s.units.at(-1),
+      tank = s.units.find((u) => u.id === 'tank');
+    for (const u of s.units) {
+      u.pace = 0;
+      u.decisionIn = 100;
+      u.personalMorale = 100;
+    }
+    tank.cooldown = tank.secondaryCooldown = 100;
+    refreshVision(s);
+    assert(s.visible[1].includes(heli.uid) && s.visible[1].includes(tank.uid));
+    v12AIHand(s, ['antitank_mine', 'manpads'], CARDS.manpads.cost);
+    s.players[1].deck = [];
+    s.players[1].discard = [];
+    s.aiIn = 0;
+    tick(s, 0.01);
+    assert(s.units.some((u) => u.side === 1 && u.id === 'manpads'));
+    assert.equal(
+      s.mines.length,
+      0,
+      'does not spend emergency AA budget on a cheaper ground mine',
+    );
+    assert(s.players[1].energy < 0.01);
+    advance(s, 7);
+    assert(
+      heli.hp < heli.maxHp * 0.3,
+      'counter reaches and damages the immediate air threat',
+    );
+  },
+);
+
+check(
+  'AI 支援兵种齐全但缺少步兵护卫时先补前线，空闲行军快进且接敌恢复战术推进',
+  () => {
+    const s = v12Arena();
+    spawnUnit(s, 1, 'javelin', 3500);
+    spawnUnit(s, 1, 'sam_vehicle', 3500);
+    v12AIHand(s, ['tank', 'militia'], 6);
+    s.aiIn = 0;
+    tick(s, 0.01);
+    assert(s.units.some((u) => u.side === 1 && u.id === 'militia'));
+    assert(!s.units.some((u) => u.side === 1 && u.id === 'tank'));
+    const march = v12Arena();
+    spawnUnit(march, 1, 'infantry', 3500);
+    spawnUnit(march, 1, 'infantry', 3250);
+    march.players[1].hand = [];
+    march.players[1].deck = [];
+    march.players[1].discard = [];
+    const leader = march.units.at(-6),
+      start = leader.x;
+    march.aiIn = 0;
+    advance(march, 5);
+    assert.equal(march.players[1].order, 'rush');
+    assert(start - leader.x > 500);
+    spawnUnit(march, 0, 'infantry', leader.x - 280);
+    refreshVision(march);
+    march.aiIn = 0;
+    tick(march, 0.01);
+    assert.notEqual(
+      march.players[1].order,
+      'rush',
+      'stops global rush as soon as visible contact is close',
+    );
+  },
+);
+
+check('三套 AI 编队均有合法的步兵、反甲、防空、观察和补牌配合', () => {
+  const decks = new Map();
+  for (let seed = 0; seed < 100; seed++) {
+    const deck = chooseAiDeck(seed);
+    assert(validDeck(deck));
+    decks.set(deck.join(','), deck);
+    assert(
+      deck.filter((id) =>
+        ['infantry', 'militia', 'marines', 'machinegun'].includes(id),
+      ).length >= 5,
+    );
+    assert(deck.includes('javelin'));
+    assert(deck.includes('manpads'));
+    assert(deck.includes('scout_drone'));
+    assert(deck.includes('supply_team') && deck.includes('supply'));
+  }
+  assert(decks.size >= 3);
+});
+
+check('破损步战车实体挡弹，敞开的车舱断口不再被整块矩形挡住', () => {
+  const s = arena();
+  s.wrecks.push({
+    id: 100,
+    cardId: 'ifv',
+    side: 0,
+    x: 1000,
+    y: 374,
+    angle: 0,
+    age: 1,
+    falling: false,
+    vx: 0,
+    vy: 0,
+  });
+  const shape = wreckGeometry('ifv');
+  const y = 374 + (0.45 - shape.support[2]) * shape.height;
+  assert(
+    sceneryIntercept(s, 927, y, 931, y, false, true),
+    'solid rear side panel',
+  );
+  assert.equal(
+    sceneryIntercept(s, 965, y, 970, y, false, true),
+    null,
+    'painted open cabin remains open',
+  );
+});
+check('宽残骸按主车体承重范围贴地，后续挖坑不会把车体按中心拉进土里', () => {
+  for (const id of ['tank', 'helicopter', 'bomber'])
+    for (const side of [0, 1]) {
+      const s = arena(),
+        w = {
+          id: 100,
+          cardId: id,
+          side,
+          x: 1500,
+          y: 374,
+          angle: 0,
+          age: 1,
+          falling: false,
+          vx: 0,
+          vy: 0,
+        };
+      s.wrecks.push(w);
+      for (let n = 0; n < 4; n++)
+        explode(s, 1500, ground(s, 1500) - 8, 68, 0, side);
+      tick(s, 1 / 60);
+      const g = wreckGeometry(id),
+        dir = side === 0 ? 1 : -1;
+      for (let p = g.support[0]; p <= g.support[1]; p += 0.02) {
+        const dx = (p - 0.5) * g.width * dir;
+        assert(
+          w.y + Math.sin(w.angle) * dx <=
+            ground(s, w.x + Math.cos(w.angle) * dx) + 0.81,
+          'main hull supports do not penetrate soil',
+        );
+      }
+      assert(
+        w.y < ground(s, w.x) - 2,
+        'wide wreck bridges the small depression',
+      );
+      assert.equal(w.y, wreckContact((x) => ground(s, x), w).y);
+    }
+});
+
+// Insert before the final report/failures block. Uses existing engine imports.
+const v14TacticsArena = () => {
+  const s = createGame(37);
+  startGame(s);
+  s.aiIn = 1e6;
+  s.units = [];
+  s.walls = [];
+  s.scenery = [];
+  s.terrain.fill(374);
+  s.original.fill(374);
+  return s;
+};
+const v14TacticsSolo = (s, side, id, x, tactic = 'prone') => {
+  const index = s.units.length;
+  spawnUnit(s, side, id, x);
+  const u = s.units[index];
+  s.units.splice(index + 1);
+  Object.assign(u, {
+    x,
+    y: 374,
+    cooldown: 0,
+    shots: 0,
+    tactic,
+    decisionIn: 1000,
+    pace: 1,
+  });
+  return u;
+};
+const v14SuperiorContact = (side, order = 'advance') => {
+  const s = v14TacticsArena(),
+    x = (value) => (side === 0 ? value : W - value);
+  spawnUnit(s, side, 'infantry', x(700));
+  const own = [...s.units];
+  own.forEach((u, i) =>
+    Object.assign(u, {
+      x: x(700 - i * 25),
+      y: 374,
+      cooldown: 0,
+      shots: 0,
+      pace: 1,
+      personalMorale: 80,
+      decisionIn: 0,
+    }),
+  );
+  for (let group = 0; group < 3; group++)
+    spawnUnit(s, 1 - side, 'infantry', x(960 + group * 10));
+  for (const u of s.units.filter((v) => v.side !== side))
+    Object.assign(u, {
+      cooldown: 1000,
+      decisionIn: 1000,
+      hp: 10000,
+      maxHp: 10000,
+      pace: 0,
+    });
+  setOrder(s, side, order);
+  setOrder(s, 1 - side, 'hold');
+  refreshVision(s);
+  return { s, own, x, dir: side === 0 ? 1 : -1 };
+};
+
+check('接敌且武器就绪时先开火，附近矮墙不会让士兵放弃持续射击去攀爬', () => {
+  for (const side of [0, 1]) {
+    const s = v14TacticsArena(),
+      x = (value) => (side === 0 ? value : W - value);
+    const u = v14TacticsSolo(s, side, 'infantry', x(600), 'bound');
+    const cover = v14TacticsSolo(s, side, 'infantry', x(560));
+    cover.squad = u.squad;
+    const enemy = v14TacticsSolo(s, 1 - side, 'infantry', x(900));
+    Object.assign(enemy, { cooldown: 1000, hp: 10000, maxHp: 10000 });
+    s.walls = [
+      { uid: 90001, x: x(625), width: 20, height: 24, hp: 1000, maxHp: 1000 },
+    ];
+    setOrder(s, 1 - side, 'hold');
+    refreshVision(s);
+    const start = u.x;
+    tick(s, 1 / 60);
+    assert.equal(u.shots, 1, 'the first eligible frame produces a shot');
+    assert.equal(u.x, start, 'does not move before its first shot');
+    let climbingFrames = 0;
+    for (let frame = 0; frame < 4 * 60; frame++) {
+      tick(s, 1 / 60);
+      climbingFrames += Number(u.climbing > 0 || u.motion === 'bank');
+    }
+    assert.equal(climbingFrames, 0);
+    assert(u.shots >= 4, 'continues firing across several reloads');
+    assert(
+      Math.abs(enemy.x - u.x) >= 285,
+      'does not turn a clear ranged shot into a charge',
+    );
+  }
+});
+
+check('发现可用弹坑时先打出就绪子弹，再利用装填间隙接近掩体', () => {
+  for (const side of [0, 1]) {
+    const s = v14TacticsArena(),
+      x = (value) => (side === 0 ? value : W - value);
+    explode(s, x(900), 366, 68, 0, side);
+    const u = v14TacticsSolo(s, side, 'infantry', x(860), 'cover');
+    const enemy = v14TacticsSolo(s, 1 - side, 'infantry', x(1220));
+    Object.assign(enemy, { cooldown: 1000, hp: 10000, maxHp: 10000 });
+    setOrder(s, 1 - side, 'hold');
+    refreshVision(s);
+    const start = u.x;
+    tick(s, 1 / 60);
+    assert.equal(u.shots, 1);
+    assert.equal(
+      u.x,
+      start,
+      'selecting shelter does not cancel the ready shot',
+    );
+    let movedDuringReload = false,
+      climbingFrames = 0;
+    for (let frame = 0; frame < 5 * 60; frame++) {
+      const previousX = u.x,
+        previousShots = u.shots;
+      tick(s, 1 / 60);
+      if (Math.abs(u.x - previousX) > 0.001 && u.shots === previousShots)
+        movedDuringReload = true;
+      climbingFrames += Number(u.climbing > 0 || u.motion === 'bank');
+    }
+    assert(movedDuringReload);
+    assert(u.cover > 0.2);
+    assert(u.shots >= 4);
+    assert.equal(climbingFrames, 0);
+  }
+});
+
+check(
+  '正常士气遇到优势敌军时双向交替后撤，移动成员面向退路且始终留人掩护',
+  () => {
+    for (const side of [0, 1]) {
+      const { s, own, dir } = v14SuperiorContact(side);
+      const starts = new Map(own.map((u) => [u.uid, u.x]));
+      const squads = new Map(own.map((u) => [u.uid, u.squad]));
+      const movedMembers = new Set();
+      let movementFrames = 0,
+        coveringFrames = 0;
+      for (let frame = 0; frame < 4.8 * 60; frame++) {
+        const before = new Map(own.map((u) => [u.uid, u.x]));
+        tick(s, 1 / 60);
+        const movingBack = own.filter(
+          (u) => (u.x - before.get(u.uid)) * dir < -0.001,
+        );
+        if (!movingBack.length) continue;
+        movementFrames++;
+        assert(
+          movingBack.length <= Math.ceil(own.length / 2),
+          'at least half the squad stays behind to cover',
+        );
+        const covering = own.some(
+          (u) => !u.moving && s.time - (u.lastCombatShotAt ?? -100) < 1.4,
+        );
+        coveringFrames += Number(covering);
+        assert(
+          covering,
+          'every withdrawal step has a stationary member who recently fired',
+        );
+        for (const u of movingBack) {
+          movedMembers.add(u.uid);
+          assert.equal(u.facing, -dir);
+          assert.equal(
+            u.fire,
+            0,
+            'no muzzle flash pointing backwards while travelling',
+          );
+          assert.notEqual(
+            u.pose,
+            'run',
+            'controlled withdrawal is not a rout animation',
+          );
+        }
+      }
+      assert(movementFrames > 60);
+      assert.equal(coveringFrames, movementFrames);
+      assert.equal(
+        movedMembers.size,
+        own.length,
+        'both halves take a turn withdrawing',
+      );
+      for (const u of own) {
+        const distance = (starts.get(u.uid) - u.x) * dir;
+        assert(
+          distance > 24 && distance <= 74,
+          'bounded relocation, not flight across the battlefield',
+        );
+        assert(u.personalMorale >= 70);
+        assert.notEqual(u.tactic, 'retreat');
+        assert(!u.surrendered);
+        assert.equal(u.squad, squads.get(u.uid));
+      }
+      assert(
+        own.reduce((n, u) => n + u.shots, 0) >= 12,
+        'the squad keeps fighting while giving ground',
+      );
+    }
+  },
+);
+
+check('驻守和强行推进命令不会被普通士气的自动交替后撤覆盖', () => {
+  for (const side of [0, 1])
+    for (const order of ['hold', 'rush']) {
+      const { s, own, dir } = v14SuperiorContact(side, order);
+      for (let frame = 0; frame < 3 * 60; frame++) {
+        const before = new Map(own.map((u) => [u.uid, u.x]));
+        tick(s, 1 / 60);
+        for (const u of own) {
+          assert(
+            (u.x - before.get(u.uid)) * dir >= -0.001,
+            'the explicit order prevents automatic fallback',
+          );
+          assert((u.withdrawUntil ?? 0) <= s.time);
+          assert.notEqual(u.tactic, 'retreat');
+        }
+      }
+      assert(own.reduce((n, u) => n + u.shots, 0) > 0);
+    }
+});
+
+check('烟幕后不可见的优势敌军不触发后撤，观察到它们后才重新判断兵力', () => {
+  for (const side of [0, 1]) {
+    const s = v14TacticsArena(),
+      x = (value) => (side === 0 ? value : W - value);
+    spawnUnit(s, side, 'infantry', x(700));
+    const own = [...s.units];
+    own.forEach((u, i) =>
+      Object.assign(u, {
+        x: x(700 - i * 25),
+        y: 374,
+        cooldown: 0,
+        shots: 0,
+        pace: 1,
+        personalMorale: 80,
+        decisionIn: 0,
+      }),
+    );
+    const weak = v14TacticsSolo(s, 1 - side, 'infantry', x(900));
+    Object.assign(weak, { cooldown: 1000, hp: 10000, maxHp: 10000 });
+    const hidden = [];
+    for (let group = 0; group < 3; group++) {
+      const before = s.units.length;
+      spawnUnit(s, 1 - side, 'infantry', x(1050));
+      s.units.slice(before).forEach((u, member) => {
+        Object.assign(u, {
+          x: x(1050 + group * 12 + member * 2),
+          y: 374,
+          cooldown: 1000,
+          decisionIn: 1000,
+          hp: 10000,
+          maxHp: 10000,
+          pace: 0,
+        });
+        hidden.push(u);
+      });
+    }
+    s.smokes = [{ x: x(1015), life: 100, side: 1 - side }];
+    setOrder(s, 1 - side, 'hold');
+    refreshVision(s);
+    assert(s.visible[side].includes(weak.uid));
+    assert(hidden.every((u) => !s.visible[side].includes(u.uid)));
+    for (let frame = 0; frame < 3 * 60; frame++) {
+      tick(s, 1 / 60);
+      assert(own.every((u) => (u.withdrawUntil ?? 0) <= s.time));
+      assert(hidden.every((u) => !s.visible[side].includes(u.uid)));
+    }
+    s.smokes = [];
+    refreshVision(s);
+    assert(hidden.every((u) => s.visible[side].includes(u.uid)));
+    own.forEach((u) => {
+      u.decisionIn = 0;
+    });
+    const before = new Map(own.map((u) => [u.uid, u.x])),
+      dir = side === 0 ? 1 : -1;
+    advance(s, 1.5);
+    assert(
+      own.some((u) => (u.x - before.get(u.uid)) * dir < -5),
+      'observed superiority causes controlled fallback',
+    );
   }
 });
 

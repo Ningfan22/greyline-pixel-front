@@ -1,4 +1,4 @@
-import { armoredWreckSize } from './vehicle-geometry';
+import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import type { GameState, Side, Unit } from './engine';
 export interface SceneryPart {
@@ -243,7 +243,13 @@ export function buildingHull(
 
 const geometryCache = new WeakMap<
   GameState,
-  { time: number; scenery: Scenery[]; wreckCount: number; boxes: Obstacle[] }
+  {
+    time: number;
+    scenery: Scenery[];
+    wreckCount: number;
+    boxes: Obstacle[];
+    traversals?: Obstacle[];
+  }
 >();
 export function obstacleBoxes(s: GameState): Obstacle[] {
   const cached = geometryCache.get(s);
@@ -289,17 +295,8 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
   }
   for (const wreck of s.wrecks)
     if (!wreck.falling && !CARDS[wreck.cardId].members) {
-      const c = CARDS[wreck.cardId],
-        w = c.armored ? armoredWreckSize(wreck.cardId)[0] : c.air ? 112 : 84,
-        h = c.armored ? armoredWreckSize(wreck.cardId)[1] : c.air ? 28 : 24;
-      boxes.push({
-        x: wreck.x - w / 2,
-        y: wreck.y - h,
-        w,
-        h,
-        wreck,
-        rubble: true,
-      });
+      for (const part of wreckObstacles(wreck))
+        boxes.push({ ...part, wreck, rubble: true });
     }
   geometryCache.set(s, {
     time: s.time,
@@ -308,6 +305,30 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
     boxes,
   });
   return boxes;
+}
+/** A whole wreck is one traversal, even though bullets collide with separate solid pieces. */
+export function traversalBoxes(s: GameState): Obstacle[] {
+  const boxes = obstacleBoxes(s),
+    cached = geometryCache.get(s)!;
+  if (cached.traversals) return cached.traversals;
+  const result = boxes.filter((b) => !b.wreck);
+  for (const wreck of s.wrecks) {
+    if (wreck.falling || CARDS[wreck.cardId].members) continue;
+    const pieces = boxes.filter((b) => b.wreck === wreck);
+    if (!pieces.length) continue;
+    const left = Math.min(...pieces.map((p) => p.x)),
+      top = Math.min(...pieces.map((p) => p.y));
+    result.push({
+      x: left,
+      y: top,
+      w: Math.max(...pieces.map((p) => p.x + p.w)) - left,
+      h: wreck.y - top,
+      wreck,
+      rubble: true,
+    });
+  }
+  cached.traversals = result;
+  return result;
 }
 export function sceneryIntercept(
   s: GameState,

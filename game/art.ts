@@ -10,6 +10,8 @@ import {
 import { assetUrl } from './asset-url';
 import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
+import { wreckFrames } from './wreck-art';
+import type { WreckKind } from './wreck-geometry';
 export interface Art {
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
@@ -25,6 +27,7 @@ export interface Art {
   impacts: HTMLCanvasElement[][];
   armor: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
+  wrecks: Record<WreckKind, HTMLCanvasElement>;
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -469,6 +472,8 @@ export function loadArt() {
     loadImage('/art/adult-police-v13.png'),
     loadImage('/art/adult-militia-v13.png'),
     loadImage('/art/adult-specialists-v13.png'),
+    loadImage('/art/ground-wrecks-v14.png'),
+    loadImage('/art/air-wrecks-v14.png'),
   ]).then(
     ([
       bg,
@@ -490,6 +495,8 @@ export function loadArt() {
       adultPolice,
       adultMilitia,
       specialists,
+      groundWrecks,
+      airWrecks,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -531,6 +538,7 @@ export function loadArt() {
           militia: adultAtlas(adultMilitia),
         },
         adultSpecialists: specialistAtlas(specialists),
+        wrecks: wreckFrames(groundWrecks, airWrecks),
         background,
         terrain,
         vehicles: vehicleArt,
