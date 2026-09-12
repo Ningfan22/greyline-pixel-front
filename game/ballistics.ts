@@ -12,14 +12,18 @@ export type Ammunition =
   | 'drone';
 export function ammunition(id: CardId, member = 0): Ammunition {
   if (CARDS[id].emplacement === 'at_gun') return 'ap';
-  if (id === 'javelin' || id === 'sam_vehicle' || id === 'tow_ifv')
+  if (
+    id === 'javelin' ||
+    id === 'sam_vehicle' ||
+    id === 'tow_ifv' ||
+    id === 'interceptor'
+  )
     return 'rocket';
   const model = modelOf(id);
   if ((model === 'machinegun' || id === 'antiarmor') && member > 0)
     return 'rifle';
   if (CARDS[id].oneWay) return 'drone';
   if (id === 'rocket_heli' || id === 'attack_drone') return 'rocket';
-  if (id === 'interceptor') return 'autocannon';
   if (CARDS[id].indirect) return 'mortar';
   if (id === 'grenadiers') return 'grenade';
   if (model === 'rocket') return 'rocket';

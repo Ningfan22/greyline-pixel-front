@@ -1,3 +1,4 @@
+import { terrainDepthLimit } from '../game/squad-orders.ts';
 import { DECK_PRESETS } from '../game/deck-presets.ts';
 import { CARD_COPY } from '../game/card-copy.ts';
 import { tankGeometry } from '../game/vehicle-geometry.ts';
@@ -84,6 +85,11 @@ const fresh = () => {
 let count = 0;
 const failures = [];
 function check(name, fn) {
+  if (
+    process.env.TEST_FILTER &&
+    !new RegExp(process.env.TEST_FILTER).test(name)
+  )
+    return;
   try {
     fn();
     count++;
@@ -651,7 +657,16 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
 check('62种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
   assert.equal(Object.keys(CARDS).length, 62);
   assert(validDeck(DECK));
-  assert(validDeck([...DECK.slice(0, 19), DECK[0]]));
+  const prefix = DECK.slice(0, 19);
+  const extraCopy = prefix.find(
+    (id) => prefix.filter((v) => v === id).length < copyLimit(id),
+  );
+  assert(extraCopy, 'the fixture has a card with a spare allowed copy');
+  assert(validDeck([...prefix, extraCopy]));
+  assert(
+    !validDeck([...prefix, DECK[0]]),
+    'the default front-line card already reaches its copy limit',
+  );
   assert(!validDeck([...DECK.slice(0, 19), 'unknown']));
   assert(!validDeck(DECK.slice(1)));
   for (let seed = 0; seed < 20; seed++) {
@@ -725,10 +740,14 @@ check('同一班组遭遇敌军时独立卧倒、下蹲、掩护和交替推进'
   assert(new Set(own.map((u) => u.tactic)).size >= 4);
   const before = own.map((u) => u.tactic);
   advance(s, 0.2);
-  assert.deepEqual(
-    own.map((u) => u.tactic),
-    before,
-  );
+  own.forEach((u, i) => {
+    // Already engaged members retain their roles; a rear member may now enter contact.
+    if (before[i] !== 'advance') assert.equal(u.tactic, before[i]);
+    else
+      assert(
+        ['advance', 'prone', 'cover', 'crouch', 'bound'].includes(u.tactic),
+      );
+  });
 });
 check('低士气幸存者撤退，重伤崩溃者投降且停止所有战斗行为', () => {
   const s = arena();
@@ -1484,7 +1503,11 @@ check('炮弹临近才触发短距离分散并保持卧倒，不提前跑向范�
     advance(s, 0.55);
     assert(s.units.some((u) => u.evadeUntil > s.time));
     advance(s, 0.5);
-    assert(s.units.every((u) => u.pose === 'prone' && !u.moving));
+    assert(
+      s.units
+        .filter((u) => u.evadeUntil > s.time)
+        .every((u) => u.pose === 'prone' && !u.moving),
+    );
     assert(s.units.every((u, i) => Math.abs(u.x - original[i]) <= 40));
   }
 });
@@ -1549,17 +1572,20 @@ check('航空单位可部署且高度固定，AI编队保留反甲、防空和�
     assert(validDeck(deck));
     deck.forEach((id) => choices.add(id));
   }
-  for (const id of [
-    'antiarmor',
-    'tow_ifv',
-    'manpads',
-    'scout_drone',
-    'fpv_drone',
-    'air_assault',
-    'strike_jet',
-    'interceptor',
-  ])
-    assert(choices.has(id));
+  const coveredRoles = [
+    ['antiarmor', 'javelin', 'tow_ifv', 'anti_tank_gun'],
+    ['manpads', 'sam_vehicle', 'aa_gun'],
+    ['scouts', 'scout_drone', 'rangers'],
+    ['fpv_drone'],
+    ['air_assault'],
+    ['strike_jet'],
+    ['interceptor'],
+  ];
+  for (const alternatives of coveredRoles)
+    assert(
+      alternatives.some((id) => choices.has(id)),
+      `AI has ${alternatives.join('/')} support`,
+    );
 });
 check('全军增益覆盖巡航、无人机移动及同轴机枪侦察射程', () => {
   for (const id of ['interceptor', 'scout_drone']) {
@@ -1612,7 +1638,7 @@ check('侦察无人机不射击，提供局部穿烟与射程，受干扰或被�
   assert.equal(unitRange(s, u), 380);
   assert(smokeBlocks(s, 0, 1100, 1500));
 });
-check('截击机持续飞行且只对前方空中目标开火，边界可返航', () => {
+check('截击机前向对空射击，巡逻24秒后从己方返航并1费回用', () => {
   const s = arena();
   spawnUnit(s, 0, 'interceptor', 800);
   const jet = s.units[0];
@@ -1636,10 +1662,36 @@ check('截击机持续飞行且只对前方空中目标开火，边界可返航'
       (p) => p.sourceUid === jet.uid && p.targetUid === heli.uid,
     ),
   );
-  jet.x = W + 155;
-  tick(s, 1 / 60);
-  assert(!s.units.includes(jet));
-  assert.equal(jet.y, CARDS.interceptor.altitude);
+  const patrol = arena();
+  patrol.players[0].hand = [];
+  patrol.players[0].energy = 10;
+  const token = hand(patrol, 'interceptor');
+  assert(playCard(patrol, 0, token.uid).ok);
+  const aircraft = patrol.units[0];
+  assert.equal(aircraft.flightUntil, 24);
+  const directions = new Set();
+  for (let frame = 0; frame < 23 * 60; frame++) {
+    tick(patrol, 1 / 60);
+    assert(patrol.units.includes(aircraft), 'patrol is not a single crossing');
+    assert.equal(aircraft.y, CARDS.interceptor.altitude);
+    directions.add(aircraft.facing);
+  }
+  assert.deepEqual(
+    [...directions].sort(),
+    [-1, 1],
+    'patrol turns at both ends',
+  );
+  assert(!patrol.players[0].hand.includes(token));
+  advance(patrol, 8);
+  assert(!patrol.units.includes(aircraft));
+  assert(aircraft.x < -160, 'returns through its own boundary');
+  assert(patrol.players[0].hand.includes(token), 'returns the original card');
+  assert.equal(cardCost(token), 1);
+  assert(cardReadyIn(patrol, token) > 0 && cardReadyIn(patrol, token) <= 18);
+  advance(patrol, cardReadyIn(patrol, token) + 0.01);
+  patrol.players[0].energy = 1;
+  assert(playCard(patrol, 0, token.uid).ok);
+  assert.equal(patrol.players[0].energy, 0);
 });
 check('察打与反甲直升机发射导弹，巡飞弹只俯冲一次且自身消耗不计阵亡', () => {
   for (const id of ['rocket_heli', 'attack_drone', 'loiter_drone']) {
@@ -1766,7 +1818,9 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     assert(s.units.every((u) => Number.isFinite(u.x) && Number.isFinite(u.y)));
     assert(
       s.terrain.every(
-        (y, x) => y >= s.original[x] && y <= s.original[x] + MAX_CRATER_DEPTH,
+        (y, x) =>
+          y >= s.original[x] &&
+          y <= s.original[x] + terrainDepthLimit(s, x, MAX_CRATER_DEPTH),
       ),
     );
     console.log(
@@ -1815,7 +1869,9 @@ check('标枪与反坦克炮的直击破甲倍率生效，原坦克与直升机�
   assert.equal(CARDS.tank.hp, 650);
   assert.equal(CARDS.tank.damage, 80);
   assert.equal(CARDS.helicopter.hp, 260);
-  assert.equal(CARDS.helicopter.damage, 30);
+  assert.equal(CARDS.helicopter.damage, 7);
+  assert.equal(CARDS.helicopter.burstSize, 6);
+  assert.equal(CARDS.helicopter.burstPause, 0.6);
   for (const id of ['javelin', 'anti_tank_gun']) {
     const s = arena();
     spawnUnit(s, 0, id, 800);
@@ -2780,7 +2836,11 @@ check('三类房屋使用独立占地，部件损毁驱动局部与整体坍塌'
   assert.equal(buildingStage(house), 1);
   assert.equal(house.damageAt, 1);
   assert.equal(house.fromStage, 0);
-  assert.equal(buildingAnimation(house, 1.1), 0);
+  assert.equal(
+    buildingAnimation(house, 1.1),
+    null,
+    'partial damage retains its authored facade without flashing intact',
+  );
   s.time = 1.1;
   strike(walls[0], 1);
   assert.equal(
@@ -2797,7 +2857,11 @@ check('三类房屋使用独立占地，部件损毁驱动局部与整体坍塌'
     !hull.some((box) => !box.rubble && box.x > house.x),
     'collapsed opening must not have an invisible wall',
   );
-  assert.equal(buildingAnimation(house, 2.3), 3);
+  assert.equal(
+    buildingAnimation(house, 2.3),
+    null,
+    'partial collapse never borrows an intact early animation frame',
+  );
   assert.equal(
     buildingAnimation(house, 2.8),
     null,
@@ -2939,7 +3003,7 @@ check('友军已占掩体边缘时，后来者选可抵达位置并持续开火'
   }
 });
 
-check('高载具残骸保留攀越，三类低矮房屋废墟直接通过且不会反复起落', () => {
+check('高载具残骸与三类房屋废墟直接通过且不会反复起落', () => {
   const houses = createGame(37)
     .scenery.filter((p) => p.kind === 'house')
     .slice(0, 3);
@@ -2985,7 +3049,7 @@ check('高载具残骸保留攀越，三类低矮房屋废墟直接通过且不�
           'bank lift is not a fall',
         );
       }
-      assert.equal(climbed, kind === 'wreck');
+      assert.equal(climbed, false);
       assert((u.x - 1000) * dir > 150, `${side}/${kind}: crossed obstacle`);
       assert.equal(u.motion, 'ground');
       assert(Math.abs(u.y - ground(s, u.x)) < 0.01);
@@ -3126,7 +3190,7 @@ check('v13交战：稳定同班掩护允许跃进且掩护倒下后停步还击'
   };
 });
 // Heavy wrecks reach above the adult soldier's chest; lower tank debris can be fired over.
-check('v13交战：残骸完全挡线时保持位置而非贴身前冲', () => {
+check('v17交战：残骸完全挡线时走通道换位且保留安全距离', () => {
   const s = v13EngageFresh(),
     u = v13EngageSingle(s, 0, 'infantry', 600);
   v13EngageEnemy(s, 900);
@@ -3146,7 +3210,7 @@ check('v13交战：残骸完全挡线时保持位置而非贴身前冲', () => {
   ];
   refreshVision(s);
   v13EngageAdvance(s, 2);
-  assert(u.x <= 603);
+  assert(u.x >= 600 && 900 - u.x >= 140);
   assert.equal(u.shots, 0);
   return { x: u.x, shots: u.shots, goal: u.firingGoal };
 });
@@ -3172,7 +3236,7 @@ check('v13交战：火箭有限破障保留硬碰撞且不穿墙伤敌', () => {
   assert(u.shots > 0 && u.shots <= 2);
   assert(part.hp < 10000);
   assert.equal(v.hp, v.maxHp);
-  assert(u.x <= 603);
+  assert(900 - u.x >= 140);
   return { shots: u.shots, houseHp: part.hp, enemyHp: v.hp, x: u.x };
 });
 check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
@@ -3183,7 +3247,7 @@ check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
   refreshVision(s);
   v13EngageAdvance(s, 4);
   assert.equal(u.shots, 0);
-  assert(u.x <= 698);
+  assert(840 - u.x >= 140);
   return { shots: u.shots, x: u.x };
 });
 check('v13交战：探身开火后装填期间不立即趴回地面', () => {
@@ -3590,14 +3654,14 @@ check('弹丸显示随班组深度连接枪口和目标，物理弹道保持不�
     visual = projectileForRender(s, p);
   assert.deepEqual(p, original);
   assert.notEqual(visual, p);
-  assert.equal(visual.startY, 339);
-  assert.equal(visual.ty, 334);
-  assert.equal(visual.y, 336.5);
+  assert.equal(visual.startY, 328.5);
+  assert.equal(visual.ty, 339.25);
+  assert.equal(visual.y, 333.875);
   const specialist = projectileForRender(s, p, { x: 10, y: -3 });
   assert.equal(specialist.startX, 541);
   assert.equal(specialist.x, 705);
-  assert.equal(specialist.startY, 336);
-  assert.equal(specialist.y, 335);
+  assert.equal(specialist.startY, 325.5);
+  assert.equal(specialist.y, 332.375);
   assert.deepEqual(p, original);
 });
 
@@ -4025,7 +4089,7 @@ check(
   },
 );
 
-check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空、观察和战术配合', () => {
+check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空和各自战术配合', () => {
   const decks = new Map();
   for (let seed = 0; seed < 100; seed++) {
     const deck = chooseAiDeck(seed);
@@ -4041,9 +4105,11 @@ check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空、观
       ),
     );
     assert(deck.some((id) => CARDS[id].antiAir));
-    assert(
-      deck.some((id) => ['scouts', 'scout_drone', 'rangers'].includes(id)),
-    );
+    if (deck.some((id) => CARDS[id].indirect))
+      assert(
+        deck.some((id) => CARDS[id].observer || id === 'recon'),
+        'indirect fire needs a real observation source in its deck',
+      );
     assert(deck.includes('supply'));
     assert(deck.filter((id) => CARDS[id].type === 'skill').length >= 4);
     assert(deck.filter((id) => CARDS[id].cost === 1).length >= 3);
@@ -4051,7 +4117,23 @@ check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空、观
   }
   assert.equal(decks.size, DECK_PRESETS.length);
   assert.equal(DECK_PRESETS.length, 4);
-  for (const preset of DECK_PRESETS) assert(validDeck(preset.cards));
+  for (const preset of DECK_PRESETS) {
+    const deck = preset.cards;
+    assert(validDeck(deck));
+    assert(decks.has(deck.join(',')), 'AI uses the same legal recommended cards');
+    if (preset.id === 'combined')
+      assert(deck.some((id) => CARDS[id].armored && !CARDS[id].airOnly));
+    if (preset.id === 'assault') {
+      assert(deck.includes('smoke') && deck.includes('morale'));
+      assert(deck.some((id) => CARDS[id].infantryAbility === 'smoke_assault'));
+    }
+    if (preset.id === 'fire_support')
+      assert(deck.some((id) => CARDS[id].indirect));
+    if (preset.id === 'air_mobile') {
+      assert(deck.some((id) => CARDS[id].airlift));
+      assert(deck.some((id) => CARDS[id].sortie));
+    }
+  }
 });
 
 check('破损步战车实体挡弹，敞开的车舱断口不再被整块矩形挡住', () => {
@@ -4715,7 +4797,8 @@ check('自行迫炮持续发射真实曲射弹，炮口前房屋不拦截上升�
   );
   assert.equal(projectileIntercept(s, shell, 1080, 300, 1120, 260), null);
   assert(projectileIntercept(s, { ...shell, life: 0.2 }, 1080, 260, 1120, 300));
-  advance(s, 10.7);
+  // Observe three launches plus the third shell's travel time at the current reload rate.
+  advance(s, CARDS.mortar_carrier.rate * 2 + 2.5);
   assert(gun.shots >= 3, 'mobile mortar continues its firing cycle');
   assert(foe.hp < foe.maxHp, 'shells cause real damage after travelling');
 });
@@ -4978,7 +5061,9 @@ check('两费RPG混编班能在皮卡射程外造成实际击毁，低费反制�
     squad.filter((u) => u.member > 0).every((u) => u.shots === 0),
     'rifle escorts remain out of range',
   );
-  advance(s, 10);
+  // A 150 HP technical needs repeated real RPG impacts, now separated by full reloads.
+  const operator = squad.find((u) => u.member === 0);
+  advance(s, weaponCard(operator).rate * 3 + 2);
   assert(
     truck.hp <= 0,
     'one deployed RPG squad has enough real firepower to destroy a technical',

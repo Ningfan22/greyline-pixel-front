@@ -97,6 +97,11 @@ export interface Card {
     | 'transport_heli'
     | 'interceptor';
   sortie?: boolean;
+  patrolTime?: number;
+  flightTime?: number;
+  burstSize?: number;
+  burstPause?: number;
+  armorOnly?: boolean;
   attackRun?: 'strafe' | 'bomb';
   sortieAmmo?: number;
   returnCost?: number;
@@ -1302,7 +1307,7 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
           ...c,
           members: 1,
           damage: 48,
-          rate: 3,
+          rate: 5.5,
           range: 580,
           radius: 14,
           armorMultiplier: 1.8,
@@ -1699,4 +1704,94 @@ Object.assign(CARDS.medevac, {
   description: '优先抢救伤员与附近步兵',
   detail:
     '优先选择一名伤员或受伤最重的步兵，为其220范围内的友军步兵恢复18生命和8士气。伤员得到救护进度，达到恢复门槛后起身；死亡和投降者不复活。',
+});
+
+// v17: preserve each heavy hit while leaving real reload windows for infantry.
+Object.assign(CARDS.tank, {
+  rate: 4.8,
+  detail: '650生命。主炮装填4.8秒，高爆80伤，穿甲390伤；同轴机枪短点射后停顿。',
+});
+Object.assign(CARDS.light_tank, {
+  rate: 3.8,
+  detail: '420生命。主炮装填3.8秒，高爆58伤，穿甲300伤；同轴机枪短点射。',
+});
+Object.assign(CARDS.heavy_tank, {
+  rate: 6.4,
+  detail: '950生命。主炮装填6.4秒，高爆110伤，穿甲510伤；同轴机枪短点射。',
+});
+Object.assign(CARDS.rocket, {
+  rate: 4.8,
+  detail: '5人200生命。全组每4.8秒发射100范围伤害，射程650；齐射后需要装填。',
+});
+Object.assign(CARDS.antiarmor, {
+  rate: 5.5,
+  detail:
+    '2费4人160生命。RPG手每5.5秒48伤，射程580，对甲乘1.8；三名护卫各每1.1秒3伤，射程340。',
+});
+Object.assign(CARDS.mortar, {
+  rate: 7,
+  detail: '3人150生命。每7秒全组66伤害，射程180–820；曲射后需要装填。',
+});
+Object.assign(CARDS.mortar_carrier, {
+  rate: 8,
+  detail: '270生命。每8秒42伤，射程170–780；保留近敌后撤与曲射。',
+});
+Object.assign(CARDS.artillery, {
+  rate: 12,
+  detail: '190生命，每12秒44伤害，半径36，射程280–1250。依靠友军观察。',
+});
+Object.assign(CARDS.barrage, {
+  rate: 17,
+  detail: '240生命，每17秒68伤害，半径44，射程350–1450。依靠友军观察。',
+});
+Object.assign(CARDS.precision, {
+  rate: 15,
+  detail: '170生命，每15秒75伤害，半径22，射程300–1350。依靠友军观察。',
+});
+Object.assign(CARDS.javelin, {
+  rate: 6,
+  armorOnly: true,
+  description: '重弹留给载具，步枪近卫',
+  detail:
+    '4费2人140生命。主弹仅射载具，每6秒全组104伤，制导对甲乘2.4；240内用弱步枪自卫，不以重弹打步兵或基地。',
+});
+Object.assign(CARDS.anti_tank_gun, {
+  rate: 5,
+  armorOnly: true,
+  description: '专注反甲，近敌弱自卫',
+  detail:
+    '240生命。每5秒75穿甲伤，射程100–840，对甲乘2.6；主炮仅打载具，240内小枪弱自卫。',
+});
+Object.assign(CARDS.helicopter, {
+  damage: 7,
+  rate: 0.12,
+  burstSize: 6,
+  burstPause: 0.6,
+  description: '六发连续扫射，短停换弹',
+  detail: '260生命，射程540。每0.12秒7伤，连续六发后停0.6秒，不增加生命。',
+});
+Object.assign(CARDS.rocket_heli, {
+  rate: 4.2,
+  detail: '220生命，射程650。每4.2秒60伤害制导弹，对甲乘1.4；不对空。',
+});
+Object.assign(CARDS.fpv_drone, {
+  cost: 1,
+  flightTime: 24,
+  description: '一费猎甲，二十四秒航时',
+  detail:
+    '1费24生命。24秒内接近可见目标，500内优先俯冲载具；撞击216对甲伤、半径14，目标丢失后只飞向最后锁点。不伤基地，超时坠落消耗。',
+});
+Object.assign(CARDS.interceptor, {
+  patrol: true,
+  patrolTime: 24,
+  speed: 480,
+  damage: 52,
+  rate: 0.75,
+  guided: true,
+  radius: 0,
+  range: 900,
+  sight: 1050,
+  description: '前沿巡逻待命，自动截敌',
+  detail:
+    '5费150生命，己方前沿巡逻24秒。每0.75秒52伤制导对空，只锁定可见飞机；持续飞行，随后返己方。成功回手18秒后1费再出动，击落重置全价。',
 });

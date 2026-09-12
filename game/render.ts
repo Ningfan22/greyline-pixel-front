@@ -1,6 +1,11 @@
 import { mapDefinition, type MapId } from './maps';
 import { specialistSprite } from './adult-specialists';
-import { projectileForRender } from './render-depth';
+import { patrolFrameV17 } from './patrol-art-v17';
+import {
+  projectileForRender,
+  foregroundObject,
+  infantryDepth,
+} from './render-depth';
 import {
   adultIdentity,
   adultFrameChoice,
@@ -99,6 +104,7 @@ export function render(
   reduced = false,
   camera = 0,
   viewportWidth = VIEW_W,
+  selectedSquad: number | null = null,
 ) {
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, viewportWidth, H);
@@ -159,8 +165,9 @@ export function render(
       ctx.fillRect(x, y - 4, 2, 3);
     }
   }
-  const drawCoverProps = () => {
+  const drawCoverProps = (front: boolean) => {
     for (const wall of Object.values(s.knownWalls[0])) {
+      if (foregroundObject(wall.uid + 0x91ab) !== front) continue;
       if (wall.hp > 0)
         drawSprite(
           ctx,
@@ -176,16 +183,22 @@ export function render(
       }
     }
     for (const prop of Object.values(s.knownScenery[0]))
-      if (prop.x > camera - 160 && prop.x < camera + viewportWidth + 160)
+      if (
+        foregroundObject(prop.seed + prop.id) === front &&
+        prop.x > camera - 180 &&
+        prop.x < camera + viewportWidth + 180
+      )
         drawScenery(
           ctx,
           prop,
           s.time,
           art.scenery,
           art.buildings,
+          art.trees,
           visibleGround,
         );
     for (const w of s.wrecks) {
+      if (foregroundObject(w.id) !== front) continue;
       if (
         w.x < camera - 200 ||
         w.x > camera + viewportWidth + 200 ||
@@ -194,6 +207,8 @@ export function render(
         continue;
       const c = CARDS[w.cardId];
       if (!c.members) {
+        ctx.save();
+        ctx.filter = 'grayscale(1) brightness(.72)';
         const frame = art.wrecks[wreckKind(w.cardId)];
         const shape = wreckGeometry(w.cardId);
         const inset = (1 - shape.support[2]) * frame.height;
@@ -210,6 +225,7 @@ export function render(
           1,
           w.angle,
         );
+        ctx.restore();
         continue;
       }
       const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
@@ -224,12 +240,12 @@ export function render(
             )
           : unitFrame(art, w.cardId, 0);
       ctx.save();
-      ctx.filter = 'saturate(.2) brightness(.48)';
+      ctx.filter = 'grayscale(1) brightness(.58)';
       drawSprite(
         ctx,
         wreckImage,
         w.x,
-        w.y + (w.lane ?? 0) + 3,
+        w.y + infantryDepth(w.lane) + 3,
         wreckImage.width,
         wreckImage.height,
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
@@ -263,14 +279,41 @@ export function render(
     ctx.fillText(side === 0 ? 'BLUE / HQ' : 'RED / HQ', x, y + 24);
   }
   const sourceOffsets = new Map<number, { x: number; y: number }>();
+  drawCoverProps(false);
+  if (selectedSquad !== null)
+    for (const u of s.units) {
+      if (
+        u.side !== 0 ||
+        u.squad !== selectedSquad ||
+        u.hp <= 0 ||
+        u.surrendered ||
+        u.wounded
+      )
+        continue;
+      ctx.strokeStyle = '#e4d99b';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        Math.round(u.x - 12),
+        Math.round(u.y + infantryDepth(u.lane) + 1),
+        24,
+        3,
+      );
+    }
+  const layer = (u: GameState['units'][number]) =>
+    CARDS[u.id].air
+      ? 3
+      : CARDS[u.id].members
+        ? 1
+        : foregroundObject(u.uid)
+          ? 2
+          : 0;
   const sorted = [...s.units].sort(
-    (a, b) =>
-      Number(!!CARDS[a.id].air) - Number(!!CARDS[b.id].air) || a.lane - b.lane,
+    (a, b) => layer(a) - layer(b) || a.lane - b.lane,
   );
   let coverDrawn = false;
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
-      drawCoverProps();
+      drawCoverProps(true);
       coverDrawn = true;
     }
     if (!visibleToSide(s, 0, u)) continue;
@@ -294,9 +337,29 @@ export function render(
       body && choice
         ? specialistSprite(body, choice, u, art.adultSpecialists)
         : null;
+    const patrol =
+      body &&
+      !specialist &&
+      c.members &&
+      !isDead &&
+      !u.wounded &&
+      !u.surrendered &&
+      !u.rappelling &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      ['idle', 'walk'].includes(u.pose) &&
+      u.fire <= 0
+        ? patrolFrameV17(
+            art.patrol,
+            adultIdentity(u.id),
+            (u.aimUntil ?? 0) > s.time ? 'raise' : u.moving ? 'walk' : 'idle',
+            u.walk,
+            s.time - (u.readyAt ?? -100),
+          )
+        : null;
     const img = body
       ? uniformFrame(
-          specialist?.image ?? body,
+          patrol ?? specialist?.image ?? body,
           c.uniform === 'recon' || c.uniform === 'assault'
             ? c.uniform
             : undefined,
@@ -315,7 +378,12 @@ export function render(
       });
 
     ctx.fillStyle = isAir ? '#25372b14' : '#25372b33';
-    ctx.fillRect(u.x - w * 0.23, ground(s, u.x) + u.lane, w * 0.46, 3);
+    ctx.fillRect(
+      u.x - w * 0.23,
+      ground(s, u.x) + infantryDepth(u.lane),
+      w * 0.46,
+      3,
+    );
     const alpha = isDead
       ? Math.min(1, u.deadFor)
       : u.surrendered
@@ -348,7 +416,7 @@ export function render(
         tankOffset * Math.cos(u.hullAngle) -
         groundInset * Math.sin(u.hullAngle),
       u.y +
-        u.lane +
+        infantryDepth(u.lane) +
         (isTank ? 0 : 3) +
         tankOffset * Math.sin(u.hullAngle) +
         groundInset * Math.cos(u.hullAngle),
@@ -387,7 +455,7 @@ export function render(
       drawMuzzle(
         ctx,
         u.secondaryMuzzleX,
-        u.secondaryMuzzleY + (c.members ? u.lane : 0),
+        u.secondaryMuzzleY + (c.members ? infantryDepth(u.lane) : 0),
         u.secondaryAngle,
         'machinegun',
         0.09 - u.secondaryFire,
@@ -410,7 +478,8 @@ export function render(
       drawMuzzle(
         ctx,
         visualMuzzle?.x ?? u.muzzleX,
-        (visualMuzzle?.y ?? u.muzzleY) + (c.members ? u.lane : 0),
+        (visualMuzzle?.y ?? u.muzzleY) +
+          (c.members ? infantryDepth(u.lane) : 0),
         u.shotAngle,
         u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
@@ -428,7 +497,7 @@ export function render(
     const by =
         u.y -
         (u.pose === 'prone' ? 22 : u.pose === 'crouch' ? 47 : h) +
-        u.lane -
+        infantryDepth(u.lane) -
         3,
       bw = c.members ? 18 : 42;
     if (u.cover > 0.2 && !u.moving) {
@@ -448,7 +517,7 @@ export function render(
       3,
     );
   }
-  if (!coverDrawn) drawCoverProps();
+  if (!coverDrawn) drawCoverProps(true);
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;

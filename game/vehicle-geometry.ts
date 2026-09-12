@@ -110,6 +110,28 @@ const TANKS: Record<string, TankGeometry> = {
     coaxY: 82,
   },
 };
+export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {
+  mortar_carrier: 0.68,
+  command_vehicle: 0.72,
+  recovery_vehicle: 0.86,
+  tow_ifv: 0.82,
+  pickup: 0.84,
+};
+for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
+  const g = TANKS[id];
+  g.size = [Math.round(g.size[0] * scale), Math.round(g.size[1] * scale)];
+  for (const key of [
+    'spriteOffset',
+    'spriteGroundInset',
+    'half',
+    'hullHeight',
+    'muzzleX',
+    'muzzleY',
+    'coaxX',
+    'coaxY',
+  ] as const)
+    if (g[key] !== undefined) g[key] = g[key]! * scale;
+}
 export function tankGeometry(id: CardId): TankGeometry | null {
   return TANKS[id] ?? (modelOf(id) === 'tank' ? TANKS.tank : null);
 }

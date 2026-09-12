@@ -69,6 +69,9 @@ import {
 } from '@/game/audio';
 import { assetUrl } from '@/game/asset-url';
 import { DEFAULT_MAP, type MapId } from '@/game/maps';
+import { pickSquad, setSquadOrder } from '@/game/squad-orders';
+import { infantryDepth } from '@/game/render-depth';
+import SquadMenu from './squad-menu';
 
 const timeString = (t: number) =>
   `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -114,6 +117,12 @@ export default function Battle({
   const game = useRef<GameState>(initialGame);
   const [view, setView] = useState(() => snapshot(initialGame));
   const [selected, setSelected] = useState<number | null>(null);
+  const [selectedSquad, setSelectedSquad] = useState<number | null>(null);
+  const selectedSquadRef = useRef<number | null>(null);
+  const selectSquad = useCallback((id: number | null) => {
+    selectedSquadRef.current = id;
+    setSelectedSquad(id);
+  }, []);
   const selectedRef = useRef<number | null>(null);
   const [panel, setPanel] = useState<'guide' | 'deck' | 'card' | null>(null);
   const [inspectUid, setInspectUid] = useState<number | null>(null);
@@ -190,14 +199,18 @@ export default function Battle({
     if (messageTimer.current) clearTimeout(messageTimer.current);
     messageTimer.current = setTimeout(() => setMessage(''), 2800);
   }, []);
-  const choose = useCallback((uid: number | null) => {
-    selectedRef.current = uid;
-    setSelected(uid);
-    pointerScreen.current = null;
-    const h = game.current.players[0].hand.find((h) => h.uid === uid);
-    hover.current =
-      h && needsTarget(h.id) ? camera.current + viewport.current * 0.6 : null;
-  }, []);
+  const choose = useCallback(
+    (uid: number | null) => {
+      if (uid !== null) selectSquad(null);
+      selectedRef.current = uid;
+      setSelected(uid);
+      pointerScreen.current = null;
+      const h = game.current.players[0].hand.find((h) => h.uid === uid);
+      hover.current =
+        h && needsTarget(h.id) ? camera.current + viewport.current * 0.6 : null;
+    },
+    [selectSquad],
+  );
   const execute = useCallback(
     (uid: number, x?: number) => {
       const h = game.current.players[0].hand.find((h) => h.uid === uid);
@@ -238,6 +251,7 @@ export default function Battle({
   const reset = useCallback(() => {
     interruptCardHold();
     const nextSeed = Date.now();
+    selectSquad(null);
     game.current = createGame(
       nextSeed,
       playerDeck,
@@ -251,7 +265,7 @@ export default function Battle({
     setCameraView(0);
     setMessage('');
     refresh();
-  }, [choose, refresh, playerDeck, mapId, interruptCardHold]);
+  }, [choose, refresh, playerDeck, mapId, interruptCardHold, selectSquad]);
   const pause = useCallback(() => {
     interruptCardHold();
     const s = game.current!;
@@ -386,6 +400,7 @@ export default function Battle({
           reduced,
           camera.current,
           viewport.current,
+          selectedSquadRef.current,
         );
       audio.current?.update(
         s,
@@ -459,6 +474,7 @@ export default function Battle({
         return;
       }
       if (e.key === 'Escape') {
+        selectSquad(null);
         interruptCardHold();
         choose(null);
         hover.current = null;
@@ -515,7 +531,16 @@ export default function Battle({
       window.removeEventListener('keyup', onUp);
       pressedKeys.clear();
     };
-  }, [panel, choose, pause, execute, moveCamera, drawCard, interruptCardHold]);
+  }, [
+    panel,
+    choose,
+    pause,
+    execute,
+    moveCamera,
+    drawCard,
+    interruptCardHold,
+    selectSquad,
+  ]);
   useEffect(() => {
     const context = (
       document as unknown as {
@@ -611,6 +636,16 @@ export default function Battle({
     ),
     squads = new Set(units.map((u) => u.squad)).size;
   const deckCards = playerDeck.map((id) => CARDS[id]);
+  const selectedMembers = units.filter(
+    (u) => u.squad === selectedSquad && CARDS[u.id].members && !u.rappelling,
+  );
+  const squadX =
+    selectedMembers.reduce((n, u) => n + u.x, 0) /
+    Math.max(1, selectedMembers.length);
+  const squadY = selectedMembers.length
+    ? Math.min(...selectedMembers.map((u) => u.y + infantryDepth(u.lane))) - 64
+    : 0;
+  const squadTrench = view.entrenchments.find((t) => t.squad === selectedSquad);
   const selectCard = (h: HandCard) => {
     didDrag.current = false;
     if (view.status === 'ready') {
@@ -878,6 +913,21 @@ export default function Battle({
             const gesture = dragView.current;
             if (!gesture || gesture.id !== e.pointerId) return;
             dragView.current = null;
+            if (
+              !didDrag.current &&
+              selectedRef.current === null &&
+              game.current.status === 'playing'
+            ) {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const found = pickSquad(
+                game.current,
+                0,
+                canvasX(e.clientX),
+                ((e.clientY - rect.top) / rect.height) * H,
+                e.pointerType !== 'mouse',
+              );
+              selectSquad(found === selectedSquadRef.current ? null : found);
+            }
             if (e.currentTarget.hasPointerCapture(e.pointerId))
               e.currentTarget.releasePointerCapture(e.pointerId);
           }}
@@ -900,6 +950,31 @@ export default function Battle({
             }
           }}
         />
+        {active &&
+          !panel &&
+          selectedMembers.length > 0 &&
+          squadX >= cameraView &&
+          squadX <= cameraView + viewportWidth && (
+            <SquadMenu
+              x={((squadX - cameraView) / viewportWidth) * 100}
+              y={(squadY / H) * 100}
+              name={CARDS[selectedMembers[0].id].name}
+              count={selectedMembers.length}
+              order={selectedMembers[0].squadOrder}
+              progress={squadTrench?.progress}
+              onOrder={(order) => {
+                const result = setSquadOrder(
+                  game.current,
+                  0,
+                  selectedSquad!,
+                  order,
+                );
+                if (!result.ok) toast(result.message);
+                refresh();
+              }}
+              onClose={() => selectSquad(null)}
+            />
+          )}
         <div className="field-top">
           <div className="location">
             <Crosshair size={15} />
@@ -1684,7 +1759,7 @@ export default function Battle({
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
                     移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。单位从己方基地入场。炮兵随前线护卫牵引，到达有效射程后架设固定。烟幕和地雷以松手位置为目标。每个班组由
                     2–7
-                    名独立士兵组成，各自站立、行走、奔跑、攀墙、下蹲、趴下。使用「步兵指令」切换行动。小起伏直接步行通过，较大落差才会下跳、缓冲和攀出。
+                    名独立士兵组成。点击己方小队，可选择据守、撤退、进攻或警戒。据守约六秒挖好全队共用的战壕并布置两枚地雷，每队一次；撤退会交替掩护，到位后警戒。房屋与废墟可以绕行穿过，仍提供掩护；只有真实墙体和明显陡坎需要攀越。
                   </p>
                 </div>
                 <div>

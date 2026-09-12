@@ -61,10 +61,9 @@ export function buildingAnimation(p: Scenery, time: number): number | null {
   if (p.damageAt === undefined) return null;
   const elapsed = Math.max(0, time - p.damageAt),
     stage = buildingStage(p);
-  if (stage === 1)
-    return elapsed < 0.32 ? Math.min(1, Math.floor(elapsed / 0.16)) : null;
-  if (stage === 2)
-    return elapsed < 0.42 ? 2 + Math.min(1, Math.floor(elapsed / 0.21)) : null;
+  // Minor damage uses its final authored facade immediately. Borrowing early frames
+  // from a different collapse sheet briefly restored intact walls and caused a flash.
+  if (stage === 1 || stage === 2) return null;
   if (stage === 3) {
     const first = p.fromStage === 2 ? 4 : p.fromStage === 1 ? 2 : 0;
     const frame = first + Math.floor(elapsed / 0.2);

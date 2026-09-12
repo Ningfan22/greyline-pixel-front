@@ -13,9 +13,13 @@ import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { loadV16Art } from './art-v16';
+import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
+import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  trees: TreeArtV17;
+  patrol: PatrolArtV17;
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
   background: HTMLCanvasElement;
@@ -484,6 +488,8 @@ export function loadArt() {
       loadImage('/art/support-vehicles-v14.png'),
     ]),
     loadV16Art(),
+    loadTreeArtV17(),
+    loadPatrolArtV17(),
   ]).then(
     ([
       [
@@ -512,6 +518,8 @@ export function loadArt() {
         supportVehicles,
       ],
       extra,
+      trees,
+      patrol,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -545,13 +553,19 @@ export function loadArt() {
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
+      const adults = {
+        infantry: adultAtlas(adultInfantry),
+        marines: adultAtlas(adultMarines),
+        police: adultAtlas(adultPolice),
+        militia: adultAtlas(adultMilitia),
+      };
+      // Match the last raising pose to the established firing anatomy at the handoff.
+      for (const id of Object.keys(adults) as AdultIdentity[])
+        patrol[id].raise3[2] = adults[id].actions20[0];
       return {
-        adults: {
-          infantry: adultAtlas(adultInfantry),
-          marines: adultAtlas(adultMarines),
-          police: adultAtlas(adultPolice),
-          militia: adultAtlas(adultMilitia),
-        },
+        trees,
+        patrol,
+        adults,
         adultSpecialists: specialistAtlas(specialists),
         wrecks: wreckFrames(
           groundWrecks,

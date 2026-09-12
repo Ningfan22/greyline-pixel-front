@@ -1,5 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
+import { VEHICLE_SCALE } from './vehicle-geometry';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
@@ -390,6 +391,12 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     [0.233, 0.932, 0.944],
   ),
 };
+for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
+  const g = WRECKS[id as WreckKind];
+  g.width = Math.round(g.width * scale);
+  g.height = Math.round(g.height * scale);
+  g.spriteOffset *= scale;
+}
 export function wreckKind(id: CardId): WreckKind {
   const c = CARDS[id];
   if (c.airlift) return 'medevac';
