@@ -1,5 +1,6 @@
 import { CARDS } from './cards';
 import { infantryDepth } from './render-depth';
+import { obstacleBoxes, pointVisible } from './world';
 import type { GameState, Side, Unit } from './engine';
 
 export type SquadOrder = 'hold' | 'retreat' | 'attack' | 'watch';
@@ -40,6 +41,134 @@ const living = (u: Unit) =>
   u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling;
 const floorAt = (s: GameState, x: number) =>
   s.terrain[Math.max(0, Math.min(s.terrain.length - 1, Math.round(x)))];
+const SITE_SEARCH_DISTANCE = 240;
+const SITE_CLEARANCE = 6;
+type OccupiedGround = { left: number; right: number };
+
+/** Use remembered scenery plus the visible site, never hidden enemy wrecks or units. */
+function constructionObstacles(s: GameState, side: Side): OccupiedGround[] {
+  const scenery = s.scenery.flatMap((prop) => {
+    const seen =
+      pointVisible(s, side, prop.x, prop.y - 12) ||
+      prop.parts.some(
+        (part) =>
+          pointVisible(s, side, part.x - 1, part.y + part.h / 2) ||
+          pointVisible(s, side, part.x + part.w + 1, part.y + part.h / 2),
+      );
+    const known = seen ? prop : s.knownScenery[side][prop.id];
+    return known ? [known] : [];
+  });
+  const wrecks = s.wrecks.filter(
+    (w) =>
+      !w.falling &&
+      !CARDS[w.cardId].members &&
+      (w.side === side || pointVisible(s, side, w.x, w.y - 12)),
+  );
+  const view = { ...s, scenery, wrecks, terrain: s.knownTerrain[side] };
+  const footprints = new Map<string, OccupiedGround>();
+  for (const box of obstacleBoxes(view)) {
+    // Standing tree crowns leave walkable earth underneath; fallen crowns occupy it.
+    if (box.foliage && !box.rubble) continue;
+    const key = box.wreck ? `wreck:${box.wreck.id}` : `prop:${box.prop!.id}`;
+    const previous = footprints.get(key);
+    footprints.set(key, {
+      left: Math.min(previous?.left ?? Infinity, box.x),
+      right: Math.max(previous?.right ?? -Infinity, box.x + box.w),
+    });
+  }
+  for (const wall of s.walls) {
+    const known = pointVisible(
+      s,
+      side,
+      wall.x,
+      floorAt(s, wall.x) - wall.height - 1,
+    )
+      ? wall
+      : s.knownWalls[side][wall.uid];
+    if (known && known.hp > 0)
+      footprints.set(`wall:${wall.uid}`, {
+        left: known.x - known.width / 2,
+        right: known.x + known.width / 2,
+      });
+  }
+  return [...footprints.values()];
+}
+
+function clearConstructionSite(
+  center: number,
+  radius: number,
+  blocks: OccupiedGround[],
+) {
+  return blocks.every(
+    (b) =>
+      center + radius + SITE_CLEARANCE <= b.left ||
+      center - radius - SITE_CLEARANCE >= b.right,
+  );
+}
+
+function nearestConstructionSite(
+  s: GameState,
+  side: Side,
+  origin: number,
+  radius: number,
+  blocks: OccupiedGround[],
+) {
+  const left = Math.max(126 + radius, origin - SITE_SEARCH_DISTANCE);
+  const right = Math.min(
+    s.terrain.length - 127 - radius,
+    origin + SITE_SEARCH_DISTANCE,
+  );
+  if (left > right) return null;
+  const candidates = [
+    Math.max(left, Math.min(right, origin)),
+    left,
+    right,
+    ...blocks.flatMap((b) => [
+      b.left - radius - SITE_CLEARANCE,
+      b.right + radius + SITE_CLEARANCE,
+    ]),
+  ];
+  return (
+    candidates
+      .filter(
+        (x) =>
+          x >= left && x <= right && clearConstructionSite(x, radius, blocks),
+      )
+      .sort(
+        (a, b) =>
+          Math.abs(a - origin) - Math.abs(b - origin) ||
+          (side === 0 ? a - b : b - a),
+      )[0] ?? null
+  );
+}
+
+function trenchFloor(s: GameState, center: number, innerRadius: number) {
+  let total = 0;
+  for (let i = 0; i < 9; i++)
+    total +=
+      s.original[Math.round(center - innerRadius + (innerRadius * 2 * i) / 8)];
+  return total / 9 + TRENCH_DEPTH;
+}
+
+function constructionWatch(members: Unit[]) {
+  for (const u of members) {
+    u.squadOrder = 'watch';
+    u.squadOrderX = u.x;
+    u.squadOrderUntil = Infinity;
+    u.holdLane = undefined;
+    u.digging = false;
+    u.coverGoal = null;
+    u.firingGoal = null;
+    u.dispersionGoal = undefined;
+    u.withdrawUntil = 0;
+    u.decisionIn = 0;
+  }
+}
+
+function constructionNotice(s: GameState, side: Side, text: string) {
+  s.notices.unshift({ text, time: s.time, kind: 'warn', audience: [side] });
+  s.notices = s.notices.slice(0, 5);
+}
 
 export function setSquadOrder(
   s: GameState,
@@ -65,6 +194,31 @@ export function setSquadOrder(
   let trench = (s.entrenchments ?? []).find(
     (v) => v.squad === squad && v.side === side,
   );
+  const blocks =
+    order === 'hold' && !trench?.built ? constructionObstacles(s, side) : [];
+  if (
+    order === 'hold' &&
+    trench &&
+    !trench.built &&
+    !clearConstructionSite(trench.x, trench.radius, blocks)
+  ) {
+    const center =
+      trench.progress === 0
+        ? nearestConstructionSite(s, side, x, trench.radius, blocks)
+        : null;
+    if (center === null) {
+      constructionWatch(members);
+      const message =
+        trench.progress > 0
+          ? '施工处被废墟占用，已暂停并警戒'
+          : '附近没有可施工空地，已转为警戒';
+      constructionNotice(s, side, message);
+      return { ok: false, message };
+    }
+    trench.x = center;
+    trench.floorY = trenchFloor(s, center, trench.innerRadius);
+    trench.workStartedAt = s.time;
+  }
   if (order === 'hold' && !trench) {
     s.entrenchments ??= [];
     const span =
@@ -73,25 +227,20 @@ export function setSquadOrder(
     const oldInnerRadius = Math.min(165, Math.max(36, span / 2 + 14));
     const radius = Math.max(43.5, (oldInnerRadius + 96) / 4);
     const innerRadius = radius - 25;
-    const center = Math.max(
-      126 + radius,
-      Math.min(s.terrain.length - 127 - radius, x),
-    );
-    const samples = Array.from(
-      { length: 9 },
-      (_, i) =>
-        s.original[
-          Math.round(center - innerRadius + (innerRadius * 2 * i) / 8)
-        ],
-    );
+    const center = nearestConstructionSite(s, side, x, radius, blocks);
+    if (center === null) {
+      constructionWatch(members);
+      const message = '附近没有可施工空地，已转为警戒';
+      constructionNotice(s, side, message);
+      return { ok: false, message };
+    }
     trench = {
       squad,
       side,
       x: center,
       radius,
       innerRadius,
-      floorY:
-        samples.reduce((a, b) => a + b, 0) / samples.length + TRENCH_DEPTH,
+      floorY: trenchFloor(s, center, innerRadius),
       progress: 0,
       built: false,
       minesLaid: false,
@@ -189,6 +338,32 @@ export function updateSquadOrders(s: GameState, dt: number) {
       )
         u.digging = false;
     if (!workers.length) continue;
+    if (
+      !clearConstructionSite(
+        trench.x,
+        trench.radius,
+        constructionObstacles(s, trench.side),
+      )
+    ) {
+      const members = s.units.filter(
+        (u) => u.squad === trench.squad && u.side === trench.side && living(u),
+      );
+      constructionWatch(members);
+      if (trench.progress === 0) {
+        // Reuse an untouched plan; every member still walks to its replacement station.
+        const result = setSquadOrder(s, trench.side, trench.squad, 'hold');
+        if (result.ok)
+          constructionNotice(
+            s,
+            trench.side,
+            '施工点被废墟占用，正转移到附近空地',
+          );
+      } else {
+        // Excavated soil and progress are permanent. Never reset a partial pit to farm another.
+        constructionNotice(s, trench.side, '施工处被废墟占用，已暂停并警戒');
+      }
+      continue;
+    }
     for (const u of workers) u.digElapsed = (u.digElapsed ?? 0) + dt;
     trench.progress = Math.min(
       1,
