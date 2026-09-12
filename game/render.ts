@@ -231,7 +231,8 @@ export function render(
     }
     for (const prop of Object.values(s.knownScenery[0]))
       if (
-        foregroundObject(prop.seed + prop.id) === front &&
+        (prop.kind !== 'house' && foregroundObject(prop.seed + prop.id)) ===
+          front &&
         prop.x > camera - 180 &&
         prop.x < camera + viewportWidth + 180
       )

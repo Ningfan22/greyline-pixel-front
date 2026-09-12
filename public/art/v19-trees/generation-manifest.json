@@ -1,0 +1,30 @@
+{
+  "tool": "builtin image_gen",
+  "intent": "edit/style-transfer",
+  "logicalCell": [
+    128,
+    80
+  ],
+  "runtimeCell": [
+    256,
+    160
+  ],
+  "runtimeAnchor": [
+    70,
+    150
+  ],
+  "copies": {
+    "pine": {
+      "prompt": "Edit the attached existing transparent tree animation atlas. This is an asset fidelity edit, not a new composition. Preserve EXACTLY its 4 columns by 3 rows, canvas aspect ratio, every frame's tree root location and tree silhouette, frame-to-frame fall angles, trunk lengths, footprint and empty padding. Keep all 12 frame subjects and states in identical order. The sole art-direction change: repaint as convincingly LOW-RESOLUTION COARSE PIXEL ART for a serious, gritty 2D military game. The original has far too many tiny noisy leaves and hairlike needles. Replace that with deliberate broad, simple pixel clusters: clearly stepped edges, substantial block-shaped foliage groups, visibly chunky bark segments, 5 muted olive foliage colors plus 4 bark colors, strong readable light and shade planes. Pixel style equivalent to a 70-pixel-tall tree at 2x display scale. Each tree should feel hand-painted on an approximately 128x80 logical-pixel cell (not densely detailed illustration with a pixel filter). No photorealistic fine leaf texture, no micro-noise, no dithering, no blur, no antialiasing, no continuous shading, no toy/cartoon outline. Retain weathered natural tree anatomy and current mature scale. Do NOT add ground, shadows, UI, labels, guides, frame borders, or background. Genuine transparent alpha background, isolated trees only. Leave at least the same empty gutters. Falling tree sprites must stay distinct, physically tipping from their same cut stump. Preserve final branches and stump rather than reducing tree width/height.\nSubject: the exact same tall natural PINE TREE in the input. Retain its open tiered triangular crown silhouette and slender trunk while simplifying needles into blunt angular olive pixel clusters. This pine atlas contains intact, damaged, eight falling poses, settled and bare-settled frames. Preserve all poses and their spacing precisely.",
+      "editTarget": "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/v17-trees/pine.png",
+      "generatedOriginal": "/Users/bytedance/.codex/generated_images/01a0901e-6616-7071-bbb7-f5731ac3899f/exec-797172d6-c519-4d99-bacb-d2fd32f8749a.png",
+      "projectOriginal": "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/v19-trees/pine-original.png"
+    },
+    "broadleaf": {
+      "prompt": "Edit the attached existing transparent tree animation atlas. This is an asset fidelity edit, not a new composition. Preserve EXACTLY its 4 columns by 3 rows, canvas aspect ratio, every frame's tree root location and tree silhouette, frame-to-frame fall angles, trunk lengths, footprint and empty padding. Keep all 12 frame subjects and states in identical order. The sole art-direction change: repaint as convincingly LOW-RESOLUTION COARSE PIXEL ART for a serious, gritty 2D military game. The original has far too many tiny noisy leaves and hairlike needles. Replace that with deliberate broad, simple pixel clusters: clearly stepped edges, substantial block-shaped foliage groups, visibly chunky bark segments, 5 muted olive foliage colors plus 4 bark colors, strong readable light and shade planes. Pixel style equivalent to a 70-pixel-tall tree at 2x display scale. Each tree should feel hand-painted on an approximately 128x80 logical-pixel cell (not densely detailed illustration with a pixel filter). No photorealistic fine leaf texture, no micro-noise, no dithering, no blur, no antialiasing, no continuous shading, no toy/cartoon outline. Retain weathered natural tree anatomy and current mature scale. Do NOT add ground, shadows, UI, labels, guides, frame borders, or background. Genuine transparent alpha background, isolated trees only. Leave at least the same empty gutters. Falling tree sprites must stay distinct, physically tipping from their same cut stump. Preserve final branches and stump rather than reducing tree width/height.\nSubject: the exact same mature BROADLEAF TREE in the input. Retain its rounded broad crown silhouette, asymmetrical gaps and branching trunk while simplifying tiny leaves into bold square-edged clustered crown masses. This broadleaf atlas contains intact, damaged, eight falling poses, settled and bare-settled frames. Preserve all poses and their spacing precisely.",
+      "editTarget": "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/v17-trees/broadleaf.png",
+      "generatedOriginal": "/Users/bytedance/.codex/generated_images/01a0901e-6616-7071-bbb7-f5731ac3899f/exec-81fada54-612e-4ef3-9502-8a6ef7719871.png",
+      "projectOriginal": "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/v19-trees/broadleaf-original.png"
+    }
+  }
+}

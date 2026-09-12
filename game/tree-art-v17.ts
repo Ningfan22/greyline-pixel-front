@@ -139,7 +139,9 @@ export function loadTreeArtV17(): Promise<TreeArtV17> {
           image.onload = () => resolve([kind, treeFramesV17(image)]);
           image.onerror = () =>
             reject(new Error(`Unable to load tree art: ${kind}`));
-          image.src = assetUrl(`/art/v17-trees/${kind}.png`);
+          // Authored V19 sprites use 128×80 logical cells, enlarged exactly 2×.
+          // World size, the [70,150] root and all V17 collision profiles stay fixed.
+          image.src = assetUrl(`/art/v19-trees/${kind}.png`);
         }),
     ),
   )
