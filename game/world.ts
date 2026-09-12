@@ -247,10 +247,11 @@ const geometryCache = new WeakMap<
     scenery: Scenery[];
     wreckCount: number;
     boxes: Obstacle[];
+    hardBoxes: Obstacle[];
     traversals?: Obstacle[];
   }
 >();
-export function obstacleBoxes(s: GameState): Obstacle[] {
+export function obstacleBoxes(s: GameState, ignoreProps = false): Obstacle[] {
   const cached = geometryCache.get(s);
   if (
     cached &&
@@ -258,7 +259,7 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
     cached.scenery === s.scenery &&
     cached.wreckCount === s.wrecks.length
   )
-    return cached.boxes;
+    return ignoreProps ? cached.hardBoxes : cached.boxes;
   const boxes: Obstacle[] = [];
   for (const prop of s.scenery) {
     if (prop.kind === 'house') {
@@ -280,13 +281,15 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
       for (const part of wreckObstacles(wreck))
         boxes.push({ ...part, wreck, rubble: true });
     }
+  const hardBoxes = boxes.filter((box) => !box.prop);
   geometryCache.set(s, {
     time: s.time,
     scenery: s.scenery,
     wreckCount: s.wrecks.length,
     boxes,
+    hardBoxes,
   });
-  return boxes;
+  return ignoreProps ? hardBoxes : boxes;
 }
 /** Props and wrecks occupy a depth lane, not the full walking corridor.
  * Their separate obstacleBoxes still stop bullets and provide cover.
@@ -306,8 +309,7 @@ export function sceneryIntercept(
   ignoreProps = false,
 ) {
   let hit: { box: Obstacle; x: number; y: number; t: number } | null = null;
-  for (const box of obstacleBoxes(s)) {
-    if (ignoreProps && box.prop) continue;
+  for (const box of obstacleBoxes(s, ignoreProps)) {
     if (!vision && box.foliage) continue;
     // A soldier sheltering inside a footprint can shoot out above/along its edge.
     if (

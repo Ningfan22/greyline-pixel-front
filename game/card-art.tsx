@@ -13,6 +13,12 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
+  if (
+    id === 'toxic_cloud' ||
+    id === 'smoke_withdrawal' ||
+    id === 'reserve_mobilization'
+  )
+    return assetUrl(`/art/v18-comeback/cards/${id}.webp`);
   if (id === 'fpv_drone' || id === 'air_assault')
     return assetUrl(`/art/v16-air/cards/${id}.webp`);
   return assetUrl(

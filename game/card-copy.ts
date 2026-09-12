@@ -11,6 +11,27 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+  toxic_cloud: {
+    en: 'TOXIC LOCKDOWN',
+    typeLabel: '双向清场',
+    ability: '三秒预警',
+    rule: '八秒毒雾，双方步兵受伤。',
+    flavor: '风向可不认军衔。',
+  },
+  smoke_withdrawal: {
+    en: 'BREAK CONTACT',
+    typeLabel: '撤离重整',
+    ability: '烟幕断后',
+    rule: '掩护后撤，到位恢复体力。',
+    flavor: '晚饭改到后面吃。',
+  },
+  reserve_mobilization: {
+    en: 'CALL THE RESERVES',
+    typeLabel: '延迟增援',
+    ability: '重建防线',
+    rule: '分批增援两队民兵并抽牌。',
+    flavor: '靴子还没穿热。',
+  },
   fpv_drone: {
     en: 'FPV STRIKE DRONE',
     typeLabel: '一次性反甲',
@@ -239,14 +260,14 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'GROUND-ATTACK JET',
     typeLabel: '对地航空',
     ability: '通场扫射',
-    rule: '单次扫射，返航整备后低费再战。',
+    rule: '连续扫射，返航后低费再战。',
     flavor: '摄影师只拍到半截尾巴。',
   },
   bomber: {
     en: 'TACTICAL BOMBER',
     typeLabel: '轰炸航空',
     ability: '通场投弹',
-    rule: '单次投弹，返航整备后低费再战。',
+    rule: '六枚连投，返航后低费再战。',
     flavor: '炸弹投完了，早餐还没消化。',
   },
   marines: {

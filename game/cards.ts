@@ -19,6 +19,9 @@ export type BaseCardId =
   | 'precision';
 export type CardId =
   | BaseCardId
+  | 'toxic_cloud'
+  | 'smoke_withdrawal'
+  | 'reserve_mobilization'
   | 'marines'
   | 'armed_police'
   | 'paratroopers'
@@ -73,6 +76,7 @@ export type Doctrine =
   | 'irregular'
   | 'elite';
 export interface Card {
+  comeback?: 'gas' | 'withdrawal' | 'reserve';
   id: CardId;
   name: string;
   en: string;
@@ -446,6 +450,45 @@ function variant(
 }
 export const CARDS: Record<CardId, Card> = {
   ...BASE_CARDS,
+  toxic_cloud: {
+    id: 'toxic_cloud',
+    name: '毒气封锁',
+    en: 'TOXIC LOCKDOWN',
+    cost: 3,
+    type: 'skill',
+    tag: '双向 · 持续清场',
+    atlas: 5,
+    comeback: 'gas',
+    description: '预警后毒气伤害双方步兵',
+    detail:
+      '3秒公开预警后，战场上双方步兵每秒损失2.6生命，持续8秒；基地120范围、载具与飞机不受影响。卧倒和战壕无法隔绝毒气，医疗仍有效。不能叠加，双方都可用烟幕撤收或治疗降低损失；每副卡组限1张。',
+  },
+  smoke_withdrawal: {
+    id: 'smoke_withdrawal',
+    name: '烟幕撤收',
+    en: 'BREAK CONTACT',
+    cost: 1,
+    type: 'skill',
+    tag: '撤离 · 重整',
+    atlas: 5,
+    comeback: 'withdrawal',
+    description: '烟幕掩护后撤，到达后重整',
+    detail:
+      '全体可行动步兵交替掩护后撤240，原阵地释放8秒烟幕。20秒内抵达后转警戒、恢复8生命与20士气。不会瞬移或复活，炮击仍能穿烟；每名士兵每次指令只重整一次。',
+  },
+  reserve_mobilization: {
+    id: 'reserve_mobilization',
+    name: '预备队动员',
+    en: 'CALL THE RESERVES',
+    cost: 3,
+    type: 'skill',
+    tag: '延迟 · 重建防线',
+    atlas: 0,
+    comeback: 'reserve',
+    description: '六秒后两队民兵到场并抽牌',
+    detail:
+      '6秒后从己方基地分批派出两队民兵，间隔2秒，并抽1张牌。需要守住增援到来前的空窗；援兵为现有民兵，没有额外生命加成。每副卡组限2张。',
+  },
   fpv_drone: variant(
     'helicopter',
     'fpv_drone',
@@ -1508,6 +1551,7 @@ for (const id of ['tank', 'light_tank', 'heavy_tank'] as const)
     ' 同轴机枪独立装填：射程 420，每 0.18 秒对步兵射击，单发 3 伤害。';
 
 export function copyLimit(id: CardId) {
+  if (id === 'toxic_cloud') return 1;
   if (id === 'militia') return 6;
   if (id === 'infantry' || id === 'pickup') return 4;
   if (['heavy_tank', 'rocket_heli', 'barrage', 'bomber'].includes(id)) return 1;

@@ -1,4 +1,5 @@
 import { terrainDepthLimit } from '../game/squad-orders.ts';
+import { comebackBlock } from '../game/comeback.ts';
 import { DECK_PRESETS } from '../game/deck-presets.ts';
 import { CARD_COPY } from '../game/card-copy.ts';
 import { tankGeometry } from '../game/vehicle-geometry.ts';
@@ -8,7 +9,7 @@ import {
   adultFrameChoice,
   adultWreckChoice,
 } from '../game/adult-animation.ts';
-import { projectileForRender } from '../game/render-depth.ts';
+import { projectileForRender, infantryDepth } from '../game/render-depth.ts';
 import {
   damageScenery,
   obstacleBoxes,
@@ -654,8 +655,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('62种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 62);
+check('65种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 65);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
@@ -1677,7 +1678,7 @@ check('截击机前向对空射击，巡逻24秒后从己方返航并1费回用'
     directions.add(aircraft.facing);
   }
   assert.deepEqual(
-    [...directions].sort(),
+    [...directions].sort((a, b) => a - b),
     [-1, 1],
     'patrol turns at both ends',
   );
@@ -1776,7 +1777,9 @@ check(
   },
 );
 check('三局完整模拟均可结算，资源与地形始终有效', () => {
-  for (const seed of [13, 71, 102]) {
+  const seeds = (process.env.MATCH_SEEDS ?? '13,71,102').split(',').map(Number);
+  assert(seeds.length > 0 && seeds.every(Number.isSafeInteger));
+  for (const seed of seeds) {
     const s = createGame(seed);
     startGame(s);
     let decision = 0;
@@ -1789,7 +1792,10 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
         const p = s.players[0];
         if (p.hand.length < 3) requestDraw(s, 0);
         const h = p.hand.find(
-          (h) => cardCost(h) <= p.energy && cardReadyIn(s, h) <= 0,
+          (h) =>
+            cardCost(h) <= p.energy &&
+            cardReadyIn(s, h) <= 0 &&
+            !comebackBlock(s, 0, CARDS[h.id].comeback),
         );
         if (h) {
           const c = CARDS[h.id],
@@ -1808,6 +1814,10 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
         decision = frame + 120;
       }
       tick(s, 1 / 60);
+      if (frame > 0 && frame % 7200 === 0)
+        console.log(
+          `  progress seed ${seed}: ${Math.round(s.time)}s, ${s.units.length} units, ${s.entrenchments?.length ?? 0} trenches`,
+        );
     }
     assert.equal(s.status, 'finished');
     for (const p of s.players) {
@@ -2955,7 +2965,14 @@ check('三个完整班组重叠入场后，十八人均能持续向己方进攻�
       tick(s, 1 / 60);
       for (const u of s.units) {
         assert(Math.abs(u.x - last.get(u.uid)) < 1.4, 'no forward teleport');
-        assert(Math.abs(u.lane) <= 15.001);
+        assert(
+          Math.abs(u.lane) <= 24.001,
+          'four depth lanes stay within bounded passing space',
+        );
+        assert(
+          Math.abs(infantryDepth(u.lane)) <= 3.001,
+          'passing stays in the ground projection',
+        );
         last.set(u.uid, u.x);
       }
     }
@@ -4089,7 +4106,7 @@ check(
   },
 );
 
-check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空和各自战术配合', () => {
+check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各自战术配合', () => {
   const decks = new Map();
   for (let seed = 0; seed < 100; seed++) {
     const deck = chooseAiDeck(seed);
@@ -4116,11 +4133,14 @@ check('四套推荐与 AI 编队都有合法费用曲线、反甲、防空和各
     assert(deck.reduce((n, id) => n + CARDS[id].cost, 0) / 20 <= 3.2);
   }
   assert.equal(decks.size, DECK_PRESETS.length);
-  assert.equal(DECK_PRESETS.length, 4);
+  assert.equal(DECK_PRESETS.length, 5);
   for (const preset of DECK_PRESETS) {
     const deck = preset.cards;
     assert(validDeck(deck));
-    assert(decks.has(deck.join(',')), 'AI uses the same legal recommended cards');
+    assert(
+      decks.has(deck.join(',')),
+      'AI uses the same legal recommended cards',
+    );
     if (preset.id === 'combined')
       assert(deck.some((id) => CARDS[id].armored && !CARDS[id].airOnly));
     if (preset.id === 'assault') {
