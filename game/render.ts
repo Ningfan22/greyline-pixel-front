@@ -1,6 +1,9 @@
 import { mapDefinition, type MapId } from './maps';
 import { specialistSprite } from './adult-specialists';
 import { patrolFrameV17 } from './patrol-art-v17';
+import { digFrameV18 } from './dig-art-v18';
+import { drawMineV18 } from './mine-art-v18';
+import { drawToxicCloudV18 } from './comeback-art-v18';
 import {
   projectileForRender,
   foregroundObject,
@@ -34,6 +37,23 @@ import {
 } from './engine';
 import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+
+const rearSoilTextures = new WeakMap<object, HTMLCanvasElement>();
+function rearSoilTexture(
+  terrain: CanvasImageSource & { width: number; height: number },
+) {
+  const cached = rearSoilTextures.get(terrain);
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = terrain.width;
+  canvas.height = terrain.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  ctx.filter = 'brightness(0.62) saturate(0.72)';
+  ctx.drawImage(terrain, 0, 0);
+  rearSoilTextures.set(terrain, canvas);
+  return canvas;
+}
 
 const mapTerrainTextures = new WeakMap<
   HTMLImageElement,
@@ -124,6 +144,35 @@ export function render(
   // Draw the soil material through the destructible heightfield; craters expose inner strata.
   const left = Math.max(0, Math.floor(camera / 3) * 3),
     right = Math.min(W, Math.ceil((camera + viewportWidth) / 3) * 3);
+  const tw = terrainArt.width,
+    th = terrainArt.height;
+  // Excavation removes the foreground lane, not the entire depth of the world.
+  // Keep authored earth behind the cut so props on the rear surface stay rooted.
+  // Only remembered terrain is drawn; hidden enemy construction is not revealed.
+  const rearSoil = rearSoilTexture(terrainArt);
+  ctx.save();
+  ctx.beginPath();
+  for (let x = left; x < right; x += 3) {
+    const top = Math.round(s.original[x]) - 2,
+      bottom = Math.round(visibleGround(x));
+    if (bottom > top + 3) ctx.rect(x, top, 3, bottom - top + 2);
+  }
+  ctx.clip();
+  for (let x = left; x < right; x += 3) {
+    if (visibleGround(x) <= s.original[x] + 1) continue;
+    ctx.drawImage(
+      rearSoil,
+      ((x % 1023) / 1023) * tw,
+      0,
+      (tw * 3) / 1023,
+      th,
+      x,
+      s.original[x] - 5,
+      3,
+      170,
+    );
+  }
+  ctx.restore();
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(left, H + 3);
@@ -132,8 +181,6 @@ export function render(
   ctx.lineTo(right, H + 3);
   ctx.closePath();
   ctx.clip();
-  const tw = terrainArt.width,
-    th = terrainArt.height;
   for (let x = left; x < right; x += 3) {
     const sourceX = ((x % 1023) / 1023) * tw;
     ctx.drawImage(
@@ -257,10 +304,16 @@ export function render(
   };
   for (const m of s.mines)
     if (m.side === 0) {
-      ctx.fillStyle = s.time < m.armAt ? '#b2a16a' : '#748c6c';
-      ctx.fillRect(m.x - 5, visibleGround(m.x) - 5, 10, 4);
-      ctx.fillStyle = '#d3cba0';
-      ctx.fillRect(m.x - 1, visibleGround(m.x) - 7, 2, 2);
+      drawMineV18(
+        ctx,
+        art.mines,
+        m.kind ?? 'antitank',
+        m.x,
+        visibleGround(m.x) + 1,
+        s.time >= m.armAt,
+        s.time >= m.armAt + 2,
+        m.uid % 2 === 0,
+      );
     }
   const c = selected ? CARDS[selected] : null;
   for (const side of [0, 1] as const) {
@@ -357,9 +410,18 @@ export function render(
             s.time - (u.readyAt ?? -100),
           )
         : null;
+    const digging =
+      u.digging && !u.moving && !isDead && !u.wounded && u.fire <= 0
+        ? digFrameV18(
+            art.digging,
+            adultIdentity(u.id),
+            u.digElapsed ?? 0,
+            (u.uid % 8) * 0.2,
+          )
+        : null;
     const img = body
       ? uniformFrame(
-          patrol ?? specialist?.image ?? body,
+          digging ?? patrol ?? specialist?.image ?? body,
           c.uniform === 'recon' || c.uniform === 'assault'
             ? c.uniform
             : undefined,
@@ -521,23 +583,41 @@ export function render(
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
-    ctx.globalAlpha = Math.min(0.6, f.life / 2);
-    for (let i = 0; i < 22; i++) {
-      const x = f.x - 110 + ((i * 41) % 220),
-        y = ground(s, f.x) - 20 - ((i * 17) % 58) - Math.sin(s.time + i) * 4;
-      ctx.fillStyle = i % 2 ? '#8e958a' : '#adb1a2';
-      ctx.fillRect(
-        Math.round(x / 3) * 3,
-        Math.round(y / 3) * 3,
-        28 + (i % 4) * 5,
-        19 + (i % 3) * 6,
-      );
-    }
-    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.filter = 'grayscale(1)';
+    drawToxicCloudV18(
+      ctx,
+      art.comeback,
+      s.time + f.x,
+      f.x,
+      visibleGround(f.x) + 6,
+      270,
+      Math.min(0.75, f.life / 2),
+    );
+    ctx.restore();
     ctx.font = '12px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#e7e9d1';
     ctx.fillText('烟幕 ' + Math.ceil(f.life) + 's', f.x, ground(s, f.x) - 90);
+  }
+  const gas = s.comeback?.gas;
+  if (gas && s.time >= gas.start) {
+    for (
+      let x = Math.max(240, Math.floor(left / 180) * 180);
+      x < Math.min(W - 120, right + 128);
+      x += 180
+    ) {
+      drawToxicCloudV18(
+        ctx,
+        art.comeback,
+        s.time - gas.start + x / 137,
+        x,
+        visibleGround(x) + 5,
+        270,
+        Math.min(0.58, (s.time - gas.start) * 0.6, (gas.end - s.time) * 0.5),
+        x % 360 === 0,
+      );
+    }
   }
   for (const p of s.projectiles) {
     if (!pointVisible(s, 0, p.x, p.y)) continue;
@@ -566,6 +646,29 @@ export function render(
     }
   ctx.restore();
   ctx.globalAlpha = 1;
+  if (gas) {
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = s.time < gas.start ? '#f2ca82' : '#d6dfa2';
+    ctx.fillText(
+      s.time < gas.start
+        ? `毒气封锁 · ${Math.ceil(gas.start - s.time)}秒后生效`
+        : `毒气封锁 · 双方步兵受伤 · ${Math.ceil(gas.end - s.time)}秒`,
+      camera + viewportWidth / 2,
+      58,
+    );
+  }
+  const reserve = s.comeback?.reserves.find((r) => r.side === 0);
+  if (reserve) {
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#d6dfa2';
+    ctx.fillText(
+      `预备队 · ${Math.max(0, Math.ceil(reserve.at - s.time))}秒后抵达`,
+      camera + viewportWidth / 2,
+      gas ? 75 : 58,
+    );
+  }
   if (c && hover !== null && s.status === 'playing') {
     const y = visibleGround(hover);
     if (c.targetGround) {

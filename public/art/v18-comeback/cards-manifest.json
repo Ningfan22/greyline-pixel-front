@@ -1,0 +1,48 @@
+{
+  "source": "cards-original.png",
+  "sourceSize": [
+    2172,
+    724
+  ],
+  "cards": [
+    {
+      "id": "toxic_cloud",
+      "source": [
+        0,
+        0,
+        724,
+        724
+      ],
+      "runtime": [
+        720,
+        720
+      ]
+    },
+    {
+      "id": "smoke_withdrawal",
+      "source": [
+        724,
+        0,
+        724,
+        724
+      ],
+      "runtime": [
+        720,
+        720
+      ]
+    },
+    {
+      "id": "reserve_mobilization",
+      "source": [
+        1448,
+        0,
+        724,
+        724
+      ],
+      "runtime": [
+        720,
+        720
+      ]
+    }
+  ]
+}

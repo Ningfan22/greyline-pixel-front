@@ -23,8 +23,14 @@ export function projectileForRender(
     const wreck = s.wrecks.find((w) => w.id === uid);
     return wreck && CARDS[wreck.cardId].members ? infantryDepth(wreck.lane) : 0;
   };
-  const sourceLane = lane(p.sourceUid);
-  const targetLane = p.radius || p.missed ? 0 : lane(p.targetUid);
+  const sourceLane =
+    p.startLane === undefined ? lane(p.sourceUid) : infantryDepth(p.startLane);
+  const targetLane =
+    p.radius || p.missed
+      ? 0
+      : p.targetLane === undefined
+        ? lane(p.targetUid)
+        : infantryDepth(p.targetLane);
   const t = Math.max(
     0,
     Math.min(1, 1 - Math.max(0, p.life) / Math.max(0.001, p.total)),

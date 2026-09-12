@@ -335,12 +335,17 @@ export default function Battle({
     observer.observe(el.parentElement!);
     resize();
     const query = window.matchMedia('(pointer: coarse)');
-    const update = () => setTouchMode(query.matches);
+    const shortLandscape = window.matchMedia(
+      '(max-height: 540px) and (orientation: landscape)',
+    );
+    const update = () => setTouchMode(query.matches || shortLandscape.matches);
     update();
     query.addEventListener('change', update);
+    shortLandscape.addEventListener('change', update);
     return () => {
       observer.disconnect();
       query.removeEventListener('change', update);
+      shortLandscape.removeEventListener('change', update);
     };
   }, [interruptCardHold]);
   useEffect(() => {

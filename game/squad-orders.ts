@@ -13,6 +13,8 @@ export interface Entrenchment {
   progress: number;
   built: boolean;
   minesLaid: boolean;
+  workRows?: number;
+  workStartedAt?: number;
 }
 export const SQUAD_ORDERS: {
   id: SquadOrder;
@@ -60,7 +62,56 @@ export function setSquadOrder(
       ok: true,
       message: `小队正在${SQUAD_ORDERS.find((v) => v.id === order)!.label}`,
     };
-  for (const u of members) {
+  let trench = (s.entrenchments ?? []).find(
+    (v) => v.squad === squad && v.side === side,
+  );
+  if (order === 'hold' && !trench) {
+    s.entrenchments ??= [];
+    const span =
+      Math.max(...members.map((u) => u.x)) -
+      Math.min(...members.map((u) => u.x));
+    const oldInnerRadius = Math.min(165, Math.max(36, span / 2 + 14));
+    const radius = Math.max(43.5, (oldInnerRadius + 96) / 4);
+    const innerRadius = radius - 25;
+    const center = Math.max(
+      126 + radius,
+      Math.min(s.terrain.length - 127 - radius, x),
+    );
+    const samples = Array.from(
+      { length: 9 },
+      (_, i) =>
+        s.original[
+          Math.round(center - innerRadius + (innerRadius * 2 * i) / 8)
+        ],
+    );
+    trench = {
+      squad,
+      side,
+      x: center,
+      radius,
+      innerRadius,
+      floorY:
+        samples.reduce((a, b) => a + b, 0) / samples.length + TRENCH_DEPTH,
+      progress: 0,
+      built: false,
+      minesLaid: false,
+    };
+    s.entrenchments.push(trench);
+  }
+  // Preserve left-to-right ordering while packing six members into three columns,
+  // two physical depth lanes. Moving into these slots always goes through engine movement.
+  const ordered = [...members].sort((a, b) => a.x - b.x || a.uid - b.uid);
+  const rows = members.length <= 3 ? 1 : Math.ceil(members.length / 3);
+  const columns = Math.ceil(members.length / rows);
+  const halfSpan = trench
+    ? Math.min((columns - 1) * 11, trench.innerRadius - 2)
+    : 0;
+  if (order === 'hold' && trench) {
+    trench.workRows = rows;
+    trench.workStartedAt ??= s.time;
+  }
+  for (let i = 0; i < ordered.length; i++) {
+    const u = ordered[i];
     u.squadOrder = order;
     u.squadOrderX =
       order === 'retreat'
@@ -68,47 +119,26 @@ export function setSquadOrder(
             100,
             Math.min(s.terrain.length - 100, u.x + (side === 0 ? -240 : 240)),
           )
-        : u.x;
+        : order === 'hold' && trench
+          ? trench.x +
+            (columns === 1
+              ? 0
+              : -halfSpan +
+                (Math.floor(i / rows) * halfSpan * 2) / (columns - 1))
+          : u.x;
+    u.holdLane =
+      order === 'hold'
+        ? rows === 1
+          ? 0
+          : -20 + ((i % rows) * 40) / (rows - 1)
+        : undefined;
+    u.digging = false;
+    u.digElapsed ??= 0;
     u.squadOrderUntil = Infinity;
     u.coverGoal = null;
     u.decisionIn = 0;
     u.firingGoal = null;
     if (order !== 'retreat') u.withdrawUntil = 0;
-  }
-  if (order === 'hold') {
-    s.entrenchments ??= [];
-    if (!s.entrenchments.some((v) => v.squad === squad)) {
-      const span =
-        Math.max(...members.map((u) => u.x)) -
-        Math.min(...members.map((u) => u.x));
-      const innerRadius = Math.min(165, Math.max(36, span / 2 + 14));
-      const samples = Array.from(
-        { length: 9 },
-        (_, i) =>
-          s.original[
-            Math.max(
-              0,
-              Math.min(
-                s.original.length - 1,
-                Math.round(x - innerRadius + (innerRadius * 2 * i) / 8),
-              ),
-            )
-          ],
-      );
-      const floorY =
-        samples.reduce((a, b) => a + b, 0) / samples.length + TRENCH_DEPTH;
-      s.entrenchments.push({
-        squad,
-        side,
-        x,
-        innerRadius,
-        radius: innerRadius + 96,
-        floorY,
-        progress: 0,
-        built: false,
-        minesLaid: false,
-      });
-    }
   }
   return {
     ok: true,
@@ -138,13 +168,28 @@ export function updateSquadOrders(s: GameState, dt: number) {
         u.side === trench.side &&
         living(u) &&
         u.squadOrder === 'hold' &&
+        u.digging &&
+        u.squadOrderX !== undefined &&
+        Math.abs(u.x - u.squadOrderX) <= 1 &&
+        Math.abs(u.lane - (u.holdLane ?? u.lane)) <= 0.5 &&
+        u.fire <= 0 &&
+        u.secondaryFire <= 0 &&
         !u.moving &&
         !u.climbing &&
         u.motion === 'ground' &&
-        u.suppression < 65 &&
+        u.suppression < 35 &&
         Math.abs(u.x - trench.x) <= trench.radius + 20,
     );
+    for (const u of s.units)
+      if (
+        u.squad === trench.squad &&
+        u.side === trench.side &&
+        u.digging &&
+        !workers.includes(u)
+      )
+        u.digging = false;
     if (!workers.length) continue;
+    for (const u of workers) u.digElapsed = (u.digElapsed ?? 0) + dt;
     trench.progress = Math.min(
       1,
       trench.progress + (dt / 6) * Math.min(1, workers.length / 2),
@@ -161,6 +206,14 @@ export function updateSquadOrders(s: GameState, dt: number) {
         s.original[x] + cut * trench.progress,
       );
     }
+    for (const u of s.units)
+      if (
+        living(u) &&
+        u.motion === 'ground' &&
+        !u.climbing &&
+        Math.abs(u.x - trench.x) <= trench.radius
+      )
+        u.y = floorAt(s, u.x);
     s.visionIn = 0;
     if (trench.progress < 1) continue;
     trench.built = true;
@@ -200,11 +253,11 @@ export function trenchCutDepth(s: GameState, trench: Entrenchment, x: number) {
   const middle = (left + right) / 2;
   const floorLeft = Math.min(
     middle,
-    Math.max(left + 84, trench.x - trench.innerRadius),
+    Math.max(left + 25, trench.x - trench.innerRadius),
   );
   const floorRight = Math.max(
     middle,
-    Math.min(right - 84, trench.x + trench.innerRadius),
+    Math.min(right - 25, trench.x + trench.innerRadius),
   );
   const t =
     x < floorLeft
@@ -224,6 +277,69 @@ export function trenchCutDepth(s: GameState, trench: Entrenchment, x: number) {
           ],
       ),
     ) * eased
+  );
+}
+
+/** Only explicit shared-trench hold orders provide a construction/movement slot. */
+export function trenchWorksite(s: GameState, u: Unit) {
+  if (
+    u.squadOrder !== 'hold' ||
+    (u.squadOrderUntil ?? Infinity) <= s.time ||
+    u.squadOrderX === undefined ||
+    u.holdLane === undefined
+  )
+    return null;
+  const trench = (s.entrenchments ?? []).find(
+    (t) => t.squad === u.squad && t.side === u.side,
+  );
+  if (!trench) return null;
+  const rows = trench.workRows ?? 1;
+  const row = rows <= 1 ? 0 : Math.round(((u.holdLane + 20) / 40) * (rows - 1));
+  const activeRow =
+    Math.floor((s.time - (trench.workStartedAt ?? 0)) / 1.6) % rows;
+  return {
+    x: u.squadOrderX,
+    lane: u.holdLane,
+    pending: !trench.built,
+    digTurn: row === activeRow,
+  };
+}
+
+/** The prepared earth banks are walked, while unrelated bomb-pit lips keep their traversal rules. */
+export function preparedTrenchRamp(s: GameState, from: number, to: number) {
+  const left = Math.max(0, Math.floor(Math.min(from, to)));
+  const right = Math.min(s.terrain.length - 1, Math.ceil(Math.max(from, to)));
+  const nearby = (s.entrenchments ?? []).filter(
+    (t) => t.progress > 0 && right > t.x - t.radius && left < t.x + t.radius,
+  );
+  if (!nearby.length) return false;
+  // The look-ahead may cross the lip into level ground. It must still follow
+  // authored earth, not an adjacent blast pit or a naturally steep slope.
+  for (let x = left; x <= right; x++) {
+    let preparedDepth = 0;
+    for (const trench of nearby)
+      preparedDepth = Math.max(
+        preparedDepth,
+        trenchCutDepth(s, trench, x) * trench.progress,
+      );
+    if (
+      (x > left && Math.abs(s.original[x] - s.original[x - 1]) > 0.8) ||
+      s.terrain[x] - s.original[x] > preparedDepth + 6
+    )
+      return false;
+  }
+  return true;
+}
+
+/** Preserve the authored prepared profile during global crater settling. */
+export function terrainSlopeLimit(s: GameState, a: number, b: number) {
+  if (!s.entrenchments?.length) return 0.8;
+  const depthA = terrainDepthLimit(s, a, 0),
+    depthB = terrainDepthLimit(s, b, 0);
+  if (depthA === 0 && depthB === 0) return 0.8;
+  return Math.max(
+    0.8,
+    Math.abs(s.original[a] + depthA - s.original[b] - depthB) + 1e-6,
   );
 }
 

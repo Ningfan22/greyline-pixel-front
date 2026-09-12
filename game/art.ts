@@ -15,9 +15,15 @@ import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
+import { loadDigArtV18, type DigArtV18 } from './dig-art-v18';
+import { loadMineArtV18, type MineArtV18 } from './mine-art-v18';
+import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  comeback: ComebackArtV18;
+  digging: DigArtV18;
+  mines: MineArtV18;
   trees: TreeArtV17;
   patrol: PatrolArtV17;
   adults: Record<AdultIdentity, AdultSprites>;
@@ -490,6 +496,9 @@ export function loadArt() {
     loadV16Art(),
     loadTreeArtV17(),
     loadPatrolArtV17(),
+    loadDigArtV18(),
+    loadMineArtV18(),
+    loadComebackArtV18(),
   ]).then(
     ([
       [
@@ -520,6 +529,9 @@ export function loadArt() {
       extra,
       trees,
       patrol,
+      digging,
+      mines,
+      comeback,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -563,6 +575,9 @@ export function loadArt() {
       for (const id of Object.keys(adults) as AdultIdentity[])
         patrol[id].raise3[2] = adults[id].actions20[0];
       return {
+        comeback,
+        digging,
+        mines,
         trees,
         patrol,
         adults,
