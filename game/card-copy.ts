@@ -14,8 +14,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   fpv_drone: {
     en: 'FPV STRIKE DRONE',
     typeLabel: '一次性反甲',
-    ability: '末段俯冲',
-    rule: '低空猎甲，撞击后消耗。',
+    ability: '一费俯冲',
+    rule: '航时二十四秒，撞击消耗。',
     flavor: '回收押金就别交了。',
   },
   air_assault: {
@@ -43,7 +43,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MORTAR CARRIER',
     typeLabel: '机动炮兵',
     ability: '曲射转移',
-    rule: '曲射支援，近敌后撤转移。',
+    rule: '八秒曲射，近敌后撤转移。',
     flavor: '刚摆好茶杯又要挪窝。',
   },
   recovery_vehicle: {
@@ -85,21 +85,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ROCKET SQUAD',
     typeLabel: '火力支援',
     ability: '远距爆破',
-    rule: '火箭对地对空，可破坏地形。',
+    rule: '齐射后慢装填，可对空。',
     flavor: '耳塞又忘在另一件衣服里。',
   },
   tank: {
     en: 'MAIN BATTLE TANK',
     typeLabel: '主战坦克',
     ability: '双重火力',
-    rule: '主炮换弹，同轴机枪独立射击。',
+    rule: '主炮四点八秒，同轴点射。',
     flavor: '装甲很厚，腿还是伸不开。',
   },
   helicopter: {
     en: 'ATTACK HELICOPTER',
     typeLabel: '武装直升机',
-    ability: '空中支援',
-    rule: '空中推进，持续攻击地面目标。',
+    ability: '六发扫射',
+    rule: '连续六发，短停换弹。',
     flavor: '先把被吹跑的地图捡回来。',
   },
   sniper: {
@@ -120,7 +120,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MORTAR TEAM',
     typeLabel: '迫击炮组',
     ability: '曲射压制',
-    rule: '曲射压制，敌军逼近时后撤。',
+    rule: '七秒曲射，近敌保持距离。',
     flavor: '今天的风不按课本吹。',
   },
   ifv: {
@@ -141,7 +141,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FIELD HOWITZER',
     typeLabel: '野战火炮',
     ability: '周期炮击',
-    rule: '周期炮击友军已发现的目标。',
+    rule: '十二秒一发，观察后开火。',
     flavor: '装填手听不得别人劝他健身。',
   },
   supply: {
@@ -183,21 +183,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'PRECISION HOWITZER',
     typeLabel: '校射火炮',
     ability: '观察校射',
-    rule: '依靠友军观察，低频校射炮击。',
+    rule: '十五秒校射，打击重装。',
     flavor: '地图上的油渍不算坐标。',
   },
   javelin: {
     en: 'JAVELIN TEAM',
     typeLabel: '制导反甲',
-    ability: '制导追踪',
-    rule: '高抛制导打装甲，对步兵弱。',
+    ability: '专注反甲',
+    rule: '重弹只打车，小枪近卫。',
     flavor: '先别锁定，电池还在充。',
   },
   anti_tank_gun: {
     en: 'TOWED ANTI-TANK GUN',
     typeLabel: '反坦克炮',
-    ability: '阵地穿甲',
-    rule: '固定远距反甲，近处存在盲区。',
+    ability: '阵地反甲',
+    rule: '重炮只打车，小枪近卫。',
     flavor: '转炮靠人，谁又说想健身？',
   },
   antitank_mine: {
@@ -329,8 +329,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   antiarmor: {
     en: 'ANTI-TANK TEAM',
     typeLabel: '反装甲兵',
-    ability: 'RPG混编',
-    rule: '一名RPG手，三名步枪护卫。',
+    ability: '混编反甲',
+    rule: 'RPG慢装填，步枪护卫。',
     flavor: '弹筒占了午饭的位置。',
   },
   manpads: {
@@ -351,21 +351,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'LIGHT TANK',
     typeLabel: '轻型装甲',
     ability: '机动炮击',
-    rule: '快速机动，主炮机枪独立射击。',
+    rule: '主炮三点八秒，机动支援。',
     flavor: '转弯慢点，茶缸没焊上。',
   },
   heavy_tank: {
     en: 'HEAVY ASSAULT TANK',
     typeLabel: '重型装甲',
     ability: '重装突破',
-    rule: '重甲慢行，主炮机枪独立射击。',
+    rule: '主炮六点四秒，近卫点射。',
     flavor: '发动前先把加油车叫来。',
   },
   rocket_heli: {
     en: 'ANTI-ARMOR HELICOPTER',
     typeLabel: '反甲直升机',
     ability: '导弹猎甲',
-    rule: '空中追踪反甲，无法对空。',
+    rule: '四点二秒制导打击载具。',
     flavor: '导弹挂满了，饭盒只能抱着。',
   },
   scout_drone: {
@@ -392,8 +392,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   interceptor: {
     en: 'INTERCEPTOR',
     typeLabel: '制空航空',
-    ability: '高速拦截',
-    rule: '单次防空，返航整备后低费再战。',
+    ability: '前沿巡逻',
+    rule: '巡逻二十四秒，返航一费。',
     flavor: '起飞太急，咖啡还在梯子上。',
   },
   rally: {
@@ -421,7 +421,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'HEAVY HOWITZER',
     typeLabel: '重型火炮',
     ability: '重炮覆盖',
-    rule: '周期重炮轰击已发现目标。',
+    rule: '十七秒重炮，覆盖落点。',
     flavor: '打完这轮，茶里又多一层土。',
   },
   medevac: {

@@ -1,5 +1,7 @@
 import { buildingStage, buildingType, type Scenery } from './world';
 import { buildingAnimation, type BuildingArt } from './building-art';
+import { drawTreeV17, treeFrameV17, type TreeArtV17 } from './tree-art-v17';
+import { treeStateV17 } from './tree-state-v17';
 
 export function drawScenery(
   ctx: CanvasRenderingContext2D,
@@ -7,32 +9,32 @@ export function drawScenery(
   time: number,
   art: HTMLCanvasElement[],
   buildings: BuildingArt,
+  trees: TreeArtV17,
   groundAt: (x: number) => number = () => p.y,
 ) {
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   if (p.kind === 'tree') {
-    const trunk = p.parts.find((a) => a.kind === 'trunk')!,
-      crown = p.parts.find((a) => a.kind === 'crown')!;
-    const fallen = trunk.hp <= 0,
-      t = fallen ? Math.min(1, (time - trunk.brokenAt) / 0.85) : 0;
-    const pine = p.seed % 2 === 0,
-      img = art[pine ? 2 : 1],
-      w = pine ? 86 : 112,
-      h = 140;
-    ctx.translate(p.x, p.y - t * 5);
-    ctx.scale(1, 1 - t * 0.7);
-    ctx.rotate((t * Math.PI) / 2);
-    if (fallen) ctx.filter = 'saturate(.55) brightness(.8)';
-    if (crown.hp <= 0 && !fallen) {
-      ctx.beginPath();
-      ctx.rect(-10, -70, 20, 70);
-      ctx.clip();
-    }
-    ctx.drawImage(img, -w / 2, -h, w, h);
+    const state = treeStateV17(p, time);
+    const frame = treeFrameV17(
+      trees,
+      state.kind,
+      state.health,
+      state.fallAge,
+      state.bare,
+    );
+    if (state.fallAge !== null) ctx.filter = 'grayscale(1) brightness(.76)';
+    drawTreeV17(
+      ctx,
+      frame,
+      p.x,
+      p.y + (groundAt(p.x) - p.y) * state.settled,
+      state.flip,
+    );
   } else {
     const row = buildingType(p),
       stage = buildingStage(p);
+    if (stage === 3) ctx.filter = 'grayscale(1) brightness(.76)';
     const animation = buildingAnimation(p, time);
     const frame =
       animation === null

@@ -93,15 +93,17 @@ for (const side of [0, 1]) {
     dir = side === 0 ? 1 : -1,
     x = (value) => (side === 0 ? value : W - value);
   check(
-    `side${side}: FPV pays2 at HQ, approaches without teleport, never attacks an HQ`,
+    `side${side}: FPV pays1 at HQ, approaches without teleport, expires without attacking an HQ`,
     () => {
       const s = arena(),
+        energyBefore = s.players[side].energy,
         { u, token } = deploy(s, side, 'fpv_drone', x(2000));
-      assert.equal(CARDS.fpv_drone.cost, 2);
+      assert.equal(CARDS.fpv_drone.cost, 1);
+      assert.equal(energyBefore - s.players[side].energy, 1);
       assert.equal(u.x, x(112));
       let maxStep = 0,
         previous = u.x;
-      advance(s, 25, () => {
+      advance(s, CARDS.fpv_drone.flightTime - 1, () => {
         maxStep = Math.max(maxStep, Math.abs(u.x - previous));
         previous = u.x;
       });
@@ -115,6 +117,11 @@ for (const side of [0, 1]) {
       );
       assert.equal(s.wrecks.length, 0);
       assert.equal(s.blasts.length, 0);
+      assert.ok(s.players[side].discard.includes(token));
+      advance(s, 2);
+      assert.equal(u.hp, 0);
+      assert.equal(s.wrecks.filter((w) => w.id === u.uid).length, 1);
+      assert.deepEqual(s.players.map((p) => p.hp), [1000, 1000]);
       assert.ok(s.players[side].discard.includes(token));
       return { position: u.x, maxStep, baseHp: s.players.map((p) => p.hp) };
     },

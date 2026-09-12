@@ -1,6 +1,7 @@
 import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
+import { treeBoxesV17 } from './tree-state-v17';
 import type { GameState, Side, Unit } from './engine';
 export interface SceneryPart {
   id: number;
@@ -57,6 +58,7 @@ export interface Wreck {
   vy: number;
 }
 export interface Mine {
+  kind?: 'antipersonnel';
   uid: number;
   side: Side;
   x: number;
@@ -151,23 +153,30 @@ export function segmentBox(
   ty: number,
   p: { x: number; y: number; w: number; h: number },
 ) {
+  // Scalar slab clipping avoids allocating/destructuring three arrays per ray/box.
   let near = 0,
     far = 1;
-  for (const [start, delta, min, max] of [
-    [sx, tx - sx, p.x, p.x + p.w],
-    [sy, ty - sy, p.y, p.y + p.h],
-  ]) {
-    if (Math.abs(delta) < 0.0001) {
-      if (start < min || start > max) return null;
-    } else {
-      const a = (min - start) / delta,
-        b = (max - start) / delta;
-      near = Math.max(near, Math.min(a, b));
-      far = Math.min(far, Math.max(a, b));
-    }
+  const dx = tx - sx,
+    dy = ty - sy;
+  if (Math.abs(dx) < 0.0001) {
+    if (sx < p.x || sx > p.x + p.w) return null;
+  } else {
+    const a = (p.x - sx) / dx,
+      b = (p.x + p.w - sx) / dx;
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
+  }
+  if (Math.abs(dy) < 0.0001) {
+    if (sy < p.y || sy > p.y + p.h) return null;
+  } else {
+    const a = (p.y - sy) / dy,
+      b = (p.y + p.h - sy) / dy;
+    near = Math.max(near, Math.min(a, b));
+    far = Math.min(far, Math.max(a, b));
   }
   return near <= far && far > 0.015 && near <= 1 ? Math.max(0.01, near) : null;
 }
+
 export interface Obstacle {
   x: number;
   y: number;
@@ -256,32 +265,15 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
       boxes.push(...buildingHull(prop, (x) => floorAt(s, x)));
       continue;
     }
-    for (const part of prop.parts) {
-      if (part.hp > 0)
-        boxes.push({ ...part, prop, part, foliage: part.kind === 'crown' });
-      else if (part.kind === 'wall')
-        boxes.push({
-          x: part.x,
-          y: floorAt(s, part.x + part.w / 2) - 22,
-          w: part.w,
-          h: 22,
-          prop,
-          part,
-          rubble: true,
-        });
-    }
     if (
-      prop.kind === 'tree' &&
-      prop.parts.find((p) => p.kind === 'trunk')?.hp === 0
+      prop.parts.some((p) => p.kind === 'trunk') &&
+      prop.parts.some((p) => p.kind === 'crown')
     )
-      boxes.push({
-        x: prop.x - 12,
-        y: floorAt(s, prop.x) - 20,
-        w: 140,
-        h: 20,
-        prop,
-        rubble: true,
-      });
+      boxes.push(...treeBoxesV17(prop, s.time, floorAt(s, prop.x)));
+    else
+      for (const part of prop.parts)
+        if (part.hp > 0)
+          boxes.push({ ...part, prop, part, foliage: part.kind === 'crown' });
   }
   for (const wreck of s.wrecks)
     if (!wreck.falling && !CARDS[wreck.cardId].members) {
@@ -296,29 +288,12 @@ export function obstacleBoxes(s: GameState): Obstacle[] {
   });
   return boxes;
 }
-/** A whole wreck is one traversal, even though bullets collide with separate solid pieces. */
-export function traversalBoxes(s: GameState): Obstacle[] {
-  const boxes = obstacleBoxes(s),
-    cached = geometryCache.get(s)!;
-  if (cached.traversals) return cached.traversals;
-  const result = boxes.filter((b) => !b.wreck);
-  for (const wreck of s.wrecks) {
-    if (wreck.falling || CARDS[wreck.cardId].members) continue;
-    const pieces = boxes.filter((b) => b.wreck === wreck);
-    if (!pieces.length) continue;
-    const left = Math.min(...pieces.map((p) => p.x)),
-      top = Math.min(...pieces.map((p) => p.y));
-    result.push({
-      x: left,
-      y: top,
-      w: Math.max(...pieces.map((p) => p.x + p.w)) - left,
-      h: wreck.y - top,
-      wreck,
-      rubble: true,
-    });
-  }
-  cached.traversals = result;
-  return result;
+/** Props and wrecks occupy a depth lane, not the full walking corridor.
+ * Their separate obstacleBoxes still stop bullets and provide cover.
+ * Physical low walls live in GameState.walls and are vaulted explicitly.
+ */
+export function traversalBoxes(_s: GameState): Obstacle[] {
+  return [];
 }
 export function sceneryIntercept(
   s: GameState,
@@ -452,16 +427,17 @@ export function observationPenalty(
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
   return (
-    c.sight ??
-    (c.observer
-      ? 820
-      : c.air
-        ? 690
-        : c.members
-          ? Math.min(650, (c.range ?? 380) + 100)
-          : c.armored
-            ? 570
-            : 440)
+    (c.sight ??
+      (c.observer
+        ? 820
+        : c.air
+          ? 690
+          : c.members
+            ? Math.min(650, (c.range ?? 380) + 100)
+            : c.armored
+              ? 570
+              : 440)) *
+    (u.squadOrder === 'watch' && !u.moving && c.members ? 1.15 : 1)
   );
 }
 export function pointVisible(s: GameState, side: Side, x: number, y: number) {
