@@ -5,6 +5,8 @@ import { assetUrl } from '@/game/asset-url';
 import styles from './squad-menu.module.css';
 
 const glyphs: Record<SquadOrder, string> = {
+  escort:
+    'M2 7h12v5H2zM1 12h14v3H1zM6 3h5v4H6zM10 4h6v2h-6zM0 1h2v2h2v2H2v2H0z',
   hold: 'M1 10h3V7h2v3h4V7h2v3h3v4H1zM6 1h4v4H6z',
   retreat: 'M7 1v3H4v3H1v2h3v3h3v3h2v-5h6V6H9V1z',
   attack: 'M7 1v5H1v4h6v5h2v-3h3V9h3V7h-3V4H9V1z',
@@ -36,7 +38,7 @@ export default function SquadMenu({
       role="toolbar"
       aria-label={`${name}小队指令`}
       style={{
-        left: `clamp(116px, ${x}%, calc(100% - 116px))`,
+        left: `clamp(145px, ${x}%, calc(100% - 145px))`,
         top: `clamp(104px, ${y}%, calc(100% - 86px))`,
       }}
     >
@@ -51,9 +53,9 @@ export default function SquadMenu({
           className={styles.action}
           style={
             {
-              '--x': `${[-84, -28, 28, 84][i]}px`,
-              '--y': `${[17, 0, 0, 17][i]}px`,
-              '--tilt': `${[-12, -4, 4, 12][i]}deg`,
+              '--x': `${[-112, -56, 0, 56, 112][i]}px`,
+              '--y': `${[24, 6, 0, 6, 24][i]}px`,
+              '--tilt': `${[-14, -7, 0, 7, 14][i]}deg`,
             } as CSSProperties
           }
           onPointerDown={(e) => e.stopPropagation()}

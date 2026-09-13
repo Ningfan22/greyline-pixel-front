@@ -1,0 +1,325 @@
+.campaign {
+  max-width: 1120px;
+  margin: auto;
+  padding: 34px;
+  color: #e0d7b1;
+  font-family: var(--pixel, monospace);
+}
+.heading {
+  padding: 16px 20px;
+  background: #1c2b22ed;
+  border-left: 4px solid #d4ba75;
+  margin-bottom: 20px;
+  max-width: 760px;
+}
+.heading p {
+  margin-bottom: 0 !important;
+}
+.heading > span {
+  font-size: 12px;
+  color: #c3bd91;
+  letter-spacing: 2px;
+}
+.heading h1 {
+  font-size: 42px;
+  line-height: 1.2;
+  margin: 12px 0;
+}
+.heading p {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #b5c0aa;
+  max-width: 620px;
+  margin-bottom: 26px;
+}
+.dossier {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  border: 3px solid #111d17;
+  box-shadow: 3px 3px #111d17;
+  background: #1c2b22f5;
+}
+.chapters {
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid #4d6047;
+  background: #203225;
+}
+.chapters button {
+  min-height: 128px;
+  padding: 20px 14px;
+  text-align: left;
+  color: #bdc4aa;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid #46533d;
+  font: inherit;
+  cursor: pointer;
+}
+.chapters button[aria-current] {
+  background: #4c5d3d;
+  color: #f1e2ac;
+  box-shadow: inset 5px 0 #d4ba75;
+}
+.chapters small,
+.chapters strong,
+.chapters span {
+  display: block;
+}
+.chapters small {
+  font-size: 11px;
+}
+.chapters strong {
+  font-size: 22px;
+  margin: 13px 0;
+}
+.chapters span {
+  font-size: 12px;
+  color: #aeb89c;
+}
+.brief {
+  min-width: 0;
+}
+.landscape {
+  height: 192px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+  border-bottom: 2px solid #64714d;
+}
+.landscape > div {
+  position: absolute;
+  bottom: 0;
+  padding: 16px 22px;
+  width: 100%;
+  background: #19271cd9;
+}
+.landscape span {
+  font-size: 12px;
+  color: #bcc3a7;
+}
+.landscape h2 {
+  font-size: 28px;
+  margin: 10px 0 0;
+}
+.briefText {
+  padding: 22px;
+}
+.story {
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.85;
+  margin: 0 0 24px;
+  max-width: 720px;
+}
+.brief dl {
+  margin: 0;
+}
+.brief dl > div {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 12px;
+  padding: 13px 0;
+  border-top: 1px solid #4b5842;
+}
+.brief dt {
+  color: #d4ba75;
+  font-size: 14px;
+}
+.brief dd {
+  margin: 0;
+  color: #b7c3af;
+  font:
+    14px/1.7 system-ui,
+    sans-serif;
+}
+.launchRow {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 24px;
+}
+.launchRow > span {
+  font-size: 12px;
+  color: #d6cfaa;
+}
+.launchRow small {
+  display: block;
+  font:
+    11px/1.6 system-ui,
+    sans-serif;
+  color: #9eae99;
+  margin-top: 7px;
+}
+.launchRow button {
+  flex-shrink: 0;
+  background: #d2c28c;
+  border: 2px solid;
+  border-color: #efe1ac #7a744e #7a744e #efe1ac;
+  box-shadow: 3px 3px #0f1e16;
+  color: #24341e;
+  padding: 16px 20px;
+  font: 18px var(--pixel, monospace);
+  cursor: pointer;
+}
+.launchRow button:disabled {
+  background: #485640;
+  color: #a8b094;
+  box-shadow: none;
+  cursor: default;
+  border-color: #67745b;
+}
+.difficulty {
+  border: 0;
+  padding: 0;
+  margin: 20px 0 36px;
+  min-width: 0;
+}
+.difficulty legend {
+  color: #d4ba75;
+  font-size: 20px;
+}
+.difficulty p {
+  font:
+    13px/1.6 system-ui,
+    sans-serif;
+  color: #b5c0aa;
+}
+.difficulty > div {
+  display: flex;
+  gap: 10px;
+}
+.difficulty button {
+  flex: 1;
+  padding: 16px 10px;
+  background: #263a2d;
+  border: 2px solid #536148;
+  color: #d5dcc3;
+  text-align: left;
+  cursor: pointer;
+}
+.difficulty button[aria-pressed='true'] {
+  border-color: #d4ba75;
+  background: #46583c;
+}
+.difficulty strong {
+  display: block;
+  font: 20px var(--pixel, monospace);
+  margin-bottom: 10px;
+}
+.difficulty button span {
+  font:
+    12px/1.5 system-ui,
+    sans-serif;
+}
+.campaign button:focus-visible,
+.difficulty button:focus-visible {
+  outline: 3px solid #f4db92;
+  outline-offset: 3px;
+}
+@media (max-height: 540px), (max-width: 1000px) {
+  .campaign {
+    padding: 16px 18px;
+  }
+  .heading h1 {
+    font-size: 28px;
+    margin: 8px 0;
+  }
+  .heading p {
+    margin: 8px 0 14px;
+    font-size: 12px;
+  }
+  .dossier {
+    grid-template-columns: 134px minmax(0, 1fr);
+  }
+  .chapters button {
+    padding: 14px 10px;
+    min-height: 108px;
+  }
+  .chapters strong {
+    font-size: 18px;
+  }
+  .landscape {
+    height: 118px;
+  }
+  .landscape > div {
+    padding: 10px 16px;
+  }
+  .landscape h2 {
+    font-size: 23px;
+    margin-top: 6px;
+  }
+  .briefText {
+    padding: 16px;
+  }
+  .story {
+    font-size: 13px;
+    line-height: 1.65;
+    margin-bottom: 15px;
+  }
+  .brief dl > div {
+    grid-template-columns: 60px 1fr;
+    gap: 6px;
+    padding: 9px 0;
+  }
+  .brief dd {
+    font-size: 12px;
+  }
+  .launchRow {
+    flex-wrap: wrap;
+    margin-top: 14px;
+  }
+  .launchRow button {
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+  .difficulty > div {
+    gap: 6px;
+  }
+  .difficulty button {
+    padding: 12px 8px;
+  }
+  .difficulty strong {
+    font-size: 16px;
+  }
+}
+@media (max-width: 620px) {
+  .dossier {
+    grid-template-columns: 1fr;
+  }
+  .chapters {
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 2px solid #4d6047;
+  }
+  .chapters button {
+    min-width: 0;
+    flex: 1;
+    padding: 10px 6px;
+    min-height: 90px;
+  }
+  .chapters strong {
+    font-size: 16px;
+    margin: 9px 0;
+  }
+  .chapters small {
+    font-size: 9px;
+  }
+  .chapters span {
+    font-size: 10px;
+  }
+  .difficulty > div {
+    flex-direction: column;
+  }
+  .difficulty button {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .difficulty strong {
+    margin: 0;
+  }
+}

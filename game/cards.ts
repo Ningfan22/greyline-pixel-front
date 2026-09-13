@@ -1,4 +1,5 @@
 import { DECK_PRESETS, AI_DECKS } from './deck-presets';
+import type { EconomyEffect } from './economy';
 export type BaseCardId =
   | 'infantry'
   | 'machinegun'
@@ -19,6 +20,9 @@ export type BaseCardId =
   | 'precision';
 export type CardId =
   | BaseCardId
+  | 'field_logistics'
+  | 'command_expansion'
+  | 'war_bonds'
   | 'toxic_cloud'
   | 'smoke_withdrawal'
   | 'reserve_mobilization'
@@ -76,6 +80,7 @@ export type Doctrine =
   | 'irregular'
   | 'elite';
 export interface Card {
+  economy?: EconomyEffect;
   comeback?: 'gas' | 'withdrawal' | 'reserve';
   id: CardId;
   name: string;
@@ -449,6 +454,41 @@ function variant(
   };
 }
 export const CARDS: Record<CardId, Card> = {
+  field_logistics: variant(
+    'supply',
+    'field_logistics',
+    '战地后勤',
+    3,
+    '回点提速，最多两级',
+    {
+      en: 'FIELD LOGISTICS',
+      economy: 'logistics',
+      tag: '发展 · 持续回点',
+      detail:
+        '支付3点，基准回点间隔永久缩短0.3秒，最多两级、基准最低3秒。AI公开难度倍率仍作用于该间隔。达到两级后不可继续使用。',
+    },
+  ),
+  command_expansion: variant(
+    'supply',
+    'command_expansion',
+    '指挥扩编',
+    2,
+    '指挥上限增加两点',
+    {
+      en: 'COMMAND EXPANSION',
+      economy: 'capacity',
+      tag: '发展 · 储备扩容',
+      detail:
+        '支付2点，指挥点上限永久增加2，最多从10扩至14。不立即补充指挥点；达到14后不可继续使用。',
+    },
+  ),
+  war_bonds: variant('supply', 'war_bonds', '战时公债', 1, '十八秒后到账三点', {
+    en: 'WAR BONDS',
+    economy: 'bonds',
+    tag: '发展 · 延迟回报',
+    detail:
+      '支付1点，18秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
+  }),
   ...BASE_CARDS,
   toxic_cloud: {
     id: 'toxic_cloud',

@@ -6,6 +6,8 @@ import { getBattleAudio } from '@/game/audio';
 import DeckBuilder from './deck-builder';
 import HomeMenu, { type LobbyPage } from './home-menu';
 import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
+import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
+import { isMissionId, MISSIONS, type MissionId } from '@/game/campaign';
 const STORAGE = 'greyline-deck-v6';
 export default function Home() {
   const [page, setPage] = useState<LobbyPage | 'battle'>('home');
@@ -13,11 +15,15 @@ export default function Home() {
   const [deck, setDeck] = useState<CardId[]>([...DECK]);
   const [loaded, setLoaded] = useState(false);
   const [mapId, setMapId] = useState<MapId>(DEFAULT_MAP);
+  const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
+  const [completed, setCompleted] = useState<MissionId[]>([]);
   const [match, setMatch] = useState<{
     seed: number;
     player: CardId[];
     ai: CardId[];
     mapId: MapId;
+    missionId?: MissionId;
+    difficulty: Difficulty;
   } | null>(null);
   useEffect(() => {
     let live = true;
@@ -25,6 +31,17 @@ export default function Home() {
       if (!live) return;
       try {
         const savedMap = localStorage.getItem('greyline-map');
+        const savedDifficulty = localStorage.getItem('greyline-difficulty-v21');
+        if (
+          savedDifficulty === 'standard' ||
+          savedDifficulty === 'veteran' ||
+          savedDifficulty === 'elite'
+        )
+          setDifficulty(savedDifficulty);
+        const progress = JSON.parse(
+          localStorage.getItem('greyline-campaign-v21') ?? '[]',
+        );
+        if (Array.isArray(progress)) setCompleted(progress.filter(isMissionId));
         if (isMapId(savedMap)) setMapId(savedMap);
         const saved = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
         if (validDeck(saved)) {
@@ -49,11 +66,18 @@ export default function Home() {
       return '编队本次已生效；浏览器未允许本地保存';
     }
   };
-  const begin = (chosen: CardId[]) => {
+  const begin = (chosen: CardId[], missionId?: MissionId) => {
     if (!validDeck(chosen)) return;
     void getBattleAudio().unlock();
     const seed = Date.now();
-    setMatch({ seed, player: [...chosen], ai: chooseAiDeck(seed), mapId });
+    setMatch({
+      seed,
+      player: [...chosen],
+      ai: chooseAiDeck(seed),
+      mapId,
+      missionId,
+      difficulty,
+    });
     setPage('battle');
   };
   const navigate = (next: LobbyPage) => {
@@ -63,12 +87,42 @@ export default function Home() {
   if (page === 'battle' && match)
     return (
       <Battle
+        key={`${match.seed}-${match.missionId ?? 'skirmish'}`}
         playerDeck={match.player}
         aiDeck={match.ai}
         seed={match.seed}
         mapId={match.mapId}
+        difficulty={match.difficulty}
+        missionId={match.missionId}
+        onMissionComplete={(id) => {
+          setCompleted((previous) => {
+            const next = Array.from(new Set([...previous, id]));
+            try {
+              localStorage.setItem(
+                'greyline-campaign-v21',
+                JSON.stringify(next),
+              );
+            } catch {
+              /* Current session progress remains usable. */
+            }
+            return next;
+          });
+        }}
+        onNextMission={
+          match.missionId &&
+          MISSIONS.findIndex((m) => m.id === match.missionId) <
+            MISSIONS.length - 1
+            ? () =>
+                begin(
+                  deck,
+                  MISSIONS[
+                    MISSIONS.findIndex((m) => m.id === match.missionId) + 1
+                  ].id,
+                )
+            : undefined
+        }
         onExit={() => {
-          setPage('home');
+          setPage(match.missionId ? 'campaign' : 'home');
           setBuilderOpened(false);
         }}
       />
@@ -79,6 +133,17 @@ export default function Home() {
       ready={loaded}
       deckCount={deck.length}
       mapId={mapId}
+      difficulty={difficulty}
+      completed={completed}
+      onMissionStart={(id) => begin(deck, id)}
+      onDifficultyChange={(value) => {
+        setDifficulty(value);
+        try {
+          localStorage.setItem('greyline-difficulty-v21', value);
+        } catch {
+          /* Keep this session setting. */
+        }
+      }}
       onMapChange={(id) => {
         setMapId(id);
         try {

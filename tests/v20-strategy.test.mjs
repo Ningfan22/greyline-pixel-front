@@ -10,7 +10,9 @@ function test(name, fn) {
   }
 }
 function arena() {
-  const s = E.createGame(71);
+  const s = E.createGame(71, undefined, undefined, undefined, {
+    difficulty: 'standard',
+  });
   E.startGame(s);
   s.aiIn = 0;
   s.walls = [];

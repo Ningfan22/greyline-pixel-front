@@ -11,6 +11,27 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+  field_logistics: {
+    en: 'FIELD LOGISTICS',
+    typeLabel: '资源发展',
+    ability: '后勤提速',
+    rule: '回点提速，最多两级。',
+    flavor: '粮草比口号管用。',
+  },
+  command_expansion: {
+    en: 'COMMAND EXPANSION',
+    typeLabel: '资源储备',
+    ability: '扩容两点',
+    rule: '上限增二，最多十四。',
+    flavor: '桌子大了，账也多了。',
+  },
+  war_bonds: {
+    en: 'WAR BONDS',
+    typeLabel: '延迟收益',
+    ability: '十八秒回款',
+    rule: '付一返三，每局限两次。',
+    flavor: '先欠账，后打仗。',
+  },
   toxic_cloud: {
     en: 'TOXIC LOCKDOWN',
     typeLabel: '双向清场',

@@ -12,6 +12,27 @@
   color: var(--paper);
   background: #363f36;
 }
+.difficultyLink {
+  margin: 14px 2px 0;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: #d5cea4;
+  text-align: left;
+  font: 14px var(--pixel, monospace);
+  cursor: pointer;
+}
+.difficultyLink small {
+  display: block;
+  margin-top: 7px;
+  color: #9cad92;
+  font:
+    10px/1.5 system-ui,
+    sans-serif;
+}
+.difficultyLink:focus-visible {
+  outline: 2px solid #d4ba75;
+}
 .backdrop {
   position: absolute;
   inset: 0;
