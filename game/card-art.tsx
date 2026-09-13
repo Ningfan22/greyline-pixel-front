@@ -14,6 +14,12 @@ const ADDITIONAL_CARD_ART = new Set([
 ]);
 export function cardPictureUrl(id: CardId) {
   if (
+    id === 'field_logistics' ||
+    id === 'command_expansion' ||
+    id === 'war_bonds'
+  )
+    return assetUrl(`/art/v21-economy/cards/${id}.webp`);
+  if (
     id === 'toxic_cloud' ||
     id === 'smoke_withdrawal' ||
     id === 'reserve_mobilization'

@@ -13,6 +13,7 @@ import {
   isCombatant,
 } from '../game/engine.ts';
 import { createScenery, obstacleBoxes, traversalBoxes } from '../game/world.ts';
+import { setSquadOrder } from '../game/squad-orders.ts';
 const dt = 1 / 60;
 function arena(seed = 37) {
   const s = createGame(seed);
@@ -123,6 +124,9 @@ for (const side of [0, 1])
         lane: ((i % 6) - 2.5) * 5,
       }),
     );
+    // The passage order explicitly overrides automatic following of the parked friendly tank.
+    for (const squadId of new Set(convoy.map((u) => u.squad)))
+      assert.equal(setSquadOrder(s, side, squadId, 'attack').ok, true);
     let climbing = 0;
     advance(s, 18, () => {
       for (const u of convoy) {

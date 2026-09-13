@@ -5628,3 +5628,70 @@ body:has(.game-shell.touch-battle) {
     grid-template-columns: 32px minmax(0, 1fr) 32px 32px;
   }
 }
+
+/* v21: brief tactical readouts stay outside the card fan and squad controls. */
+.mobile-economy-readout {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #d2d8bc;
+}
+.mobile-base-enemy .mobile-economy-readout {
+  text-align: right;
+}
+.economy-match-note {
+  font-size: 10px;
+  color: #ced4b3;
+  line-height: 1.5;
+}
+.mission-status {
+  position: absolute;
+  z-index: 35;
+  left: 50%;
+  top: 132px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  padding: 7px 12px;
+  background: #203126d9;
+  border-bottom: 2px solid #9a9866;
+  color: #e8dfbb;
+  pointer-events: none;
+  font: 12px/1.4 monospace;
+  max-width: calc(100% - 48px);
+  white-space: nowrap;
+}
+.mission-status strong {
+  color: #ead397;
+}
+.match-rules-note {
+  font-size: 12px !important;
+  color: #cfc99e !important;
+}
+.game-shell:not(.touch-battle) .mission-status {
+  display: none;
+}
+.mission-clock-goal {
+  display: block;
+  color: #cfcca7;
+  font-size: 10px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.game-shell.touch-battle .mission-status {
+  top: max(57px, calc(env(safe-area-inset-top) + 54px));
+  padding: 5px 8px;
+  font-size: 10px;
+  gap: 7px;
+  max-width: calc(100% - 270px);
+}
+@media (max-width: 640px) {
+  .game-shell.touch-battle .mission-status {
+    top: 92px;
+    max-width: calc(100% - 32px);
+  }
+  .mobile-economy-readout {
+    font-size: 9px;
+  }
+}

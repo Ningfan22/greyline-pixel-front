@@ -1,9 +1,9 @@
-import { CARDS } from './cards';
+import { CARDS, modelOf } from './cards';
 import { infantryDepth } from './render-depth';
 import { obstacleBoxes, pointVisible } from './world';
 import type { GameState, Side, Unit } from './engine';
 
-export type SquadOrder = 'hold' | 'retreat' | 'attack' | 'watch';
+export type SquadOrder = 'hold' | 'retreat' | 'attack' | 'watch' | 'escort';
 export interface Entrenchment {
   squad: number;
   side: Side;
@@ -34,6 +34,11 @@ export const SQUAD_ORDERS: {
     description: '向前推进，接敌后自主分散与利用掩体',
   },
   { id: 'watch', label: '警戒', description: '原地观察还击，视野更远，不追击' },
+  {
+    id: 'escort',
+    label: '伴随',
+    description: '分散跟随最近友方坦克，在后方掩护交战',
+  },
 ];
 export const TRENCH_DEPTH = 36;
 export const MAX_TRENCH_DEPTH = 48;
@@ -186,7 +191,7 @@ export function setSquadOrder(
   if (!members.length) return { ok: false, message: '这支小队已无法接令' };
   const x = members.reduce((n, u) => n + u.x, 0) / members.length;
   const repeated = members.every((u) => u.squadOrder === order);
-  if (repeated)
+  if (repeated && order !== 'escort')
     return {
       ok: true,
       message: `小队正在${SQUAD_ORDERS.find((v) => v.id === order)!.label}`,
@@ -262,6 +267,13 @@ export function setSquadOrder(
   for (let i = 0; i < ordered.length; i++) {
     const u = ordered[i];
     u.squadOrder = order;
+    u.escortTankUid = undefined;
+    u.escortGoal = undefined;
+    u.escortLane = undefined;
+    u.escortScanAt = 0;
+    u.escortLostAt = undefined;
+    u.withdrawHeavyUid = undefined;
+    u.withdrawStandby = false;
     u.squadOrderX =
       order === 'retreat'
         ? Math.max(
@@ -289,14 +301,97 @@ export function setSquadOrder(
     u.firingGoal = null;
     if (order !== 'retreat') u.withdrawUntil = 0;
   }
+  if (order === 'escort') updateEscorts(s);
   return {
     ok: true,
     message: `${CARDS[members[0].id].name}：${SQUAD_ORDERS.find((v) => v.id === order)!.label}`,
   };
 }
 
+/** Own tanks are known friendly information; no enemy position is read here. */
+function updateEscorts(s: GameState) {
+  const tanks = s.units.filter(
+    (u) =>
+      living(u) &&
+      modelOf(u.id) === 'tank' &&
+      !CARDS[u.id].static &&
+      (CARDS[u.id].damage ?? 0) > 0,
+  );
+  const groups = new Map<number, Unit[]>();
+  for (const u of s.units) {
+    if (!living(u) || !CARDS[u.id].members || CARDS[u.id].indirect) continue;
+    const manual = u.squadOrder && (u.squadOrderUntil ?? Infinity) > s.time;
+    if (
+      (manual && u.squadOrder !== 'escort') ||
+      (!manual && s.players[u.side].order === 'hold')
+    ) {
+      u.escortTankUid = undefined;
+      u.escortGoal = undefined;
+      continue;
+    }
+    const list = groups.get(u.squad) ?? [];
+    list.push(u);
+    groups.set(u.squad, list);
+  }
+  for (const members of groups.values()) {
+    members.sort((a, b) => a.uid - b.uid);
+    const first = members[0],
+      dir = first.side === 0 ? 1 : -1;
+    const center = members.reduce((n, u) => n + u.x, 0) / members.length;
+    let tank = tanks.find(
+      (v) => v.uid === first.escortTankUid && Math.abs(v.x - center) <= 760,
+    );
+    if (!tank && (first.escortScanAt ?? 0) <= s.time) {
+      tank = tanks
+        .filter((v) => v.side === first.side && Math.abs(v.x - center) <= 600)
+        .sort(
+          (a, b) =>
+            Math.abs(a.x - center) - Math.abs(b.x - center) || a.uid - b.uid,
+        )[0];
+      for (const u of members) u.escortScanAt = s.time + 0.6;
+    }
+    if (tank) {
+      const preceding = [...groups.entries()].filter(
+        ([id, group]) =>
+          id < first.squad &&
+          group[0].side === first.side &&
+          group[0].escortTankUid === tank.uid,
+      ).length;
+      for (const [i, u] of members.entries()) {
+        u.escortTankUid = tank.uid;
+        u.escortLostAt = undefined;
+        u.escortLastX = tank.x;
+        u.escortGoal = Math.max(
+          80,
+          Math.min(
+            s.terrain.length - 80,
+            tank.x - dir * (105 + preceding * 78 + Math.floor(i / 2) * 26),
+          ),
+        );
+        u.escortLane = i % 2 ? 18 : -18;
+      }
+    } else {
+      for (const u of members) {
+        if (u.escortTankUid !== undefined) {
+          u.escortLostAt = s.time;
+          u.escortGoal = Math.max(
+            80,
+            Math.min(s.terrain.length - 80, u.x - dir * 60),
+          );
+        }
+        u.escortTankUid = undefined;
+        if (u.escortLostAt === undefined || s.time - u.escortLostAt > 4) {
+          u.escortGoal = u.squadOrder === 'escort' ? u.x : undefined;
+          u.escortLostAt = undefined;
+        }
+      }
+    }
+  }
+}
+
 /** Construction requires nearby, grounded troops; repeated orders never create more mines. */
 export function updateSquadOrders(s: GameState, dt: number) {
+  updateEscorts(s);
   for (const u of s.units) {
     if (
       u.squadOrder === 'retreat' &&

@@ -27,6 +27,7 @@ import { buildingAnimation } from '../game/building-art.ts';
 import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
 import assert from 'node:assert/strict';
+import { economyBlock } from '../game/economy.ts';
 import {
   createGame,
   startGame,
@@ -64,6 +65,7 @@ import {
   validDeck,
   chooseAiDeck,
   isCombatant,
+  energyLimit,
 } from '../game/engine.ts';
 const advance = (s, seconds) => {
   for (let t = 0; t < seconds - 1e-9; t += 1 / 60) tick(s, 1 / 60);
@@ -76,6 +78,10 @@ const hand = (s, id) => {
 const fresh = () => {
   const s = createGame(37);
   startGame(s);
+  // These staged physics scenarios retain their original test budget.
+  s.players.forEach((p) => {
+    p.energy = 6;
+  });
   s.scenery = [];
   // Legacy battlefield scenarios explicitly stage their own initial units.
   spawnUnit(s, 0, 'infantry', 175);
@@ -655,8 +661,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('65种资源、合法20张自选卡组、双方真实随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 65);
+check('68种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 68);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
@@ -676,6 +682,8 @@ check('65种资源、合法20张自选卡组、双方真实随机起手且无免
     const s = createGame(seed, DECK, ai);
     assert.equal(s.units.length, 0);
     s.players.forEach((p, i) => {
+      assert.equal(p.energy, 2);
+      assert.equal(energyLimit(p), 10);
       assert.equal(p.hand.length, 6);
       assert.equal(p.deck.length, 14);
       assert.deepEqual(
@@ -717,6 +725,10 @@ check('双方洗牌随机流隔离，原始卡组不可被战斗改写', () => {
 const arena = () => {
   const s = createGame(67);
   startGame(s);
+  // Combat fixtures buy the same units they could before the slower opening.
+  s.players.forEach((p) => {
+    p.energy = 6;
+  });
   s.aiIn = 1e6;
   s.walls = [];
   s.scenery = [];
@@ -958,7 +970,11 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
     for (const side of [0, 1]) {
       const p = s.players[side];
       p.energy = 10;
-      const h = p.hand.find((h) => cardReadyIn(s, h) <= 0);
+      const h = p.hand.find(
+        (h) =>
+          cardReadyIn(s, h) <= 0 &&
+          (!CARDS[h.id].economy || !economyBlock(p, CARDS[h.id].economy)),
+      );
       if (h)
         assert(
           playCard(
@@ -1821,7 +1837,7 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
     }
     assert.equal(s.status, 'finished');
     for (const p of s.players) {
-      assert(p.energy >= 0 && p.energy <= 10);
+      assert(p.energy >= 0 && p.energy <= energyLimit(p));
       assert(p.hp >= 0 && p.hp <= 1000);
       assert(p.hand.length <= 6);
     }

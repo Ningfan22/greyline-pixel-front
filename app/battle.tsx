@@ -72,6 +72,10 @@ import { DEFAULT_MAP, type MapId } from '@/game/maps';
 import { pickSquad, setSquadOrder } from '@/game/squad-orders';
 import { infantryDepth } from '@/game/render-depth';
 import SquadMenu from './squad-menu';
+import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
+import { missionById, type MissionId } from '@/game/campaign';
+import { createCampaignGame } from '@/game/campaign-game';
+import { DIFFICULTY_LABEL, DIFFICULTY_BONUS } from './difficulty-selector';
 
 const timeString = (t: number) =>
   `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -103,19 +107,43 @@ export default function Battle({
   aiDeck,
   seed,
   mapId = DEFAULT_MAP,
+  difficulty = DEFAULT_DIFFICULTY,
+  missionId,
+  onMissionComplete,
+  onNextMission,
   onExit,
 }: {
   playerDeck: CardId[];
   aiDeck: CardId[];
   seed: number;
   mapId?: MapId;
+  difficulty?: Difficulty;
+  missionId?: MissionId;
+  onMissionComplete?: (id: MissionId) => void;
+  onNextMission?: () => void;
   onExit: () => void;
 }) {
   const [initialGame] = useState(() =>
-    createGame(seed, playerDeck, aiDeck, mapId),
+    missionId
+      ? createCampaignGame(seed, playerDeck, missionId, difficulty)
+      : createGame(seed, playerDeck, aiDeck, mapId, { difficulty }),
   );
   const game = useRef<GameState>(initialGame);
   const [view, setView] = useState(() => snapshot(initialGame));
+  const completionRecorded = useRef(false);
+  const mission = missionId ? missionById(missionId) : null;
+  const timeLimit = view.campaign?.duration ?? DURATION;
+  useEffect(() => {
+    if (
+      missionId &&
+      view.status === 'finished' &&
+      view.result === 0 &&
+      !completionRecorded.current
+    ) {
+      completionRecorded.current = true;
+      onMissionComplete?.(missionId);
+    }
+  }, [missionId, view.status, view.result, onMissionComplete]);
   const [selected, setSelected] = useState<number | null>(null);
   const [selectedSquad, setSelectedSquad] = useState<number | null>(null);
   const selectedSquadRef = useRef<number | null>(null);
@@ -155,8 +183,10 @@ export default function Battle({
   const [viewportWidth, setViewportWidth] = useState(VIEW_W);
   const [touchMode, setTouchMode] = useState(false);
   const mapPointer = useRef<number | null>(null);
-  const camera = useRef(0),
-    [cameraView, setCameraView] = useState(0),
+  const camera = useRef(initialGame.campaign?.initialCamera ?? 0),
+    [cameraView, setCameraView] = useState(
+      initialGame.campaign?.initialCamera ?? 0,
+    ),
     dragView = useRef<{
       x: number;
       y: number;
@@ -252,20 +282,29 @@ export default function Battle({
     interruptCardHold();
     const nextSeed = Date.now();
     selectSquad(null);
-    game.current = createGame(
-      nextSeed,
-      playerDeck,
-      chooseAiDeck(nextSeed),
-      mapId,
-    );
+    completionRecorded.current = false;
+    game.current = missionId
+      ? createCampaignGame(nextSeed, playerDeck, missionId, difficulty)
+      : createGame(nextSeed, playerDeck, chooseAiDeck(nextSeed), mapId, {
+          difficulty,
+        });
     startGame(game.current);
     choose(null);
     hover.current = null;
-    camera.current = 0;
-    setCameraView(0);
+    camera.current = game.current.campaign?.initialCamera ?? 0;
+    setCameraView(camera.current);
     setMessage('');
     refresh();
-  }, [choose, refresh, playerDeck, mapId, interruptCardHold, selectSquad]);
+  }, [
+    choose,
+    refresh,
+    playerDeck,
+    mapId,
+    difficulty,
+    missionId,
+    interruptCardHold,
+    selectSquad,
+  ]);
   const pause = useCallback(() => {
     interruptCardHold();
     const s = game.current!;
@@ -318,7 +357,11 @@ export default function Battle({
         0,
         Math.min(
           W - next,
-          camera.current === 0 ? 0 : camera.current + (old - next) / 2,
+          camera.current === 0
+            ? 0
+            : game.current.campaign
+              ? camera.current
+              : camera.current + (old - next) / 2,
         ),
       );
       setCameraView(camera.current);
@@ -711,8 +754,14 @@ export default function Battle({
           <div className="mobile-command-points">
             <Zap size={14} />
             <strong>{Math.floor(p.energy)}</strong>
-            <span>/ 10 指挥点</span>
+            <span>/ {p.energyCap} 指挥点</span>
           </div>
+          <small className="mobile-economy-readout">
+            +1 / {p.energyInterval.toFixed(1)}秒
+            {p.bondDueAt !== null
+              ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
+              : ''}
+          </small>
         </div>
         <button
           className="mobile-pause-control"
@@ -721,7 +770,7 @@ export default function Battle({
           disabled={!active}
         >
           <Pause size={17} />
-          <span>{timeString(Math.ceil(DURATION - view.time))}</span>
+          <span>{timeString(Math.ceil(timeLimit - view.time))}</span>
         </button>
         <div className="mobile-base mobile-base-enemy">
           <div>
@@ -738,6 +787,9 @@ export default function Battle({
           >
             <i style={{ width: `${enemy.hp / 10}%` }} />
           </div>
+          <small className="mobile-economy-readout">
+            {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
+          </small>
         </div>
       </div>
       <div className="rotate-battle-hint">
@@ -746,6 +798,25 @@ export default function Battle({
         <span>转动手机，展开战场</span>
         <button onClick={onExit}>返回整备</button>
       </div>
+      {mission &&
+        view.campaign &&
+        active &&
+        !panel &&
+        selectedMembers.length === 0 && (
+          <div
+            className="mission-status"
+            aria-label={`战役目标：${mission.goal}`}
+          >
+            <strong>{mission.title}</strong>
+            <span>
+              {mission.objective === 'capture'
+                ? `控制电台 ${view.campaign.captureProgress.toFixed(0)} / 15秒`
+                : mission.objective === 'defend'
+                  ? '守住己方指挥部'
+                  : '摧毁敌方指挥部'}
+            </span>
+          </div>
+        )}
       <header className="masthead">
         <div className="brand">
           <span className="brand-symbol">
@@ -767,7 +838,8 @@ export default function Battle({
             返回整备
           </button>
           <span className="live-label">
-            <i /> 人机演习
+            <i /> {DIFFICULTY_LABEL[difficulty]} ·{' '}
+            {DIFFICULTY_BONUS[difficulty]}
           </span>
           <button
             className="text-button"
@@ -832,14 +904,24 @@ export default function Battle({
                 ? '战场暂停'
                 : view.status === 'finished'
                   ? '作战结束'
-                  : '作战进行中'}
+                  : (mission?.title ?? '作战进行中')}
           </span>
-          <strong>{timeString(Math.ceil(DURATION - view.time))}</strong>
-          <div className="clock-dots">
-            <i />
-            <i />
-            <i />
-          </div>
+          <strong>{timeString(Math.ceil(timeLimit - view.time))}</strong>
+          {mission && view.campaign ? (
+            <small className="mission-clock-goal">
+              {mission.objective === 'capture'
+                ? `电台 ${view.campaign.captureProgress.toFixed(0)} / 15秒`
+                : mission.objective === 'defend'
+                  ? '守住己方指挥部'
+                  : '摧毁敌方指挥部'}
+            </small>
+          ) : (
+            <div className="clock-dots">
+              <i />
+              <i />
+              <i />
+            </div>
+          )}
         </div>
         <div className="team team-red">
           <div className="team-data">
@@ -965,7 +1047,12 @@ export default function Battle({
               y={(squadY / H) * 100}
               name={CARDS[selectedMembers[0].id].name}
               count={selectedMembers.length}
-              order={selectedMembers[0].squadOrder}
+              order={
+                selectedMembers[0].squadOrder ??
+                (selectedMembers[0].escortTankUid !== undefined
+                  ? 'escort'
+                  : undefined)
+              }
               progress={squadTrench?.progress}
               onOrder={(order) => {
                 const result = setSquadOrder(
@@ -1036,7 +1123,11 @@ export default function Battle({
                 <i /> OPERATION: GREYLINE <i />
               </div>
               <h1>战线，由你推进。</h1>
-              <p>部署部队，下达指令。夺下村落另一端的指挥部。</p>
+              <p>
+                {mission
+                  ? mission.goal
+                  : '部署部队，下达指令。夺下村落另一端的指挥部。'}
+              </p>
               <button
                 className="primary-button"
                 onClick={() => {
@@ -1055,7 +1146,9 @@ export default function Battle({
               <div className="launch-meta">
                 <span>1 VS 1</span>
                 <i />
-                <span>10 分钟对局</span>
+                <span>
+                  {Math.round(timeLimit / 60)} 分钟{mission ? '任务' : '对局'}
+                </span>
                 <i />
                 <span>可破坏地形</span>
               </div>
@@ -1068,6 +1161,11 @@ export default function Battle({
               <Pause size={25} />
               <h2>战场已暂停</h2>
               <p>准备好了，就继续推进。</p>
+              <p className="match-rules-note">
+                {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}{' '}
+                · 双方开局2点
+              </p>
+              {mission && <p>{mission.goal}</p>}
               <button className="primary-button" onClick={pause}>
                 继续作战
                 <Play size={16} />
@@ -1153,7 +1251,11 @@ export default function Battle({
         {view.status === 'finished' && (
           <div className="pause-scrim">
             <div className="result-card">
-              <span className="operation">OPERATION COMPLETE</span>
+              <span className="operation">
+                {mission
+                  ? `${mission.chapter} · ${mission.title}`
+                  : 'OPERATION COMPLETE'}
+              </span>
               <h2>
                 {view.result === 0
                   ? '作战胜利'
@@ -1162,11 +1264,15 @@ export default function Battle({
                     : '双方平局'}
               </h2>
               <p>
-                {view.result === 0
-                  ? '前线已控制，指挥官。'
-                  : view.result === 1
-                    ? '调整部署，下一次夺回前线。'
-                    : '双方坚守阵地，再来一局。'}
+                {mission
+                  ? view.result === 0
+                    ? mission.victory
+                    : mission.defeat
+                  : view.result === 0
+                    ? '前线已控制，指挥官。'
+                    : view.result === 1
+                      ? '调整部署，下一次夺回前线。'
+                      : '双方坚守阵地，再来一局。'}
               </p>
               <div className="result-stats">
                 <span>
@@ -1179,12 +1285,18 @@ export default function Battle({
                   <b>{timeString(view.time)}</b>作战时长
                 </span>
               </div>
+              {mission && view.result === 0 && onNextMission && (
+                <button className="primary-button" onClick={onNextMission}>
+                  进入下一章
+                  <ArrowRight size={17} />
+                </button>
+              )}
               <button className="primary-button" onClick={reset}>
-                再来一局
+                {mission ? '重打本章' : '再来一局'}
                 <RotateCcw size={17} />
               </button>
               <button className="text-button mobile-exit" onClick={onExit}>
-                返回整备
+                {mission ? '返回战役' : '返回整备'}
               </button>
             </div>
           </div>
@@ -1367,14 +1479,14 @@ export default function Battle({
           </div>
           <div className="energy-number">
             <strong>{Math.floor(p.energy)}</strong>
-            <span>/ 10</span>
-            <small>+1 / 3.6s</small>
+            <span>/ {p.energyCap}</span>
+            <small>+1 / {p.energyInterval.toFixed(1)}s</small>
           </div>
           <div
             className="energy-segments"
-            aria-label={`指挥点 ${Math.floor(p.energy)}/10`}
+            aria-label={`指挥点 ${Math.floor(p.energy)}/${p.energyCap}`}
           >
-            {Array.from({ length: 10 }, (_, i) => (
+            {Array.from({ length: p.energyCap }, (_, i) => (
               <i key={i}>
                 <b
                   style={{
@@ -1385,6 +1497,12 @@ export default function Battle({
             ))}
           </div>
           <div className="deployment-count">
+            <span className="economy-match-note">
+              {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
+              {p.bondDueAt !== null
+                ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒后结算`
+                : ''}
+            </span>
             <span>
               <span className="unit-dot" />
               在场部队
@@ -1764,15 +1882,16 @@ export default function Battle({
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
                     移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。单位从己方基地入场。炮兵随前线护卫牵引，到达有效射程后架设固定。烟幕和地雷以松手位置为目标。每个班组由
                     2–7
-                    名独立士兵组成。点击己方小队，可选择据守、撤退、进攻或警戒。据守约六秒挖好全队共用的战壕并布置两枚地雷，每队一次；撤退会交替掩护，到位后警戒。房屋与废墟可以绕行穿过，仍提供掩护；只有真实墙体和明显陡坎需要攀越。
+                    名独立士兵组成。点击己方小队，可选择据守、撤退、进攻、警戒或伴随。未收到明确指令的步兵会自动跟随附近友军坦克，进攻指令可解除伴随。据守约六秒挖好全队共用的战壕并布置两枚地雷，每队一次；撤退会交替掩护，到位后警戒。房屋与废墟可以绕行穿过，仍提供掩护；只有真实墙体和明显陡坎需要攀越。
                   </p>
                 </div>
                 <div>
                   <span>03 / 补给</span>
                   <h3>合理分配指挥点</h3>
                   <p>
-                    开局随机 6 张手牌、6 指挥点，每 3.6 秒恢复 1 点，上限
-                    10。主动点击牌堆，消耗 2 点抽 1 张，冷却 9
+                    开局随机 6 张手牌、2 指挥点，基础每 3.6 秒恢复 1 点，上限
+                    10。战地后勤可加快恢复，指挥扩编可提升上限，战时公债可在18秒后回款。主动点击牌堆，消耗
+                    2 点抽 1 张，冷却 9
                     秒；不再自动抽牌。补给技能按卡面费用结算，无需额外支付抽牌费用。
                   </p>
                 </div>
@@ -1788,8 +1907,9 @@ export default function Battle({
               <div className="guide-note">
                 <Radio size={18} />
                 <p>
-                  AI 从独立组建的 20
-                  张牌库抽牌，双方遵循相同资源规则。离开页面会自动暂停；返回后点击继续作战。
+                  AI 从独立组建的 20 张牌库抽牌。当前难度：
+                  {DIFFICULTY_LABEL[difficulty]}，{DIFFICULTY_BONUS[difficulty]}
+                  。双方开局均为2点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。
                 </p>
               </div>
               <button className="primary-button" onClick={closePanel}>

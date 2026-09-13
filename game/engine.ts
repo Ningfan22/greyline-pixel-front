@@ -1,4 +1,23 @@
 import { infantryGeometry } from './infantry-geometry';
+import { energyInterval } from './economy';
+import {
+  advanceCampaign,
+  campaignResult,
+  type CampaignState,
+} from './campaign';
+import { blastVisible } from './impact-fx';
+import {
+  initialEconomy,
+  energyLimit,
+  economyBlock,
+  applyEconomy,
+  updateEconomy,
+  ECONOMY_RULES,
+  type EconomyPlayer,
+  type MatchOptions,
+} from './economy';
+export { energyInterval, energyLimit, DEFAULT_DIFFICULTY } from './economy';
+export type { Difficulty, MatchOptions } from './economy';
 import {
   comebackBlock,
   comebackScore,
@@ -78,7 +97,7 @@ export const W = 3840,
   DURATION = 600,
   MAX_HP = 1000,
   DRAW_TIME = 9,
-  ENERGY_TIME = 3.6,
+  ENERGY_TIME = ECONOMY_RULES.baseInterval,
   MAX_HAND = 6;
 export const DRAW_COST = 2,
   MAX_CRATER_DEPTH = 28,
@@ -96,6 +115,17 @@ export interface Unit {
   squadOrder?: SquadOrder;
   squadOrderX?: number;
   squadOrderUntil?: number;
+  escortTankUid?: number;
+  escortGoal?: number;
+  escortLane?: number;
+  escortScanAt?: number;
+  escortLostAt?: number;
+  escortLastX?: number;
+  withdrawHeavyUid?: number;
+  withdrawHeavySeenAt?: number;
+  withdrawHeavyX?: number;
+  withdrawHeavyY?: number;
+  withdrawStandby?: boolean;
   holdLane?: number;
   digging?: boolean;
   digElapsed?: number;
@@ -351,7 +381,7 @@ export interface Wall {
   height: number;
   hp: number;
 }
-export interface Player {
+export interface Player extends EconomyPlayer {
   loadout: CardId[];
   drawSeed: number;
   fortify: number;
@@ -370,6 +400,7 @@ export interface Player {
   played: number;
 }
 export interface GameState {
+  campaign?: CampaignState;
   comeback?: ComebackState;
   entrenchments?: Entrenchment[];
   mapId: MapId;
@@ -433,6 +464,7 @@ export function createGame(
   playerDeck: CardId[] = DECK,
   aiDeck: CardId[] = chooseAiDeck(seed),
   mapId: MapId = DEFAULT_MAP,
+  options: MatchOptions = {},
 ): GameState {
   if (!validDeck(playerDeck) || !validDeck(aiDeck))
     throw new Error('双方卡组必须各有20张有效卡牌，且不超过各卡数量上限');
@@ -445,7 +477,7 @@ export function createGame(
     captures: 0,
     order: 'advance',
     hp: MAX_HP,
-    energy: 6,
+    ...initialEconomy(side, options),
     hand: [],
     deck: [],
     discard: [],
@@ -823,6 +855,8 @@ export function playCard(
     };
   const blocked = c.comeback && comebackBlock(s, side, c.comeback);
   if (blocked) return { ok: false, message: blocked };
+  const economyBlocked = c.economy && economyBlock(p, c.economy);
+  if (economyBlocked) return { ok: false, message: economyBlocked };
   if (
     c.type === 'unit' &&
     x !== undefined &&
@@ -855,7 +889,9 @@ export function playCard(
   p.hand.splice(index, 1);
   if (!c.sortie) p.discard.push(token);
   p.played++;
-  if (c.type === 'unit') {
+  if (c.economy) {
+    applyEconomy(p, c.economy, s.time);
+  } else if (c.type === 'unit') {
     spawnUnit(s, side, c.id, x!);
     if (c.airlift)
       s.units.at(-1)!.airlift = {
@@ -1053,10 +1089,7 @@ function burst(
     (kind === 'crash' || y >= ground(s, x) - 80);
   if (soil) y = ground(s, x);
   else if (kind !== 'penetration') kind = 'air';
-  s.explosions++;
-  for (const side of [0, 1] as Side[])
-    if (pointVisible(s, side, x, y)) s.audibleExplosions[side]++;
-  s.blasts.push({
+  const blast: Blast = {
     x,
     y,
     age: 0,
@@ -1064,9 +1097,13 @@ function burst(
     kind,
     soil,
     seed: s.fxSeed,
-  });
+  };
+  s.explosions++;
+  for (const side of [0, 1] as Side[])
+    if (blastVisible(s, side, blast)) s.audibleExplosions[side]++;
+  s.blasts.push(blast);
   s.blasts = s.blasts.slice(-32);
-  if (pointVisible(s, 0, x, y)) s.shake = Math.min(12, radius / 7);
+  if (blastVisible(s, 0, blast)) s.shake = Math.min(12, radius / 7);
   // Generated sprite frames contain the fire, smoke and debris. Only animation state is simulated.
   fxRnd(s);
 }
@@ -2235,6 +2272,97 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit) {
     Math.sqrt(Math.max(0.1, source.hp / source.maxHp))
   );
 }
+function effectiveHeavyCounter(s: GameState, friend: Unit, foe: Unit) {
+  const weapon = weaponCard(friend),
+    ammo = ammunition(friend.id, friend.member);
+  return (
+    ((CARDS[foe.id].air &&
+      weapon.antiAir &&
+      ammo !== 'rifle' &&
+      ammo !== 'machinegun') ||
+      (CARDS[foe.id].armored &&
+        ((weapon.armorMultiplier ?? 1) > 1.2 || weapon.penetration))) &&
+    tacticalReach(s, friend, foe, 0)
+  );
+}
+function heavySupport(s: GameState, u: Unit, foe: Unit) {
+  return s.units.some(
+    (friend) =>
+      friend.side === u.side &&
+      isCombatant(friend) &&
+      friend.tactic !== 'retreat' &&
+      Math.abs(friend.x - u.x) <= 320 &&
+      effectiveHeavyCounter(s, friend, foe),
+  );
+}
+/** Continue short bounds while a known heavy weapon still covers this soldier. */
+function continueHeavyWithdrawal(s: GameState, u: Unit) {
+  if (u.withdrawHeavyUid === undefined) return;
+  const clear = () => {
+    u.withdrawHeavyUid = undefined;
+    u.withdrawStandby = false;
+    u.withdrawUntil = 0;
+    u.withdrawGoal = undefined;
+    u.passingLane = undefined;
+  };
+  if (
+    infantryOrder(s, u) === 'hold' ||
+    infantryOrder(s, u) === 'rush' ||
+    orderedWithdrawal(s, u)
+  ) {
+    clear();
+    return;
+  }
+  const foe = s.units.find((v) => v.uid === u.withdrawHeavyUid);
+  const seen = foe && visibleToSide(s, u.side, foe);
+  if (seen) {
+    u.withdrawHeavySeenAt = s.time;
+    u.withdrawHeavyX = foe.x;
+    u.withdrawHeavyY = foe.y - bodyHeight(foe);
+    if (!isCombatant(foe) || heavySupport(s, u, foe)) {
+      clear();
+      return;
+    }
+    if (tacticalReach(s, foe, u, 24)) {
+      const away = Math.sign(u.x - foe.x) || (u.side === 0 ? -1 : 1);
+      u.withdrawStandby = false;
+      u.withdrawUntil = s.time + 1.5;
+      if (
+        u.withdrawGoal === undefined ||
+        Math.abs(u.withdrawGoal - u.x) <= 4 ||
+        (u.withdrawGoal - u.x) * away < 0
+      ) {
+        const slot = infantrySpace(s, u, u.x + away * 66, 24, away);
+        u.withdrawGoal = slot.x;
+        u.passingLane = slot.lane;
+      }
+      u.coverGoal = null;
+      u.firingGoal = null;
+      u.dispersionGoal = undefined;
+      return;
+    }
+  } else if (
+    u.withdrawHeavyX !== undefined &&
+    u.withdrawHeavyY !== undefined &&
+    pointVisible(s, u.side, u.withdrawHeavyX, u.withdrawHeavyY)
+  ) {
+    // The remembered position has actually been observed clear, not merely hidden by fog.
+    clear();
+    return;
+  }
+  if (u.withdrawGoal !== undefined && Math.abs(u.withdrawGoal - u.x) > 4) {
+    u.withdrawStandby = false;
+    u.withdrawUntil = s.time + 1.5;
+    return;
+  }
+  // Once outside its firing lane, observe rather than walking straight back into it.
+  u.withdrawStandby = true;
+  u.withdrawUntil = 0;
+  u.withdrawGoal = undefined;
+  u.coverGoal = null;
+  u.firingGoal = null;
+  u.dispersionGoal = undefined;
+}
 function crowdedInfantry(s: GameState, u: Unit, x: number) {
   return s.units.filter(
     (v) =>
@@ -2321,7 +2449,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     !squad.length ||
     squad.some(
       (v) =>
-        s.time < (v.withdrawNextAt ?? 0) || s.time < (v.withdrawAssessAt ?? 0),
+        s.time < (v.withdrawAssessAt ?? 0) || v.withdrawHeavyUid !== undefined,
     )
   )
     return;
@@ -2350,26 +2478,15 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     power: Math.max(0, ...squad.map((mate) => tacticalPressure(s, foe, mate))),
   }));
   const enemyPower = pressures.reduce((n, v) => n + v.power, 0);
-  const effectiveCounter = (friend: Unit, foe: Unit) => {
-    const weapon = weaponCard(friend);
-    const ammo = ammunition(friend.id, friend.member);
-    return (
-      ((CARDS[foe.id].air &&
-        weapon.antiAir &&
-        ammo !== 'rifle' &&
-        ammo !== 'machinegun') ||
-        (CARDS[foe.id].armored &&
-          ((weapon.armorMultiplier ?? 1) > 1.2 || weapon.penetration))) &&
-      tacticalReach(s, friend, foe, 0)
-    );
-  };
-  const unsupportedHeavy = pressures.some(
+  const unsupportedHeavy = pressures.find(
     ({ foe, power }) =>
       power >= 8 &&
       (CARDS[foe.id].armored || sustainedAirThreat(foe)) &&
       squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
-      !friends.some((friend) => effectiveCounter(friend, foe)),
+      !friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
   );
+  if (!unsupportedHeavy && squad.some((v) => s.time < (v.withdrawNextAt ?? 0)))
+    return;
   const friendlyPower = friends.reduce((n, friend) => {
     let power = Math.max(
       0,
@@ -2377,7 +2494,8 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     );
     // Real AT/AA support can pin its matching threat; ordinary guards cannot inherit its credit.
     for (const { foe, power: hostile } of pressures) {
-      if (effectiveCounter(friend, foe)) power = Math.max(power, hostile * 0.8);
+      if (effectiveHeavyCounter(s, friend, foe))
+        power = Math.max(power, hostile * 0.8);
     }
     return n + power;
   }, 0);
@@ -2395,6 +2513,13 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const away = Math.sign(center - threat.x) || (u.side === 0 ? -1 : 1);
   for (const [index, mate] of squad.entries()) {
     const slot = infantrySpace(s, mate, mate.x + away * 66, 24, away);
+    mate.withdrawHeavyUid = unsupportedHeavy?.foe.uid;
+    mate.withdrawHeavySeenAt = unsupportedHeavy ? s.time : undefined;
+    mate.withdrawHeavyX = unsupportedHeavy?.foe.x;
+    mate.withdrawHeavyY = unsupportedHeavy
+      ? unsupportedHeavy.foe.y - bodyHeight(unsupportedHeavy.foe)
+      : undefined;
+    mate.withdrawStandby = false;
     mate.withdrawStartedAt = s.time;
     mate.withdrawUntil = s.time + 4.8;
     mate.withdrawNextAt = s.time + 11;
@@ -2428,6 +2553,7 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
     u.firingGoal = null;
     u.dispersionGoal = undefined;
   }
+  continueHeavyWithdrawal(s, u);
   const settled = !u.moving && u.motion === 'ground' && u.climbing <= 0;
   u.stillFor = settled ? (u.stillFor ?? 0) + dt : 0;
   u.ambushFor =
@@ -2497,7 +2623,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   const inContact =
     !!threat &&
     Math.abs(threat.x - u.x) <=
-      Math.max(unitRange(s, u), Math.min(560, unitRange(s, threat) + 40));
+      Math.max(unitRange(s, u), Math.min(720, unitRange(s, threat) + 40));
   const newContact = inContact && (u.contactUntil ?? 0) <= s.time;
   if (inContact) {
     u.contactUid = threat.uid;
@@ -3316,6 +3442,31 @@ function updateAI(s: GameState) {
         if ((c.indirect || c.vehicleSupport) && screens < 1.5) score = -100;
         // Avoid continuously buying a specialised role already covered by own units.
         score -= Math.min(6, groups(own.filter((u) => u.id === c.id)) * 2);
+      } else if (c.economy) {
+        const peaceful =
+          !battle && !emergency && !armor.length && !armedAir.length;
+        if (peaceful && !economyBlock(p, c.economy)) {
+          if (
+            c.economy === 'logistics' &&
+            screens >= 2 &&
+            s.time < DURATION - 150 &&
+            p.energy >= cardCost(h) + 2
+          )
+            score = 21;
+          if (
+            c.economy === 'capacity' &&
+            screens >= 1 &&
+            p.energy >= energyLimit(p) - 1
+          )
+            score = 20;
+          if (
+            c.economy === 'bonds' &&
+            s.time + ECONOMY_RULES.bondDelay < DURATION &&
+            p.energy >= cardCost(h) + 1 &&
+            (screens >= 1 || s.time < 12)
+          )
+            score = screens >= 1 ? 18 : 5;
+        }
       } else if (c.id === 'antitank_mine') {
         x = armor
           .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
@@ -3637,7 +3788,7 @@ function updateAI(s: GameState) {
   // budget for the current one. Urgent counters have already been handled above.
   if (
     !emergency &&
-    p.energy >= 9 &&
+    p.energy >= energyLimit(p) - 1 &&
     p.hand.length <= 3 &&
     (!best || best.score < 16) &&
     (!best || p.energy >= cardCost(best.h) + DRAW_COST) &&
@@ -4161,12 +4312,12 @@ export function tick(s: GameState, dt: number) {
       .filter((u) => CARDS[u.id].air)
       .map((u) => [u.uid, { x: u.x, y: u.y }]),
   );
-  s.time = Math.min(DURATION, s.time + dt);
+  s.time = Math.min(s.campaign?.duration ?? DURATION, s.time + dt);
   updateComeback(s, { damage: hitUnit, spawn: spawnUnit, draw });
   s.shake = Math.max(0, s.shake - dt * 24);
   for (const side of [0, 1] as Side[]) {
     const p = s.players[side];
-    p.energy = Math.min(10, p.energy + dt / ENERGY_TIME);
+    updateEconomy(s, side, dt);
     p.morale = Math.max(0, p.morale - dt);
     p.recon = Math.max(0, p.recon - dt);
     p.fortify = Math.max(0, p.fortify - dt);
@@ -4296,6 +4447,7 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    if (c.members && u.withdrawStandby) u.pose = 'crouch';
     if (c.members && u.climbing > 0) {
       u.cover = 0;
       const wall = s.walls.find((w) => w.uid === u.climbWall);
@@ -4584,7 +4736,11 @@ export function tick(s: GameState, dt: number) {
           )
           .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0])
       : undefined;
-    if (withdrawing && !orderedWithdrawal(s, u)) {
+    if (
+      withdrawing &&
+      !orderedWithdrawal(s, u) &&
+      u.withdrawHeavyUid === undefined
+    ) {
       if (withdrawalThreat) u.withdrawSafeSince = undefined;
       else {
         u.withdrawSafeSince ??= s.time;
@@ -4727,11 +4883,24 @@ export function tick(s: GameState, dt: number) {
       u.tactic !== 'retreat' &&
       (Math.abs(worksite.x - u.x) > 0.5 ||
         Math.abs(worksite.lane - u.lane) > 0.5);
+    const escorting = !!(
+      c.members &&
+      u.escortGoal !== undefined &&
+      (!u.squadOrder || u.squadOrder === 'escort')
+    );
+    const escortTravel = escorting && Math.abs(u.escortGoal! - u.x) > 8;
+    const escortAhead = escorting && (u.x - u.escortGoal!) * dir > 12;
     const moveGoal = withdrawing
       ? u.withdrawGoal!
       : holdTravel
         ? worksite.x
-        : (u.coverGoal ?? u.firingGoal ?? u.dispersionGoal ?? null);
+        : u.withdrawStandby
+          ? null
+          : escorting
+            ? escortTravel
+              ? u.escortGoal!
+              : null
+            : (u.coverGoal ?? u.firingGoal ?? u.dispersionGoal ?? null);
     const seeking =
       !withdrawing &&
       (!!holdTravel || (moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5));
@@ -4747,6 +4916,7 @@ export function tick(s: GameState, dt: number) {
       c.members &&
       target &&
       !dispersionStep &&
+      !(escortAhead && s.time - (u.lastCombatShotAt ?? -100) < 0.8) &&
       (u.cooldown <= 0 ||
         s.time - (u.lastCombatShotAt ?? -Infinity) <
           Math.min(0.18, c.rate! * 0.35))
@@ -4773,6 +4943,8 @@ export function tick(s: GameState, dt: number) {
     let bounding =
       c.members &&
       !withdrawing &&
+      !escorting &&
+      !u.withdrawStandby &&
       !contactFire &&
       u.withdrawPressureSince === undefined &&
       order === 'advance' &&
@@ -4972,6 +5144,8 @@ export function tick(s: GameState, dt: number) {
             (u.squadOrder !== 'hold' && u.squadOrder !== 'watch'))) ||
         (!withdrawing &&
           !observing &&
+          !escorting &&
+          !u.withdrawStandby &&
           !target &&
           !baseInRange &&
           !blockedContact &&
@@ -5029,9 +5203,15 @@ export function tick(s: GameState, dt: number) {
         // Our atlas turns to travel; never keep a muzzle flash facing the old target.
         u.fire = 0;
         u.secondaryFire = 0;
-        const laneChange = holdTravel
-          ? Math.max(-12 * dt, Math.min(12 * dt, worksite.lane - u.lane))
-          : 0;
+        const desiredLane = holdTravel
+          ? worksite.lane
+          : escortTravel
+            ? u.escortLane
+            : undefined;
+        const laneChange =
+          desiredLane !== undefined
+            ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
+            : 0;
         u.lane += laneChange;
         u.walk += Math.abs(laneChange) / 6;
         const beforeMove = u.x;
@@ -5132,6 +5312,9 @@ export function tick(s: GameState, dt: number) {
         dist = Math.hypot(dx, dy),
         step = (p.speed ?? FLIGHT[p.ammunition ?? 'rocket'].speed) * dt;
       if (p.life <= 0) {
+        // Fuel/TTL exhaustion is a visual detonation at the missile's actual position.
+        // It must not damage the tracked target or dig a crater at the unvisited goal.
+        if (p.radius) burst(s, p.x, p.y, p.radius, p.effect);
         continue;
       }
       p.heading = Math.atan2(dy, dx);
@@ -5451,10 +5634,17 @@ export function tick(s: GameState, dt: number) {
   s.particles = s.particles.filter((p) => p.life > 0).slice(-700);
   // Resolve construction after movement, firing and incoming impacts for this frame.
   updateSquadOrders(s, dt);
+  advanceCampaign(s, dt, spawnUnit);
   const [a, b] = s.players;
-  if (a.hp <= 0 || b.hp <= 0 || s.time >= DURATION) {
+  const missionResult = campaignResult(s);
+  if (
+    missionResult !== null ||
+    (!s.campaign && (a.hp <= 0 || b.hp <= 0 || s.time >= DURATION))
+  ) {
     s.status = 'finished';
-    s.result = Math.abs(a.hp - b.hp) < 0.01 ? 'draw' : a.hp > b.hp ? 0 : 1;
+    s.result =
+      missionResult ??
+      (Math.abs(a.hp - b.hp) < 0.01 ? 'draw' : a.hp > b.hp ? 0 : 1);
     notify(
       s,
       s.result === 0
@@ -5467,6 +5657,7 @@ export function tick(s: GameState, dt: number) {
 }
 export function snapshot(s: GameState, viewer: Side = 0) {
   return {
+    campaign: s.campaign ? { ...s.campaign } : null,
     gas: s.comeback?.gas ? { ...s.comeback.gas } : null,
     reserves: (s.comeback?.reserves ?? [])
       .filter((r) => r.side === viewer)
@@ -5482,6 +5673,13 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       order: p.order,
       hp: p.hp,
       energy: i === viewer ? p.energy : 0,
+      difficulty: p.difficulty,
+      economyRate: p.economyRate,
+      energyCap: i === viewer ? energyLimit(p) : 0,
+      energyInterval: i === viewer ? energyInterval(s, viewer) : 0,
+      logisticsLevel: i === viewer ? p.logisticsLevel : 0,
+      bondUses: i === viewer ? p.bondUses : 0,
+      bondDueAt: i === viewer ? p.bondDueAt : null,
       hand:
         i === viewer
           ? p.hand.map((h) => ({

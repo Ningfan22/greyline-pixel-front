@@ -11,10 +11,18 @@ import { assetUrl } from '@/game/asset-url';
 import styles from './home-menu.module.css';
 import MapSelector from './map-selector';
 import type { MapId } from '@/game/maps';
+import type { Difficulty } from '@/game/economy';
+import type { MissionId } from '@/game/campaign';
+import CampaignMenu from './campaign-menu';
+import DifficultySelector, {
+  DIFFICULTY_LABEL,
+  DIFFICULTY_BONUS,
+} from './difficulty-selector';
 
-export type LobbyPage = 'home' | 'builder' | 'settings' | 'guide';
+export type LobbyPage = 'home' | 'builder' | 'settings' | 'guide' | 'campaign';
 const navigation: { page: LobbyPage; label: string }[] = [
   { page: 'home', label: '首页' },
+  { page: 'campaign', label: '故事战役' },
   { page: 'builder', label: '卡组' },
   { page: 'settings', label: '设置' },
   { page: 'guide', label: '作战手册' },
@@ -22,6 +30,7 @@ const navigation: { page: LobbyPage; label: string }[] = [
 
 function PixelIcon({ name }: { name: LobbyPage }) {
   const paths = {
+    campaign: 'M1 2h6v2h3V2h5v12h-5v-2H7v2H1V2Zm2 2v8h2V4H3Zm6 2v4h3V6H9Z',
     home: 'M2 7h2V5h2V3h4v2h2v2h2v2h-2v6H4V9H2V7Zm4 2v4h1v-3h2v3h1V9H6Z',
     builder: 'M2 1h9v2H4v9H2V1Zm3 3h9v11H5V4Zm2 2v7h5V6H7Zm1 1h3v2H8V7Z',
     settings: 'M6 1h4v2h2v2h3v6h-3v2h-2v2H6v-2H4v-2H1V5h3V3h2V1Zm0 5v4h4V6H6Z',
@@ -34,7 +43,13 @@ function PixelIcon({ name }: { name: LobbyPage }) {
   );
 }
 
-function Settings() {
+function Settings({
+  difficulty,
+  onDifficultyChange,
+}: {
+  difficulty: Difficulty;
+  onDifficultyChange: (value: Difficulty) => void;
+}) {
   const [audio, setAudio] = useState<AudioSettings>({ ...DEFAULT_AUDIO });
   useEffect(() => {
     let active = true;
@@ -53,6 +68,7 @@ function Settings() {
   return (
     <section className={styles.panel} aria-labelledby="home-settings-title">
       <h1 id="home-settings-title">设置</h1>
+      <DifficultySelector value={difficulty} onChange={onDifficultyChange} />
       <div className={styles.soundSwitch}>
         <span>游戏声音</span>
         <button
@@ -121,12 +137,22 @@ function Guide() {
           把卡牌拖出底部扇形区域后松手，即可使用；拖回则取消。长按查看详情。单位从己方基地出发，烟幕、地雷和机降落点使用松手位置。机降直升机会飞抵落点后放下步兵，途中可被防空击落。
         </p>
         <p>点击牌堆，消耗 2 点指挥点抽牌，冷却 9 秒。手牌最多 6 张。</p>
+        <p>
+          双方开局 2 点，每 3.6 秒恢复 1
+          点。后勤可加快回点，扩编可增加上限；难度设置会注明 AI 的额外回点速度。
+        </p>
       </div>
       <div>
         <h2>查看战场</h2>
         <p>
           左右拖动画面移动视野。电脑也可使用 A/D、方向键或滚轮，数字键 1–6
           选牌、回车使用、R 抽牌、空格暂停。手机横屏游玩。
+        </p>
+      </div>
+      <div>
+        <h2>机步协同</h2>
+        <p>
+          步兵会自动伴随附近友军坦克，保持后方距离。点击小队可选择伴随、据守、撤退、进攻或警戒；手动进攻会解除伴随。缺少有效反甲或防空保护时，步兵会持续撤离重装火力范围。
         </p>
       </div>
       <div>
@@ -148,6 +174,10 @@ export default function HomeMenu({
   onMapChange,
   onNavigate,
   onStart,
+  difficulty,
+  onDifficultyChange,
+  completed,
+  onMissionStart,
   children,
 }: {
   page: LobbyPage;
@@ -157,6 +187,10 @@ export default function HomeMenu({
   onMapChange: (id: MapId) => void;
   onNavigate: (page: LobbyPage) => void;
   onStart: () => void;
+  difficulty: Difficulty;
+  onDifficultyChange: (value: Difficulty) => void;
+  completed: MissionId[];
+  onMissionStart: (id: MissionId) => void;
   children: ReactNode;
 }) {
   const stage = useRef<HTMLDivElement>(null);
@@ -192,7 +226,18 @@ export default function HomeMenu({
             </button>
           ))}
         </nav>
-        <MapSelector value={mapId} onChange={onMapChange} disabled={!ready} />
+        {page !== 'campaign' && (
+          <MapSelector value={mapId} onChange={onMapChange} disabled={!ready} />
+        )}
+        <button
+          type="button"
+          className={styles.difficultyLink}
+          onClick={() => onNavigate('settings')}
+          title={DIFFICULTY_BONUS[difficulty]}
+        >
+          对手 · {DIFFICULTY_LABEL[difficulty]}
+          <small>{DIFFICULTY_BONUS[difficulty]}</small>
+        </button>
         <div className={styles.deckStatus}>
           <span>当前编队</span>
           <strong>
@@ -224,13 +269,23 @@ export default function HomeMenu({
         </div>
         {page === 'settings' && (
           <div className={styles.panelPage}>
-            <Settings />
+            <Settings
+              difficulty={difficulty}
+              onDifficultyChange={onDifficultyChange}
+            />
           </div>
         )}
         {page === 'guide' && (
           <div className={styles.panelPage}>
             <Guide />
           </div>
+        )}
+        {page === 'campaign' && (
+          <CampaignMenu
+            completed={completed}
+            difficulty={difficulty}
+            onStart={onMissionStart}
+          />
         )}
       </div>
     </main>

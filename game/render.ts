@@ -1,4 +1,5 @@
 import { mapDefinition, type MapId } from './maps';
+import { blastVisible } from './impact-fx';
 import { specialistSprite } from './adult-specialists';
 import { patrolFrameV17 } from './patrol-art-v17';
 import { digFrameV18 } from './dig-art-v18';
@@ -332,6 +333,25 @@ export function render(
     ctx.fillStyle = '#ebeed8';
     ctx.fillText(side === 0 ? 'BLUE / HQ' : 'RED / HQ', x, y + 24);
   }
+  if (s.campaign?.objective === 'capture') {
+    const x = s.campaign.objectiveX,
+      y = ground(s, x);
+    ctx.save();
+    ctx.fillStyle = '#ddc787';
+    ctx.fillRect(x - 1, y - 87, 2, 64);
+    ctx.fillRect(x + 1, y - 87, 26, 16);
+    ctx.fillStyle = '#263b31ee';
+    ctx.fillRect(x - 47, y - 112, 98, 21);
+    ctx.fillStyle = '#efe3b9';
+    ctx.textAlign = 'center';
+    ctx.font = '11px monospace';
+    ctx.fillText(
+      `电台 ${Math.floor(s.campaign.captureProgress)}/15秒`,
+      x,
+      y - 98,
+    );
+    ctx.restore();
+  }
   const sourceOffsets = new Map<number, { x: number; y: number }>();
   drawCoverProps(false);
   if (selectedSquad !== null)
@@ -634,7 +654,7 @@ export function render(
     drawProjectile(ctx, projectileForRender(s, p, offset));
   }
   for (const b of s.blasts)
-    if (pointVisible(s, 0, b.x, b.y))
+    if (blastVisible(s, 0, b))
       drawBlast(ctx, b, art.explosions, art.combatExplosions);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts);
