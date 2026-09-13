@@ -1,4 +1,4 @@
-import { DECK_PRESETS } from './deck-presets';
+import { DECK_PRESETS, AI_DECKS } from './deck-presets';
 export type BaseCardId =
   | 'infantry'
   | 'machinegun'
@@ -1536,7 +1536,6 @@ export function validDeck(value: unknown): value is CardId[] {
     )
   );
 }
-const AI_DECKS: CardId[][] = DECK_PRESETS.map((preset) => [...preset.cards]);
 
 export function chooseAiDeck(seed: number): CardId[] {
   return [

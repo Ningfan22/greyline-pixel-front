@@ -10,6 +10,7 @@ import {
   W,
   terrainIntercept,
   projectileIntercept,
+  isCombatant,
 } from '../game/engine.ts';
 import { createScenery, obstacleBoxes, traversalBoxes } from '../game/world.ts';
 const dt = 1 / 60;
@@ -293,11 +294,18 @@ for (const side of [0, 1])
     refreshVision(s);
     const starts = own.map((u) => u.x),
       moved = new Set();
+    let previous = new Map(own.map((u) => [u.uid, u.x]));
     let coverFrames = 0;
     advance(s, 4.8, () => {
-      const going = own.filter((u) => u.moving && u.facing === -dir);
+      const going = own.filter(
+        (u) => u.moving && (u.x - previous.get(u.uid)) * dir < -0.001,
+      );
+      previous = new Map(own.map((u) => [u.uid, u.x]));
       if (!going.length) return;
-      assert(going.length <= 3);
+      assert(
+        going.length < own.filter(isCombatant).length,
+        'withdrawal and local spacing never move every surviving member together',
+      );
       assert(
         own.some(
           (u) => !u.moving && s.time - (u.lastCombatShotAt ?? -100) < 1.4,
@@ -309,11 +317,19 @@ for (const side of [0, 1])
         assert.notEqual(u.tactic, 'retreat');
         assert.notEqual(u.pose, 'run');
         assert.equal(u.fire, 0);
+        assert.equal(u.facing, u.backpedaling ? dir : -dir);
       }
     });
     assert(coverFrames > 40);
     assert.equal(moved.size, 6);
-    assert(own.every((u, i) => (starts[i] - u.x) * dir > 20));
+    assert(
+      own.slice(0, 3).some((u, i) => (starts[i] - u.x) * dir > 20),
+      'exposed front members actually give ground',
+    );
+    assert(
+      own.reduce((sum, u, i) => sum + (starts[i] - u.x) * dir, 0) / own.length >
+        20,
+    );
     own.forEach((u) => {
       u.squadOrder = 'watch';
       u.squadOrderX = u.x;

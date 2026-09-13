@@ -399,6 +399,7 @@ export function render(
       !u.wounded &&
       !u.surrendered &&
       !u.rappelling &&
+      !u.backpedaling &&
       u.motion === 'ground' &&
       !u.climbing &&
       ['idle', 'walk'].includes(u.pose) &&

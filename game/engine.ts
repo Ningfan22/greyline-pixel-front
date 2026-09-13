@@ -162,6 +162,12 @@ export interface Unit {
   withdrawGoal?: number;
   withdrawNextAt?: number;
   withdrawGroup?: number;
+  withdrawAssessAt?: number;
+  withdrawPressureSince?: number;
+  withdrawSafeSince?: number;
+  backpedaling?: boolean;
+  dispersionNextAt?: number;
+  dispersionStartedAt?: number;
   originalSquad?: number;
   regroupHost?: number;
   emplaced?: boolean;
@@ -1753,6 +1759,7 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
     )
       continue;
     if (!canFireFromCover(s, u, x, target)) continue;
+    if (crowdedInfantry(s, u, x) >= 3) continue;
     if (
       s.units.some(
         (v) =>
@@ -1761,9 +1768,13 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
           isCombatant(v) &&
           CARDS[v.id].members &&
           Math.abs(v.lane - u.lane) < 5 &&
-          [v.x, v.coverGoal, v.firingGoal].some(
-            (reserved) => reserved != null && Math.abs(reserved - x) < 26,
-          ),
+          [
+            v.x,
+            v.coverGoal,
+            v.firingGoal,
+            v.dispersionGoal,
+            (v.withdrawUntil ?? 0) > s.time ? v.withdrawGoal : null,
+          ].some((reserved) => reserved != null && Math.abs(reserved - x) < 26),
       )
     )
       continue;
@@ -1789,6 +1800,9 @@ function coveringMate(
       v.side !== u.side ||
       !isCombatant(v) ||
       (airThreat && !c.antiAir) ||
+      (CARDS[target.id].armored &&
+        !c.penetration &&
+        (c.armorMultiplier ?? 1) <= 1.2) ||
       (v.squad !== u.squad && !(airThreat && Math.abs(v.x - u.x) <= 260))
     )
       return false;
@@ -2075,7 +2089,7 @@ function moveSoldier(
     neighbors
       .filter(
         (v) =>
-          v.facing === dir &&
+          (v.backpedaling ? -v.facing : v.facing) === dir &&
           Math.abs(v.lane - u.lane) < 4 &&
           (v.x - u.x) * dir > 0,
       )
@@ -2182,6 +2196,102 @@ function sustainedAirThreat(u: Unit) {
     (c.damage ?? 0) > 0
   );
 }
+/** A visible contact must be able to bring a real weapon to bear before it drives a fallback. */
+function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
+  const c = weaponCard(source),
+    t = CARDS[target.id];
+  const distance = Math.abs(source.x - target.x);
+  return (
+    (c.damage ?? 0) > 0 &&
+    (!t.air || c.antiAir) &&
+    (!c.airOnly || t.air) &&
+    (!c.armorOnly || t.armored || t.vehicle) &&
+    distance >= (c.minRange ?? 0) &&
+    distance <= unitRange(s, source) + margin &&
+    (c.indirect ||
+      firingHeight(s, source, target.x, target.y - bodyHeight(target)) !== null)
+  );
+}
+function tacticalPressure(s: GameState, source: Unit, target: Unit) {
+  if (!tacticalReach(s, source, target)) return 0;
+  const c = weaponCard(source),
+    t = CARDS[target.id];
+  const cycle = c.burstSize
+    ? ((c.burstSize - 1) * c.rate! + c.burstPause!) / c.burstSize
+    : c.rate!;
+  const hit = t.armored && c.penetration ? c.penetration : c.damage!;
+  const multiplier = t.armored
+    ? (c.armorMultiplier ?? 1)
+    : t.members
+      ? (c.infantryMultiplier ?? 1)
+      : 1;
+  // Compare sustained weapons, not recruitment prices; splash pressures a small local group.
+  const splash = t.members && c.radius ? 1 + Math.min(0.8, c.radius / 60) : 1;
+  return (
+    (hit / (c.members ?? 1) / Math.max(0.12, cycle)) *
+    multiplier *
+    splash *
+    Math.sqrt(40 / Math.max(25, target.maxHp)) *
+    Math.sqrt(Math.max(0.1, source.hp / source.maxHp))
+  );
+}
+function crowdedInfantry(s: GameState, u: Unit, x: number) {
+  return s.units.filter(
+    (v) =>
+      v !== u &&
+      v.side === u.side &&
+      isCombatant(v) &&
+      CARDS[v.id].members &&
+      [
+        v.x,
+        v.coverGoal,
+        v.firingGoal,
+        v.dispersionGoal,
+        (v.withdrawUntil ?? 0) > s.time ? v.withdrawGoal : null,
+      ].some((at) => at != null && Math.abs(at - x) < 26),
+  ).length;
+}
+/** Reserve distinct local positions, including other squads' pending moves. */
+function infantrySpace(
+  s: GameState,
+  u: Unit,
+  preferred: number,
+  reach: number,
+  away = 0,
+) {
+  const neighbors = s.units.filter(
+    (v) =>
+      v !== u &&
+      v.side === u.side &&
+      isCombatant(v) &&
+      CARDS[v.id].members &&
+      Math.abs(v.x - preferred) < reach + 100,
+  );
+  let best = { x: preferred, lane: u.lane },
+    score = Infinity;
+  for (let offset = -reach; offset <= reach; offset += 12) {
+    const x = Math.max(80, Math.min(W - 80, preferred + offset));
+    if (away && (x - u.x) * away < 30) continue;
+    for (const lane of [-18, -6, 6, 18]) {
+      let value = Math.abs(offset) * 0.16 + Math.abs(lane - u.lane) * 0.15;
+      for (const v of neighbors) {
+        const reserved =
+          (v.withdrawUntil ?? 0) > s.time
+            ? v.withdrawGoal
+            : (v.coverGoal ?? v.firingGoal ?? v.dispersionGoal ?? v.x);
+        const gap = Math.abs((reserved ?? v.x) - x);
+        value += Math.max(0, 38 - gap) * 0.7;
+        if (Math.abs((v.passingLane ?? v.lane) - lane) < 8)
+          value += Math.max(0, 28 - gap) * 3;
+      }
+      if (value < score) {
+        score = value;
+        best = { x, lane };
+      }
+    }
+  }
+  return best;
+}
 function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const order = infantryOrder(s, u);
   if (
@@ -2189,91 +2299,112 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     order === 'rush' ||
     CARDS[u.id].indirect ||
     CARDS[u.id].airOnly ||
-    s.time < (u.withdrawNextAt ?? 0) ||
-    Math.abs(threat.x - u.x) >
-      Math.min(
-        560,
-        CARDS[threat.id].air ? unitRange(s, threat) + 40 : unitRange(s, u),
-      )
+    !visibleToSide(s, u.side, threat) ||
+    !tacticalReach(s, threat, u, 36)
   )
     return;
+  const squad = s.units
+    .filter(
+      (v) =>
+        v.side === u.side &&
+        v.squad === u.squad &&
+        isCombatant(v) &&
+        CARDS[v.id].members &&
+        v.tactic !== 'retreat' &&
+        !CARDS[v.id].indirect &&
+        infantryOrder(s, v) !== 'hold' &&
+        infantryOrder(s, v) !== 'rush' &&
+        !orderedWithdrawal(s, v),
+    )
+    .sort((a, b) => a.uid - b.uid);
+  if (
+    !squad.length ||
+    squad.some(
+      (v) =>
+        s.time < (v.withdrawNextAt ?? 0) || s.time < (v.withdrawAssessAt ?? 0),
+    )
+  )
+    return;
+  // A squad makes one assessment, even if its individual decision timers differ.
+  for (const mate of squad) mate.withdrawAssessAt = s.time + 0.75;
+  const center = squad.reduce((n, v) => n + v.x, 0) / squad.length;
   const fighters = s.units.filter(
     (v) =>
       isCombatant(v) &&
-      (!CARDS[v.id].air || sustainedAirThreat(v)) &&
+      (!CARDS[v.id].air || sustainedAirThreat(v) || weaponCard(v).antiAir) &&
       v.tactic !== 'retreat' &&
       (!CARDS[v.id].members || v.personalMorale >= 35),
   );
   const friends = fighters.filter(
-    (v) => v.side === u.side && Math.abs(v.x - u.x) <= 260,
+    (v) => v.side === u.side && Math.abs(v.x - center) <= 320,
   );
   const foes = fighters.filter(
     (v) =>
       v.side !== u.side &&
-      !weaponCard(v).airOnly &&
       visibleToSide(s, u.side, v) &&
-      Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 80),
+      Math.abs(v.x - center) <= 640 &&
+      squad.some((mate) => tacticalReach(s, v, mate, 36)),
   );
-  const armor = foes.filter((v) => CARDS[v.id].armored);
-  const aircraft = foes.filter((v) => CARDS[v.id].air);
-  const airValue = aircraft.length
-    ? aircraft.reduce((sum, v) => sum + CARDS[v.id].cost, 0) / aircraft.length
-    : 0;
-  const armorValue = armor.length
-    ? armor.reduce((sum, v) => sum + CARDS[v.id].cost, 0) / armor.length
-    : 0;
-  const strength = (v: Unit, friendly: boolean) => {
-    let value = CARDS[v.id].cost / (CARDS[v.id].members ?? 1);
-    const weapon = weaponCard(v);
-    // A covered RPG/Javelin team exists to fight armor, not flee its card-price tag.
-    if (
-      friendly &&
-      (weapon.armorMultiplier ?? 1) > 1.2 &&
-      armor.some((enemy) => {
-        const distance = Math.abs(enemy.x - v.x);
-        return (
-          distance <= unitRange(s, v) && distance >= (weapon.minRange ?? 0)
-        );
-      })
-    )
-      value = Math.max(value, armorValue * 0.6);
-    if (
-      friendly &&
-      weapon.antiAir &&
-      aircraft.some((enemy) => {
-        const distance = Math.abs(enemy.x - v.x);
-        return (
-          distance <= unitRange(s, v) &&
-          distance >= (weapon.minRange ?? 0) &&
-          firingHeight(s, v, enemy.x, enemy.y - bodyHeight(enemy)) !== null
-        );
-      })
-    )
-      value = Math.max(value, airValue * 0.6);
-    return value * Math.max(0.25, Math.min(1, v.hp / v.maxHp));
+  const pressures = foes.map((foe) => ({
+    foe,
+    power: Math.max(0, ...squad.map((mate) => tacticalPressure(s, foe, mate))),
+  }));
+  const enemyPower = pressures.reduce((n, v) => n + v.power, 0);
+  const effectiveCounter = (friend: Unit, foe: Unit) => {
+    const weapon = weaponCard(friend);
+    const ammo = ammunition(friend.id, friend.member);
+    return (
+      ((CARDS[foe.id].air &&
+        weapon.antiAir &&
+        ammo !== 'rifle' &&
+        ammo !== 'machinegun') ||
+        (CARDS[foe.id].armored &&
+          ((weapon.armorMultiplier ?? 1) > 1.2 || weapon.penetration))) &&
+      tacticalReach(s, friend, foe, 0)
+    );
   };
-  const friendlyPower = friends.reduce((n, v) => n + strength(v, true), 0),
-    enemyPower = foes.reduce((n, v) => n + strength(v, false), 0);
-  if (enemyPower < Math.max(1.5, friendlyPower * 2.1)) return;
-  const squad = friends
-    .filter(
-      (v) =>
-        v.squad === u.squad &&
-        CARDS[v.id].members &&
-        !CARDS[v.id].indirect &&
-        infantryOrder(s, v) !== 'hold' &&
-        !orderedWithdrawal(s, v),
-    )
-    .sort((a, b) => a.uid - b.uid);
-  const away = Math.sign(u.x - threat.x) || (u.side === 0 ? -1 : 1);
+  const unsupportedHeavy = pressures.some(
+    ({ foe, power }) =>
+      power >= 8 &&
+      (CARDS[foe.id].armored || sustainedAirThreat(foe)) &&
+      squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
+      !friends.some((friend) => effectiveCounter(friend, foe)),
+  );
+  const friendlyPower = friends.reduce((n, friend) => {
+    let power = Math.max(
+      0,
+      ...foes.map((foe) => tacticalPressure(s, friend, foe)),
+    );
+    // Real AT/AA support can pin its matching threat; ordinary guards cannot inherit its credit.
+    for (const { foe, power: hostile } of pressures) {
+      if (effectiveCounter(friend, foe)) power = Math.max(power, hostile * 0.8);
+    }
+    return n + power;
+  }, 0);
+  if (!unsupportedHeavy && enemyPower < Math.max(12, friendlyPower * 1.85)) {
+    for (const mate of squad) mate.withdrawPressureSince = undefined;
+    return;
+  }
+  const since = squad.find(
+    (v) => v.withdrawPressureSince !== undefined,
+  )?.withdrawPressureSince;
+  if (since === undefined || s.time - since < 0.6) {
+    for (const mate of squad) mate.withdrawPressureSince = since ?? s.time;
+    return;
+  }
+  const away = Math.sign(center - threat.x) || (u.side === 0 ? -1 : 1);
   for (const [index, mate] of squad.entries()) {
+    const slot = infantrySpace(s, mate, mate.x + away * 66, 24, away);
     mate.withdrawStartedAt = s.time;
     mate.withdrawUntil = s.time + 4.8;
-    mate.withdrawNextAt = s.time + 10;
+    mate.withdrawNextAt = s.time + 11;
+    mate.withdrawSafeSince = undefined;
     mate.withdrawGroup = index % 2;
-    mate.withdrawGoal = Math.max(80, Math.min(W - 80, mate.x + away * 72));
+    mate.withdrawGoal = slot.x;
+    mate.passingLane = slot.lane;
     mate.coverGoal = null;
     mate.firingGoal = null;
+    mate.dispersionGoal = undefined;
   }
 }
 
@@ -2377,32 +2508,31 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   if (!reactNow && u.decisionIn > 0) return;
   u.decisionIn = 1.1 + (u.member % 4) * 0.18;
   if (
-    reactNow &&
+    inContact &&
+    (u.dispersionNextAt ?? 0) <= s.time &&
+    (u.withdrawUntil ?? 0) <= s.time &&
     infantryOrder(s, u) !== 'hold' &&
     infantryOrder(s, u) !== 'rush' &&
     !orderedWithdrawal(s, u) &&
     !c.indirect &&
     u.member % 3 !== 0 &&
-    s.units.some(
-      (v) =>
-        v !== u &&
-        v.side === u.side &&
-        isCombatant(v) &&
-        CARDS[v.id].members &&
-        Math.abs(v.x - u.x) < 30 &&
-        Math.abs(v.lane - u.lane) < 8,
-    )
+    (crowdedInfantry(s, u, u.x) >= 5 ||
+      s.units.some(
+        (v) =>
+          v !== u &&
+          v.side === u.side &&
+          isCombatant(v) &&
+          CARDS[v.id].members &&
+          Math.abs(v.x - u.x) < 20 &&
+          Math.abs(v.lane - u.lane) < 8,
+      ))
   ) {
-    const away = Math.sign(u.x - threat.x) || (u.side === 0 ? -1 : 1);
-    u.dispersionGoal = Math.max(
-      80,
-      Math.min(W - 80, u.x + away * (14 + (u.uid % 3) * 5)),
-    );
+    const slot = infantrySpace(s, u, u.x, 36);
+    u.dispersionGoal = slot.x;
     u.dispersionUntil = s.time + 2.5;
-    u.passingLane = Math.max(
-      -24,
-      Math.min(24, u.lane + (u.uid % 2 ? 1 : -1) * 8),
-    );
+    u.dispersionNextAt = s.time + 4.5;
+    u.dispersionStartedAt = s.time;
+    u.passingLane = slot.lane;
   }
   const survivors = s.units.filter(
     (v) => v.squad === u.squad && isCombatant(v),
@@ -2445,6 +2575,11 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     }
   }
   if (!inContact) {
+    u.withdrawPressureSince = undefined;
+    u.dispersionGoal = undefined;
+    u.coverGoal = null;
+    u.firingGoal = null;
+    u.lastThreat = undefined;
     u.tactic = u.suppression > 68 ? 'prone' : 'advance';
     if (u.personalMorale < (c.discipline ?? 80))
       u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
@@ -2868,13 +3003,6 @@ function commandAiSquads(
     const enemies = visibleFoes.filter(
       (u) => !CARDS[u.id].air && Math.abs(u.x - center) < 420,
     );
-    const friends = own.filter(
-      (u) => !CARDS[u.id].air && Math.abs(u.x - center) < 420,
-    );
-    const weight = (u: Unit) =>
-      (CARDS[u.id].cost * Math.max(0, u.hp)) / (CARDS[u.id].hp ?? u.maxHp);
-    const danger = enemies.reduce((n, u) => n + weight(u), 0);
-    const support = friends.reduce((n, u) => n + weight(u), 0);
     const meanMorale =
       members.reduce((n, u) => n + u.personalMorale, 0) / members.length;
     const fallback = own.some(
@@ -2889,8 +3017,7 @@ function commandAiSquads(
     // squad-level retreat is only a short regroup behind an existing healthy line.
     const retreat =
       enemies.length &&
-      danger > support * 1.8 &&
-      meanMorale < 55 &&
+      meanMorale < 30 &&
       fallback &&
       center < W - 500 &&
       !members.some(
@@ -2899,30 +3026,14 @@ function commandAiSquads(
           weaponCard(u).airOnly ||
           weaponCard(u).indirect,
       );
-    const guarding = own.find(
-      (u) =>
-        CARDS[u.id].emplacement === 'howitzer' &&
-        u.emplaced &&
-        u.x > center &&
-        u.x - center < 450 &&
-        s.time - (u.lastCombatShotAt ?? -100) < 25,
-    );
-    // Only an engaged guard digs in. Reinforcements outside weapon range continue
-    // forward, and a favourable line releases its defensive order to advance.
-    const canFire = members.some((u) =>
-      enemies.some(
-        (v) =>
-          Math.abs(v.x - u.x) <= unitRange(s, u) &&
-          firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
-      ),
-    );
+    // Local infantry threat assessment owns normal cover and withdrawals. The
+    // strategic hook must not replace that assessment with a card-price ratio.
     const next = retreat
       ? 'retreat'
-      : guarding && canFire && danger > support * 1.2
-        ? 'hold'
-        : members.every((u) => CARDS[u.id].observer) && enemies.length
-          ? 'watch'
-          : null;
+      : members.every((u) => CARDS[u.id].observer || u.id === 'scouts') &&
+          enemies.length
+        ? 'watch'
+        : null;
     if (staging || next === null) {
       clearLocalOrder();
       continue;
@@ -2955,44 +3066,88 @@ function updateAI(s: GameState) {
   const foot = groundFoes.filter((u) => CARDS[u.id].members);
   const groups = (list: Unit[]) => new Set(list.map((u) => u.squad)).size;
   const fighters = own.filter(
-    (u) => !CARDS[u.id].observer && u.tactic !== 'retreat',
+    (u) => !CARDS[u.id].observer && u.id !== 'scouts' && u.tactic !== 'retreat',
   );
-  const cohorts = groups(fighters.filter((u) => !CARDS[u.id].air));
+  const cohorts = groups(
+    fighters.filter(
+      (u) =>
+        !CARDS[u.id].air &&
+        !CARDS[u.id].heal &&
+        !CARDS[u.id].airOnly &&
+        !CARDS[u.id].armorOnly &&
+        !['engineers', 'supply_team'].includes(u.id),
+    ),
+  );
   const armedAir = air.filter((u) => !CARDS[u.id].observer);
-  // Count healthy counters already travelling to this contact, so reinforcements
-  // are combined arms instead of spending every new point on the same role.
+  // A screen, a launcher still marching, and a weapon that can win this match-up
+  // are different commitments. Count actual operators, health and time to contact.
+  const counterPower = (id: CardId, role: 'armor' | 'air') => {
+    const c = CARDS[id];
+    if (c.type !== 'unit') return 0;
+    if (role === 'air')
+      return !c.antiAir
+        ? 0
+        : c.airOnly && c.guided
+          ? 1
+          : c.guided
+            ? 0.65
+            : 0.25;
+    if (c.airOnly) return 0;
+    if (c.penetration) return 1;
+    if ((c.armorMultiplier ?? 1) < 1.5) return 0;
+    if (c.oneWay) return ((c.damage ?? 0) * (c.armorMultiplier ?? 1)) / 650;
+    return c.guided && c.armorOnly ? 1 : c.guided ? 0.75 : 0.4;
+  };
+  const observerCard = (id: CardId) => CARDS[id].observer || id === 'scouts';
   const canSupportContact = (u: Unit, target: Unit) => {
     const c = weaponCard(u),
       distance = Math.abs(target.x - u.x);
-    if (c.members && (u.personalMorale < 40 || u.hp < u.maxHp * 0.35))
-      return false;
+    if (
+      u.rappelling ||
+      u.squadOrder === 'retreat' ||
+      (c.members && (u.personalMorale < 40 || u.hp < u.maxHp * 0.35))
+    )
+      return 0;
     if (distance >= (c.minRange ?? 0) && distance <= unitRange(s, u))
-      return (
-        firingHeight(s, u, target.x, target.y - bodyHeight(target)) !== null
-      );
-    if (u.x <= target.x || (c.static && u.emplaced)) return false;
-    const travelSpeed = c.emplacement
-      ? 28
-      : (c.speed ?? 0) * (c.members ? 0.8 : 1);
-    return distance - unitRange(s, u) <= travelSpeed * 20;
+      return firingHeight(s, u, target.x, target.y - bodyHeight(target)) !==
+        null
+        ? 1
+        : 0;
+    if (
+      distance < (c.minRange ?? 0) ||
+      u.x <= target.x ||
+      (c.static && u.emplaced)
+    )
+      return 0;
+    const speed = c.emplacement ? 28 : (c.speed ?? 0) * (c.members ? 0.8 : 1);
+    // Six seconds of travel is only a partial commitment, never complete cover.
+    return speed > 0 && distance - unitRange(s, u) <= speed * 6 ? 0.25 : 0;
   };
-  const antitank = groups(
-    fighters.filter((u) => {
-      const c = weaponCard(u);
-      if (c.airOnly || !((c.armorMultiplier ?? 1) >= 1.5 || c.penetration))
-        return false;
-      return armor.some((target) => canSupportContact(u, target));
-    }),
-  );
-  const antiair = groups(
-    fighters.filter(
-      (u) =>
-        weaponCard(u).antiAir &&
-        armedAir.some((target) => canSupportContact(u, target)),
-    ),
-  );
-  const urgentArmor = armor.length > antitank,
-    urgentAir = armedAir.length > antiair;
+  const coverage = (role: 'armor' | 'air', targets: Unit[]) =>
+    fighters.reduce((sum, u) => {
+      const weapon = weaponCard(u);
+      const armed =
+        role === 'air'
+          ? weapon.antiAir
+          : !weapon.airOnly &&
+            ((weapon.armorMultiplier ?? 1) >= 1.5 || weapon.penetration);
+      if (!armed) return sum;
+      const support = targets.reduce(
+        (best, target) => Math.max(best, canSupportContact(u, target)),
+        0,
+      );
+      return (
+        sum +
+        (counterPower(u.id, role) * Math.min(1, u.hp / u.maxHp) * support) /
+          (weapon.members ?? 1)
+      );
+    }, 0);
+  const antitank = coverage('armor', armor),
+    antiair = coverage('air', armedAir);
+  const armorNeed = armor.reduce((n, u) => n + Math.max(0.2, u.hp / 650), 0);
+  const airNeed = armedAir.reduce((n, u) => n + Math.max(0.1, u.hp / 260), 0);
+  const urgentArmor = armorNeed > antitank + 0.05,
+    urgentAir = airNeed > antiair + 0.05;
   const lineInfantry = (id: CardId) => {
     const c = CARDS[id];
     return (
@@ -3041,7 +3196,11 @@ function updateAI(s: GameState) {
   // Stage a short opening/rebuilding wave by squad, not individual soldier.
   if (!cohorts) s.aiWaveUntil = s.time + 10;
   const staging =
-    !emergency && !battle && cohorts < 2 && s.time < (s.aiWaveUntil ?? 0);
+    !emergency &&
+    !foes.length &&
+    !battle &&
+    cohorts < 2 &&
+    s.time < (s.aiWaveUntil ?? 0);
   // Double-time only between contacts. Once a threat is close, normal advance
   // gives each squad its own firing/cover decisions instead of a global rush.
   p.order = staging ? 'hold' : !battle && cohorts >= 2 ? 'rush' : 'advance';
@@ -3066,17 +3225,23 @@ function updateAI(s: GameState) {
         if (c.members && counterArmor && !armor.length && screens === 0)
           score -= 3;
         if (c.airOnly && !air.length) {
-          const covered = own.some((v) => weaponCard(v).antiAir);
-          score = !screenNeed && !covered ? (c.patrolTime ? 8 : 10) : -100;
+          const covered = own.some(
+            (v) => counterPower(v.id, 'air') >= 0.8 && v.hp >= v.maxHp * 0.35,
+          );
+          score = screens >= 1.5 && !covered ? (c.patrolTime ? 12 : 14) : -100;
         }
-        if (c.observer)
-          score = own.some((u) => CARDS[u.id].observer)
+        if (observerCard(c.id)) {
+          const needsSpotter = own.some(
+            (u) => !CARDS[u.id].air && (weaponCard(u).range ?? 0) >= 700,
+          );
+          score = own.some((u) => observerCard(u.id))
             ? -100
-            : cohorts
-              ? own.some((u) => (CARDS[u.id].range ?? 0) >= 700)
-                ? 16
-                : 10
-              : 1;
+            : needsSpotter
+              ? 34
+              : screens >= 1
+                ? 19
+                : 1;
+        }
         if (c.heal)
           score =
             patients.length >= 2 && screens >= 1
@@ -3142,7 +3307,12 @@ function updateAI(s: GameState) {
         }
         // Expensive support cannot substitute for the infantry that must protect it.
         // Heavy anti-tank ammunition has no useful target in an infantry-only contact.
-        if (c.armorOnly && !armor.length) score = -100;
+        if (c.armorOnly && !armor.length)
+          score =
+            screens >= 1.5 &&
+            !own.some((u) => counterPower(u.id, 'armor') >= 0.8)
+              ? 16
+              : -100;
         if ((c.indirect || c.vehicleSupport) && screens < 1.5) score = -100;
         // Avoid continuously buying a specialised role already covered by own units.
         score -= Math.min(6, groups(own.filter((u) => u.id === c.id)) * 2);
@@ -3198,7 +3368,7 @@ function updateAI(s: GameState) {
       } else if (c.id === 'morale') {
         if (battle && cohorts >= 2 && p.morale <= 0) score = 22;
       } else if (c.id === 'supply' || c.effect === 'ammo') {
-        if (p.hand.length <= 4) score = 25;
+        if (p.hand.length <= MAX_HAND - 1) score = 25;
       } else if (c.effect === 'rally') {
         if (moraleNeed >= 2) score = 26;
       } else if (c.effect === 'medevac') {
@@ -3261,7 +3431,12 @@ function updateAI(s: GameState) {
     CARDS[id].type === 'unit' && !!CARDS[id].antiAir;
   const healthyRole = (role: (id: CardId) => boolean) =>
     fighters.some(
-      (u) => role(u.id) && (!CARDS[u.id].members || u.personalMorale >= 40),
+      (u) =>
+        role(u.id) &&
+        Math.max(counterPower(u.id, 'armor'), counterPower(u.id, 'air')) >=
+          0.8 &&
+        u.hp >= u.maxHp * 0.35 &&
+        (!CARDS[u.id].members || u.personalMorale >= 40),
     );
   if (armor.length) s.aiArmorSeenUntil = s.time + 15;
   if (armedAir.length) s.aiAirSeenUntil = s.time + 15;
@@ -3277,6 +3452,29 @@ function updateAI(s: GameState) {
       !healthyRole(airRole));
 
   if (seekArmor || seekAir) {
+    // A real launcher already committed still needs eyes and a surviving screen.
+    // This is support for that deployment, not fictitious coverage at the HQ:
+    // only an affordable card can delay the next counter, never an empty promise.
+    const committed = (role: 'armor' | 'air') =>
+      own.some(
+        (u) =>
+          counterPower(u.id, role) >= 0.8 &&
+          u.hp >= u.maxHp * 0.35 &&
+          u.tactic !== 'retreat' &&
+          u.squadOrder !== 'retreat' &&
+          (!CARDS[u.id].members || u.personalMorale >= 40),
+      );
+    if ((!seekArmor || committed('armor')) && (!seekAir || committed('air'))) {
+      const support = options.find(
+        (o) =>
+          cardCost(o.h) <= p.energy + 1e-6 &&
+          ((screens < 1.5 && lineInfantry(o.h.id)) ||
+            (seekArmor &&
+              !own.some((u) => observerCard(u.id)) &&
+              observerCard(o.h.id))),
+      );
+      if (support && playCard(s, 1, support.h.uid, support.x).ok) return;
+    }
     // A ready counter already in hand is more reliable than buying another draw.
     // Unlike ordinary scoring, short-lived lost sight does not disqualify a MANPADS
     // card held in reserve. Mines still require the already-computed legal target.
@@ -3303,26 +3501,69 @@ function updateAI(s: GameState) {
               : 0,
             seekAir && airRole(choice.h.id) ? airPressure : 0,
           );
+        const quality = (choice: typeof a) =>
+          Math.max(
+            seekArmor
+              ? choice.h.id === 'antitank_mine'
+                ? 0.45
+                : counterPower(choice.h.id, 'armor')
+              : 0,
+            seekAir ? counterPower(choice.h.id, 'air') : 0,
+          );
         return (
           importance(b) - importance(a) ||
+          quality(b) - quality(a) ||
           cardCost(a.h) - cardCost(b.h) ||
           a.h.uid - b.h.uid
         );
       });
-    if (counterChoices.length) {
-      const counter = counterChoices[0];
+    const requiredPower = (id: CardId) =>
+      Math.max(
+        seekArmor ? counterPower(id, 'armor') : 0,
+        seekAir ? counterPower(id, 'air') : 0,
+      );
+    // Own remaining card identities are public deck-building information; never
+    // inspect the opposing hand or use the shuffled draw order to choose a card.
+    const strongInPool = [...p.deck, ...p.discard].filter(
+      (h) => requiredPower(h.id) >= 0.8,
+    );
+    const counter = counterChoices[0];
+    const weakAlreadyDeployed =
+      counter && own.some((u) => u.id === counter.h.id && isCombatant(u));
+    if (
+      counter &&
+      (requiredPower(counter.h.id) >= 0.8 ||
+        !weakAlreadyDeployed ||
+        !strongInPool.length)
+    ) {
       if (cardCost(counter.h) <= p.energy + 1e-6)
         playCard(s, 1, counter.h.uid, counter.x);
-      return; // Save for this known counter; do not spend its budget drawing.
+      return; // Save for the effective held counter before any command or rifle squad.
     }
 
     const canSearch = p.deck.length > 0 || p.discard.length > 0;
+    // Playing supply removes its own card first: five held cards still leave
+    // room for both draws. Use this paid effect before the more expensive draw.
+    const resupply =
+      canSearch &&
+      p.hand.length < MAX_HAND &&
+      p.hand.find(
+        (h) =>
+          CARDS[h.id].id === 'supply' &&
+          cardReadyIn(s, h) <= 0 &&
+          cardCost(h) <= p.energy + 1e-6,
+      );
+    if (resupply && playCard(s, 1, resupply.uid).ok) return;
     if (canSearch && p.hand.length < MAX_HAND) {
       if (p.energy < DRAW_COST) return;
       if (requestDraw(s, 1).ok) return;
-      // While the normal draw cooldown/jam runs, preserve exactly its real cost.
+      // Keep both the paid draw and the cheapest useful launcher budget while
+      // waiting on the shared draw cooldown, rather than repeatedly buying rifles.
+      const deployBudget = strongInPool.length
+        ? Math.min(...strongInPool.map(cardCost))
+        : 2;
       const support = options.find(
-        (o) => cardCost(o.h) <= p.energy - DRAW_COST + 1e-6,
+        (o) => cardCost(o.h) <= p.energy - DRAW_COST - deployBudget + 1e-6,
       );
       if (support) playCard(s, 1, support.h.uid, support.x);
       return;
@@ -3333,7 +3574,10 @@ function updateAI(s: GameState) {
           (h) =>
             cardReadyIn(s, h) <= 0 &&
             !CARDS[h.id].targetGround &&
-            cardCost(h) <= p.energy + 1e-6,
+            (CARDS[h.id].type === 'unit' ||
+              h.id === 'supply' ||
+              CARDS[h.id].effect === 'ammo' ||
+              options.some((o) => o.h.uid === h.uid)),
         )
         .map((h) => {
           const c = CARDS[h.id];
@@ -3343,17 +3587,23 @@ function updateAI(s: GameState) {
             c.deployDraw || c.id === 'supply' || c.effect === 'ammo';
           return {
             h,
-            rank: searchCard
-              ? 3
-              : c.type === 'unit'
-                ? 2
+            rank:
+              (c.id === 'supply' || c.effect === 'ammo'
+                ? 4
                 : options.some((o) => o.h.uid === h.uid)
-                  ? 1
-                  : 0,
+                  ? c.type === 'unit'
+                    ? 2
+                    : 1
+                  : c.type === 'unit'
+                    ? 0.5
+                    : 0) +
+              (searchCard && c.deployDraw ? 0.5 : 0) -
+              cardCost(h) * 0.75,
           };
         })
         .sort((a, b) => b.rank - a.rank || cardCost(a.h) - cardCost(b.h))[0];
-      if (release) playCard(s, 1, release.h.uid);
+      if (release && cardCost(release.h) <= p.energy + 1e-6)
+        playCard(s, 1, release.h.uid);
       return;
     }
     // If no draw pool remains, ordinary affordable defence is still preferable
@@ -3368,7 +3618,7 @@ function updateAI(s: GameState) {
   );
   if (
     usefulSupply &&
-    p.hand.length <= 4 &&
+    p.hand.length < MAX_HAND &&
     playCard(s, 1, usefulSupply.h.uid).ok
   )
     return;
@@ -3417,14 +3667,19 @@ function updateAI(s: GameState) {
         (h) =>
           !CARDS[h.id].targetGround &&
           cardReadyIn(s, h) <= 0 &&
-          cardCost(h) <= p.energy,
+          (CARDS[h.id].type === 'unit' ||
+            h.id === 'supply' ||
+            CARDS[h.id].effect === 'ammo'),
       )
       .sort(
         (a, b) =>
-          Number(!!CARDS[a.id].airOnly) - Number(!!CARDS[b.id].airOnly) ||
+          // The card itself frees a slot before drawing. Otherwise reserve for
+          // an actual unit, even when it costs slightly more than current CP.
+          Number(!(a.id === 'supply' || CARDS[a.id].effect === 'ammo')) -
+            Number(!(b.id === 'supply' || CARDS[b.id].effect === 'ammo')) ||
           cardCost(a) - cardCost(b),
       )[0];
-    if (clear) playCard(s, 1, clear.uid);
+    if (clear && cardCost(clear) <= p.energy + 1e-6) playCard(s, 1, clear.uid);
   }
   // Draw only after deciding there is no useful card to buy or reserve for.
   if (p.hand.length < MAX_HAND) requestDraw(s, 1);
@@ -3945,6 +4200,7 @@ export function tick(s: GameState, dt: number) {
   );
   for (const u of s.units) {
     u.digging = false;
+    u.backpedaling = false;
     if (u.hp <= 0) {
       u.deadFor -= dt;
       u.y = Math.min(ground(s, u.x), u.y + 110 * dt);
@@ -4171,6 +4427,13 @@ export function tick(s: GameState, dt: number) {
         }
       }
     }
+    const primaryAmmo = ammunition(u.id, u.member);
+    const softTargetWeapon =
+      !c.armorOnly &&
+      (c.armorMultiplier ?? 1) <= 1.2 &&
+      (primaryAmmo === 'rifle' || primaryAmmo === 'machinegun');
+    const softTargetRank = (v: Unit) =>
+      CARDS[v.id].members ? 0 : CARDS[v.id].armored ? 2 : 1;
     const candidates = s.units
       .filter(
         (v) =>
@@ -4192,9 +4455,10 @@ export function tick(s: GameState, dt: number) {
       .sort(
         (a, b) =>
           (c.attackRun === 'strafe' ||
+          softTargetWeapon ||
           ((c.armorMultiplier ?? 1) < 0.8 &&
             isCoverBullet(ammunition(u.id, u.member)))
-            ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
+            ? softTargetRank(a) - softTargetRank(b)
             : modelOf(u.id) === 'sniper'
               ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
               : modelOf(u.id) === 'tank' || (c.armorMultiplier ?? 1) > 1.2
@@ -4298,7 +4562,7 @@ export function tick(s: GameState, dt: number) {
               Math.abs(v.x - u.x) < c.minRange!,
           )
         : null;
-    const withdrawing = !!(
+    let withdrawing = !!(
       c.members &&
       (u.withdrawUntil ?? 0) > s.time &&
       u.withdrawGoal !== undefined &&
@@ -4306,19 +4570,32 @@ export function tick(s: GameState, dt: number) {
       order !== 'rush'
     );
     const withdrawalThreat = withdrawing
-      ? (target ??
+      ? ((target && tacticalReach(s, target, u, 36) ? target : undefined) ??
         airContact ??
         s.units
           .filter(
             (v) =>
               v.side !== u.side &&
-              !CARDS[v.id].air &&
+              (!CARDS[v.id].air || sustainedAirThreat(v)) &&
               isCombatant(v) &&
               visibleToSide(s, u.side, v) &&
-              Math.abs(v.x - u.x) <= 560,
+              Math.abs(v.x - u.x) <= 640 &&
+              tacticalReach(s, v, u, 36),
           )
           .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0])
       : undefined;
+    if (withdrawing && !orderedWithdrawal(s, u)) {
+      if (withdrawalThreat) u.withdrawSafeSince = undefined;
+      else {
+        u.withdrawSafeSince ??= s.time;
+        if (s.time - u.withdrawSafeSince >= 0.55) {
+          withdrawing = false;
+          u.withdrawUntil = 0;
+          u.withdrawGoal = undefined;
+          u.passingLane = undefined;
+        }
+      }
+    }
     const withdrawalCoverPossible =
       withdrawalThreat &&
       s.units.some(
@@ -4329,6 +4606,9 @@ export function tick(s: GameState, dt: number) {
           v.side === u.side &&
           isCombatant(v) &&
           (!CARDS[withdrawalThreat.id].air || weaponCard(v).antiAir) &&
+          (!CARDS[withdrawalThreat.id].armored ||
+            weaponCard(v).penetration ||
+            (weaponCard(v).armorMultiplier ?? 1) > 1.2) &&
           (CARDS[v.id].members || CARDS[withdrawalThreat.id].air) &&
           Math.abs(v.x - withdrawalThreat.x) <= unitRange(s, v) &&
           firingHeight(
@@ -4375,6 +4655,16 @@ export function tick(s: GameState, dt: number) {
       }
     } else {
       u.cover = 0;
+      u.coverGoal = null;
+    }
+    if (
+      c.members &&
+      !withdrawing &&
+      order !== 'hold' &&
+      u.dispersionGoal !== undefined &&
+      (u.dispersionUntil ?? 0) > s.time
+    ) {
+      // A good crater is not an unlimited-capacity position. Let the assigned movers leave it.
       u.coverGoal = null;
     }
     const coverShot =
@@ -4445,10 +4735,18 @@ export function tick(s: GameState, dt: number) {
     const seeking =
       !withdrawing &&
       (!!holdTravel || (moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5));
+    const dispersionStep =
+      seeking &&
+      u.dispersionGoal !== undefined &&
+      s.time - (u.dispersionStartedAt ?? -100) < 0.8 &&
+      target &&
+      (u.lastCombatShotAt ?? -100) >= (u.dispersionStartedAt ?? s.time) &&
+      coveringMate(s, u, target, true);
     // A ready weapon gets a short stable firing window before another ground move.
     const contactFire = !!(
       c.members &&
       target &&
+      !dispersionStep &&
       (u.cooldown <= 0 ||
         s.time - (u.lastCombatShotAt ?? -Infinity) <
           Math.min(0.18, c.rate! * 0.35))
@@ -4476,6 +4774,7 @@ export function tick(s: GameState, dt: number) {
       c.members &&
       !withdrawing &&
       !contactFire &&
+      u.withdrawPressureSince === undefined &&
       order === 'advance' &&
       u.tactic === 'bound' &&
       u.cover <= 0.2 &&
@@ -4682,15 +4981,18 @@ export function tick(s: GameState, dt: number) {
         u.pose =
           order === 'rush' || bounding || retreating
             ? 'run'
-            : order === 'crouch' || (withdrawing && order !== 'prone')
+            : order === 'crouch' ||
+                (withdrawing && withdrawalThreat && order !== 'prone')
               ? 'crouch'
               : order === 'prone'
                 ? 'prone'
-                : u.tactic === 'prone'
-                  ? 'prone'
-                  : u.tactic === 'crouch' || u.tactic === 'cover'
-                    ? 'crouch'
-                    : 'walk';
+                : withdrawing
+                  ? 'walk'
+                  : u.tactic === 'prone'
+                    ? 'prone'
+                    : u.tactic === 'crouch' || u.tactic === 'cover'
+                      ? 'crouch'
+                      : 'walk';
       const orderSpeed = c.members
         ? u.pose === 'run'
           ? 1.7
@@ -4732,6 +5034,7 @@ export function tick(s: GameState, dt: number) {
           : 0;
         u.lane += laneChange;
         u.walk += Math.abs(laneChange) / 6;
+        const beforeMove = u.x;
         moveSoldier(
           s,
           u,
@@ -4743,6 +5046,19 @@ export function tick(s: GameState, dt: number) {
           !target || withdrawing,
         );
         if (laneChange) u.moving = true;
+        if (
+          withdrawing &&
+          withdrawalThreat &&
+          (u.x - beforeMove) * moveDir > 0.001 &&
+          u.motion === 'ground' &&
+          !u.climbing
+        ) {
+          const faceThreat = Math.sign(withdrawalThreat.x - u.x) || dir;
+          if (faceThreat !== moveDir) {
+            u.facing = faceThreat;
+            u.backpedaling = true;
+          }
+        }
       } else if (!c.sortie && !c.static && (!c.vehicle || order !== 'hold')) {
         const before = u.x;
         u.x = Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt));

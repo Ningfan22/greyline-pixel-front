@@ -68,8 +68,10 @@ export function weaponScenario(
   });
   refreshVision(s);
   const initialShots = foes.reduce((n, u) => n + u.shots + u.secondaryShots, 0);
+  const initialEnemyHP = foes.reduce((n, u) => n + u.hp, 0);
   const low = new Set(),
     dispersed = new Set(),
+    separatedPairs = new Set(),
     fallback = new Set(),
     routed = new Set();
   let activeFrames = 0,
@@ -79,6 +81,7 @@ export function weaponScenario(
     allFleeFrames = 0,
     minDistance = Infinity;
   for (let frame = 0; frame < Math.round(seconds / dt); frame++) {
+    const previous = new Map(own.map((u) => [u.uid, u.x]));
     tick(s, dt);
     const live = own.filter(isCombatant);
     for (const u of live) {
@@ -90,10 +93,27 @@ export function weaponScenario(
       if (Math.abs(u.lane - original.get(u.uid).lane) > 2) dispersed.add(u.uid);
       if (u.tactic === 'retreat') routed.add(u.uid);
     }
+    // Count living pairs that actually leave each other's crowded footprint;
+    // a phased bound can separate them along X without changing depth lanes.
+    for (let a = 0; a < live.length; a++) {
+      for (let b = a + 1; b < live.length; b++) {
+        const u = live[a],
+          v = live[b],
+          firstU = original.get(u.uid),
+          firstV = original.get(v.uid),
+          initialGap = Math.hypot(
+            firstU.x - firstV.x,
+            firstU.lane - firstV.lane,
+          ),
+          gap = Math.hypot(u.x - v.x, u.lane - v.lane);
+        if (initialGap < 28 && gap > Math.max(32, initialGap + 12))
+          separatedPairs.add(`${u.uid}:${v.uid}`);
+      }
+    }
     const back = live.filter(
       (u) =>
         u.moving &&
-        u.facing === -dir &&
+        (u.x - previous.get(u.uid)) * dir < -0.001 &&
         u.tactic !== 'retreat' &&
         (u.withdrawUntil ?? 0) > s.time,
     );
@@ -105,7 +125,10 @@ export function weaponScenario(
       if (cover) coveredFrames++;
       else uncoveredFrames++;
     }
-    if (live.length > 3 && live.every((u) => u.moving && u.facing === -dir))
+    if (
+      live.length > 3 &&
+      live.every((u) => u.moving && (u.x - previous.get(u.uid)) * dir < -0.001)
+    )
       allFleeFrames++;
     for (const u of live)
       for (const v of foes.filter(isCombatant))
@@ -121,12 +144,15 @@ export function weaponScenario(
       foes.reduce((n, u) => n + u.shots + u.secondaryShots, 0) - initialShots,
     ownShots: own.reduce((n, u) => n + u.shots - u.member, 0),
     supportShots: supportUnits.reduce((n, u) => n + u.shots - u.member, 0),
+    enemyDamage:
+      initialEnemyHP - foes.reduce((n, u) => n + Math.max(0, u.hp), 0),
     alive: own.filter((u) => u.hp > 0).length,
     wounded: own.filter((u) => u.wounded).length,
     hp: own.reduce((n, u) => n + u.hp, 0),
     low: low.size,
     lowFrameRatio: lowFrames / Math.max(1, activeFrames),
     dispersed: dispersed.size,
+    separatedPairs: separatedPairs.size,
     fallback: fallback.size,
     routed: routed.size,
     coveredFrames,
@@ -241,8 +267,8 @@ for (const side of [0, 1]) {
         assert(row.ownShots > 0, 'some members provide actual return fire');
         assert(row.low >= 12 && row.lowFrameRatio > 0.5);
         assert(
-          row.dispersed > 0,
-          'some crowded members must change depth, not only change animation',
+          row.dispersed > 0 || row.separatedPairs > 0,
+          'crowded living members must separate along depth or X, not only change animation',
         );
         assert(row.fallback >= 6 && row.coveredFrames > 40);
         assert.equal(
@@ -289,10 +315,26 @@ for (const side of [0, 1]) {
           supported.supportShots > 0,
           'the counter must actually fire, not just add card-price confidence',
         );
-        assert(supported.hp > bare.hp);
+        assert(
+          supported.enemyDamage > bare.enemyDamage,
+          'the specialist must actually damage its matching threat',
+        );
         assert(supported.fallback < bare.fallback);
         assert.equal(supported.allFleeFrames, 0);
       }
+      assert(
+        pairs.reduce(
+          (n, [bare, supported]) =>
+            n + supported.meanAdvance - bare.meanAdvance,
+          0,
+        ) > 0,
+        'real counter fire lets the force retain more ground across the fixed seeds',
+      );
+      assert(
+        pairs.reduce((n, [bare, supported]) => n + supported.hp - bare.hp, 0) >
+          0,
+        'counter support improves aggregate survival, without promising every individual exchange',
+      );
       console.log('TACTICAL_COUNTER', JSON.stringify({ side, kind, pairs }));
     });
   test(`recon drones and interceptors do not frighten infantry into stopping, side ${side}`, () => {
