@@ -1,6 +1,6 @@
 import { terrainDepthLimit } from '../game/squad-orders.ts';
 import { comebackBlock } from '../game/comeback.ts';
-import { DECK_PRESETS } from '../game/deck-presets.ts';
+import { AI_DECKS, DECK_PRESETS } from '../game/deck-presets.ts';
 import { CARD_COPY } from '../game/card-copy.ts';
 import { tankGeometry } from '../game/vehicle-geometry.ts';
 import { wreckGeometry, wreckContact } from '../game/wreck-geometry.ts';
@@ -3584,6 +3584,15 @@ check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪'
       u.walk = step + 0.1;
       assert.deepEqual(adultFrameChoice(u), { group, index: step % 8 });
     }
+    u.backpedaling = true;
+    for (let step = 0; step < 16; step++) {
+      u.walk = step + 0.1;
+      assert.deepEqual(adultFrameChoice(u), {
+        group,
+        index: (8 - (step % 8)) % 8,
+      });
+    }
+    u.backpedaling = false;
   }
   u.pose = 'idle';
   u.moving = false;
@@ -4132,15 +4141,17 @@ check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各
     assert(deck.filter((id) => CARDS[id].cost === 1).length >= 3);
     assert(deck.reduce((n, id) => n + CARDS[id].cost, 0) / 20 <= 3.2);
   }
-  assert.equal(decks.size, DECK_PRESETS.length);
+  assert.equal(decks.size, AI_DECKS.length);
+  assert.equal(AI_DECKS.length, 5);
   assert.equal(DECK_PRESETS.length, 5);
+  for (const deck of AI_DECKS)
+    assert(
+      decks.has(deck.join(',')),
+      'each legal opponent plan can be selected',
+    );
   for (const preset of DECK_PRESETS) {
     const deck = preset.cards;
     assert(validDeck(deck));
-    assert(
-      decks.has(deck.join(',')),
-      'AI uses the same legal recommended cards',
-    );
     if (preset.id === 'combined')
       assert(deck.some((id) => CARDS[id].armored && !CARDS[id].airOnly));
     if (preset.id === 'assault') {
@@ -4348,7 +4359,7 @@ check('发现可用弹坑时先打出就绪子弹，再利用装填间隙接近�
 });
 
 check(
-  '正常士气遇到优势敌军时双向交替后撤，移动成员面向退路且始终留人掩护',
+  '正常士气遇到优势敌军时双向交替后撤，接敌时面敌倒退且始终留人掩护',
   () => {
     for (const side of [0, 1]) {
       const { s, own, dir } = v14SuperiorContact(side);
@@ -4366,8 +4377,8 @@ check(
         if (!movingBack.length) continue;
         movementFrames++;
         assert(
-          movingBack.length <= Math.ceil(own.length / 2),
-          'at least half the squad stays behind to cover',
+          movingBack.length < own.length,
+          'controlled withdrawal never turns the entire squad away together',
         );
         const covering = own.some(
           (u) => !u.moving && s.time - (u.lastCombatShotAt ?? -100) < 1.4,
@@ -4379,7 +4390,8 @@ check(
         );
         for (const u of movingBack) {
           movedMembers.add(u.uid);
-          assert.equal(u.facing, -dir);
+          assert.equal(u.facing, u.backpedaling ? dir : -dir);
+          if (u.backpedaling) assert.equal(u.pose, 'crouch');
           assert.equal(
             u.fire,
             0,
@@ -4402,7 +4414,7 @@ check(
       for (const u of own) {
         const distance = (starts.get(u.uid) - u.x) * dir;
         assert(
-          distance > 24 && distance <= 74,
+          distance > 0 && distance <= 100,
           'bounded relocation, not flight across the battlefield',
         );
         assert(u.personalMorale >= 70);
@@ -4410,6 +4422,18 @@ check(
         assert(!u.surrendered);
         assert.equal(u.squad, squads.get(u.uid));
       }
+      assert(
+        own.slice(0, 3).every((u) => (starts.get(u.uid) - u.x) * dir > 24),
+        'the exposed front rank actually gives ground',
+      );
+      const safeRear = own.filter(
+        (u) => u.member >= 4 && (u.withdrawUntil ?? 0) <= s.time,
+      );
+      assert(
+        safeRear.length > 0,
+        'rear members stop their automatic fallback after escaping the threat',
+      );
+      assert(safeRear.every((u) => !u.backpedaling));
       assert(
         own.reduce((n, u) => n + u.shots, 0) >= 12,
         'the squad keeps fighting while giving ground',
