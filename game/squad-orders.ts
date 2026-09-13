@@ -1,5 +1,6 @@
-import { CARDS, modelOf } from './cards';
-import { infantryDepth } from './render-depth';
+import { CARDS, modelOf, type CardId } from './cards';
+import { unitSelectionBounds } from './selection-render';
+import { fixedWingUnit } from './unit-control';
 import { obstacleBoxes, pointVisible } from './world';
 import type { GameState, Side, Unit } from './engine';
 
@@ -44,6 +45,43 @@ export const TRENCH_DEPTH = 36;
 export const MAX_TRENCH_DEPTH = 48;
 const living = (u: Unit) =>
   u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling;
+export const controllableUnit = living;
+
+export function ordersForUnit(id: CardId) {
+  const c = CARDS[id];
+  if (c.members) return SQUAD_ORDERS;
+  if (c.static) return SQUAD_ORDERS.filter((o) => o.id === 'watch');
+  if (fixedWingUnit({ id }))
+    return [
+      {
+        id: 'attack' as const,
+        label: '继续航线',
+        description: '离开当前留空区域，继续原定飞行任务',
+      },
+      {
+        id: 'retreat' as const,
+        label: '返航',
+        description: '结束本轮任务，从己方边界撤离',
+      },
+    ];
+  return [
+    {
+      id: 'attack' as const,
+      label: c.airlift ? '继续投送' : '前进',
+      description: '继续向前执行任务，接敌时自主还击',
+    },
+    {
+      id: 'retreat' as const,
+      label: '后退',
+      description: '向后转移一段距离，再停下警戒',
+    },
+    {
+      id: 'watch' as const,
+      label: c.air ? '悬停' : '警戒',
+      description: '留在当前位置观察还击，不追击',
+    },
+  ];
+}
 const floorAt = (s: GameState, x: number) =>
   s.terrain[Math.max(0, Math.min(s.terrain.length - 1, Math.round(x)))];
 const SITE_SEARCH_DISTANCE = 240;
@@ -185,10 +223,40 @@ export function setSquadOrder(
   if (!SQUAD_ORDERS.some((v) => v.id === order))
     return { ok: false, message: '无效的小队指令' };
   const members = s.units.filter(
-    (u) =>
-      u.side === side && u.squad === squad && CARDS[u.id].members && living(u),
+    (u) => u.side === side && u.squad === squad && living(u),
   );
   if (!members.length) return { ok: false, message: '这支小队已无法接令' };
+  const card = CARDS[members[0].id];
+  // Selection may internally park a fixed-wing unit in watch, without offering hover as a flight command.
+  if (order !== 'watch' && !ordersForUnit(card.id).some((o) => o.id === order))
+    return { ok: false, message: '该单位不支持此指令' };
+  if (!card.members) {
+    for (const u of members) {
+      u.squadOrder = order;
+      u.squadOrderUntil = Infinity;
+      u.squadOrderX =
+        order === 'retreat'
+          ? Math.max(
+              100,
+              Math.min(s.terrain.length - 100, u.x + (side === 0 ? -240 : 240)),
+            )
+          : u.x;
+      u.coverGoal = null;
+      u.firingGoal = null;
+      u.evadeGoal = null;
+      u.moving = false;
+      u.vx = 0;
+      u.decisionIn = 0;
+      if (order === 'attack') {
+        u.patrolExiting = false;
+        u.patrolDir = side === 0 ? 1 : -1;
+      }
+    }
+    return {
+      ok: true,
+      message: `${card.name}：${ordersForUnit(card.id).find((o) => o.id === order)?.label ?? '留空待命'}`,
+    };
+  }
   const x = members.reduce((n, u) => n + u.x, 0) / members.length;
   const repeated = members.every((u) => u.squadOrder === order);
   if (repeated && order !== 'escort')
@@ -647,20 +715,59 @@ export function pickSquad(
   y: number,
   touch = false,
 ) {
-  const radius = touch ? 46 : 32;
+  const radius = touch ? 18 : 8;
   const unit = s.units
-    .filter((u) => u.side === side && CARDS[u.id].members && living(u))
-    .map((u) => ({
-      u,
-      distance: Math.hypot(
-        u.x - x,
-        u.y +
-          infantryDepth(u.lane) -
-          (u.pose === 'prone' ? 12 : u.pose === 'crouch' ? 25 : 40) -
-          y,
-      ),
-    }))
+    .filter((u) => u.side === side && living(u))
+    .map((u) => {
+      const b = unitSelectionBounds(u);
+      return {
+        u,
+        distance: Math.hypot(
+          Math.max(b.x - x, 0, x - b.x - b.w),
+          Math.max(b.y - y, 0, y - b.y - b.h),
+        ),
+        centerDistance: Math.hypot(u.x - x, b.y + b.h / 2 - y),
+      };
+    })
     .filter((v) => v.distance < radius)
-    .sort((a, b) => a.distance - b.distance)[0]?.u;
+    .sort(
+      (a, b) => a.distance - b.distance || a.centerDistance - b.centerDistance,
+    )[0]?.u;
   return unit?.squad ?? null;
+}
+
+/** Opening the command fan is itself an explicit stop/watch order, never a temporary UI pause. */
+export function selectUnitGroup(s: GameState, side: Side, squad: number) {
+  const result = setSquadOrder(s, side, squad, 'watch');
+  if (!result.ok) return result;
+  for (const u of s.units) {
+    if (u.side !== side || u.squad !== squad || !living(u)) continue;
+    u.squadOrderX = u.x;
+    u.squadOrderUntil = Infinity;
+    u.moving = false;
+    u.vx = 0;
+    u.vy = 0;
+    u.coverGoal = null;
+    u.firingGoal = null;
+    u.dispersionGoal = undefined;
+    u.escortGoal = undefined;
+    u.escortTankUid = undefined;
+    u.escortLane = undefined;
+    u.withdrawGoal = undefined;
+    u.withdrawUntil = 0;
+    u.withdrawStandby = false;
+    u.retreatUntil = 0;
+    u.evadeGoal = null;
+    u.evadeUntil = 0;
+    u.digging = false;
+    u.climbing = 0;
+    u.motion = 'ground';
+    u.decisionIn = 0;
+    u.backpedaling = false;
+    if (CARDS[u.id].members) {
+      u.tactic = 'crouch';
+      u.pose = 'crouch';
+    }
+  }
+  return result;
 }

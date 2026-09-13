@@ -298,6 +298,46 @@ export function obstacleBoxes(s: GameState, ignoreProps = false): Obstacle[] {
 export function traversalBoxes(_s: GameState): Obstacle[] {
   return [];
 }
+const obstacleQueries = new WeakMap<
+  Obstacle[],
+  { bins: Map<number, number[]>; ranges: Map<string, Obstacle[]> }
+>();
+/** Broad phase only: preserve original obstacle order and all exact slab/cover tests. */
+export function nearbyObstacles(
+  s: GameState,
+  left: number,
+  right: number,
+  ignoreProps = false,
+) {
+  const boxes = obstacleBoxes(s, ignoreProps);
+  let index = obstacleQueries.get(boxes);
+  if (!index) {
+    index = { bins: new Map(), ranges: new Map() };
+    boxes.forEach((box, i) => {
+      for (
+        let bin = Math.floor(box.x / 128);
+        bin <= Math.floor((box.x + box.w) / 128);
+        bin++
+      ) {
+        const list = index!.bins.get(bin);
+        if (list) list.push(i);
+        else index!.bins.set(bin, [i]);
+      }
+    });
+    obstacleQueries.set(boxes, index);
+  }
+  const first = Math.floor(Math.min(left, right) / 128),
+    last = Math.floor(Math.max(left, right) / 128),
+    key = `${first}:${last}`;
+  const known = index.ranges.get(key);
+  if (known) return known;
+  const candidates = new Set<number>();
+  for (let bin = first; bin <= last; bin++)
+    for (const i of index.bins.get(bin) ?? []) candidates.add(i);
+  const result = [...candidates].sort((a, b) => a - b).map((i) => boxes[i]);
+  index.ranges.set(key, result);
+  return result;
+}
 export function sceneryIntercept(
   s: GameState,
   sx: number,
@@ -309,7 +349,18 @@ export function sceneryIntercept(
   ignoreProps = false,
 ) {
   let hit: { box: Obstacle; x: number; y: number; t: number } | null = null;
-  for (const box of obstacleBoxes(s, ignoreProps)) {
+  const left = Math.min(sx, tx),
+    right = Math.max(sx, tx),
+    top = Math.min(sy, ty),
+    bottom = Math.max(sy, ty);
+  for (const box of nearbyObstacles(s, left, right, ignoreProps)) {
+    if (
+      box.x > right ||
+      box.x + box.w < left ||
+      box.y > bottom ||
+      box.y + box.h < top
+    )
+      continue;
     if (!vision && box.foliage) continue;
     // A soldier sheltering inside a footprint can shoot out above/along its edge.
     if (
@@ -337,7 +388,7 @@ export function sceneryCoverHits(
     number,
     { id: number; x: number; y: number; t: number }
   >();
-  for (const box of obstacleBoxes(s)) {
+  for (const box of nearbyObstacles(s, sx, tx)) {
     if (!box.prop) continue;
     const t = segmentBox(sx, sy, tx, ty, box);
     if (t !== null && t < (hits.get(box.prop.id)?.t ?? Infinity))
@@ -354,7 +405,7 @@ export function debrisCover(s: GameState, x: number, threatX: number) {
   const y = floorAt(s, x),
     dir = Math.sign(threatX - x) || 1;
   let cover = 0;
-  for (const b of obstacleBoxes(s)) {
+  for (const b of nearbyObstacles(s, x - 48, x + 48)) {
     if (b.foliage) continue;
     const edge = dir > 0 ? b.x : b.x + b.w,
       d = (edge - x) * dir;
@@ -404,7 +455,7 @@ export function observationPenalty(
 ) {
   // One house/tree is one obstruction even when its ray crosses several parts.
   const obstacles = new Map<string, number>();
-  for (const box of obstacleBoxes(s)) {
+  for (const box of nearbyObstacles(s, sx, tx)) {
     if (segmentBox(sx, sy, tx, ty, box) === null) continue;
     const key = box.prop ? `prop:${box.prop.id}` : `wreck:${box.wreck!.id}`;
     const loss = box.rubble ? 8 : box.prop?.kind === 'house' ? 60 : 25;
@@ -442,6 +493,20 @@ export function sightRange(u: Unit) {
     (u.squadOrder === 'watch' && !u.moving && c.members ? 1.15 : 1)
   );
 }
+const observers = new WeakMap<
+  GameState,
+  { units: Unit[]; length: number; sides: [Unit[], Unit[]] }
+>();
+export function observerUnits(s: GameState, side: Side) {
+  let index = observers.get(s);
+  if (!index || index.units !== s.units || index.length !== s.units.length) {
+    index = { units: s.units, length: s.units.length, sides: [[], []] };
+    for (const u of s.units)
+      if (CARDS[u.id].observer) index.sides[u.side].push(u);
+    observers.set(s, index);
+  }
+  return index.sides[side];
+}
 export function pointVisible(s: GameState, side: Side, x: number, y: number) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
     return true;
@@ -462,7 +527,7 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
       y,
       s.players[side].recon > 0 ||
         (s.players[side].jam <= 0 &&
-          s.units.some(
+          observerUnits(s, side).some(
             (v) =>
               v.side === side &&
               v.hp > 0 &&
@@ -474,8 +539,19 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
     );
   });
 }
+const visibleLookup = new WeakMap<
+  number[],
+  { length: number; ids: Set<number> }
+>();
 export function visibleToSide(s: GameState, side: Side, u: Unit) {
-  return u.side === side || s.visible[side].includes(u.uid);
+  if (u.side === side) return true;
+  const ids = s.visible[side];
+  let lookup = visibleLookup.get(ids);
+  if (!lookup || lookup.length !== ids.length) {
+    lookup = { length: ids.length, ids: new Set(ids) };
+    visibleLookup.set(ids, lookup);
+  }
+  return lookup.ids.has(u.uid);
 }
 export function refreshVision(s: GameState) {
   for (const side of [0, 1] as Side[]) {

@@ -10,7 +10,6 @@ import {
   setOrder,
   refreshVision,
   visibleToSide,
-  isCombatant,
   ground,
   CARDS,
   W,
@@ -33,6 +32,10 @@ function check(name, fn) {
 function arena() {
   const s = createGame(1637);
   startGame(s);
+  // This isolated flight scenario keeps its original deployment budget; campaign opening CP is tested separately.
+  s.players.forEach((p) => {
+    p.energy = 6;
+  });
   s.aiIn = 1e6;
   s.terrain.fill(374);
   s.original.fill(374);
@@ -121,7 +124,10 @@ for (const side of [0, 1]) {
       advance(s, 2);
       assert.equal(u.hp, 0);
       assert.equal(s.wrecks.filter((w) => w.id === u.uid).length, 1);
-      assert.deepEqual(s.players.map((p) => p.hp), [1000, 1000]);
+      assert.deepEqual(
+        s.players.map((p) => p.hp),
+        [1000, 1000],
+      );
       assert.ok(s.players[side].discard.includes(token));
       return { position: u.x, maxStep, baseHp: s.players.map((p) => p.hp) };
     },

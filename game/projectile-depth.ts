@@ -14,14 +14,15 @@ export function aimProjectileDepth(s: GameState, p: Projectile) {
     return;
   const shooter = s.units.find((u) => u.uid === p.sourceUid);
   const target = s.units.find((u) => u.uid === p.targetUid);
-  if (!shooter || !target || !CARDS[target.id].members) return;
+  if (!shooter || !target || (!CARDS[target.id].members && !p.smallArmsAir))
+    return;
   let hash = ((p.uid ?? 0) ^ s.seed ^ 0x541a87) >>> 0;
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
   hash = Math.imul(hash ^ (hash >>> 16), 0x45d9f3b);
   const error = (((hash ^ (hash >>> 16)) >>> 0) / 0xffffffff) * 2 - 1;
   const distance = Math.abs(p.tx - p.startX);
   const spread =
-    (3 + distance / 65) *
+    (p.smallArmsAir ? 70 + distance / 6 : 3 + distance / 65) *
     (1 + shooter.suppression / 90) *
     (shooter.moving ? 1.35 : 1) *
     (modelOf(shooter.id) === 'sniper' ? 0.4 : 1);
@@ -40,8 +41,15 @@ export function projectileLane(p: Projectile, x: number) {
 
 export function depthHit(p: Projectile, u: Unit, x = u.x) {
   const lane = projectileLane(p, x);
-  if (lane === null || !CARDS[u.id].members) return true;
-  const half = u.pose === 'prone' ? 3.2 : u.pose === 'crouch' ? 4 : 5;
+  if (lane === null || (!CARDS[u.id].members && !p.smallArmsAir)) return true;
+  const half =
+    p.smallArmsAir && CARDS[u.id].air
+      ? 14
+      : u.pose === 'prone'
+        ? 3.2
+        : u.pose === 'crouch'
+          ? 4
+          : 5;
   return Math.abs(u.lane - lane) <= half;
 }
 

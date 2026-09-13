@@ -45,7 +45,7 @@ function work(s, sec) {
   }
 }
 check(
-  'selection identifies living own squad and ignores enemy/vehicle/wounded',
+  'selection identifies living own infantry and vehicles and ignores enemy/wounded',
   () => {
     const s = arena(),
       u = spawn(s, 0, 'infantry', 900)[0],
@@ -57,14 +57,14 @@ check(
     );
     assert.equal(
       pickSquad(s, 0, u.x, u.y + infantryDepth(u.lane) - 40 + 40),
-      null,
+      u.squad,
     );
     assert.equal(
       pickSquad(s, 0, u.x, u.y + infantryDepth(u.lane) - 40 + 40, true),
       u.squad,
     );
     assert.equal(pickSquad(s, 0, e.x, e.y + infantryDepth(e.lane) - 40), null);
-    assert.equal(pickSquad(s, 0, v.x, v.y - 40), null);
+    assert.equal(pickSquad(s, 0, v.x, v.y - 40), v.squad);
     s.units = s.units.filter((q) => q === u);
     u.wounded = true;
     assert.equal(pickSquad(s, 0, u.x, u.y + infantryDepth(u.lane) - 40), null);

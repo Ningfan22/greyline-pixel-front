@@ -109,10 +109,10 @@ for (const side of [0, 1]) {
         'heavy mismatch is recognised before losses reduce rifle numbers',
       );
       if (heavy === 'helicopter')
-        assert.equal(
-          r.own.reduce((n, u) => n + u.shots - u.member, 0),
-          0,
-          'ordinary rifles cannot suppress an aircraft',
+        assert(
+          r.own.reduce((n, u) => n + u.shots - u.member, 0) > 0 &&
+            r.enemy.hp > r.enemy.maxHp * 0.9,
+          'rifles give low-effect cover fire without becoming effective anti-air',
         );
       if (side === 0 && heavy === 'tank' && process.env.V20_BACKPEDAL_SNAPSHOT)
         fs.writeFileSync(

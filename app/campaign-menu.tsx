@@ -24,9 +24,11 @@ export default function CampaignMenu({
   return (
     <section className={styles.campaign} aria-labelledby="campaign-title">
       <header className={styles.heading}>
-        <span>故事战役 · 三章</span>
+        <span>故事战役 · 六章</span>
         <h1 id="campaign-title">断线之地</h1>
-        <p>架空近现代战线。从南部旱原到北方河谷，接回失联的哨站。</p>
+        <p>
+          从盐路、雨林到北线终站，接回失联的人与哨站。六章架空故事，沿途部署与任务各不相同。
+        </p>
       </header>
       <div className={styles.dossier}>
         <nav className={styles.chapters} aria-label="战役章节">
@@ -36,6 +38,7 @@ export default function CampaignMenu({
               key={m.id}
               aria-current={selected === m.id ? 'step' : undefined}
               onClick={() => setSelected(m.id)}
+              aria-label={`${m.chapter} ${m.title}，${completed.includes(m.id) ? '已完成' : i === 0 || completed.includes(MISSIONS[i - 1].id) ? '可出战' : '待解锁'}`}
             >
               <small>
                 {m.chapter} ·{' '}
@@ -85,6 +88,7 @@ export default function CampaignMenu({
               <span>
                 {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
                 <small>使用当前20张编队 · 战役进度保存在本机</small>
+                <small>进场先听无线电简报，阅读时战斗暂停。</small>
               </span>
               <button
                 type="button"

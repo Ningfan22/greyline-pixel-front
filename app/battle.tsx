@@ -69,12 +69,18 @@ import {
 } from '@/game/audio';
 import { assetUrl } from '@/game/asset-url';
 import { DEFAULT_MAP, type MapId } from '@/game/maps';
-import { pickSquad, setSquadOrder } from '@/game/squad-orders';
-import { infantryDepth } from '@/game/render-depth';
+import {
+  pickSquad,
+  setSquadOrder,
+  selectUnitGroup,
+  ordersForUnit,
+} from '@/game/squad-orders';
+import { unitSelectionBounds } from '@/game/selection-render';
 import SquadMenu from './squad-menu';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
 import { missionById, type MissionId } from '@/game/campaign';
 import { createCampaignGame } from '@/game/campaign-game';
+import CampaignDialogue from './campaign-dialogue';
 import { DIFFICULTY_LABEL, DIFFICULTY_BONUS } from './difficulty-selector';
 
 const timeString = (t: number) =>
@@ -132,6 +138,9 @@ export default function Battle({
   const [view, setView] = useState(() => snapshot(initialGame));
   const completionRecorded = useRef(false);
   const mission = missionId ? missionById(missionId) : null;
+  const [dialogueOpen, setDialogueOpen] = useState(!!missionId);
+  const dialogueOpenRef = useRef(!!missionId),
+    dialogueResume = useRef(true);
   const timeLimit = view.campaign?.duration ?? DURATION;
   useEffect(() => {
     if (
@@ -276,6 +285,7 @@ export default function Battle({
       return;
     }
     startGame(game.current!);
+    if (dialogueOpenRef.current) game.current.status = 'paused';
     refresh();
   }, [refresh, toast]);
   const reset = useCallback(() => {
@@ -289,6 +299,12 @@ export default function Battle({
           difficulty,
         });
     startGame(game.current);
+    if (missionId) {
+      dialogueResume.current = true;
+      dialogueOpenRef.current = true;
+      setDialogueOpen(true);
+      game.current.status = 'paused';
+    }
     choose(null);
     hover.current = null;
     camera.current = game.current.campaign?.initialCamera ?? 0;
@@ -306,12 +322,34 @@ export default function Battle({
     selectSquad,
   ]);
   const pause = useCallback(() => {
+    if (dialogueOpenRef.current) return;
     interruptCardHold();
     const s = game.current!;
     if (s.status === 'playing') s.status = 'paused';
     else if (s.status === 'paused') s.status = 'playing';
     refresh();
   }, [refresh, interruptCardHold]);
+  const openDialogue = () => {
+    if (!missionId || dialogueOpenRef.current) return;
+    interruptCardHold();
+    keys.current.clear();
+    dialogueResume.current =
+      game.current.status === 'playing' || game.current.status === 'ready';
+    if (game.current.status === 'playing') game.current.status = 'paused';
+    dialogueOpenRef.current = true;
+    setDialogueOpen(true);
+    refresh();
+  };
+  const closeDialogue = () => {
+    dialogueOpenRef.current = false;
+    setDialogueOpen(false);
+    if (dialogueResume.current && art.current) {
+      if (game.current.status === 'ready') startGame(game.current);
+      else if (game.current.status === 'paused')
+        game.current.status = 'playing';
+    }
+    refresh();
+  };
   const openPanel = (p: 'guide' | 'deck' | 'card') => {
     interruptCardHold();
     panelPause.current = game.current!.status === 'playing';
@@ -399,6 +437,7 @@ export default function Battle({
           art.current = a;
           setAssetsReady(true);
           startGame(game.current!);
+          if (dialogueOpenRef.current) game.current.status = 'paused';
           refresh();
         }
       })
@@ -425,9 +464,16 @@ export default function Battle({
           W - viewport.current,
           camera.current + dt * 650,
         );
-      if (!document.hidden && !portraitGate.current && s.status === 'playing') {
-        accumulator += Math.min(dt, 0.25);
-        while (accumulator >= 1 / 60) {
+      if (
+        !document.hidden &&
+        !portraitGate.current &&
+        !dialogueOpenRef.current &&
+        s.status === 'playing'
+      ) {
+        // A slow paint must not demand fifteen expensive combat ticks on its next frame.
+        accumulator = Math.min(accumulator + Math.max(0, dt), 3 / 60);
+        let steps = 0;
+        while (accumulator >= 1 / 60 && steps++ < 3) {
           tick(s, 1 / 60);
           accumulator -= 1 / 60;
         }
@@ -500,6 +546,7 @@ export default function Battle({
   useEffect(() => {
     const pressedKeys = keys.current;
     const onKey = (e: KeyboardEvent) => {
+      if (dialogueOpenRef.current) return;
       if (panel || e.altKey || e.ctrlKey || e.metaKey) return;
       const tag = (e.target as HTMLElement)?.tagName;
       if (
@@ -685,13 +732,15 @@ export default function Battle({
     squads = new Set(units.map((u) => u.squad)).size;
   const deckCards = playerDeck.map((id) => CARDS[id]);
   const selectedMembers = units.filter(
-    (u) => u.squad === selectedSquad && CARDS[u.id].members && !u.rappelling,
+    (u) => u.squad === selectedSquad && !u.rappelling,
   );
   const squadX =
     selectedMembers.reduce((n, u) => n + u.x, 0) /
     Math.max(1, selectedMembers.length);
   const squadY = selectedMembers.length
-    ? Math.min(...selectedMembers.map((u) => u.y + infantryDepth(u.lane))) - 64
+    ? CARDS[selectedMembers[0].id].air
+      ? Math.max(...selectedMembers.map((u) => u.y)) + 140
+      : Math.min(...selectedMembers.map((u) => unitSelectionBounds(u).y)) - 18
     : 0;
   const squadTrench = view.entrenchments.find((t) => t.squad === selectedSquad);
   const selectCard = (h: HandCard) => {
@@ -735,6 +784,13 @@ export default function Battle({
     <main
       className={`game-shell ${touchMode ? 'touch-battle' : ''} ${view.status !== 'playing' || panel ? 'is-interrupted' : ''}`}
     >
+      {missionId && (
+        <CampaignDialogue
+          missionId={missionId}
+          open={dialogueOpen}
+          onClose={closeDialogue}
+        />
+      )}
       <div className="mobile-battle-hud">
         <div className="mobile-base mobile-base-own">
           <div>
@@ -803,9 +859,11 @@ export default function Battle({
         active &&
         !panel &&
         selectedMembers.length === 0 && (
-          <div
+          <button
+            type="button"
+            onClick={openDialogue}
             className="mission-status"
-            aria-label={`战役目标：${mission.goal}`}
+            aria-label={`查看任务简报：${mission.goal}`}
           >
             <strong>{mission.title}</strong>
             <span>
@@ -815,7 +873,7 @@ export default function Battle({
                   ? '守住己方指挥部'
                   : '摧毁敌方指挥部'}
             </span>
-          </div>
+          </button>
         )}
       <header className="masthead">
         <div className="brand">
@@ -908,13 +966,18 @@ export default function Battle({
           </span>
           <strong>{timeString(Math.ceil(timeLimit - view.time))}</strong>
           {mission && view.campaign ? (
-            <small className="mission-clock-goal">
+            <button
+              type="button"
+              className="mission-clock-goal"
+              onClick={openDialogue}
+              aria-label="查看任务简报"
+            >
               {mission.objective === 'capture'
                 ? `电台 ${view.campaign.captureProgress.toFixed(0)} / 15秒`
                 : mission.objective === 'defend'
                   ? '守住己方指挥部'
                   : '摧毁敌方指挥部'}
-            </small>
+            </button>
           ) : (
             <div className="clock-dots">
               <i />
@@ -1013,6 +1076,11 @@ export default function Battle({
                 ((e.clientY - rect.top) / rect.height) * H,
                 e.pointerType !== 'mouse',
               );
+              if (found !== null) {
+                const result = selectUnitGroup(game.current, 0, found);
+                if (!result.ok) toast(result.message);
+                refresh();
+              }
               selectSquad(found === selectedSquadRef.current ? null : found);
             }
             if (e.currentTarget.hasPointerCapture(e.pointerId))
@@ -1047,6 +1115,16 @@ export default function Battle({
               y={(squadY / H) * 100}
               name={CARDS[selectedMembers[0].id].name}
               count={selectedMembers.length}
+              unitLabel={
+                CARDS[selectedMembers[0].id].members
+                  ? '人'
+                  : CARDS[selectedMembers[0].id].air
+                    ? '架'
+                    : CARDS[selectedMembers[0].id].emplacement
+                      ? '门'
+                      : '辆'
+              }
+              orders={ordersForUnit(selectedMembers[0].id)}
               order={
                 selectedMembers[0].squadOrder ??
                 (selectedMembers[0].escortTankUid !== undefined
@@ -1116,7 +1194,7 @@ export default function Battle({
             <Binoculars size={14} /> 校射 +20% · {Math.ceil(p.recon)}s
           </div>
         )}
-        {view.status === 'ready' && (
+        {view.status === 'ready' && !dialogueOpen && (
           <div className="start-scrim">
             <div className="launch">
               <div className="operation">
@@ -1155,7 +1233,7 @@ export default function Battle({
             </div>
           </div>
         )}
-        {view.status === 'paused' && !panel && (
+        {view.status === 'paused' && !panel && !dialogueOpen && (
           <div className="pause-scrim">
             <div className="pause-card">
               <Pause size={25} />
@@ -1166,6 +1244,11 @@ export default function Battle({
                 · 双方开局2点
               </p>
               {mission && <p>{mission.goal}</p>}
+              {mission && (
+                <button className="text-button" onClick={openDialogue}>
+                  重听任务简报
+                </button>
+              )}
               <button className="primary-button" onClick={pause}>
                 继续作战
                 <Play size={16} />

@@ -16,7 +16,7 @@
   left: calc(50% + var(--x));
   top: var(--y);
   transform: translateX(-50%) rotate(var(--tilt));
-  width: 48px;
+  width: var(--w, 48px);
   height: 48px;
   border: 2px solid;
   border-color: #bac18b #26372c #26372c #bac18b;

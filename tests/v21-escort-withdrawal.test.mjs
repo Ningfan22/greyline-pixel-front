@@ -129,9 +129,10 @@ for (const side of [0, 1]) {
         'soldiers actually reach a safe observation position',
       );
       if (heavy === 'helicopter')
-        assert.equal(
-          r.own.reduce((n, u) => n + u.shots - u.member, 0),
-          0,
+        assert(
+          r.own.reduce((n, u) => n + u.shots - u.member, 0) > 0 &&
+            r.foe.hp > r.foe.maxHp * 0.9,
+          'sporadic rifle cover fire cannot replace anti-air support',
         );
     });
   for (const heavy of ['tank', 'helicopter'])

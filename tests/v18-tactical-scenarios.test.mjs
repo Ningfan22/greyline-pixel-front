@@ -8,6 +8,8 @@ import {
   refreshVision,
   W,
   isCombatant,
+  unitRange,
+  visibleToSide,
 } from '../game/engine.ts';
 import { CARDS } from '../game/cards.ts';
 const dt = 1 / 60;
@@ -79,6 +81,7 @@ export function weaponScenario(
     coveredFrames = 0,
     uncoveredFrames = 0,
     allFleeFrames = 0,
+    exposedAllFleeFrames = 0,
     minDistance = Infinity;
   for (let frame = 0; frame < Math.round(seconds / dt); frame++) {
     const previous = new Map(own.map((u) => [u.uid, u.x]));
@@ -128,8 +131,20 @@ export function weaponScenario(
     if (
       live.length > 3 &&
       live.every((u) => u.moving && (u.x - previous.get(u.uid)) * dir < -0.001)
-    )
+    ) {
       allFleeFrames++;
+      if (
+        live.some((u) =>
+          foes.some(
+            (v) =>
+              isCombatant(v) &&
+              visibleToSide(s, u.side, v) &&
+              Math.abs(v.x - u.x) <= Math.min(640, unitRange(s, v) + 36),
+          ),
+        )
+      )
+        exposedAllFleeFrames++;
+    }
     for (const u of live)
       for (const v of foes.filter(isCombatant))
         minDistance = Math.min(minDistance, Math.abs(u.x - v.x));
@@ -144,6 +159,7 @@ export function weaponScenario(
       foes.reduce((n, u) => n + u.shots + u.secondaryShots, 0) - initialShots,
     ownShots: own.reduce((n, u) => n + u.shots - u.member, 0),
     supportShots: supportUnits.reduce((n, u) => n + u.shots - u.member, 0),
+    enemyAlive: foes.filter(isCombatant).length,
     enemyDamage:
       initialEnemyHP - foes.reduce((n, u) => n + Math.max(0, u.hp), 0),
     alive: own.filter((u) => u.hp > 0).length,
@@ -158,6 +174,7 @@ export function weaponScenario(
     coveredFrames,
     uncoveredFrames,
     allFleeFrames,
+    exposedAllFleeFrames,
     minDistance,
     meanAdvance:
       own.reduce((n, u) => n + (u.x - original.get(u.uid).x) * dir, 0) /
@@ -272,9 +289,9 @@ for (const side of [0, 1]) {
         );
         assert(row.fallback >= 6 && row.coveredFrames > 40);
         assert.equal(
-          row.allFleeFrames,
+          row.exposedAllFleeFrames,
           0,
-          'the surviving force must not retreat on one global pulse',
+          'visible firing threats require phased cover; troops already out of contact may travel together',
         );
         assert(
           row.minDistance > 140,
@@ -283,16 +300,15 @@ for (const side of [0, 1]) {
       }
       console.log('TACTICAL_GROUND', JSON.stringify({ side, kind, rows }));
     });
-  test(`unprotected infantry recognises actual gunship danger without trying to shoot it, side ${side}`, () => {
+  test(`unprotected infantry recognises gunship danger while giving limited rifle cover fire, side ${side}`, () => {
     const rows = [1, 7, 13, 29].map((seed) =>
       weaponScenario(seed, side, 'helicopter'),
     );
     for (const row of rows) {
       assert(row.enemyShots > 20);
-      assert.equal(
-        row.ownShots,
-        0,
-        'ordinary rifles cannot acquire a new anti-air capability',
+      assert(
+        row.ownShots > 0 && row.enemyDamage < 26,
+        'sporadic rifle hits cannot replace the separate anti-air counter',
       );
       assert(row.low >= 12 && row.lowFrameRatio > 0.6);
       assert(row.fallback >= 6);
@@ -330,11 +346,22 @@ for (const side of [0, 1]) {
         ) > 0,
         'real counter fire lets the force retain more ground across the fixed seeds',
       );
-      assert(
-        pairs.reduce((n, [bare, supported]) => n + supported.hp - bare.hp, 0) >
-          0,
-        'counter support improves aggregate survival, without promising every individual exchange',
-      );
+      if (kind === 'tank')
+        assert(
+          pairs.every(
+            ([, supported]) =>
+              supported.enemyAlive === 0 && supported.alive >= 4,
+          ),
+          'anti-tank support must actually defeat both tanks and retain a living advancing force',
+        );
+      else
+        assert(
+          pairs.reduce(
+            (n, [bare, supported]) => n + supported.hp - bare.hp,
+            0,
+          ) > 0,
+          'anti-air support improves aggregate survival across these fixed exchanges',
+        );
       console.log('TACTICAL_COUNTER', JSON.stringify({ side, kind, pairs }));
     });
   test(`recon drones and interceptors do not frighten infantry into stopping, side ${side}`, () => {

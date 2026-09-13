@@ -1,4 +1,6 @@
 import { infantryGeometry } from './infantry-geometry';
+import { localUnitOrder, stepUnitControl } from './unit-control';
+import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
 import {
   advanceCampaign,
@@ -58,6 +60,7 @@ import {
   refreshVision,
   visibleToSide,
   pointVisible,
+  observerUnits,
   sceneryIntercept,
   sceneryCoverHits,
   damageScenery,
@@ -125,6 +128,8 @@ export interface Unit {
   withdrawHeavySeenAt?: number;
   withdrawHeavyX?: number;
   withdrawHeavyY?: number;
+  withdrawHeavyRange?: number;
+  withdrawUnderFireUntil?: number;
   withdrawStandby?: boolean;
   holdLane?: number;
   digging?: boolean;
@@ -323,6 +328,7 @@ export interface Projectile {
   weapon?: 'coax';
   armorMultiplier?: number;
   missed?: boolean;
+  smallArmsAir?: boolean;
 }
 export interface Particle {
   kind?: 'smoke' | 'dust' | 'spark' | 'chip' | 'casing' | 'tracer' | 'impact';
@@ -1482,16 +1488,11 @@ export function terrainIntercept(
   const prop = ignoreAllCover
     ? null
     : sceneryIntercept(s, sx, sy, tx, ty, false, false, ignoreSoftCover);
-  const steps = Math.max(1, Math.ceil(Math.abs(tx - sx) / 2));
-  for (let i = 1; i <= steps; i++) {
-    const t = i / steps,
-      x = sx + (tx - sx) * t,
-      y = sy + (ty - sy) * t;
-    if (y >= ground(s, x) - 1)
-      return prop && prop.t < t
-        ? { x: prop.x, y: prop.y }
-        : { x, y: ground(s, x) - 1 };
-  }
+  const soil = heightfieldIntercept(s, sx, sy, tx, ty, prop?.t ?? 1);
+  if (soil)
+    return prop && prop.t < soil.t
+      ? { x: prop.x, y: prop.y }
+      : { x: soil.x, y: soil.y };
   return prop ? { x: prop.x, y: prop.y } : null;
 }
 export function projectileIntercept(
@@ -1675,7 +1676,7 @@ export function unitRange(s: GameState, u: Unit) {
 export function droneRecon(s: GameState, side: Side, x: number) {
   return (
     s.players[side].jam <= 0 &&
-    s.units.some(
+    observerUnits(s, side).some(
       (u) =>
         u.side === side &&
         CARDS[u.id].observer &&
@@ -2039,7 +2040,7 @@ function moveSoldier(
   dt: number,
   mayTraverse = true,
 ) {
-  if (!dir || speed <= 0) return;
+  if (!dir || speed <= 0 || localUnitOrder(s, u) === 'watch') return;
   u.facing = dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
@@ -2126,7 +2127,13 @@ function moveSoldier(
     neighbors
       .filter(
         (v) =>
-          (v.backpedaling ? -v.facing : v.facing) === dir &&
+          (v.withdrawHeavyUid !== undefined
+            ? Math.sign(v.x - (v.withdrawHeavyX ?? v.x))
+            : v.escortGoal !== undefined && Math.abs(v.escortGoal - v.x) > 0.5
+              ? Math.sign(v.escortGoal - v.x)
+              : v.backpedaling
+                ? -v.facing
+                : v.facing) === dir &&
           Math.abs(v.lane - u.lane) < 4 &&
           (v.x - u.x) * dir > 0,
       )
@@ -2139,13 +2146,18 @@ function moveSoldier(
       u.squad === v.squad &&
       u.holdLane !== undefined &&
       v.holdLane !== undefined;
-    return Math.max(
-      0,
-      Math.min(
-        1,
-        (Math.abs(v.x - u.x) - (compact ? 8 : 24)) / (compact ? 4 : 12),
-      ),
-    );
+    // Escort slots are 26 px apart. A 36 px full-speed following gap makes
+    // every valid rank brake into the one behind while its tank reverses.
+    const escortColumn =
+      u.escortTankUid !== undefined &&
+      u.escortTankUid === v.escortTankUid &&
+      u.escortGoal !== undefined &&
+      v.escortGoal !== undefined &&
+      Math.sign(u.escortGoal - u.x) === dir &&
+      Math.sign(v.escortGoal - v.x) === dir;
+    const gap = compact ? 8 : escortColumn ? 18 : 24;
+    const buffer = compact ? 4 : escortColumn ? 8 : 12;
+    return Math.max(0, Math.min(1, (Math.abs(v.x - u.x) - gap) / buffer));
   };
   const laneFree = (lane: number) =>
     !neighbors.some(
@@ -2184,8 +2196,16 @@ function moveSoldier(
     }
   }
   if ((u.trafficWait ?? 0) > 0.75) u.trafficYieldUntil = s.time + 1.8;
-  const passage = (u.trafficYieldUntil ?? 0) > s.time ? 0.55 : 0;
-  speed *= Math.max(passage, flow(nearestBlocker()));
+  const following = nearestBlocker();
+  const coordinated =
+    following &&
+    ((u.withdrawHeavyUid !== undefined &&
+      following.withdrawHeavyUid !== undefined) ||
+      (u.escortTankUid !== undefined &&
+        u.escortTankUid === following.escortTankUid));
+  const passage =
+    !coordinated && (u.trafficYieldUntil ?? 0) > s.time ? 0.55 : 0;
+  speed *= Math.max(passage, flow(following));
   const beforeX = u.x;
   u.facing = dir;
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
@@ -2233,6 +2253,18 @@ function sustainedAirThreat(u: Unit) {
     (c.damage ?? 0) > 0
   );
 }
+/** Rifles can make low-probability snapshots at rotary aircraft, never passing jets. */
+function rifleRotorTarget(source: Unit, target: Unit) {
+  const c = weaponCard(source);
+  return (
+    !!c.members &&
+    !c.antiAir &&
+    ammunition(source.id, source.member) === 'rifle' &&
+    (target.id === 'helicopter' ||
+      target.id === 'rocket_heli' ||
+      target.id === 'air_assault')
+  );
+}
 /** A visible contact must be able to bring a real weapon to bear before it drives a fallback. */
 function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
   const c = weaponCard(source),
@@ -2240,7 +2272,7 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
   const distance = Math.abs(source.x - target.x);
   return (
     (c.damage ?? 0) > 0 &&
-    (!t.air || c.antiAir) &&
+    (!t.air || c.antiAir || rifleRotorTarget(source, target)) &&
     (!c.airOnly || t.air) &&
     (!c.armorOnly || t.armored || t.vehicle) &&
     distance >= (c.minRange ?? 0) &&
@@ -2266,6 +2298,7 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit) {
   const splash = t.members && c.radius ? 1 + Math.min(0.8, c.radius / 60) : 1;
   return (
     (hit / (c.members ?? 1) / Math.max(0.12, cycle)) *
+    (rifleRotorTarget(source, target) ? 0.018 : 1) *
     multiplier *
     splash *
     Math.sqrt(40 / Math.max(25, target.maxHp)) *
@@ -2313,12 +2346,22 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     clear();
     return;
   }
+  if (
+    u.flash > 0 ||
+    (u.suppression >= 3 &&
+      u.lastThreat &&
+      u.lastThreat.until > s.time &&
+      u.withdrawHeavyX !== undefined &&
+      (u.lastThreat.x - u.x) * (u.withdrawHeavyX - u.x) > 0)
+  )
+    u.withdrawUnderFireUntil = s.time + 6;
   const foe = s.units.find((v) => v.uid === u.withdrawHeavyUid);
   const seen = foe && visibleToSide(s, u.side, foe);
   if (seen) {
     u.withdrawHeavySeenAt = s.time;
     u.withdrawHeavyX = foe.x;
     u.withdrawHeavyY = foe.y - bodyHeight(foe);
+    u.withdrawHeavyRange = unitRange(s, foe);
     if (!isCombatant(foe) || heavySupport(s, u, foe)) {
       clear();
       return;
@@ -2332,7 +2375,8 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
         Math.abs(u.withdrawGoal - u.x) <= 4 ||
         (u.withdrawGoal - u.x) * away < 0
       ) {
-        const slot = infantrySpace(s, u, u.x + away * 66, 24, away);
+        const safe = foe.x + away * (unitRange(s, foe) + 220);
+        const slot = infantrySpace(s, u, safe, 72, away);
         u.withdrawGoal = slot.x;
         u.passingLane = slot.lane;
       }
@@ -2349,6 +2393,17 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     // The remembered position has actually been observed clear, not merely hidden by fog.
     clear();
     return;
+  }
+  if (
+    (u.withdrawUnderFireUntil ?? 0) > s.time &&
+    (u.withdrawGoal === undefined || Math.abs(u.withdrawGoal - u.x) <= 4)
+  ) {
+    const away =
+      Math.sign(u.x - (u.lastThreat?.x ?? u.withdrawHeavyX ?? u.x)) ||
+      (u.side === 0 ? -1 : 1);
+    const slot = infantrySpace(s, u, u.x + away * 112, 48, away);
+    u.withdrawGoal = slot.x;
+    u.passingLane = slot.lane;
   }
   if (u.withdrawGoal !== undefined && Math.abs(u.withdrawGoal - u.x) > 4) {
     u.withdrawStandby = false;
@@ -2393,7 +2448,9 @@ function infantrySpace(
       v.side === u.side &&
       isCombatant(v) &&
       CARDS[v.id].members &&
-      Math.abs(v.x - preferred) < reach + 100,
+      [v.x, v.withdrawGoal, v.escortGoal].some(
+        (x) => x !== undefined && Math.abs(x - preferred) < reach + 100,
+      ),
   );
   let best = { x: preferred, lane: u.lane },
     score = Infinity;
@@ -2512,9 +2569,22 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   }
   const away = Math.sign(center - threat.x) || (u.side === 0 ? -1 : 1);
   for (const [index, mate] of squad.entries()) {
-    const slot = infantrySpace(s, mate, mate.x + away * 66, 24, away);
+    const desired = unsupportedHeavy
+      ? unsupportedHeavy.foe.x +
+        away * (unitRange(s, unsupportedHeavy.foe) + 220)
+      : mate.x + away * 66;
+    const slot = infantrySpace(
+      s,
+      mate,
+      desired,
+      unsupportedHeavy ? 72 : 24,
+      away,
+    );
     mate.withdrawHeavyUid = unsupportedHeavy?.foe.uid;
     mate.withdrawHeavySeenAt = unsupportedHeavy ? s.time : undefined;
+    mate.withdrawHeavyRange = unsupportedHeavy
+      ? unitRange(s, unsupportedHeavy.foe)
+      : undefined;
     mate.withdrawHeavyX = unsupportedHeavy?.foe.x;
     mate.withdrawHeavyY = unsupportedHeavy
       ? unsupportedHeavy.foe.y - bodyHeight(unsupportedHeavy.foe)
@@ -2781,7 +2851,8 @@ function evadeArtillery(s: GameState, u: Unit, dt: number) {
   u.fire = 0;
   u.secondaryFire = 0;
   const noticed = s.projectiles.find((p) => p.uid === u.evadeMarker);
-  if (!noticed || eta(noticed) < 0.18) u.evadeGoal = null;
+  if (!noticed || eta(noticed) < 0.18 || localUnitOrder(s, u) === 'watch')
+    u.evadeGoal = null;
   if (u.evadeGoal !== null && Math.abs(u.evadeGoal - u.x) > 4) {
     u.pose = 'run';
     moveSoldier(
@@ -4423,13 +4494,22 @@ export function tick(s: GameState, dt: number) {
     u.flash = Math.max(0, u.flash - dt);
     u.fire = Math.max(0, u.fire - dt);
     u.moving = false;
-    const order = c.members ? infantryOrder(s, u) : s.players[u.side].order;
+    const controlledNavigation = stepUnitControl(s, u, dt);
+    const localOrder = localUnitOrder(s, u);
+    const order = c.members
+      ? infantryOrder(s, u)
+      : localOrder
+        ? localOrder === 'watch'
+          ? 'hold'
+          : 'advance'
+        : s.players[u.side].order;
     if (c.airlift) {
-      flyTransport(s, u, dt);
+      if (!controlledNavigation) flyTransport(s, u, dt);
       continue;
     }
     if (u.id === 'fpv_drone') {
-      flyFpv(s, u, dt);
+      if (!controlledNavigation || s.time >= (u.flightUntil ?? Infinity))
+        flyFpv(s, u, dt);
       continue;
     }
     u.stepCooldown = Math.max(0, u.stepCooldown - dt);
@@ -4503,10 +4583,14 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
 
-    if (c.emplacement && towEmplacement(s, u, dt)) continue;
+    if (c.emplacement && !controlledNavigation && towEmplacement(s, u, dt))
+      continue;
 
-    if (c.patrolTime) flyAirPatrol(s, u, dt);
-    else if (c.air && c.sortie) {
+    // A locally circling/returning aircraft is not beginning an attack run.
+    // The shared sortie-boundary cleanup still returns its card after departure.
+    if (controlledNavigation && c.air && c.sortie) continue;
+    if (!controlledNavigation && c.patrolTime) flyAirPatrol(s, u, dt);
+    else if (!controlledNavigation && c.air && c.sortie) {
       u.x += dir * c.speed! * (morale ? 1.2 : 1) * dt;
       u.facing = dir;
       u.moving = true;
@@ -4516,6 +4600,7 @@ export function tick(s: GameState, dt: number) {
       u.y = c.altitude ?? AIR_ALTITUDE;
       continue;
     }
+    if (c.observer && controlledNavigation) continue;
     if (c.observer) {
       const front = s.units.filter(
         (v) =>
@@ -4551,7 +4636,8 @@ export function tick(s: GameState, dt: number) {
             canTakeDamage(v) &&
             (v.wounded || v.hp < v.maxHp) &&
             CARDS[v.id].members &&
-            Math.abs(v.x - u.x) <= 140,
+            Math.abs(v.x - u.x) <=
+              (u.squadOrder === 'watch' && v.wounded ? 64 : 140),
         )
         .sort(
           (a, b) =>
@@ -4585,14 +4671,20 @@ export function tick(s: GameState, dt: number) {
       (c.armorMultiplier ?? 1) <= 1.2 &&
       (primaryAmmo === 'rifle' || primaryAmmo === 'machinegun');
     const softTargetRank = (v: Unit) =>
-      CARDS[v.id].members ? 0 : CARDS[v.id].armored ? 2 : 1;
+      CARDS[v.id].members
+        ? 0
+        : rifleRotorTarget(u, v)
+          ? 3
+          : CARDS[v.id].armored
+            ? 2
+            : 1;
     const candidates = s.units
       .filter(
         (v) =>
           v.side !== u.side &&
           isCombatant(v) &&
           visibleToSide(s, u.side, v) &&
-          (!CARDS[v.id].air || c.antiAir) &&
+          (!CARDS[v.id].air || c.antiAir || rifleRotorTarget(u, v)) &&
           (!c.airOnly || CARDS[v.id].air) &&
           (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
           (!c.patrolTime || !u.patrolExiting) &&
@@ -5038,6 +5130,7 @@ export function tick(s: GameState, dt: number) {
             CARDS[target.id].members &&
             (c.infantryAbility === 'ambush' || c.infantryAbility === 'elite') &&
             (u.ambushFor ?? 0) >= (c.infantryAbility === 'elite' ? 1 : 2);
+          const smallArmsAir = !!(target && rifleRotorTarget(u, target));
           const openingDamage = ambush
             ? c.infantryAbility === 'elite'
               ? 1.5
@@ -5089,6 +5182,7 @@ export function tick(s: GameState, dt: number) {
             speed: c.guided && c.airOnly ? 1250 : undefined,
             infantryMultiplier: c.infantryMultiplier,
             baseMultiplier: c.baseMultiplier,
+            smallArmsAir,
             shell: !!c.indirect,
             effect: ap
               ? 'penetration'
@@ -5108,6 +5202,7 @@ export function tick(s: GameState, dt: number) {
             damage:
               ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               openingDamage *
+              (smallArmsAir ? 0.12 : 1) *
               (morale ? 1.35 : 1) *
               (c.trait === 'close_assault' && Math.abs(tx - u.x) < 200
                 ? 1.2
@@ -5160,7 +5255,7 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : order === 'prone'
                 ? 'prone'
-                : withdrawing
+                : withdrawing || escortAhead
                   ? 'walk'
                   : u.tactic === 'prone'
                     ? 'prone'
@@ -5227,19 +5322,24 @@ export function tick(s: GameState, dt: number) {
         );
         if (laneChange) u.moving = true;
         if (
-          withdrawing &&
-          withdrawalThreat &&
+          ((withdrawing && withdrawalThreat) || (escortAhead && target)) &&
           (u.x - beforeMove) * moveDir > 0.001 &&
           u.motion === 'ground' &&
           !u.climbing
         ) {
-          const faceThreat = Math.sign(withdrawalThreat.x - u.x) || dir;
+          const faceThreat =
+            Math.sign((withdrawalThreat ?? target)!.x - u.x) || dir;
           if (faceThreat !== moveDir) {
             u.facing = faceThreat;
             u.backpedaling = true;
           }
         }
-      } else if (!c.sortie && !c.static && (!c.vehicle || order !== 'hold')) {
+      } else if (
+        !controlledNavigation &&
+        !c.sortie &&
+        !c.static &&
+        (!c.vehicle || order !== 'hold')
+      ) {
         const before = u.x;
         u.x = Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt));
         u.moving = Math.abs(u.x - before) > 0.001;
