@@ -18,6 +18,8 @@ export default function SquadMenu({
   y,
   name,
   count,
+  unitLabel = '人',
+  orders = SQUAD_ORDERS,
   order,
   progress,
   onOrder,
@@ -27,6 +29,8 @@ export default function SquadMenu({
   y: number;
   name: string;
   count: number;
+  unitLabel?: string;
+  orders?: typeof SQUAD_ORDERS;
   order?: SquadOrder;
   progress?: number;
   onOrder: (order: SquadOrder) => void;
@@ -36,26 +40,27 @@ export default function SquadMenu({
     <div
       className={styles.menu}
       role="toolbar"
-      aria-label={`${name}小队指令`}
+      aria-label={`${name}单位指令`}
       style={{
         left: `clamp(145px, ${x}%, calc(100% - 145px))`,
-        top: `clamp(104px, ${y}%, calc(100% - 86px))`,
+        top: `clamp(164px, ${y}%, calc(100% - 86px))`,
       }}
     >
       <style>{`@font-face{font-family:'Greyline Squad Pixel';src:url('${assetUrl('/fonts/fusion-pixel-12px-monospaced-zh_hans.otf.woff2')}') format('woff2');font-display:swap;}`}</style>
-      {SQUAD_ORDERS.map((item, i) => (
+      {orders.map((item, i) => (
         <button
           key={item.id}
           type="button"
           aria-pressed={order === item.id}
-          aria-label={`小队${item.label}`}
+          aria-label={`单位${item.label}`}
           title={item.description}
           className={styles.action}
           style={
             {
-              '--x': `${[-112, -56, 0, 56, 112][i]}px`,
-              '--y': `${[24, 6, 0, 6, 24][i]}px`,
-              '--tilt': `${[-14, -7, 0, 7, 14][i]}deg`,
+              '--x': `${(i - (orders.length - 1) / 2) * (orders.some((o) => o.label.length > 2) ? 88 : 56)}px`,
+              '--y': `${Math.pow(i - (orders.length - 1) / 2, 2) * 6}px`,
+              '--tilt': `${(i - (orders.length - 1) / 2) * 7}deg`,
+              '--w': item.label.length > 2 ? '76px' : '48px',
             } as CSSProperties
           }
           onPointerDown={(e) => e.stopPropagation()}
@@ -73,9 +78,10 @@ export default function SquadMenu({
       ))}
       <div className={styles.caption}>
         <span>
-          {name} · {count}人
+          {name} · {count}
+          {unitLabel}
         </span>
-        <button type="button" aria-label="关闭小队指令" onClick={onClose}>
+        <button type="button" aria-label="关闭单位指令" onClick={onClose}>
           ×
         </button>
       </div>

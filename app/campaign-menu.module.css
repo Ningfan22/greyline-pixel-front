@@ -47,8 +47,8 @@
   background: #203225;
 }
 .chapters button {
-  min-height: 128px;
-  padding: 20px 14px;
+  min-height: 92px;
+  padding: 12px 14px;
   text-align: left;
   color: #bdc4aa;
   background: transparent;
@@ -72,7 +72,7 @@
 }
 .chapters strong {
   font-size: 22px;
-  margin: 13px 0;
+  margin: 8px 0;
 }
 .chapters span {
   font-size: 12px;
@@ -236,8 +236,8 @@
     grid-template-columns: 134px minmax(0, 1fr);
   }
   .chapters button {
-    padding: 14px 10px;
-    min-height: 108px;
+    padding: 10px;
+    min-height: 84px;
   }
   .chapters strong {
     font-size: 18px;
@@ -291,7 +291,8 @@
     grid-template-columns: 1fr;
   }
   .chapters {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     border-right: 0;
     border-bottom: 2px solid #4d6047;
   }
@@ -299,7 +300,7 @@
     min-width: 0;
     flex: 1;
     padding: 10px 6px;
-    min-height: 90px;
+    min-height: 78px;
   }
   .chapters strong {
     font-size: 16px;

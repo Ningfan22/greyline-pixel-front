@@ -203,19 +203,22 @@ check('每名士兵独立寻找目标、开火和受击', () => {
   assert(s.units.every((u) => Number.isFinite(u.hp)));
   assert(target.hp < target.maxHp);
 });
-check('机枪能对空，普通步兵不能对空', () => {
+check('机枪对空明显强于普通步兵的低效射击', () => {
   const s = fresh();
   s.units = [];
   spawnUnit(s, 0, 'infantry', 500);
   spawnUnit(s, 1, 'helicopter', 590);
+  const helicopter = s.units.at(-1);
   advance(s, 1);
-  assert.equal(
-    s.units.find((u) => u.id === 'helicopter').hp,
-    CARDS.helicopter.hp,
-  );
+  const rifleDamage = helicopter.maxHp - helicopter.hp;
+  assert(rifleDamage > 0 && rifleDamage < helicopter.maxHp * 0.02);
+  const beforeAA = helicopter.hp;
   spawnUnit(s, 0, 'machinegun', 540);
   advance(s, 1);
-  assert(s.units.find((u) => u.id === 'helicopter').hp < CARDS.helicopter.hp);
+  assert(
+    beforeAA - helicopter.hp > rifleDamage * 8,
+    'actual machinegun anti-air hits must overwhelmingly exceed sporadic rifle hits',
+  );
 });
 check('暂停和结算后不会继续消耗时间', () => {
   const s = fresh();
@@ -1476,13 +1479,21 @@ check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减�
     setOrder(s, 0, 'hold');
     tick(s, 1 / 60);
     const shots = s.projectiles.filter((p) => p.side === 0);
-    assert.equal(shots.length, 1);
-    assert.equal(shots[0].sourceUid, squad[0].uid);
+    assert.equal(shots.length, squad.length);
+    const machinegun = shots.filter((p) => !p.smallArmsAir);
+    assert.equal(machinegun.length, 1);
+    assert.equal(machinegun[0].sourceUid, squad[0].uid);
+    const rifles = shots.filter((p) => p.smallArmsAir);
+    assert.equal(rifles.length, squad.length - 1);
+    assert(rifles.every((p) => p.ammunition === 'rifle' && p.damage <= 0.5));
+    assert(machinegun[0].damage > Math.max(...rifles.map((p) => p.damage)) * 8);
     squad[0].hp = 0;
     squad[0].deadFor = 0;
     s.projectiles = [];
-    advance(s, 0.5);
-    assert(!s.projectiles.some((p) => p.side === 0));
+    advance(s, 1.05);
+    const survivorsShots = s.projectiles.filter((p) => p.side === 0);
+    assert(survivorsShots.length > 0);
+    assert(survivorsShots.every((p) => p.smallArmsAir && p.damage <= 0.5));
     assert(squad.slice(1).every((u) => weaponModel(u) === 'infantry'));
   }
 });

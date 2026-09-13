@@ -2,6 +2,7 @@ import { buildingStage, buildingType, type Scenery } from './world';
 import { buildingAnimation, type BuildingArt } from './building-art';
 import { drawTreeV17, treeFrameV17, type TreeArtV17 } from './tree-art-v17';
 import { treeStateV17 } from './tree-state-v17';
+import { filteredSprite } from './render-cache';
 
 export function drawScenery(
   ctx: CanvasRenderingContext2D,
@@ -23,10 +24,11 @@ export function drawScenery(
       state.fallAge,
       state.bare,
     );
-    if (state.fallAge !== null) ctx.filter = 'grayscale(1) brightness(.76)';
     drawTreeV17(
       ctx,
-      frame,
+      state.fallAge !== null
+        ? filteredSprite(frame, 'grayscale(1) brightness(.76)')
+        : frame,
       p.x,
       p.y + (groundAt(p.x) - p.y) * state.settled,
       state.flip,
@@ -34,7 +36,6 @@ export function drawScenery(
   } else {
     const row = buildingType(p),
       stage = buildingStage(p);
-    if (stage === 3) ctx.filter = 'grayscale(1) brightness(.76)';
     const animation = buildingAnimation(p, time);
     const frame =
       animation === null
@@ -52,7 +53,9 @@ export function drawScenery(
     // Use complete painted structural states: no floating roofs made from clips.
     // The same state drives the remaining masonry collision in buildingHull.
     ctx.drawImage(
-      frame,
+      stage === 3
+        ? filteredSprite(frame, 'grayscale(1) brightness(.76)')
+        : frame,
       Math.round(p.x - frame.width),
       Math.round(base - (frame.height - 4) * 2),
       frame.width * 2,

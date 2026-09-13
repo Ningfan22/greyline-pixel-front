@@ -1,4 +1,12 @@
 import { mapDefinition, type MapId } from './maps';
+import { filteredSprite } from './render-cache';
+import { drawTerrainLayer } from './terrain-render';
+import {
+  drawUnitSelection,
+  selectionOccluded,
+  unitSelectionBounds,
+} from './selection-render';
+import { treeBoxesV17 } from './tree-state-v17';
 import { blastVisible } from './impact-fx';
 import { specialistSprite } from './adult-specialists';
 import { patrolFrameV17 } from './patrol-art-v17';
@@ -16,7 +24,7 @@ import {
   adultWreckChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
-import { wreckKind, wreckGeometry } from './wreck-geometry';
+import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { pointVisible, visibleToSide } from './world';
 import {
@@ -38,6 +46,15 @@ import {
 } from './engine';
 import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+const wreckBounds = new WeakMap<
+  object,
+  {
+    x: number;
+    y: number;
+    angle: number;
+    boxes: ReturnType<typeof wreckObstacles>;
+  }
+>();
 
 const rearSoilTextures = new WeakMap<object, HTMLCanvasElement>();
 function rearSoilTexture(
@@ -142,80 +159,28 @@ export function render(
   ctx.translate(-Math.round(camera), 0);
   const visibleGround = (x: number) =>
     s.knownTerrain[0][Math.max(0, Math.min(W - 1, Math.floor(x)))];
-  // Draw the soil material through the destructible heightfield; craters expose inner strata.
   const left = Math.max(0, Math.floor(camera / 3) * 3),
     right = Math.min(W, Math.ceil((camera + viewportWidth) / 3) * 3);
-  const tw = terrainArt.width,
-    th = terrainArt.height;
-  // Excavation removes the foreground lane, not the entire depth of the world.
-  // Keep authored earth behind the cut so props on the rear surface stay rooted.
-  // Only remembered terrain is drawn; hidden enemy construction is not revealed.
-  const rearSoil = rearSoilTexture(terrainArt);
-  ctx.save();
-  ctx.beginPath();
-  for (let x = left; x < right; x += 3) {
-    const top = Math.round(s.original[x]) - 2,
-      bottom = Math.round(visibleGround(x));
-    if (bottom > top + 3) ctx.rect(x, top, 3, bottom - top + 2);
-  }
-  ctx.clip();
-  for (let x = left; x < right; x += 3) {
-    if (visibleGround(x) <= s.original[x] + 1) continue;
-    ctx.drawImage(
-      rearSoil,
-      ((x % 1023) / 1023) * tw,
-      0,
-      (tw * 3) / 1023,
-      th,
-      x,
-      s.original[x] - 5,
-      3,
-      170,
-    );
-  }
-  ctx.restore();
-  ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(left, H + 3);
-  for (let x = left; x <= right; x += 3)
-    ctx.lineTo(x, Math.round(visibleGround(x)));
-  ctx.lineTo(right, H + 3);
-  ctx.closePath();
-  ctx.clip();
-  for (let x = left; x < right; x += 3) {
-    const sourceX = ((x % 1023) / 1023) * tw;
-    ctx.drawImage(
-      terrainArt,
-      sourceX,
-      0,
-      (tw * 3) / 1023,
-      th,
-      x,
-      s.original[Math.min(W - 1, x)] - 5,
-      3,
-      170,
-    );
-  }
-  ctx.restore();
-  for (let x = left; x < right; x += 3) {
-    const y = Math.round(visibleGround(x)),
-      broken = y > s.original[x] + 5;
-    ctx.fillStyle = broken ? palette.disturbed : palette.surface;
-    ctx.fillRect(x, y - 2, 3, 3);
-    if (broken) {
-      ctx.fillStyle = palette.darkSoil;
-      ctx.fillRect(x, y, 3, 3);
-      ctx.fillStyle = palette.exposedSoil;
-      ctx.fillRect(x, y - 3, 3, 1);
-    }
-    if (!broken && x % 12 === 0) {
-      ctx.fillStyle = palette.grass;
-      ctx.fillRect(x, y - 4, 2, 3);
-    }
-  }
+  drawTerrainLayer(
+    ctx,
+    s,
+    terrainArt,
+    rearSoilTexture(terrainArt),
+    palette,
+    left,
+    right,
+  );
+  const foregroundBounds: { x: number; y: number; w: number; h: number }[] = [];
   const drawCoverProps = (front: boolean) => {
     for (const wall of Object.values(s.knownWalls[0])) {
       if (foregroundObject(wall.uid + 0x91ab) !== front) continue;
+      if (front && wall.hp > 0)
+        foregroundBounds.push({
+          x: wall.x - 29,
+          y: visibleGround(wall.x) - wall.height,
+          w: 58,
+          h: wall.height,
+        });
       if (wall.hp > 0)
         drawSprite(
           ctx,
@@ -236,7 +201,11 @@ export function render(
           front &&
         prop.x > camera - 180 &&
         prop.x < camera + viewportWidth + 180
-      )
+      ) {
+        if (front && prop.kind === 'tree')
+          foregroundBounds.push(
+            ...treeBoxesV17(prop, s.time, visibleGround(prop.x)),
+          );
         drawScenery(
           ctx,
           prop,
@@ -246,6 +215,7 @@ export function render(
           art.trees,
           visibleGround,
         );
+      }
     for (const w of s.wrecks) {
       if (foregroundObject(w.id) !== front) continue;
       if (
@@ -256,9 +226,29 @@ export function render(
         continue;
       const c = CARDS[w.cardId];
       if (!c.members) {
+        if (front) {
+          let cached = wreckBounds.get(w);
+          if (
+            !cached ||
+            cached.x !== w.x ||
+            cached.y !== w.y ||
+            cached.angle !== w.angle
+          ) {
+            cached = {
+              x: w.x,
+              y: w.y,
+              angle: w.angle,
+              boxes: wreckObstacles(w),
+            };
+            wreckBounds.set(w, cached);
+          }
+          foregroundBounds.push(...cached.boxes);
+        }
         ctx.save();
-        ctx.filter = 'grayscale(1) brightness(.72)';
-        const frame = art.wrecks[wreckKind(w.cardId)];
+        const frame = filteredSprite(
+          art.wrecks[wreckKind(w.cardId)],
+          'grayscale(1) brightness(.72)',
+        );
         const shape = wreckGeometry(w.cardId);
         const inset = (1 - shape.support[2]) * frame.height;
         const offset =
@@ -289,10 +279,9 @@ export function render(
             )
           : unitFrame(art, w.cardId, 0);
       ctx.save();
-      ctx.filter = 'grayscale(1) brightness(.58)';
       drawSprite(
         ctx,
-        wreckImage,
+        filteredSprite(wreckImage, 'grayscale(1) brightness(.58)'),
         w.x,
         w.y + infantryDepth(w.lane) + 3,
         wreckImage.width,
@@ -354,25 +343,6 @@ export function render(
   }
   const sourceOffsets = new Map<number, { x: number; y: number }>();
   drawCoverProps(false);
-  if (selectedSquad !== null)
-    for (const u of s.units) {
-      if (
-        u.side !== 0 ||
-        u.squad !== selectedSquad ||
-        u.hp <= 0 ||
-        u.surrendered ||
-        u.wounded
-      )
-        continue;
-      ctx.strokeStyle = '#e4d99b';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(
-        Math.round(u.x - 12),
-        Math.round(u.y + infantryDepth(u.lane) + 1),
-        24,
-        3,
-      );
-    }
   const layer = (u: GameState['units'][number]) =>
     CARDS[u.id].air
       ? 3
@@ -381,9 +351,14 @@ export function render(
         : foregroundObject(u.uid)
           ? 2
           : 0;
-  const sorted = [...s.units].sort(
-    (a, b) => layer(a) - layer(b) || a.lane - b.lane,
-  );
+  const sorted = s.units
+    .filter(
+      (u) =>
+        visibleToSide(s, 0, u) &&
+        u.x >= camera - 180 &&
+        u.x <= camera + viewportWidth + 180,
+    )
+    .sort((a, b) => layer(a) - layer(b) || a.lane - b.lane);
   let coverDrawn = false;
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
@@ -398,6 +373,8 @@ export function render(
       isAir = !!c.air,
       isDead = u.hp <= 0;
     const [w, h] = unitSize(u.id);
+    if (!c.members && !c.air && layer(u) === 2 && u.hp > 0)
+      foregroundBounds.push(unitSelectionBounds(u));
     const tankOffset = (geometry?.spriteOffset ?? 0) * (u.side === 0 ? 1 : -1);
     const groundInset = geometry?.spriteGroundInset ?? 0;
     let frame =
@@ -602,6 +579,12 @@ export function render(
     );
   }
   if (!coverDrawn) drawCoverProps(true);
+  for (const u of sorted)
+    drawUnitSelection(ctx, u, {
+      selected: u.side === 0 && u.squad === selectedSquad,
+      visible: true,
+      occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
+    });
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;

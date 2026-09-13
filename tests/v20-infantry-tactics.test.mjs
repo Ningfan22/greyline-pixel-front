@@ -6,9 +6,32 @@ import { tacticalObservation } from './helpers/tactical-observations.mjs';
 
 const seeds = [7, 29, 61];
 const rows = (side, kind, seconds = 12) =>
-  seeds.map((seed) =>
-    tacticalObservation(engine, CARDS, seed, side, kind, seconds),
-  );
+  seeds.map((seed) => {
+    // Passive observation retains dead targets so the comparison measures real damage,
+    // rather than assuming that launching an anti-air projectile was effective.
+    let foes;
+    const observed = {
+      ...engine,
+      tick(s, dt) {
+        foes ??= s.units.filter(
+          (u) => u.side !== side && (CARDS[u.id].air || CARDS[u.id].armored),
+        );
+        engine.tick(s, dt);
+      },
+    };
+    const result = tacticalObservation(
+      observed,
+      CARDS,
+      seed,
+      side,
+      kind,
+      seconds,
+    );
+    return {
+      ...result,
+      heavyDamage: foes.reduce((n, u) => n + u.maxHp - Math.max(0, u.hp), 0),
+    };
+  });
 const mean = (values, key) =>
   values.reduce((n, row) => n + row[key], 0) / values.length;
 
@@ -64,11 +87,24 @@ for (const side of [0, 1]) {
       assert(supported.every((row) => row.supportShots > 0));
       assert(mean(supported, 'plans') < mean(bare, 'plans'));
       assert(mean(supported, 'hp') > mean(bare, 'hp'));
-      if (kind === 'heli')
+      if (kind === 'heli') {
         assert(
-          supported.every((row) => row.shots === 0),
-          'rifles do not gain anti-air capability',
+          bare.some((row) => row.shots > 0),
+          'rifles may fire at a discovered helicopter',
         );
+        assert(
+          bare.every((row) => row.heavyDamage < CARDS.helicopter.hp * 0.1),
+          'unsupported rifle hits remain ineffective against the gunships',
+        );
+        assert(
+          supported.every(
+            (row, i) =>
+              row.heavyDamage > CARDS.helicopter.hp * 1.8 &&
+              row.heavyDamage > Math.max(1, bare[i].heavyDamage) * 10,
+          ),
+          'specialist AA must really remove almost both gunships and dominate rifle damage',
+        );
+      }
     }
   });
   test(`side ${side}: several squads disperse out of a crowded natural depression and keep firing`, () => {

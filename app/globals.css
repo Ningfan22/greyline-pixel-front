@@ -5665,6 +5665,23 @@ body:has(.game-shell.touch-battle) {
 .mission-status strong {
   color: #ead397;
 }
+.mission-status {
+  pointer-events: auto;
+  cursor: pointer;
+  border-top: 0;
+  border-left: 0;
+  border-right: 0;
+}
+.mission-clock-goal {
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.mission-clock-goal:hover,
+.mission-status:hover {
+  color: #fff4c7;
+}
 .match-rules-note {
   font-size: 12px !important;
   color: #cfc99e !important;

@@ -1,0 +1,182 @@
+.dialogue {
+  position: fixed;
+  inset: auto max(20px, env(safe-area-inset-right))
+    max(18px, env(safe-area-inset-bottom)) auto;
+  width: min(650px, calc(100vw - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  color: #e0d7b1;
+  background: #1c2b22;
+  border: 3px solid #697450;
+  box-shadow: 5px 5px #111d17;
+  font-family: var(--pixel, monospace);
+  box-sizing: border-box;
+}
+.dialogue[open] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 152px;
+}
+.dialogue::backdrop {
+  background: #101c1740;
+}
+.copy {
+  min-width: 0;
+  padding: 20px 22px 16px;
+}
+.channel {
+  color: #a9b99f;
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+.copy h2 {
+  margin: 7px 0 18px;
+  font: 22px/1.3 var(--pixel, monospace);
+  color: #efe2ad;
+}
+.speaker {
+  display: block;
+  color: #d4ba75;
+  font:
+    13px/1.5 system-ui,
+    sans-serif;
+}
+.message {
+  margin: 8px 0 18px;
+  min-height: 84px;
+  font:
+    16px/1.75 system-ui,
+    sans-serif;
+}
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.controls > span {
+  margin-right: auto;
+  color: #a9b99f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.controls button {
+  cursor: pointer;
+  font-family: var(--pixel, monospace);
+}
+.skip {
+  padding: 8px 0;
+  color: #b7c3af;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+}
+.next {
+  padding: 10px 14px;
+  color: #23321f;
+  background: #d2c28c;
+  border: 2px solid;
+  border-color: #efe1ac #7a744e #7a744e #efe1ac;
+  box-shadow: 2px 2px #111d17;
+  font-size: 16px;
+  white-space: nowrap;
+}
+.next span {
+  margin-left: 5px;
+}
+.controls button:focus-visible {
+  outline: 3px solid #f4db92;
+  outline-offset: 3px;
+}
+.portrait {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-left: 2px solid #4d6047;
+  background: #27372b;
+}
+.portrait img {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  image-rendering: pixelated;
+}
+.portrait > span {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 10px 4px;
+  text-align: center;
+  background: #111d17e8;
+  color: #b8c4a8;
+  font-size: 11px;
+}
+@media (max-height: 540px), (max-width: 700px) {
+  .dialogue {
+    width: min(564px, calc(100vw - 24px));
+    inset: auto max(12px, env(safe-area-inset-right))
+      max(12px, env(safe-area-inset-bottom)) auto;
+    max-height: calc(100dvh - 24px);
+  }
+  .dialogue[open] {
+    grid-template-columns: minmax(0, 1fr) 116px;
+  }
+  .copy {
+    padding: 12px 14px 10px;
+  }
+  .copy h2 {
+    font-size: 19px;
+    margin: 5px 0 9px;
+  }
+  .channel {
+    font-size: 10px;
+  }
+  .speaker {
+    font-size: 12px;
+  }
+  .message {
+    font-size: 14px;
+    line-height: 1.65;
+    min-height: 69px;
+    margin: 5px 0 12px;
+  }
+  .controls {
+    gap: 10px;
+  }
+  .next {
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .portrait > span {
+    font-size: 10px;
+  }
+}
+@media (max-width: 420px) {
+  .dialogue[open] {
+    grid-template-columns: minmax(0, 1fr) 78px;
+  }
+  .copy {
+    padding: 10px;
+  }
+  .controls {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .controls > span {
+    font-size: 10px;
+  }
+  .next {
+    font-size: 13px;
+    padding: 8px;
+  }
+  .skip {
+    font-size: 11px;
+  }
+  .portrait > span {
+    font-size: 9px;
+  }
+}
