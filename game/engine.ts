@@ -463,6 +463,13 @@ export interface GameState {
   aiArchetype?: string;
   aiPhase?: 'early' | 'mid' | 'late';
   aiProfile?: { air: number; armor: number; foot: number; turtle: number };
+  aiEnemyProfile?: {
+    air: number;
+    armor: number;
+    foot: number;
+    indirect: number;
+    at: number;
+  };
   aiPushUntil?: number;
   shake: number;
   uid: number;
@@ -3657,6 +3664,40 @@ function updateAI(s: GameState) {
     foot: foot.length,
     turtle: foot.filter((u) => !u.moving).length,
   };
+  // Enemy tendency memory: visible counts pull the estimate in fast (2s half
+  // life), a quiet front fades it slowly (45s). The AI thus keeps
+  // counter-reserves against the player's deck build — a helicopter fleet or
+  // tank company it saw minutes ago — instead of forgetting the moment they
+  // leave the fog. Only ever folded from the visible set above.
+  {
+    const mem =
+      s.aiEnemyProfile ??
+      (s.aiEnemyProfile = {
+        air: 0,
+        armor: 0,
+        foot: 0,
+        indirect: 0,
+        at: s.time,
+      });
+    const dt = Math.max(0, s.time - mem.at);
+    const track = (
+      key: 'air' | 'armor' | 'foot' | 'indirect',
+      seen: number,
+    ) => {
+      const halfLife = seen > 0 ? 2 : 45;
+      mem[key] += (seen - mem[key]) * (1 - Math.pow(0.5, dt / halfLife));
+    };
+    track('air', armedAir.length);
+    track('armor', armor.length);
+    track('foot', foot.length);
+    track(
+      'indirect',
+      groundFoes.filter((u) => weaponCard(u).indirect).length,
+    );
+    mem.at = s.time;
+  }
+  const memArmor = s.aiEnemyProfile.armor,
+    memAir = s.aiEnemyProfile.air;
 
   // Stage a short opening/rebuilding wave by squad, not individual soldier.
   if (!cohorts) s.aiWaveUntil = s.time + 10;
@@ -3687,8 +3728,22 @@ function updateAI(s: GameState) {
         score = 6 + (cohorts < 2 ? 4 : 0);
         const counterArmor =
           !c.airOnly && ((c.armorMultiplier ?? 1) >= 1.5 || !!c.penetration);
-        if (counterArmor) score += armor.length ? (urgentArmor ? 19 : -2) : 0;
-        if (c.antiAir) score += armedAir.length ? (urgentAir ? 19 : -2) : 0;
+        if (counterArmor)
+          score += armor.length
+            ? urgentArmor
+              ? 19
+              : -2
+            : memArmor >= 0.6
+              ? 4
+              : 0;
+        if (c.antiAir)
+          score += armedAir.length
+            ? urgentAir
+              ? 19
+              : -2
+            : memAir >= 0.6
+              ? 4
+              : 0;
         // AA umbrella: anti-air keeps fire-support crews steady under air threat.
         if (c.antiAir && armedAir.length) {
           const ownFireSupport = own.some(
@@ -4026,12 +4081,12 @@ function updateAI(s: GameState) {
   const seekArmor =
     (armor.length > 0 && urgentArmor) ||
     (!armor.length &&
-      s.time < (s.aiArmorSeenUntil ?? 0) &&
+      (s.time < (s.aiArmorSeenUntil ?? 0) || memArmor >= 0.6) &&
       !healthyRole(armorRole));
   const seekAir =
     (armedAir.length > 0 && urgentAir) ||
     (!armedAir.length &&
-      s.time < (s.aiAirSeenUntil ?? 0) &&
+      (s.time < (s.aiAirSeenUntil ?? 0) || memAir >= 0.6) &&
       !healthyRole(airRole));
 
   if (seekArmor || seekAir) {

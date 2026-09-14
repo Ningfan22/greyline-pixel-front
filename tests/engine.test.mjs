@@ -1130,6 +1130,80 @@ check('AI 空手及低价值技能手牌都能付费补牌并重新部署', () =
     assert(p.drawIn > 0 || p.played > 0);
   }
 });
+check('AI 记住敌军空中倾向：直升机脱离视野后仍保留防空记忆', () => {
+  const s = arena(),
+    p = s.players[1];
+  // 一个无敌观察兵提供视野，一架敌方直升机进入视野 6 秒
+  spawnUnit(s, 1, 'infantry', 3300);
+  for (const u of s.units.filter((u) => u.side === 1)) {
+    u.hp = u.maxHp = 10000;
+    u.squadOrder = 'hold';
+  }
+  spawnUnit(s, 0, 'helicopter', 2900);
+  const heli = s.units.find((u) => u.side === 0);
+  p.hand = [];
+  p.deck = [];
+  p.discard = [];
+  p.energy = 0;
+  s.aiIn = 0;
+  advance(s, 6);
+  assert(s.aiEnemyProfile, 'memory initialized');
+  assert(s.aiEnemyProfile.air > 0.7, `memAir ${s.aiEnemyProfile.air}`);
+  // 直升机被击落后，15 秒目击窗口过期，但记忆保留
+  heli.hp = 0;
+  advance(s, 18);
+  assert(s.aiAirSeenUntil < s.time, 'seen window expired');
+  assert(s.aiEnemyProfile.air > 0.5, `memAir after gap ${s.aiEnemyProfile.air}`);
+  // 长期无空中目标，记忆缓慢消退
+  advance(s, 90);
+  assert(s.aiEnemyProfile.air < 0.3, `memAir faded ${s.aiEnemyProfile.air}`);
+});
+check('AI 凭敌军记忆提前部署防空，未见敌机时不浪费防空组', () => {
+  // 记忆组：目击直升机 6 秒、击落、18 秒空窗后，AI 仍应提前部署便携防空
+  const s = arena(),
+    p = s.players[1];
+  spawnUnit(s, 1, 'infantry', 3300);
+  for (const u of s.units.filter((u) => u.side === 1)) {
+    u.hp = u.maxHp = 10000;
+    u.squadOrder = 'hold';
+  }
+  spawnUnit(s, 0, 'helicopter', 2900);
+  const heli = s.units.find((u) => u.side === 0);
+  p.hand = [];
+  p.deck = [];
+  p.discard = [];
+  p.energy = 0;
+  s.aiIn = 0;
+  advance(s, 6);
+  heli.hp = 0;
+  advance(s, 18);
+  p.hand = [
+    { id: 'manpads', uid: ++s.uid },
+    { id: 'supply', uid: ++s.uid },
+  ];
+  p.deck = [];
+  p.energy = 5;
+  advance(s, 8);
+  assert(
+    s.units.some((u) => u.side === 1 && u.id === 'manpads'),
+    'MANPADS deployed from memory',
+  );
+  // 对照组：从未出现过空中目标，AI 不应在无掩护时浪费专职防空组
+  const c = arena(),
+    q = c.players[1];
+  q.hand = [
+    { id: 'manpads', uid: ++c.uid },
+    { id: 'supply', uid: ++c.uid },
+  ];
+  q.deck = [];
+  q.energy = 5;
+  c.aiIn = 0;
+  advance(c, 8);
+  assert(
+    !c.units.some((u) => u.side === 1 && u.id === 'manpads'),
+    'MANPADS withheld without air memory',
+  );
+});
 check('部署在两侧边界的班组仍保持 38 像素间距，预览和实体一致', () => {
   for (const side of [0, 1])
     for (const id of ['infantry', 'militia', 'sniper']) {
