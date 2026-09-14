@@ -60,6 +60,8 @@ import {
   refreshVision,
   visibleToSide,
   pointVisible,
+  clearSight,
+  sightRange,
   observerUnits,
   sceneryIntercept,
   sceneryCoverHits,
@@ -1766,6 +1768,29 @@ export function smokeBlocks(s: GameState, side: Side, sx: number, tx: number) {
   return s.smokes.some(
     (f) => f.life > 0 && f.x + 95 > left && f.x - 95 < right,
   );
+}
+/**
+ * Forward observer: a live friendly scout (or observer drone) within 760px of
+ * an impact point that has line of sight to it. Lets indirect-fire units shoot
+ * faster and tighter when a spotter is watching the fall of shot. Smoke blocks
+ * spotting just like it blocks sight.
+ */
+function scoutSpotter(
+  s: GameState,
+  side: Side,
+  tx: number,
+  ty: number,
+): boolean {
+  for (const v of s.units) {
+    if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) continue;
+    const vc = CARDS[v.id];
+    if (vc.trait !== 'scout' && !vc.observer) continue;
+    if (Math.abs(v.x - tx) > 760) continue;
+    const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
+    if (Math.hypot(tx - v.x, (ty - eye) * 0.65) > sightRange(v) * 1.1) continue;
+    if (clearSight(s, v.x, eye, tx, ty)) return true;
+  }
+  return false;
 }
 function firingHeight(
   s: GameState,
@@ -5348,8 +5373,12 @@ export function tick(s: GameState, dt: number) {
         u.pose = 'idle';
         u.exposedUntil = s.time + 2.5;
       }
+      let spotted = false;
       if (c.indirect && u.cooldown <= 0) {
-        const scatter = u.id === 'precision' ? 14 : c.emplacement ? 42 : 26;
+        spotted = scoutSpotter(s, u.side, tx, ground(s, tx) - 8);
+        const scatter =
+          (u.id === 'precision' ? 14 : c.emplacement ? 42 : 26) *
+          (spotted ? 0.55 : 1);
         tx += (rnd(s) - 0.5) * scatter * 2;
         ty = ground(s, tx) - 8;
       }
@@ -5402,7 +5431,7 @@ export function tick(s: GameState, dt: number) {
           u.cooldown =
             c.burstSize && (u.shots + 1) % c.burstSize === 0
               ? c.burstPause!
-              : c.rate! * (closeBurst ? 0.65 : 1);
+              : c.rate! * (closeBurst ? 0.65 : 1) * (spotted ? 0.7 : 1);
           u.ambushFor = 0;
           u.rapidUntil = 0;
           u.fire = 0.25;
@@ -5469,6 +5498,20 @@ export function tick(s: GameState, dt: number) {
               (morale ? 1.35 : 1) *
               (c.trait === 'close_assault' && Math.abs(tx - u.x) < 200
                 ? 1.2
+                : 1) *
+              (c.trait === 'close_assault' &&
+              target &&
+              (target.suppression ?? 0) > 45
+                ? 1.3
+                : 1) *
+              (c.members &&
+              s.smokes.some(
+                (f) =>
+                  f.side === u.side &&
+                  f.life > 0 &&
+                  Math.abs(f.x - u.x) < 95,
+              )
+                ? 1.15
                 : 1) *
               (modelOf(u.id) === 'sniper' && target && CARDS[target.id].armored
                 ? 0.5
