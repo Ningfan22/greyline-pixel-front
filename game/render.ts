@@ -46,7 +46,15 @@ import {
   type CardId,
 } from './engine';
 import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
+import {
+  coverProp,
+  peekRise,
+  transportCrewCount,
+  transportCrewSlot,
+  type Pose,
+} from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+const poseTracker = new Map<number, { prev: Pose; pose: Pose; at: number }>();
 const wreckBounds = new WeakMap<
   object,
   {
@@ -365,6 +373,7 @@ export function render(
     )
     .sort((a, b) => layer(a) - layer(b) || a.lane - b.lane);
   let coverDrawn = false;
+  const seenInfantry = new Set<number>();
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
       drawCoverProps(true);
@@ -478,6 +487,26 @@ export function render(
       u.pose === 'idle'
         ? Math.round(Math.sin(s.time * 2.1 + u.uid * 1.7))
         : 0;
+    // Cover props + peek transitions: track pose changes per infantryman so
+    // rising from crouch/prone eases the sprite up instead of snapping.
+    let peekY = 0;
+    let showProp = false;
+    if (c.members && !isDead) {
+      seenInfantry.add(u.uid);
+      const tracked = poseTracker.get(u.uid);
+      if (!tracked) {
+        poseTracker.set(u.uid, { prev: u.pose, pose: u.pose, at: s.time });
+      } else if (tracked.pose !== u.pose) {
+        poseTracker.set(u.uid, {
+          prev: tracked.pose,
+          pose: u.pose,
+          at: s.time,
+        });
+      }
+      const t = poseTracker.get(u.uid)!;
+      showProp = u.cover > 0.2 && !u.moving;
+      if (showProp) peekY = peekRise(t.prev, t.pose, s.time - t.at);
+    }
     if (u.rappelling) {
       const carrier = s.units.find(
         (v) =>
@@ -503,6 +532,7 @@ export function render(
       u.y +
         infantryDepth(u.lane) +
         (isTank ? 0 : 3) +
+        peekY +
         breathe +
         tankOffset * Math.sin(u.hullAngle) +
         groundInset * Math.cos(u.hullAngle),
@@ -514,6 +544,41 @@ export function render(
     );
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
+    // Stationary infantry in cover get a per-unit prop (sandbags for deep
+    // cover, rubble for light) drawn over their lower body, anchoring them
+    // to the ground they are hiding behind.
+    if (showProp) {
+      const anchorY = u.y + infantryDepth(u.lane) + 3;
+      for (const b of coverProp(u.uid, u.cover)) {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(
+          Math.round(u.x + b.dx - b.w / 2),
+          Math.round(anchorY - b.dy - b.h),
+          b.w,
+          b.h,
+        );
+      }
+    }
+    // Transport helicopters show the helmets of troops still aboard through
+    // the open side door until they rappel out.
+    if (
+      c.airlift &&
+      u.hp > 0 &&
+      (u.airlift?.phase === 'approach' || u.airlift?.phase === 'unload')
+    ) {
+      const cargoSize = CARDS[c.airlift].members ?? 5;
+      const count = transportCrewCount(cargoSize, u.airlift.dropped);
+      const anchorY = u.y + infantryDepth(u.lane) + 3;
+      for (let i = 0; i < count; i++) {
+        const slot = transportCrewSlot(i, count, s.time, u.uid);
+        const hx = Math.round(u.x + (u.facing < 0 ? -slot.dx : slot.dx));
+        const hy = Math.round(anchorY + slot.dy);
+        ctx.fillStyle = '#4a4d3a';
+        ctx.fillRect(hx - 2, hy - 4, 5, 4);
+        ctx.fillStyle = '#6a6d52';
+        ctx.fillRect(hx - 2, hy - 4, 5, 1);
+      }
+    }
     // Spotters broadcast while observing: faint signal arcs pulse above the
     // kneeling radio pose, hinting at the shared-vision network.
     if (c.members && u.id === 'scouts' && (u.observingUntil ?? 0) > s.time) {
@@ -625,6 +690,8 @@ export function render(
       3,
     );
   }
+  for (const uid of poseTracker.keys())
+    if (!seenInfantry.has(uid)) poseTracker.delete(uid);
   if (!coverDrawn) drawCoverProps(true);
   for (const u of sorted)
     drawUnitSelection(ctx, u, {
