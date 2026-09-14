@@ -471,6 +471,7 @@ export interface GameState {
   units: Unit[];
   projectiles: Projectile[];
   particles: Particle[];
+  particlePool?: Particle[];
   markers: Marker[];
   smokes: Smoke[];
   blasts: Blast[];
@@ -1154,7 +1155,7 @@ function footPuff(s: GameState, u: Unit, heavy = false) {
   const n = heavy ? 2 : 1;
   for (let i = 0; i < n; i++) {
     const life = 0.35 + fxRnd(s) * 0.3;
-    s.particles.push({
+    emitParticle(s, {
       kind: 'dust',
       x: u.x + (fxRnd(s) - 0.5) * (heavy ? 24 : 8),
       y: u.y - 1,
@@ -1173,7 +1174,7 @@ function vehicleDust(s: GameState, u: Unit) {
   for (let i = 0; i < 4; i++) {
     const life = 0.8 + fxRnd(s) * 0.7;
     const roll = fxRnd(s);
-    s.particles.push({
+    emitParticle(s, {
       kind: 'dust',
       x: u.x - u.facing * 10 + (fxRnd(s) - 0.5) * 28,
       y: u.y - 2,
@@ -1221,7 +1222,7 @@ function burst(
       const a = fxRnd(s) * Math.PI * 2;
       const d = fxRnd(s) * radius * 0.65;
       const life = 1.8 + fxRnd(s) * 2.2;
-      s.particles.push({
+      emitParticle(s, {
         kind: 'cloud',
         x: x + Math.cos(a) * d,
         y: y - fxRnd(s) * 14,
@@ -1248,6 +1249,26 @@ function burst(
   fxRnd(s);
 }
 
+export function emitParticle(s: GameState, init: Particle): void {
+  const pool = s.particlePool;
+  const p = pool && pool.length ? pool.pop()! : init;
+  if (p !== init) {
+    p.kind = init.kind;
+    p.x = init.x;
+    p.y = init.y;
+    p.vx = init.vx;
+    p.vy = init.vy;
+    p.life = init.life;
+    p.maxLife = init.maxLife;
+    p.color = init.color;
+    p.size = init.size;
+    p.endX = init.endX;
+    p.endY = init.endY;
+    p.variant = init.variant;
+  }
+  s.particles.push(p);
+}
+
 function muzzleParticles(
   s: GameState,
   u: Unit,
@@ -1258,7 +1279,7 @@ function muzzleParticles(
 ) {
   if (kind === 'drone') return;
   const heavy = kind === 'cannon';
-  s.particles.push({
+  emitParticle(s, {
     kind: 'smoke',
     x: sx,
     y: sy,
@@ -1286,7 +1307,7 @@ function muzzleParticles(
   if (u.heat >= 3) {
     u.heat -= 1.6;
     const life = 6 + fxRnd(s) * 6;
-    s.particles.push({
+    emitParticle(s, {
       kind: 'haze',
       x: sx + (fxRnd(s) - 0.5) * 14,
       y: sy - 6 - fxRnd(s) * 8,
@@ -1300,7 +1321,7 @@ function muzzleParticles(
   }
   if (kind === 'rifle' || kind === 'machinegun' || kind === 'autocannon') {
     const life = 0.25;
-    s.particles.push({
+    emitParticle(s, {
       kind: 'casing',
       x: u.x + (u.side === 0 ? 1 : -1) * (secondary ? 40 : 4),
       y: sy + 4,
@@ -1321,7 +1342,7 @@ function bulletImpact(
   direction: number,
 ) {
   if (material === 'soil')
-    s.particles.push({
+    emitParticle(s, {
       kind: 'impact',
       x,
       y,
@@ -1336,7 +1357,7 @@ function bulletImpact(
   const count = material === 'soil' ? 5 : 3;
   for (let i = 0; i < count; i++) {
     const life = 0.1 + fxRnd(s) * 0.16;
-    s.particles.push({
+    emitParticle(s, {
       kind: material === 'armor' ? 'spark' : 'chip',
       x,
       y,
@@ -1360,7 +1381,7 @@ function bulletImpact(
   if (material === 'soil')
     for (let i = 0; i < 3; i++) {
       const life = 0.2 + fxRnd(s) * 0.18;
-      s.particles.push({
+      emitParticle(s, {
         kind: 'dust',
         x: x + (fxRnd(s) - 0.5) * 4,
         y: y - 2,
@@ -4968,7 +4989,7 @@ export function tick(s: GameState, dt: number) {
     if (count >= 4 && pick) {
       const u = pick;
       const life = 2.5 + fxRnd(s) * 3;
-      s.particles.push({
+      emitParticle(s, {
         kind: 'mote',
         x: u.x + (fxRnd(s) * 2 - 1) * 160,
         y: ground(s, u.x) - 30 - fxRnd(s) * 60,
@@ -5048,7 +5069,7 @@ export function tick(s: GameState, dt: number) {
         u.x = Math.max(90, Math.min(W - 90, u.x + dir * 9 * dt));
         u.walk += dt * 1.6;
         if (u.crawlFxAt === undefined || s.time >= u.crawlFxAt) {
-          s.particles.push({
+          emitParticle(s, {
             kind: 'blood',
             x: u.x - dir * 6,
             y: ground(s, u.x) - 2,
@@ -6230,7 +6251,7 @@ export function tick(s: GameState, dt: number) {
       if (p.trailIn <= 0) {
         p.trailIn = 0.035;
         const life = 0.22;
-        s.particles.push({
+        emitParticle(s, {
           kind: 'smoke',
           x: oldX,
           y: oldY,
@@ -6255,7 +6276,7 @@ export function tick(s: GameState, dt: number) {
             Math.hypot(impact.x - oldX, impact.y - oldY))
           ? friendly
           : (impact ?? p);
-      s.particles.push({
+      emitParticle(s, {
         kind: 'tracer',
         x: oldX,
         y: oldY,
@@ -6546,7 +6567,24 @@ export function tick(s: GameState, dt: number) {
               ? 1.6
               : 1);
   }
-  s.particles = s.particles.filter((p) => p.life > 0).slice(-700);
+  {
+    const pool = (s.particlePool ??= []);
+    let alive = 0;
+    const ps = s.particles;
+    for (let i = 0; i < ps.length; i++) {
+      const p = ps[i];
+      if (p.life > 0) ps[alive++] = p;
+      else if (pool.length < 800) pool.push(p);
+    }
+    ps.length = alive;
+    if (alive > 700) {
+      const excess = alive - 700;
+      for (let i = 0; i < excess; i++)
+        if (pool.length < 800) pool.push(ps[i]);
+      ps.copyWithin(0, excess);
+      ps.length = 700;
+    }
+  }
   // Resolve construction after movement, firing and incoming impacts for this frame.
   updateSquadOrders(s, dt);
   advanceCampaign(s, dt, spawnUnit);
