@@ -1,4 +1,4 @@
-import { CARDS, W, ground, type GameState } from './engine';
+import { CARDS, W, ground, type GameState, type Scorch } from './engine';
 
 /** Deterministic hash → [0,1) */
 function hash(n: number): number {
@@ -171,6 +171,77 @@ export function drawWreckSmoke(
         size,
       );
     }
+  }
+}
+
+// ── Scorch marks ─────────────────────────────────────────
+
+function drawScorch(ctx: CanvasRenderingContext2D, sc: Scorch, gy: number) {
+  let seed = sc.seed;
+  const rnd = () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const r = sc.radius;
+  ctx.save();
+  // Core dark patch
+  ctx.fillStyle = '#1c1712';
+  ctx.globalAlpha = 0.42;
+  const core = 6 + Math.floor(rnd() * 5);
+  for (let i = 0; i < core; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = rnd() * r * 0.45;
+    const w = r * (0.3 + rnd() * 0.4);
+    const h = Math.max(1, Math.round(w * 0.4));
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d - w / 2),
+      Math.round(gy - h / 2 - 1),
+      Math.round(w),
+      h,
+    );
+  }
+  // Burnt rim
+  ctx.fillStyle = '#33281e';
+  ctx.globalAlpha = 0.3;
+  const rim = 5 + Math.floor(rnd() * 4);
+  for (let i = 0; i < rim; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (0.35 + rnd() * 0.4);
+    const w = r * (0.15 + rnd() * 0.2);
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d - w / 2),
+      Math.round(gy - 2),
+      Math.round(w),
+      2,
+    );
+  }
+  // Scattered char flecks
+  ctx.fillStyle = '#241d18';
+  ctx.globalAlpha = 0.35;
+  const flecks = 8 + Math.floor(rnd() * 8);
+  for (let i = 0; i < flecks; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (0.5 + rnd() * 0.55);
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d),
+      Math.round(gy - 1 - rnd() * 2),
+      2,
+      1,
+    );
+  }
+  ctx.restore();
+}
+
+/** Persistent blast scorches drawn on the ground, under units and props. */
+export function drawScorches(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  for (const sc of s.scorches) {
+    if (sc.x < camera - 80 || sc.x > camera + viewportWidth + 80) continue;
+    drawScorch(ctx, sc, ground(s, sc.x));
   }
 }
 

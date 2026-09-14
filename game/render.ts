@@ -26,7 +26,7 @@ import {
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
-import { drawBirds, drawDistantFlashes, drawWreckSmoke } from './ambience';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawScorches } from './ambience';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -174,6 +174,7 @@ export function render(
     left,
     right,
   );
+  drawScorches(ctx, s, camera, viewportWidth);
   const foregroundBounds: { x: number; y: number; w: number; h: number }[] = [];
   const drawCoverProps = (front: boolean) => {
     for (const wall of Object.values(s.knownWalls[0])) {

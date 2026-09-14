@@ -396,6 +396,12 @@ export interface Smoke {
   life: number;
   side: Side;
 }
+export interface Scorch {
+  x: number;
+  y: number;
+  radius: number;
+  seed: number;
+}
 export interface Notice {
   audience?: Side[];
   text: string;
@@ -454,6 +460,7 @@ export interface GameState {
   markers: Marker[];
   smokes: Smoke[];
   blasts: Blast[];
+  scorches: Scorch[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -558,6 +565,7 @@ export function createGame(
     markers: [],
     smokes: [],
     blasts: [],
+    scorches: [],
     notices: [],
     result: null,
     aiIn: 1.1,
@@ -1189,6 +1197,16 @@ function burst(
         size: radius * (0.3 + fxRnd(s) * 0.35),
       });
     }
+  }
+  // Persistent scorch marks accumulate so the field shows its battle history.
+  if (soil) {
+    s.scorches.push({
+      x,
+      y,
+      radius: Math.max(10, radius * (0.5 + fxRnd(s) * 0.3)),
+      seed: s.fxSeed,
+    });
+    s.scorches = s.scorches.slice(-64);
   }
   // Generated sprite frames contain the fire, smoke and debris. Only animation state is simulated.
   fxRnd(s);
