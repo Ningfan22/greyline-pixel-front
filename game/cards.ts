@@ -16,6 +16,7 @@ export type BaseCardId =
   | 'ifv'
   | 'smoke'
   | 'recon'
+  | 'flare'
   | 'repair'
   | 'precision';
 export type CardId =
@@ -410,6 +411,19 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     description: '射程 +20%，看穿烟幕',
     detail:
       '全体己方部队射程提升 20%，并能看穿烟幕，持续 10 秒。适合配合狙击手和后方火力。重复使用刷新时长。',
+    atlas: 15,
+  },
+  flare: {
+    id: 'flare',
+    targetGround: true,
+    name: '照明弹',
+    en: 'ILLUMINATION FLARE',
+    cost: 2,
+    type: 'skill',
+    tag: '侦察 · 照明',
+    description: '照亮落点，显形双方部队 10 秒',
+    detail:
+      '照明弹在目标上空缓缓降落，持续 10 秒照亮半径 260 的区域：烟幕后的敌军现形，双方都能看见被照亮的部队。烟幕仍阻挡直射火力，但曲射与炮兵可以趁光打击。重复使用叠加照明。',
     atlas: 15,
   },
   repair: {

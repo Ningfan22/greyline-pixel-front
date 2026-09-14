@@ -513,6 +513,13 @@ export function observerUnits(s: GameState, side: Side) {
 export function pointVisible(s: GameState, side: Side, x: number, y: number) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
     return true;
+  if (
+    s.flares.some(
+      (f) =>
+        f.life > 0 && Math.hypot(f.x - x, (f.y - y) * 0.65) <= 260,
+    )
+  )
+    return true;
   return s.units.some((u) => {
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
       return false;

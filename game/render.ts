@@ -718,6 +718,52 @@ export function render(
       Math.min(1, u.fire / 0.12),
     );
   }
+  // Illumination flares: a drifting candle under a small parachute, washing
+  // the ground in cold daylight that fades and flickers as it descends.
+  for (const f of s.flares) {
+    if (f.x < camera - 350 || f.x > camera + viewportWidth + 350) continue;
+    const sway = Math.sin(f.life * 2.2 + f.seed) * 6;
+    const burn = Math.min(1, f.life / 2.5);
+    const flicker =
+      0.82 + 0.18 * Math.sin(f.life * 17 + f.seed) * Math.sin(f.life * 7.3);
+    const strength = burn * flicker;
+    const gx = f.x + sway;
+    const gy = f.y + 14;
+    const pool = ctx.createRadialGradient(gx, gy, 0, gx, gy, 300);
+    pool.addColorStop(0, `rgba(255,246,214,${0.4 * strength})`);
+    pool.addColorStop(0.4, `rgba(255,238,190,${0.2 * strength})`);
+    pool.addColorStop(1, 'rgba(255,230,170,0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(gx, gy, 300, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // Parachute canopy and the candle itself.
+    ctx.save();
+    ctx.globalAlpha = 0.85 * burn;
+    ctx.strokeStyle = 'rgba(235,238,245,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(gx, f.y - 9, 7, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gx - 7, f.y - 9);
+    ctx.lineTo(gx, f.y - 1);
+    ctx.moveTo(gx + 7, f.y - 9);
+    ctx.lineTo(gx, f.y - 1);
+    ctx.stroke();
+    const candle = ctx.createRadialGradient(gx, f.y, 0, gx, f.y, 9);
+    candle.addColorStop(0, `rgba(255,255,235,${0.95 * flicker})`);
+    candle.addColorStop(0.4, `rgba(255,236,170,${0.7 * flicker})`);
+    candle.addColorStop(1, 'rgba(255,220,130,0)');
+    ctx.fillStyle = candle;
+    ctx.beginPath();
+    ctx.arc(gx, f.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
   drawWreckSmoke(ctx, s, camera, viewportWidth);
   drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {

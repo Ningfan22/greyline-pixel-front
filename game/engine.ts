@@ -412,6 +412,14 @@ export interface Smoke {
   life: number;
   side: Side;
 }
+export interface Flare {
+  x: number;
+  y: number;
+  life: number;
+  maxLife: number;
+  side: Side;
+  seed: number;
+}
 export interface Scorch {
   x: number;
   y: number;
@@ -476,6 +484,7 @@ export interface GameState {
   particlePool?: Particle[];
   markers: Marker[];
   smokes: Smoke[];
+  flares: Flare[];
   blasts: Blast[];
   scorches: Scorch[];
   notices: Notice[];
@@ -581,6 +590,7 @@ export function createGame(
     particles: [],
     markers: [],
     smokes: [],
+    flares: [],
     blasts: [],
     scorches: [],
     notices: [],
@@ -902,6 +912,17 @@ function safeLanding(s: GameState, requested: number) {
   }
   return center;
 }
+export function launchFlare(s: GameState, side: Side, x: number) {
+  const tx = Math.max(40, Math.min(W - 40, x));
+  s.flares.push({
+    x: tx,
+    y: ground(s, tx) - 250,
+    life: 10,
+    maxLife: 10,
+    side,
+    seed: Math.floor(rnd(s) * 1e9),
+  });
+}
 export function playCard(
   s: GameState,
   side: Side,
@@ -1050,6 +1071,8 @@ export function playCard(
     callArtillery(s, side, x!, 'precision');
   } else if (c.id === 'smoke') {
     s.smokes.push({ x: x!, life: 10, side });
+  } else if (c.id === 'flare') {
+    launchFlare(s, side, x!);
   } else if (c.id === 'recon') {
     p.recon = 12;
   } else if (c.id === 'repair') {
@@ -4424,6 +4447,36 @@ function updateAI(s: GameState) {
         return;
       }
     }
+    // Illumination: enemy smoke blinding the line, or a strike card held
+    // with nothing visible to hit — light the front so both sides show.
+    const readyFlare = p.hand.find(
+      (h) =>
+        h.id === 'flare' &&
+        cardReadyIn(s, h) <= 0 &&
+        cardCost(h) <= p.energy + 1e-6,
+    );
+    if (readyFlare) {
+      const enemySmokeAhead = s.smokes.find(
+        (m) =>
+          m.side === 0 &&
+          m.life > 2 &&
+          front - m.x > -120 &&
+          front - m.x < 800,
+      );
+      const strikeHeld = p.hand.some(
+        (h) =>
+          (h.id === 'artillery' || h.id === 'precision') &&
+          cardReadyIn(s, h) <= 0 &&
+          cardCost(h) <= p.energy + 1e-6,
+      );
+      const hiddenFoes = groundFoes.some((v) => !visibleToSide(s, 1, v));
+      if (enemySmokeAhead || (strikeHeld && hiddenFoes)) {
+        const flareX = enemySmokeAhead
+          ? enemySmokeAhead.x
+          : Math.max(100, Math.min(W - 100, front - 220));
+        if (playCard(s, 1, readyFlare.uid, flareX).ok) return;
+      }
+    }
   }
 
   // The endgame is all-in: banked energy buys nothing after the timer expires.
@@ -5041,6 +5094,12 @@ export function tick(s: GameState, dt: number) {
     f.x += s.wind * dt * 0.5;
   }
   s.smokes = s.smokes.filter((f) => f.life > 0);
+  for (const f of s.flares) {
+    f.life -= dt;
+    f.y = Math.min(ground(s, f.x) - 60, f.y + 13 * dt);
+    f.x += Math.sin(f.life * 2.2 + f.seed) * 9 * dt;
+  }
+  s.flares = s.flares.filter((f) => f.life > 0);
   for (const m of s.markers) {
     const c = ARTILLERY[m.kind ?? 'artillery'];
     m.timer -= dt;
@@ -6772,6 +6831,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       .map((u) => ({ ...u, sortieCard: null })),
     walls: Object.values(s.knownWalls[viewer]).map((w) => ({ ...w })),
     smokes: s.smokes.map((f) => ({ ...f })),
+    flares: s.flares.map((f) => ({ ...f })),
     explosions: s.audibleExplosions[viewer],
     notices: s.notices
       .filter((n) => !n.audience || n.audience.includes(viewer))

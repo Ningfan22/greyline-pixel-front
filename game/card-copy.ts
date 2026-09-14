@@ -214,6 +214,13 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     rule: '短时提升全军射程并看穿烟幕。',
     flavor: '看清了，敌人也在吃罐头。',
   },
+  flare: {
+    en: 'ILLUMINATION FLARE',
+    typeLabel: '侦察指令',
+    ability: '照明弹',
+    rule: '光照显形双方，烟幕仍挡直射。',
+    flavor: '半夜开了灯，谁也别想摸黑。',
+  },
   repair: {
     en: 'FIELD REPAIRS',
     typeLabel: '装甲后勤',
