@@ -3820,6 +3820,10 @@ function updateAI(s: GameState) {
           score += 3;
         // Recon + marksman: scouts designate targets for snipers.
         if (model === 'sniper' && hasSpotter) score += 5;
+        // Spotter on the field makes precision howitzers and guided AT teams
+        // significantly deadlier — the AI values them more accordingly.
+        if (c.id === 'precision' && hasSpotter) score += 5;
+        if (c.guided && c.armorOnly && hasSpotter) score += 4;
         // Engineer + breach: assault troops exploit gaps opened by engineers.
         if (c.trait === 'close_assault' && hasEngineer) score += 5;
         if (c.trait === 'engineer') {
@@ -5812,6 +5816,20 @@ export function tick(s: GameState, dt: number) {
               target &&
               scoutDesignates(s, u.side, target)
                 ? 1.25
+                : 1) *
+              // Scout designation lets precision howitzers walk fire onto
+              // the exact enemy position — tighter correction, deeper hit.
+              (c.id === 'precision' &&
+              target &&
+              scoutDesignates(s, u.side, target)
+                ? 1.3
+                : 1) *
+              // Guided anti-armor teams with a spotter get a cleaner lock.
+              (c.guided &&
+              c.armorOnly &&
+              target &&
+              scoutDesignates(s, u.side, target)
+                ? 1.2
                 : 1) *
               (modelOf(u.id) === 'sniper' && target && CARDS[target.id].armored
                 ? 0.5
