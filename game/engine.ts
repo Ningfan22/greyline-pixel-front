@@ -1308,9 +1308,10 @@ function hitUnit(
           Math.abs(v.x - u.x) <= 90,
       ).length >= 2;
     const resolve = supported || c.infantryAbility === 'elite' ? 0.65 : 1;
+    const umbrella = aaUmbrella(s, u.side, u.x) ? 0.7 : 1;
     u.suppression = Math.min(
       100,
-      u.suppression + ((actual / u.maxHp) * 90 + 6) * resolve,
+      u.suppression + ((actual / u.maxHp) * 90 + 6) * resolve * umbrella,
     );
     u.personalMorale = Math.max(
       0,
@@ -1811,6 +1812,46 @@ function scoutSpotter(
   }
   return false;
 }
+/**
+ * Recon + marksman: a live friendly scout (or observer drone) within 700px of
+ * an enemy that has line of sight to it "designates" that target for friendly
+ * marksmen, who gain +25% damage on designated targets.
+ */
+function scoutDesignates(
+  s: GameState,
+  side: Side,
+  target: Unit,
+): boolean {
+  for (const v of s.units) {
+    if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) continue;
+    const vc = CARDS[v.id];
+    if (vc.trait !== 'scout' && !vc.observer) continue;
+    if (Math.abs(v.x - target.x) > 700) continue;
+    const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
+    if (
+      Math.hypot(target.x - v.x, (target.y - eye) * 0.65) >
+      sightRange(v) * 1.1
+    )
+      continue;
+    if (clearSight(s, v.x, eye, target.x, target.y - bodyHeight(target)))
+      return true;
+  }
+  return false;
+}
+/**
+ * AA umbrella: a live friendly anti-air unit within 420px of a ground position
+ * keeps nearby infantry steadier — suppression buildup is reduced while the
+ * sky is watched over them.
+ */
+function aaUmbrella(s: GameState, side: Side, x: number): boolean {
+  for (const v of s.units) {
+    if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) continue;
+    if (!weaponCard(v).antiAir) continue;
+    if (CARDS[v.id].air) continue;
+    if (Math.abs(v.x - x) <= 420) return true;
+  }
+  return false;
+}
 function firingHeight(
   s: GameState,
   u: FiringBody,
@@ -2214,9 +2255,23 @@ function moveSoldier(
     if (CARDS[u.id].trait === 'engineer') {
       u.pose = 'crouch';
       if (u.supportCooldown <= 0) {
+        const wallHpBefore = wall.hp;
         wall.hp = Math.max(0, wall.hp - 70);
         u.supportCooldown = 1.2;
         burst(s, wall.x, ground(s, wall.x) - 8, 10);
+        // Breach! Nearby assault troops surge through the gap.
+        if (wallHpBefore > 0 && wall.hp === 0) {
+          for (const mate of s.units) {
+            if (
+              mate.side === u.side &&
+              mate.hp > 0 &&
+              CARDS[mate.id].trait === 'close_assault' &&
+              Math.abs(mate.x - wall.x) <= 200
+            ) {
+              mate.assaultBurstUntil = s.time + 5;
+            }
+          }
+        }
       }
       return;
     }
@@ -3578,6 +3633,15 @@ function updateAI(s: GameState) {
           !c.airOnly && ((c.armorMultiplier ?? 1) >= 1.5 || !!c.penetration);
         if (counterArmor) score += armor.length ? (urgentArmor ? 19 : -2) : 0;
         if (c.antiAir) score += armedAir.length ? (urgentAir ? 19 : -2) : 0;
+        // AA umbrella: anti-air keeps fire-support crews steady under air threat.
+        if (c.antiAir && armedAir.length) {
+          const ownFireSupport = own.some(
+            (u) =>
+              !CARDS[u.id].air &&
+              (weaponCard(u).indirect || (weaponCard(u).range ?? 0) >= 700),
+          );
+          if (ownFireSupport) score += 6;
+        }
         if (lineInfantry(c.id))
           score += screens < 1.5 ? 27 : screenNeed ? 20 : 5;
         if (c.members && counterArmor && !armor.length && screens === 0)
@@ -3592,7 +3656,9 @@ function updateAI(s: GameState) {
           const needsSpotter = own.some(
             (u) =>
               !CARDS[u.id].air &&
-              (weaponCard(u).indirect || (weaponCard(u).range ?? 0) >= 700),
+              (weaponCard(u).indirect ||
+                (weaponCard(u).range ?? 0) >= 700 ||
+                modelOf(u.id) === 'sniper'),
           );
           score = own.some((u) => observerCard(u.id))
             ? -100
@@ -3619,6 +3685,9 @@ function updateAI(s: GameState) {
         const hasSpotter = own.some(
           (u) => observerCard(u.id) && isCombatant(u),
         );
+        const hasEngineer = own.some(
+          (u) => CARDS[u.id].trait === 'engineer' && isCombatant(u),
+        );
         // Massed infantry is only worth suppressing when assault troops can
         // exploit the pin, and indirect fire only lands tightly with a spotter.
         if (
@@ -3629,10 +3698,25 @@ function updateAI(s: GameState) {
           score += 6;
         // Forward observer: indirect fire is faster and tighter with a spotter.
         if (c.indirect && hasSpotter) score += 5;
+        if (
+          c.indirect &&
+          own.some((u) => weaponCard(u).antiAir && isCombatant(u))
+        )
+          score += 3;
         if (model === 'machinegun' && hasAssault && foot.length >= 2)
           score += 7;
         if (model === 'sniper' && foot.length && !observerCard(c.id))
           score += 3;
+        // Recon + marksman: scouts designate targets for snipers.
+        if (model === 'sniper' && hasSpotter) score += 5;
+        // Engineer + breach: assault troops exploit gaps opened by engineers.
+        if (c.trait === 'close_assault' && hasEngineer) score += 5;
+        if (c.trait === 'engineer') {
+          const wallAhead = Object.values(s.knownWalls[1]).some(
+            (w) => w.hp > 0 && Math.abs(w.x - front) < 500,
+          );
+          score = hasAssault && wallAhead ? 24 : wallAhead ? 12 : score;
+        }
         if (c.deployDraw && p.hand.length <= 4) score += 3;
         if (c.armored && !c.airOnly && cohorts >= 1) score += 3;
         if (c.id === 'pickup') score += foot.length >= 4 ? 8 : 0;
@@ -5559,6 +5643,11 @@ export function tick(s: GameState, dt: number) {
                   Math.abs(f.x - u.x) < 95,
               )
                 ? 1.15
+                : 1) *
+              (modelOf(u.id) === 'sniper' &&
+              target &&
+              scoutDesignates(s, u.side, target)
+                ? 1.25
                 : 1) *
               (modelOf(u.id) === 'sniper' && target && CARDS[target.id].armored
                 ? 0.5
