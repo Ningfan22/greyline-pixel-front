@@ -1,4 +1,5 @@
 import { assetUrl } from './asset-url';
+import { distantFlashState } from './ambience';
 import { CARDS, modelOf, weaponModel } from './cards';
 import { pointVisible } from './world';
 import type { Blast, GameState } from './engine';
@@ -47,6 +48,7 @@ export class BattleAudio {
   private shots = new Map<number, [number, number, number]>();
   private blasts = new WeakSet<Blast>();
   private state: GameState | null = null;
+  private lastRumbleCycle = -1;
   private camera = 0;
   private width = 1280;
   private variation = 0;
@@ -276,6 +278,64 @@ export class BattleAudio {
     };
     source.start();
   }
+  /**
+   * Low thunder for the horizon flashes. Unlike `sample` this ignores the
+   * 700px cull — the rumble is meant to feel like a battlefront beyond the
+   * playable area — and it is delayed so the sound follows the light.
+   */
+  private distantRumble(x: number) {
+    const ctx = this.context,
+      buffer = this.buffers.get('rumble.wav');
+    if (
+      !ctx ||
+      !buffer ||
+      !this.effectsGain ||
+      !this.active ||
+      !this.settings.enabled ||
+      this.settings.effects === 0
+    )
+      return;
+    const now = ctx.currentTime;
+    if (now - (this.playedAt.get('rumble-distant') ?? -Infinity) < 6) return;
+    const edgeDistance = Math.max(
+      this.camera - x,
+      x - this.camera - this.width,
+      0,
+    );
+    this.playedAt.set('rumble-distant', now);
+    if (this.voices.size >= 22) {
+      const oldest = this.voices.values().next().value;
+      oldest?.stop();
+      if (oldest) this.voices.delete(oldest);
+    }
+    const source = ctx.createBufferSource(),
+      gain = ctx.createGain(),
+      pan = ctx.createStereoPanner(),
+      filter = ctx.createBiquadFilter();
+    source.buffer = buffer;
+    source.playbackRate.value = 0.62;
+    gain.gain.value = 0.13 * clamp(1 - edgeDistance / 1600, 0.2, 1);
+    pan.pan.value = clamp(
+      (x - this.camera - this.width / 2) / (this.width * 0.65),
+      -1,
+      1,
+    );
+    filter.type = 'lowpass';
+    filter.frequency.value = 240;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(pan);
+    pan.connect(this.effectsGain);
+    this.voices.add(source);
+    source.onended = () => {
+      this.voices.delete(source);
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+      pan.disconnect();
+    };
+    source.start(now + 0.25 + edgeDistance / 2600);
+  }
   update(s: GameState, camera: number, width: number, active: boolean) {
     this.camera = camera;
     this.width = width;
@@ -284,6 +344,7 @@ export class BattleAudio {
       this.shots.clear();
       this.blasts = new WeakSet();
       this.playedAt.clear();
+      this.lastRumbleCycle = -1;
     }
     this.setActive(active);
     const visible = new Set(s.visible[0]);
@@ -353,6 +414,11 @@ export class BattleAudio {
         if (b.kind === 'artillery' || b.kind === 'wreck')
           this.sample('rumble.wav', b.x, 0.28, 0.35, 0.9);
       }
+    }
+    const flash = distantFlashState(s.time);
+    if (flash.active && flash.index !== this.lastRumbleCycle) {
+      this.lastRumbleCycle = flash.index;
+      this.distantRumble(flash.x);
     }
     if (this.shots.size > s.units.length + 120) {
       const live = new Set(s.units.map((u) => u.uid));

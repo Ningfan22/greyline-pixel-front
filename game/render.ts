@@ -386,7 +386,7 @@ export function render(
       (art.mobileVehicles?.[u.id]?.length ?? 4);
     if (c.emplacement && u.fire > 0.1) frame = 1;
     const adult = c.members ? art.adults[adultIdentity(u.id)] : null;
-    const choice = c.members ? adultFrameChoice(u) : null;
+    const choice = c.members ? adultFrameChoice(u, s.time) : null;
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
       body && choice
@@ -404,6 +404,7 @@ export function render(
       u.motion === 'ground' &&
       !u.climbing &&
       ['idle', 'walk'].includes(u.pose) &&
+      (u.reloadingUntil ?? 0) <= s.time &&
       (u.fire <= 0 || !u.moving)
         ? patrolFrameV17(
             art.patrol,
@@ -512,6 +513,28 @@ export function render(
     );
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
+    // Spotters broadcast while observing: faint signal arcs pulse above the
+    // kneeling radio pose, hinting at the shared-vision network.
+    if (c.members && u.id === 'scouts' && (u.observingUntil ?? 0) > s.time) {
+      const radioT = (s.time + u.uid * 1.37) % 4.4;
+      if (radioT < 1.2) {
+        const ax = u.x,
+          ay = u.y + infantryDepth(u.lane) - 52;
+        ctx.strokeStyle = 'rgba(226,214,170,0.7)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 2; i++) {
+          ctx.beginPath();
+          ctx.arc(
+            ax,
+            ay,
+            4 + i * 4 + (radioT % 0.4) * 6,
+            -Math.PI * 0.75,
+            -Math.PI * 0.25,
+          );
+          ctx.stroke();
+        }
+      }
+    }
     if (u.wounded) {
       const by = u.y - 25;
       ctx.fillStyle = '#e5d8b0';

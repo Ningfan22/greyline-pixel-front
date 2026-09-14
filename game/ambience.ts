@@ -56,6 +56,27 @@ const FLASH_PERIOD = 18;
 const FLASH_DURATION = 0.55;
 
 /**
+ * State of the distant-flash cycle at time t. Shared by the renderer and the
+ * audio layer so the delayed thunder stays in sync with the horizon glow.
+ */
+export function distantFlashState(t: number): {
+  active: boolean;
+  x: number;
+  index: number;
+} {
+  const index = Math.floor(t / FLASH_PERIOD);
+  const cycle = t % FLASH_PERIOD;
+  if (cycle >= FLASH_DURATION) return { active: false, x: 0, index };
+  const fseed = index * 57.3;
+  const side = hash(fseed) > 0.5 ? 0 : 1;
+  const x =
+    side === 0
+      ? 24 + hash(fseed + 1) * 90
+      : W - 24 - hash(fseed + 1) * 90;
+  return { active: true, x, index };
+}
+
+/**
  * Brief flashes at the far left/right edges suggest a larger battle
  * happening just beyond the playable area.
  */
@@ -66,18 +87,13 @@ export function drawDistantFlashes(
   viewportWidth: number,
 ) {
   const t = s.time;
-  const cycle = t % FLASH_PERIOD;
-  if (cycle >= FLASH_DURATION) return;
-
-  const flashIdx = Math.floor(t / FLASH_PERIOD);
-  const fseed = flashIdx * 57.3;
-  const side = hash(fseed) > 0.5 ? 0 : 1;
-  const fx =
-    side === 0
-      ? 24 + hash(fseed + 1) * 90
-      : W - 24 - hash(fseed + 1) * 90;
+  const flash = distantFlashState(t);
+  if (!flash.active) return;
+  const fx = flash.x;
   if (fx < camera - 60 || fx > camera + viewportWidth + 60) return;
 
+  const cycle = t % FLASH_PERIOD;
+  const fseed = flash.index * 57.3;
   const fy = ground(s, fx) - 55 - hash(fseed + 2) * 45;
   const intensity = 1 - cycle / FLASH_DURATION;
   const r = 14 + hash(fseed + 3) * 20;

@@ -171,6 +171,8 @@ export interface Unit {
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
   aimUntil?: number;
+  reloadingUntil?: number;
+  observingUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
   firingGoal?: number | null;
@@ -5536,7 +5538,11 @@ export function tick(s: GameState, dt: number) {
       if ((u.aimUntil ?? 0) <= s.time) u.readyAt = s.time;
       u.aimUntil = s.time + 2.5;
     }
-    if (observing) u.pose = 'prone';
+    if (observing) {
+      u.pose = 'prone';
+      // Spotters hold the radio pose on a timer the renderer can read.
+      if (u.id === 'scouts') u.observingUntil = s.time + 0.25;
+    }
     if (u.cover > 0.2 && !seeking && threat) {
       // Keep the firing stance through a whole engagement, not one reload cycle.
       if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
@@ -5665,6 +5671,10 @@ export function tick(s: GameState, dt: number) {
           u.ambushFor = 0;
           u.rapidUntil = 0;
           u.fire = 0.25;
+          // Slow-firing infantry (snipers, AT, riflemen) visibly work the
+          // bolt/magazine through the first part of their cooldown.
+          if (c.members && u.cooldown >= 0.7 && u.cooldown < 4)
+            u.reloadingUntil = s.time + u.cooldown * 0.55;
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
