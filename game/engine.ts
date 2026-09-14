@@ -175,6 +175,8 @@ export interface Unit {
   crawling?: boolean;
   rescuedAt?: number;
   crawlFxAt?: number;
+  draggingUid?: number;
+  draggedByUid?: number;
   injuryCooldown: number;
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
@@ -1478,6 +1480,17 @@ function hitUnit(
 function finishDeath(s: GameState, u: Unit, side: Side) {
   if (u.destroyed) return;
   u.destroyed = true;
+  // Sever any buddy-drag bond so the survivor returns to combat.
+  if (u.draggingUid !== undefined) {
+    const p = s.units.find((q) => q.uid === u.draggingUid);
+    if (p) p.draggedByUid = undefined;
+    u.draggingUid = undefined;
+  }
+  if (u.draggedByUid !== undefined) {
+    const d = s.units.find((q) => q.uid === u.draggedByUid);
+    if (d) d.draggingUid = undefined;
+    u.draggedByUid = undefined;
+  }
   const overkill = Math.max(0, -u.hp);
   u.hp = 0;
   u.wounded = false;
@@ -1570,6 +1583,8 @@ function revive(u: Unit) {
   u.woundedTime = 0;
   u.bleedOut = 0;
   u.rescueProgress = 0;
+  // The dragger notices his comrade is back on his feet and lets go.
+  u.draggedByUid = undefined;
   u.injuryCooldown = 4;
   u.hp = Math.max(u.hp, u.maxHp * 0.4);
   u.personalMorale = Math.max(55, u.personalMorale);
@@ -5048,6 +5063,12 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
     if (u.wounded) {
+      // A dragger who is himself hit releases his comrade before collapsing.
+      if (u.draggingUid !== undefined) {
+        const p = s.units.find((q) => q.uid === u.draggingUid);
+        if (p) p.draggedByUid = undefined;
+        u.draggingUid = undefined;
+      }
       u.woundedTime += dt;
       u.bleedOut -= dt;
       u.fire = 0;
@@ -5058,6 +5079,7 @@ export function tick(s: GameState, dt: number) {
       const farFromBase =
         u.side === 0 ? u.x > 104 : u.x < W - 104;
       if (
+        u.draggedByUid === undefined &&
         u.woundedTime >= 2.2 &&
         s.time - (u.rescuedAt ?? -99) >= 2.5 &&
         u.bleedOut > 8 &&
@@ -5085,6 +5107,9 @@ export function tick(s: GameState, dt: number) {
       } else {
         u.crawling = false;
       }
+      // While hauled by a buddy the soldier keeps the prone crawl animation
+      // but does not self-propel; the dragger drives his position.
+      if (u.draggedByUid !== undefined) u.crawling = true;
       u.y = ground(s, u.x);
       u.healing = Math.max(0, u.healing - dt);
       if (
@@ -5124,6 +5149,95 @@ export function tick(s: GameState, dt: number) {
         u.rapidUntil = s.time + 8;
       }
       continue;
+    }
+    // Buddy drag: a squadmate hauling a bleeding casualty back to the line.
+    if (u.draggingUid !== undefined) {
+      const patient = s.units.find((q) => q.uid === u.draggingUid);
+      const baseDir = -dir;
+      const reachedBase = u.side === 0 ? u.x <= 116 : u.x >= W - 116;
+      if (
+        !patient ||
+        patient.side !== u.side ||
+        !patient.wounded ||
+        patient.hp <= 0 ||
+        patient.bleedOut <= 0 ||
+        patient.draggedByUid !== u.uid ||
+        reachedBase ||
+        u.hp < u.maxHp * 0.3 ||
+        u.personalMorale < 25 ||
+        u.withdrawHeavyUid !== undefined
+      ) {
+        if (patient) patient.draggedByUid = undefined;
+        u.draggingUid = undefined;
+      } else {
+        u.fire = 0;
+        u.secondaryFire = 0;
+        u.moving = true;
+        u.pose = 'crouch';
+        const gap = patient.x - u.x;
+        if (Math.abs(gap) > 18) {
+          moveSoldier(s, u, Math.sign(gap), c.speed! * u.pace * 0.85, dt);
+        } else {
+          u.x = Math.max(80, Math.min(W - 80, u.x + baseDir * 16 * dt));
+          u.walk += dt * 1.8;
+          patient.x = u.x - baseDir * 16;
+          patient.y = ground(s, patient.x);
+          patient.crawling = true;
+          patient.walk += dt * 1.2;
+          if (
+            patient.crawlFxAt === undefined ||
+            s.time >= patient.crawlFxAt
+          ) {
+            emitParticle(s, {
+              kind: 'blood',
+              x: patient.x - baseDir * 6,
+              y: ground(s, patient.x) - 2,
+              vx: (fxRnd(s) - 0.5) * 4,
+              vy: -6 - fxRnd(s) * 5,
+              life: 0.5,
+              maxLife: 0.5,
+              color: '#7a2420',
+              size: 2,
+            });
+            patient.crawlFxAt = s.time + 0.35 + fxRnd(s) * 0.3;
+          }
+        }
+        u.y = ground(s, u.x);
+        continue;
+      }
+    }
+    // Decision to grab a casualty: same squad, bleeding out far from the
+    // line, not already being tended by a medic or dragged by someone else.
+    if (
+      c.members &&
+      u.hp >= u.maxHp * 0.5 &&
+      u.personalMorale >= 40 &&
+      !u.tending &&
+      u.id !== 'medic' &&
+      u.squadOrder !== 'retreat' &&
+      u.withdrawHeavyUid === undefined &&
+      !u.backpedaling
+    ) {
+      let bestPatient: Unit | undefined;
+      for (const q of s.units) {
+        if (
+          q.side === u.side &&
+          q.squad === u.squad &&
+          q.wounded &&
+          q.draggedByUid === undefined &&
+          q.bleedOut > 0 &&
+          q.bleedOut < 25 &&
+          s.time - (q.rescuedAt ?? -99) > 3 &&
+          Math.abs(q.x - u.x) <= 150 &&
+          (q.side === 0 ? q.x > 130 : q.x < W - 130) &&
+          (!bestPatient || q.bleedOut < bestPatient.bleedOut)
+        )
+          bestPatient = q;
+      }
+      if (bestPatient) {
+        u.draggingUid = bestPatient.uid;
+        bestPatient.draggedByUid = u.uid;
+      }
     }
     const morale = s.players[u.side].morale > 0;
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);

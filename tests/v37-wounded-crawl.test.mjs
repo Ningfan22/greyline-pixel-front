@@ -67,6 +67,8 @@ test('after the shock window a side-0 casualty crawls left toward his baseline',
 test('a casualty does not crawl during the initial shock window', () => {
   const s = arena();
   const u = casualty(s, 0, 500);
+  // v41: squadmates would otherwise drag him, which is a separate behaviour.
+  for (const m of s.units) if (m !== u) m.personalMorale = 20;
   run(s, 60); // 1.0s — inside the 2.2s shock window
   assert.equal(u.crawling, false, 'no crawling while in shock');
   assert.ok(Math.abs(u.x - 500) < 1, 'the casualty has not moved');
@@ -85,6 +87,8 @@ test('a casualty recently treated by a medic stays put instead of crawling', () 
 test('a casualty with little bleed-out time left does not crawl', () => {
   const s = arena();
   const u = casualty(s, 0, 500);
+  // v41: squadmates would otherwise drag him, which is a separate behaviour.
+  for (const m of s.units) if (m !== u) m.personalMorale = 20;
   u.woundedTime = 3;
   u.bleedOut = 7; // not enough time to make crawling worthwhile
   run(s, 60);
