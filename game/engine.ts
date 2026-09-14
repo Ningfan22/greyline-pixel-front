@@ -3983,7 +3983,7 @@ function updateAI(s: GameState) {
           score += s.aiProfile.armor >= 2 ? 5 : 0;
         if ((c.indirect || c.vehicleSupport) && s.aiProfile.turtle >= 3)
           score += 5;
-      } else {
+      } else if (phase === 'late') {
         if (c.economy) score -= 10;
         if (c.comeback) score += 6;
         if (c.id === 'fortify') score += 4;
