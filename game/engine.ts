@@ -154,6 +154,8 @@ export interface Unit {
   squad: number;
   moving: boolean;
   fire: number;
+  heat?: number;
+  heatAt?: number;
   deadFor: number;
   lane: number;
   pace: number;
@@ -364,6 +366,7 @@ export interface Particle {
     | 'impact'
     | 'cloud'
     | 'mote'
+    | 'haze'
     | 'blood';
   endX?: number;
   endY?: number;
@@ -1266,6 +1269,35 @@ function muzzleParticles(
     color: '#a7aa98',
     size: heavy ? 8 : 3,
   });
+  // Sustained fire builds gunsmoke that lingers over the firing position.
+  const heatGain =
+    kind === 'cannon' || kind === 'ap'
+      ? 2.6
+      : kind === 'rocket' || kind === 'mortar'
+        ? 1.6
+        : kind === 'machinegun'
+          ? 0.42
+          : kind === 'autocannon'
+            ? 0.6
+            : 0.5;
+  const since = s.time - (u.heatAt ?? s.time);
+  u.heat = (u.heat ?? 0) * Math.exp(-since / 4) + heatGain;
+  u.heatAt = s.time;
+  if (u.heat >= 3) {
+    u.heat -= 1.6;
+    const life = 6 + fxRnd(s) * 6;
+    s.particles.push({
+      kind: 'haze',
+      x: sx + (fxRnd(s) - 0.5) * 14,
+      y: sy - 6 - fxRnd(s) * 8,
+      vx: (u.side === 0 ? 3 : -3) + (fxRnd(s) - 0.5) * 6,
+      vy: -2.5 - fxRnd(s) * 2,
+      life,
+      maxLife: life,
+      color: fxRnd(s) < 0.5 ? '#8f8d80' : '#9a9384',
+      size: 13 + fxRnd(s) * 9,
+    });
+  }
   if (kind === 'rifle' || kind === 'machinegun' || kind === 'autocannon') {
     const life = 0.25;
     s.particles.push({
@@ -6488,7 +6520,7 @@ export function tick(s: GameState, dt: number) {
         ? -2
         : p.kind === 'cloud'
           ? -9
-          : p.kind === 'mote'
+          : p.kind === 'mote' || p.kind === 'haze'
             ? -1.5
             : p.kind === 'dust'
           ? 6
@@ -6500,9 +6532,19 @@ export function tick(s: GameState, dt: number) {
       p.kind === 'smoke' ||
       p.kind === 'dust' ||
       p.kind === 'cloud' ||
-      p.kind === 'mote'
+      p.kind === 'mote' ||
+      p.kind === 'haze'
     )
-      p.x += s.wind * dt * (p.kind === 'mote' ? 2.2 : p.kind === 'cloud' ? 1.6 : 1);
+      p.x +=
+        s.wind *
+        dt *
+        (p.kind === 'mote'
+          ? 2.2
+          : p.kind === 'haze'
+            ? 1.3
+            : p.kind === 'cloud'
+              ? 1.6
+              : 1);
   }
   s.particles = s.particles.filter((p) => p.life > 0).slice(-700);
   // Resolve construction after movement, firing and incoming impacts for this frame.

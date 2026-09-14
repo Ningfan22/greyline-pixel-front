@@ -251,7 +251,8 @@ export function drawParticle(
       p.kind === 'smoke' ||
       p.kind === 'dust' ||
       p.kind === 'cloud' ||
-      p.kind === 'mote';
+      p.kind === 'mote' ||
+      p.kind === 'haze';
   if (p.kind === 'impact') {
     if (impacts) {
       const row = p.variant ?? 0;
@@ -293,14 +294,21 @@ export function drawParticle(
           ? 0.3
           : p.kind === 'mote'
             ? 0.12
-            : 0.46)
+            : p.kind === 'haze'
+              ? 0.13
+              : 0.46)
     : Math.min(1, life * 2);
   ctx.fillStyle = p.color;
   const size = smoke
     ? Math.max(
         2,
         Math.round(
-          p.size * (p.kind === 'mote' ? 1 : 1 + (1 - life) * 0.8),
+          p.size *
+            (p.kind === 'mote'
+              ? 1
+              : p.kind === 'haze'
+                ? 1 + (1 - life) * 1.4
+                : 1 + (1 - life) * 0.8),
         ),
       )
     : p.size;
