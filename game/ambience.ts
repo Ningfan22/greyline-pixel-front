@@ -246,6 +246,83 @@ export function drawScorches(
 }
 
 /** One-call entry for the render pipeline. */
+// ── Wreck fire ───────────────────────────────────────────
+
+const FIRE_LIFETIME = 40; // seconds of visible flame after destruction
+
+/**
+ * Fresh vehicle wrecks burn with flickering pixel flames that die out
+ * well before the smoke column does, matching real wreck behaviour.
+ */
+export function drawWreckFire(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  for (const w of s.wrecks) {
+    const c = CARDS[w.cardId];
+    if (!c.armored && !c.vehicle) continue;
+    if (w.x < camera - 80 || w.x > camera + viewportWidth + 80) continue;
+
+    const strength = Math.max(0, 1 - w.age / FIRE_LIFETIME);
+    if (strength <= 0.03) continue;
+
+    const baseY = w.y - 8;
+    const seedBase = w.id * 57.3;
+    // Three flame tongues at slightly different offsets.
+    for (let t = 0; t < 3; t++) {
+      const flick = hash(seedBase + t * 11.7 + Math.floor(now * 14));
+      const flick2 = hash(seedBase + t * 7.3 + Math.floor(now * 7.5));
+      const h =
+        Math.round((10 + flick * 14) * strength * (t === 1 ? 1.25 : 1));
+      if (h < 2) continue;
+      const wHalf = Math.round(
+        (3 + flick2 * 3) * strength * (t === 1 ? 1.15 : 1),
+      );
+      const fx = w.x + (t - 1) * 5 + (flick - 0.5) * 3;
+      // Outer orange
+      ctx.fillStyle = `rgba(214,108,34,${(0.55 * strength).toFixed(3)})`;
+      ctx.fillRect(
+        Math.round(fx - wHalf),
+        Math.round(baseY - h),
+        wHalf * 2,
+        h,
+      );
+      // Inner yellow
+      const innerH = Math.round(h * 0.65);
+      ctx.fillStyle = `rgba(240,196,72,${(0.65 * strength).toFixed(3)})`;
+      ctx.fillRect(
+        Math.round(fx - Math.max(1, wHalf - 2)),
+        Math.round(baseY - innerH),
+        Math.max(1, (wHalf - 2) * 2),
+        innerH,
+      );
+      // Hot core
+      if (strength > 0.4) {
+        const coreH = Math.round(h * 0.35);
+        ctx.fillStyle = `rgba(255,244,200,${(0.5 * strength).toFixed(3)})`;
+        ctx.fillRect(
+          Math.round(fx - 1),
+          Math.round(baseY - coreH),
+          2,
+          coreH,
+        );
+      }
+    }
+    // Occasional sparks
+    const sparkPhase = Math.floor(now * 6 + seedBase);
+    if (hash(sparkPhase) > 0.72 && strength > 0.25) {
+      const sx = w.x + (hash(sparkPhase * 1.3) - 0.5) * 16;
+      const sy = baseY - 6 - hash(sparkPhase * 2.1) * 14 * strength;
+      ctx.fillStyle = `rgba(255,210,120,${(0.7 * strength).toFixed(3)})`;
+      ctx.fillRect(Math.round(sx), Math.round(sy), 2, 2);
+    }
+  }
+}
+
+/** One-call entry for the render pipeline. */
 export function drawAmbience(
   ctx: CanvasRenderingContext2D,
   s: GameState,

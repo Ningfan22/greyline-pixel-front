@@ -26,7 +26,7 @@ import {
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
-import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawScorches } from './ambience';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches } from './ambience';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -633,6 +633,7 @@ export function render(
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
   drawWreckSmoke(ctx, s, camera, viewportWidth);
+  drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
