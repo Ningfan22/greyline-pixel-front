@@ -207,6 +207,40 @@ export function drawMuzzle(
     );
   ctx.restore();
 }
+
+/**
+ * Muzzle-flash illumination: a brief warm radial glow cast onto the terrain
+ * around a firing weapon. Rendered with additive blending so multiple
+ * concurrent shooters stack into a flickering firefight ambience.
+ */
+export function drawMuzzleLight(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  kind: Ammunition,
+  intensity: number,
+) {
+  if (kind === 'drone' || intensity <= 0) return;
+  const heavy = kind === 'cannon' || kind === 'ap' || kind === 'autocannon';
+  const radius = heavy ? 90 : kind === 'machinegun' ? 55 : kind === 'rocket' || kind === 'mortar' ? 70 : 38;
+  const peak = heavy ? 0.5 : kind === 'machinegun' ? 0.34 : 0.24;
+  const alpha = peak * intensity;
+  if (alpha < 0.02) return;
+  const gx = x,
+    gy = y + 6;
+  const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, radius);
+  grad.addColorStop(0, `rgba(255,214,150,${alpha})`);
+  grad.addColorStop(0.35, `rgba(255,170,90,${alpha * 0.55})`);
+  grad.addColorStop(1, 'rgba(255,140,60,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(gx, gy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawParticle(
   ctx: CanvasRenderingContext2D,
   p: Particle,

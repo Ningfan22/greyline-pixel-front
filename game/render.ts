@@ -31,6 +31,7 @@ import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
   drawMuzzle,
+  drawMuzzleLight,
   drawProjectile,
   drawParticle,
   drawBlast,
@@ -699,6 +700,24 @@ export function render(
       visible: true,
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
+  // Muzzle-flash illumination: each active shooter casts a brief warm glow
+  // onto the terrain around him. Additive blending makes concurrent fire
+  // stack into the flickering ambience of a real firefight.
+  for (const u of sorted) {
+    if (u.fire <= 0 || u.hp <= 0 || u.wounded) continue;
+    if (!visibleToSide(s, 0, u)) continue;
+    if (u.x < camera - 120 || u.x > camera + viewportWidth + 120) continue;
+    const c = CARDS[u.id];
+    const mx = u.muzzleX;
+    const my = u.muzzleY + (c.members ? infantryDepth(u.lane) : 0);
+    drawMuzzleLight(
+      ctx,
+      mx,
+      my,
+      u.lastAmmo ?? ammunition(u.id, u.member),
+      Math.min(1, u.fire / 0.12),
+    );
+  }
   drawWreckSmoke(ctx, s, camera, viewportWidth);
   drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {
