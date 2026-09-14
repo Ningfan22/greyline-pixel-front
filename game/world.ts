@@ -347,6 +347,7 @@ export function sceneryIntercept(
   vision = false,
   includeOrigin = false,
   ignoreProps = false,
+  ignoreRubble = false,
 ) {
   let hit: { box: Obstacle; x: number; y: number; t: number } | null = null;
   const left = Math.min(sx, tx),
@@ -354,6 +355,8 @@ export function sceneryIntercept(
     top = Math.min(sy, ty),
     bottom = Math.max(sy, ty);
   for (const box of nearbyObstacles(s, left, right, ignoreProps)) {
+    // Indirect fire ignores debris, while surviving walls and trunks stay solid.
+    if (ignoreRubble && (box.rubble || box.wreck)) continue;
     if (
       box.x > right ||
       box.x + box.w < left ||

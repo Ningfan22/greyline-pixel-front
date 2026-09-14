@@ -1393,7 +1393,17 @@ export function explode(
     )
       continue;
     const earth = blastEarthCover(s, x, y, u);
-    const debris = sceneryIntercept(s, x, y, u.x, u.y - 20, false, true)
+    const debris = sceneryIntercept(
+      s,
+      x,
+      y,
+      u.x,
+      u.y - 20,
+      false,
+      true,
+      false,
+      kind === 'artillery',
+    )
       ? 0.65
       : 0;
     sheltered.set(u.uid, Math.max(earth, debris));
@@ -1484,10 +1494,21 @@ export function terrainIntercept(
   ty: number,
   ignoreSoftCover = false,
   ignoreAllCover = false,
+  ignoreRubble = false,
 ) {
   const prop = ignoreAllCover
     ? null
-    : sceneryIntercept(s, sx, sy, tx, ty, false, false, ignoreSoftCover);
+    : sceneryIntercept(
+        s,
+        sx,
+        sy,
+        tx,
+        ty,
+        false,
+        false,
+        ignoreSoftCover,
+        ignoreRubble,
+      );
   const soil = heightfieldIntercept(s, sx, sy, tx, ty, prop?.t ?? 1);
   if (soil)
     return prop && prop.t < soil.t
@@ -1507,8 +1528,11 @@ export function projectileIntercept(
   // Ground is still solid, and buildings/trees intercept the descending shell.
   const progress = 1 - Math.max(0, p.life) / p.total;
   const rising = p.ty - p.startY - 4 * (p.arc ?? 0) * (1 - 2 * progress) < 0;
-  if ((p.shell && rising) || (p.topAttack && ty < sy))
+  const indirectShell = p.shell || p.ammunition === 'mortar';
+  if ((indirectShell && rising) || (p.topAttack && ty < sy))
     return terrainIntercept(s, sx, sy, tx, ty, true, true);
+  if (indirectShell)
+    return terrainIntercept(s, sx, sy, tx, ty, false, false, true);
   if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
     return terrainIntercept(s, sx, sy, tx, ty);
   const hardHit = terrainIntercept(s, sx, sy, tx, ty, true);
