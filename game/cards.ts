@@ -141,6 +141,8 @@ export interface Card {
   /** A ground vehicle body; armor damage resistance still requires armored. */
   vehicle?: boolean;
   vehicleSupport?: 'repair' | 'command' | 'mine_clear';
+  /** Crew members who bail out on foot when the vehicle is destroyed. */
+  crew?: number;
   targetGround?: boolean;
   model?: BaseCardId;
   doctrine?: Doctrine;
@@ -242,6 +244,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     rate: 1.9,
     radius: 44,
     armored: true,
+    crew: 3,
   },
   helicopter: {
     id: 'helicopter',
@@ -336,6 +339,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     speed: 58,
     antiAir: true,
     armored: true,
+    crew: 2,
   },
   morale: {
     id: 'morale',
@@ -585,6 +589,7 @@ export const CARDS: Record<CardId, Card> = {
   pickup: variant('ifv', 'pickup', '机枪皮卡', 2, '廉价机动机枪车，压制步兵', {
     en: 'MACHINE GUN TECHNICAL',
     vehicle: true,
+    crew: 1,
     armored: false,
     antiAir: false,
     hp: 150,

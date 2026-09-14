@@ -80,6 +80,7 @@ import {
   weaponCard,
   doctrineOf,
   type CardId,
+  type Card,
   type Doctrine,
 } from './cards';
 export {
@@ -296,6 +297,8 @@ export interface Unit {
   };
   rappelling?: boolean;
   slowedUntil: number;
+  /** Disoriented period after bailing out of a destroyed vehicle: no fire, slow stumble. */
+  bailoutUntil?: number;
   destroyed: boolean;
 }
 export interface Projectile {
@@ -1360,6 +1363,7 @@ function hitUnit(
 function finishDeath(s: GameState, u: Unit, side: Side) {
   if (u.destroyed) return;
   u.destroyed = true;
+  const overkill = Math.max(0, -u.hp);
   u.hp = 0;
   u.wounded = false;
   u.deadFor = 0;
@@ -1391,7 +1395,43 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
   if (!c.members && !c.air)
     burst(s, u.x, u.y - 20, c.armored ? 60 : 42, 'wreck');
   else if (c.air) burst(s, u.x, u.y - 20, c.oneWay ? 12 : 24, 'air');
+  bailoutCrew(s, u, c, overkill);
   settleSortie(s, u, false);
+}
+
+/** Spawn surviving vehicle crew as shaken infantry who stumble away from the wreck. */
+function bailoutCrew(s: GameState, u: Unit, c: Card, overkill: number) {
+  const crew = c.crew ?? 0;
+  if (!crew || c.air || c.oneWay) return;
+  // A catastrophic kill (heavy overkill) leaves fewer survivors than a gradual knock-out.
+  const survival = Math.max(0.22, 0.82 - (overkill / Math.max(1, u.maxHp)) * 0.55);
+  const dir = u.side === 0 ? -1 : 1; // toward own baseline
+  let bailed = 0;
+  for (let i = 0; i < crew; i++) {
+    if (rnd(s) >= survival) continue;
+    const lateral = (i - (crew - 1) / 2) * 15;
+    const bx = Math.max(
+      60,
+      Math.min(W - 60, u.x + dir * (16 + rnd(s) * 12) + lateral * 0.35),
+    );
+    spawnUnit(s, u.side, 'infantry', bx, { member: 0 });
+    const m = s.units[s.units.length - 1];
+    m.lane = lateral;
+    m.hp = m.maxHp * (0.35 + rnd(s) * 0.25);
+    m.personalMorale = 28 + rnd(s) * 14;
+    m.suppression = 58 + rnd(s) * 28;
+    m.bailoutUntil = s.time + 1.8 + rnd(s) * 0.9;
+    m.cooldown = 1.4 + rnd(s) * 0.7;
+    m.facing = dir;
+    bailed++;
+  }
+  if (bailed > 0)
+    notify(
+      s,
+      `${u.side === 0 ? '我方' : '敌方'}${c.name}${bailed} 名乘员弃车逃生`,
+      'info',
+      ([0, 1] as Side[]).filter((side) => visibleToSide(s, side, u)),
+    );
 }
 function settleSortie(s: GameState, u: Unit, success: boolean) {
   const token = u.sortieCard;
@@ -4924,6 +4964,25 @@ export function tick(s: GameState, dt: number) {
       beginDrop(u, dir, 0, true);
     if (c.members && traverse(s, u, dt)) continue;
     if (c.members && !c.air && evadeArtillery(s, u, dt)) continue;
+    // Bailing crew stumble away from their burning wreck, disoriented.
+    if (c.members && u.bailoutUntil !== undefined && s.time < u.bailoutUntil) {
+      u.fire = 0;
+      u.secondaryFire = 0;
+      u.cover = 0;
+      u.coverGoal = null;
+      u.suppression = Math.max(u.suppression, 55);
+      u.pose = u.suppression > 78 ? 'prone' : 'crouch';
+      u.facing = -dir;
+      moveSoldier(
+        s,
+        u,
+        -dir,
+        c.speed! * u.pace * 0.38 * (morale ? 1.2 : 1),
+        dt,
+      );
+      if (!u.moving && u.motion === 'ground') u.pose = 'crouch';
+      continue;
+    }
     if (c.members && u.tactic === 'retreat' && !orderedWithdrawal(s, u)) {
       if (recoverRetreat(s, u, dt)) continue;
       u.cover = 0;
