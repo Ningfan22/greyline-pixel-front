@@ -55,6 +55,11 @@ export function adultFrameChoice(u: Unit): AdultFrameChoice {
       (low ? 5 : 4) + Math.min(low ? 2 : 3, Math.floor(u.woundedTime * 6)),
     );
   }
+  if ((u.fragThrow ?? 0) > 0) return action(8);
+  // Medics alternate between a kneeling pose and a low crouch while treating,
+  // never the hit-reaction fall frames.
+  if (u.tending)
+    return Math.floor((u.tendingTime ?? 0) * 2.5) % 2 ? action(17) : reaction(5);
   if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
   if (u.motion === 'land')
     return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);

@@ -188,6 +188,9 @@ export interface Unit {
   smokeAssaultSpent?: boolean;
   assaultBurstUntil?: number;
   buddyRallied?: boolean;
+  fragLeft?: number;
+  fragThrow?: number;
+  fragCooldown?: number;
   breachPropId?: number;
   breachShots?: number;
   boundStartedAt?: number;
@@ -266,6 +269,8 @@ export interface Unit {
   coverSearch: number;
   supportCooldown: number;
   healing: number;
+  tending?: boolean;
+  tendingTime?: number;
   repairTime: number;
   recoverySupportUntil?: number;
   commandSupportUntil?: number;
@@ -672,6 +677,7 @@ export function spawnUnit(
       coverSearch: 0,
       supportCooldown: 0,
       healing: 0,
+      fragLeft: c.frags,
       repairTime: 0,
       patrolDir: side === 0 ? 1 : -1,
       evadeGoal: null,
@@ -4647,7 +4653,9 @@ export function tick(s: GameState, dt: number) {
       if (patient) {
         treating = true;
         u.pose = 'crouch';
-        if (patient.wounded && Math.abs(patient.x - u.x) > 64) {
+        const movingToPatient =
+          patient.wounded && Math.abs(patient.x - u.x) > 64;
+        if (movingToPatient) {
           u.pose = 'walk';
           moveSoldier(
             s,
@@ -4656,13 +4664,23 @@ export function tick(s: GameState, dt: number) {
             c.speed! * u.pace * 0.8,
             dt,
           );
+          u.tending = false;
+          u.tendingTime = 0;
         } else if (u.supportCooldown <= 0) {
+          u.tending = true;
+          u.tendingTime = (u.tendingTime ?? 0) + dt;
           if (patient.wounded) patient.rescueProgress += 0.8;
           patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
           patient.healing = 0.6;
           u.healing = 0.6;
           u.supportCooldown = 0.8;
+        } else {
+          u.tending = true;
+          u.tendingTime = (u.tendingTime ?? 0) + dt;
         }
+      } else {
+        u.tending = false;
+        u.tendingTime = 0;
       }
     }
     const primaryAmmo = ammunition(u.id, u.member);
@@ -4781,6 +4799,60 @@ export function tick(s: GameState, dt: number) {
           mate.assaultBurstUntil = s.time + 4;
       }
     }
+    if (c.frags) {
+      u.fragThrow = Math.max(0, (u.fragThrow ?? 0) - dt);
+      u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
+      if (
+        (u.fragLeft ?? 0) > 0 &&
+        (u.fragCooldown ?? 0) <= 0 &&
+        !u.tending &&
+        !u.wounded &&
+        target &&
+        !CARDS[target.id].air &&
+        Math.abs(target.x - u.x) <= 220
+      ) {
+        const cluster = s.units.filter(
+          (v) =>
+            v.side !== u.side &&
+            isCombatant(v) &&
+            !CARDS[v.id].air &&
+            visibleToSide(s, u.side, v) &&
+            Math.abs(v.x - target.x) <= 150,
+        );
+        if (cluster.length >= 2) {
+          const cx = cluster.reduce((sum, v) => sum + v.x, 0) / cluster.length;
+          const cy = ground(s, cx);
+          const sx = u.x;
+          const sy = Math.min(u.y - bodyHeight(u) + 20, ground(s, u.x) - 6);
+          const dist = Math.hypot(cx - sx, cy - sy);
+          const total = Math.max(0.3, dist / 650);
+          u.fragThrow = 0.45;
+          u.fragLeft = (u.fragLeft ?? 0) - 1;
+          u.fragCooldown = 6;
+          u.facing = Math.sign(cx - sx) || dir;
+          s.projectiles.push({
+            uid: ++s.uid,
+            ammunition: 'grenade',
+            effect: 'grenade',
+            damage: 42,
+            radius: 40,
+            arc: 70,
+            life: total,
+            total,
+            targetUid: null,
+            base: null,
+            side: u.side,
+            sourceUid: u.uid,
+            x: sx,
+            y: sy,
+           tx: cx,
+           ty: cy,
+           startX: sx,
+           startY: sy,
+         });
+       }
+     }
+   }
     const baseInRange =
       !target &&
       !c.airOnly &&

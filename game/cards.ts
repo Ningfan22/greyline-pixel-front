@@ -132,6 +132,8 @@ export interface Card {
   antiAir?: boolean;
   radius?: number;
   members?: number;
+  /** Hand grenades carried by each infantry member; thrown at clustered enemies. */
+  frags?: number;
   minRange?: number;
   indirect?: boolean;
   heal?: number;
@@ -1467,10 +1469,11 @@ Object.assign(CARDS.marines, {
 });
 Object.assign(CARDS.assault, {
   infantryAbility: 'smoke_assault',
+  frags: 2,
   tag: '突击 · 接敌烟幕',
   description: '140内发现敌军时，每班释放一次短烟并集中射击。',
   detail:
-    '3费5人260生命。140内可见地面敌军触发每班一次4秒烟幕，附近同班成员4秒内对140内目标装填缩短35%；不穿烟观察远敌。',
+    '3费5人260生命。140内可见地面敌军触发每班一次4秒烟幕，附近同班成员4秒内对140内目标装填缩短35%；不穿烟观察远敌。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.rangers, {
   hp: 180,
@@ -1478,10 +1481,11 @@ Object.assign(CARDS.rangers, {
   range: 500,
   sight: 720,
   infantryAbility: 'ambush',
+  frags: 2,
   tag: '侦察 · 伏击首枪',
   description: '停步蓄势，下一发对步兵增强；移动或射击重置。',
   detail:
-    '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。',
+    '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.paratroopers, {
   infantryAbility: 'rapid',
@@ -1505,10 +1509,11 @@ Object.assign(CARDS.commandos, {
   range: 400,
   infantryAbility: 'elite',
   neverSurrender: true,
+  frags: 2,
   tag: '精锐 · 快速伏击',
   description: '少人精锐，快速准备伏击，个人抗压且不投降。',
   detail:
-    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。',
+    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.scouts, {
   cost: 1,
