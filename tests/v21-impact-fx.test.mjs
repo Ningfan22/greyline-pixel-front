@@ -109,7 +109,7 @@ for (const side of [0, 1])
     );
     for (const obstacle of ['earth', 'hard-cover'])
       check(
-        `${id} side${side}: real flight terminates on ${obstacle} with one blast`,
+        `${id} side${side}: real flight ${id === 'mortar' && obstacle === 'hard-cover' ? 'passes destroyed cover' : `terminates on ${obstacle}`} with one blast`,
         () => {
           const f = arena(side, id),
             { s } = f,
@@ -137,10 +137,13 @@ for (const side of [0, 1])
           const b = s.blasts[0];
           assert.equal(s.projectiles.includes(p), false);
           assert.equal(s.blasts.length, 1);
-          assert.ok(
-            Math.abs(b.x - p.tx) > 1,
-            'must hit obstruction before the aim endpoint',
-          );
+          if (id === 'mortar' && obstacle === 'hard-cover')
+            assert.equal(b.x, launch.tx, 'mortar must pass the wreck and detonate at the original endpoint');
+          else
+            assert.ok(
+              Math.abs(b.x - p.tx) > 1,
+              'must hit obstruction before the aim endpoint',
+            );
           if (b.kind === 'air') {
             assert.equal(b.soil, false);
             assert.ok(b.y < ground(s, b.x) - 80);
