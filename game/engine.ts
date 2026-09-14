@@ -145,6 +145,7 @@ export interface Unit {
   maxHp: number;
   cooldown: number;
   walk: number;
+  stepDust?: number;
   flash: number;
   squad: number;
   moving: boolean;
@@ -1107,6 +1108,24 @@ export function crater(
           s.terrain[i + 1] + (preparedSlope?.[i + 1] ?? 0.8),
         ),
       );
+  }
+}
+// Footsteps and vehicle tracks kick up small soil puffs so movement reads on the field.
+function footPuff(s: GameState, u: Unit, heavy = false) {
+  const n = heavy ? 2 : 1;
+  for (let i = 0; i < n; i++) {
+    const life = 0.35 + fxRnd(s) * 0.3;
+    s.particles.push({
+      kind: 'dust',
+      x: u.x + (fxRnd(s) - 0.5) * (heavy ? 24 : 8),
+      y: u.y - 1,
+      vx: (fxRnd(s) - 0.5) * 10 - u.facing * 3,
+      vy: -4 - fxRnd(s) * 5,
+      life,
+      maxLife: life,
+      color: fxRnd(s) < 0.5 ? '#94876b' : '#a79571',
+      size: (heavy ? 5 : 3) + fxRnd(s) * (heavy ? 5 : 3),
+    });
   }
 }
 function burst(
@@ -2308,6 +2327,13 @@ function moveSoldier(
   u.walk += distance / (u.pose === 'prone' ? 4 : 6);
   u.y = ground(s, u.x);
   u.moving = distance > 0.001;
+  if (distance > 0.001 && u.motion === 'ground' && !u.climbing) {
+    u.stepDust = (u.stepDust ?? 0) + distance;
+    if (u.stepDust >= (u.pose === 'prone' ? 30 : 24)) {
+      u.stepDust = 0;
+      footPuff(s, u);
+    }
+  }
 }
 export function isCombatant(u: Unit) {
   return u.hp > 0 && !u.surrendered && !u.wounded;
@@ -5671,6 +5697,13 @@ export function tick(s: GameState, dt: number) {
         u.x = Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt));
         u.moving = Math.abs(u.x - before) > 0.001;
         if (u.moving) u.facing = moveDir;
+        if (u.moving && (c.armored || c.vehicle)) {
+          u.stepDust = (u.stepDust ?? 0) + Math.abs(u.x - before);
+          if (u.stepDust >= 14) {
+            u.stepDust = 0;
+            footPuff(s, u, true);
+          }
+        }
       }
     }
     if (

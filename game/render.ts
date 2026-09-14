@@ -460,6 +460,18 @@ export function render(
       ctx.save();
       ctx.filter = 'grayscale(1) brightness(.5)';
     }
+    // Idle infantry breathe: a 1px slow bob keeps held positions alive without drawing anatomy.
+    const breathe =
+      c.members &&
+      !u.moving &&
+      !isDead &&
+      !u.wounded &&
+      !u.surrendered &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      u.pose === 'idle'
+        ? Math.round(Math.sin(s.time * 2.1 + u.uid * 1.7))
+        : 0;
     if (u.rappelling) {
       const carrier = s.units.find(
         (v) =>
@@ -485,6 +497,7 @@ export function render(
       u.y +
         infantryDepth(u.lane) +
         (isTank ? 0 : 3) +
+        breathe +
         tankOffset * Math.sin(u.hullAngle) +
         groundInset * Math.cos(u.hullAngle),
       c.members ? img.width : w,
