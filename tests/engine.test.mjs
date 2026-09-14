@@ -4142,6 +4142,89 @@ check(
   },
 );
 
+check('AI 按对局阶段调整节奏：前期经济、中期协同、后期全力反扑', () => {
+  const tempo = (time, setup, hand, energy) => {
+    const s = v12Arena();
+    s.time = time;
+    setup(s);
+    refreshVision(s);
+    v12AIHand(s, hand, energy);
+    s.players[1].deck = [];
+    s.players[1].discard = [];
+    s.aiIn = 0;
+    tick(s, 0.05);
+    return s.players[1].discard.map((c) => c.id);
+  };
+  // 前期：优先经济牌，跳过五费载具
+  const early = tempo(
+    30,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+    },
+    ['war_bonds', 'ifv'],
+    6,
+  );
+  assert(early.includes('war_bonds'), '前期优先战时公债');
+  assert(!early.includes('ifv'), '前期不买五费步战车');
+  // 中期：看见两架直升机立刻补防空
+  const midAir = tempo(
+    120,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+      spawnUnit(s, 0, 'helicopter', 2500);
+      spawnUnit(s, 0, 'helicopter', 2560);
+    },
+    ['aa_gun', 'infantry'],
+    4,
+  );
+  assert(midAir.includes('aa_gun'), '中期面对空情优先防空炮');
+  assert(!midAir.includes('infantry'), '防空优先于继续堆步兵');
+  // 中期：看见两辆坦克补反甲
+  const midArmor = tempo(
+    120,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+      spawnUnit(s, 0, 'tank', 2500);
+      spawnUnit(s, 0, 'tank', 2560);
+    },
+    ['antiarmor', 'infantry'],
+    4,
+  );
+  assert(midArmor.includes('antiarmor'), '中期面对装甲优先反坦克组');
+  // 中期：面对固守步兵群用曲射
+  const midTurtle = tempo(
+    120,
+    (s) => {
+      for (let i = 0; i < 4; i++) spawnUnit(s, 1, 'infantry', 2800 - i * 24);
+      for (let i = 0; i < 3; i++) {
+        const at = s.units.length;
+        spawnUnit(s, 0, 'infantry', 2500 - i * 30);
+        for (const u of s.units.slice(at)) u.moving = false;
+      }
+    },
+    ['mortar_carrier', 'infantry'],
+    5,
+  );
+  assert(midTurtle.includes('mortar_carrier'), '中期面对固守步兵群用自行迫炮');
+  // 后期：不再买经济，全力反扑
+  const late = tempo(
+    400,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+    },
+    ['war_bonds', 'reserve_mobilization'],
+    4,
+  );
+  assert(
+    late.includes('reserve_mobilization'),
+    '后期优先预备队动员反扑',
+  );
+  assert(!late.includes('war_bonds'), '后期不再买延迟经济');
+});
+
 check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各自战术配合', () => {
   const decks = new Map();
   for (let seed = 0; seed < 100; seed++) {

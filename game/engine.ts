@@ -459,6 +459,8 @@ export interface GameState {
   aiArmorSeenUntil?: number;
   aiAirSeenUntil?: number;
   aiArchetype?: string;
+  aiPhase?: 'early' | 'mid' | 'late';
+  aiProfile?: { air: number; armor: number; foot: number; turtle: number };
   aiPushUntil?: number;
   shake: number;
   uid: number;
@@ -3641,6 +3643,18 @@ function updateAI(s: GameState) {
   if (!s.aiArchetype) s.aiArchetype = inferArchetype(s);
   const archetype = s.aiArchetype;
   const pushing = s.time < (s.aiPushUntil ?? 0);
+  // Match tempo shifts: build economy and a screen early, combine arms against
+  // the player's visible force mix mid-game, then spend out in the endgame.
+  const phase: 'early' | 'mid' | 'late' =
+    s.time < 90 ? 'early' : s.time < 300 ? 'mid' : 'late';
+  s.aiPhase = phase;
+  // The profile only counts units the AI can actually see through the fog.
+  s.aiProfile = {
+    air: air.length,
+    armor: armor.length,
+    foot: foot.length,
+    turtle: foot.filter((u) => !u.moving).length,
+  };
 
   // Stage a short opening/rebuilding wave by squad, not individual soldier.
   if (!cohorts) s.aiWaveUntil = s.time + 10;
@@ -3951,6 +3965,30 @@ function updateAI(s: GameState) {
       } else if (archetype === 'counterattack') {
         if (c.comeback) score += 4;
       }
+      // Phase tempo: hard vetoes (-100) stay negative after a nudge, so this
+      // never revives a card the situation forbids.
+      // Opening tempo only steers quiet build-out; once a real clash is on,
+      // the situational scoring above (morale, repair, rally, ...) must win.
+      if (phase === 'early' && !battle && !emergency) {
+        if (c.economy) score += 4;
+        if (lineInfantry(h.id)) score += 3;
+        if (cardCost(h) >= 4) score -= 4;
+      } else if (phase === 'mid') {
+        if ((c.armored || c.vehicle) && screens >= 2) score += 4;
+        if (c.antiAir && s.aiProfile.air >= 2) score += 5;
+        if (
+          (c.armorMultiplier ?? 1) >= 1.5 ||
+          (!!c.penetration && !c.airOnly)
+        )
+          score += s.aiProfile.armor >= 2 ? 5 : 0;
+        if ((c.indirect || c.vehicleSupport) && s.aiProfile.turtle >= 3)
+          score += 5;
+      } else {
+        if (c.economy) score -= 10;
+        if (c.comeback) score += 6;
+        if (c.id === 'fortify') score += 4;
+        if (cardCost(h) >= 4) score += 3;
+      }
       if (c.targetGround && (x === undefined || !Number.isFinite(x)))
         score = -100;
       return {
@@ -4187,7 +4225,9 @@ function updateAI(s: GameState) {
     }
   }
 
-  const reserve = !emergency && !battle && !screenNeed ? 2 : 0;
+  // The endgame is all-in: banked energy buys nothing after the timer expires.
+  const reserve =
+    phase !== 'late' && !emergency && !battle && !screenNeed ? 2 : 0;
   const usefulSupply = options.find(
     (o) =>
       (CARDS[o.h.id].id === 'supply' || CARDS[o.h.id].effect === 'ammo') &&
