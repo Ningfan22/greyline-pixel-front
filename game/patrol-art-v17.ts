@@ -7,7 +7,7 @@ export interface PatrolSpritesV17 {
   raise3: HTMLCanvasElement[];
 }
 export type PatrolArtV17 = Record<AdultIdentity, PatrolSpritesV17>;
-export type PatrolModeV17 = 'walk' | 'idle' | 'raise';
+export type PatrolModeV17 = 'walk' | 'idle' | 'raise' | 'fire';
 export const PATROL_CELL = 96;
 export const PATROL_RAISE_DURATION = 0.24;
 export const PATROL_RAISE_FRAME_TIME = 0.08;
@@ -52,6 +52,8 @@ export function patrolFrameV17(
   const sprites = art[identity];
   if (mode === 'idle') return sprites.lowIdle;
   if (mode === 'walk') return sprites.walk8[((Math.floor(walk) % 8) + 8) % 8];
+  // The final raise frame is a standing aimed-rifle pose, so reuse it for firing.
+  if (mode === 'fire') return sprites.raise3[2];
   if (raiseElapsed >= PATROL_RAISE_DURATION) return null;
   return sprites.raise3[
     Math.min(2, Math.floor(Math.max(0, raiseElapsed) / PATROL_RAISE_FRAME_TIME))

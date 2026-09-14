@@ -400,11 +400,17 @@ export function render(
       u.motion === 'ground' &&
       !u.climbing &&
       ['idle', 'walk'].includes(u.pose) &&
-      u.fire <= 0
+      (u.fire <= 0 || !u.moving)
         ? patrolFrameV17(
             art.patrol,
             adultIdentity(u.id),
-            (u.aimUntil ?? 0) > s.time ? 'raise' : u.moving ? 'walk' : 'idle',
+            u.fire > 0 && !u.moving
+              ? 'fire'
+              : (u.aimUntil ?? 0) > s.time
+                ? 'raise'
+                : u.moving
+                  ? 'walk'
+                  : 'idle',
             u.walk,
             s.time - (u.readyAt ?? -100),
           )
