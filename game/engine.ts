@@ -8,6 +8,8 @@ import {
   type CampaignState,
 } from './campaign';
 import { blastVisible } from './impact-fx';
+import { squadFocus } from './focus-fire';
+import { rotorWash } from './rotor-wash';
 import {
   initialEconomy,
   energyLimit,
@@ -147,6 +149,7 @@ export interface Unit {
   cooldown: number;
   walk: number;
   stepDust?: number;
+  rotorWashAt?: number;
   flash: number;
   squad: number;
   moving: boolean;
@@ -5036,6 +5039,7 @@ export function tick(s: GameState, dt: number) {
         : s.players[u.side].order;
     if (c.airlift) {
       if (!controlledNavigation) flyTransport(s, u, dt);
+      rotorWash(s, u, dt);
       continue;
     }
     if (u.id === 'fpv_drone') {
@@ -5145,6 +5149,7 @@ export function tick(s: GameState, dt: number) {
       u.facing = dir;
       u.moving = true;
     }
+    if (c.air) rotorWash(s, u, dt);
     if (c.attackRun === 'bomb') {
       fireBombRun(s, u);
       u.y = c.altitude ?? AIR_ALTITUDE;
@@ -5240,6 +5245,10 @@ export function tick(s: GameState, dt: number) {
           : CARDS[v.id].armored
             ? 2
             : 1;
+    // Infantry squads concentrate fire on one designated high-value target.
+    const focusUid = c.members
+      ? squadFocus(s, u.side, u.squad, s.time)
+      : undefined;
     const candidates = s.units
       .filter(
         (v) =>
@@ -5260,16 +5269,17 @@ export function tick(s: GameState, dt: number) {
       )
       .sort(
         (a, b) =>
-          (c.attackRun === 'strafe' ||
-          softTargetWeapon ||
-          ((c.armorMultiplier ?? 1) < 0.8 &&
-            isCoverBullet(ammunition(u.id, u.member)))
-            ? softTargetRank(a) - softTargetRank(b)
-            : modelOf(u.id) === 'sniper'
-              ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
-              : modelOf(u.id) === 'tank' || (c.armorMultiplier ?? 1) > 1.2
-                ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
-                : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
+          Number(b.uid === focusUid) - Number(a.uid === focusUid) ||
+          ((c.attackRun === 'strafe' ||
+            softTargetWeapon ||
+            ((c.armorMultiplier ?? 1) < 0.8 &&
+              isCoverBullet(ammunition(u.id, u.member)))
+              ? softTargetRank(a) - softTargetRank(b)
+              : modelOf(u.id) === 'sniper'
+                ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
+                : modelOf(u.id) === 'tank' || (c.armorMultiplier ?? 1) > 1.2
+                  ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
+                  : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x)),
       );
     if (candidates[0])
       u.lastThreat = {
