@@ -41,7 +41,7 @@ export function patrolFramesV17(image: HTMLImageElement): PatrolSpritesV17 {
 }
 
 /** walk uses the existing distance-based u.walk phase. raiseElapsed is in seconds.
- * Once raising finishes, null hands rendering back to the existing adult combat pose. */
+ * raise plays the three-frame bring-up then holds the final aimed pose. */
 export function patrolFrameV17(
   art: PatrolArtV17,
   identity: AdultIdentity,
@@ -54,7 +54,9 @@ export function patrolFrameV17(
   if (mode === 'walk') return sprites.walk8[((Math.floor(walk) % 8) + 8) % 8];
   // The final raise frame is a standing aimed-rifle pose, so reuse it for firing.
   if (mode === 'fire') return sprites.raise3[2];
-  if (raiseElapsed >= PATROL_RAISE_DURATION) return null;
+  // Hold the aimed pose after the raise transition instead of dropping the
+  // rifle, so the whole front line keeps guns on the enemy between shots.
+  if (raiseElapsed >= PATROL_RAISE_DURATION) return sprites.raise3[2];
   return sprites.raise3[
     Math.min(2, Math.floor(Math.max(0, raiseElapsed) / PATROL_RAISE_FRAME_TIME))
   ];
