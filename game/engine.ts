@@ -3564,7 +3564,9 @@ function updateAI(s: GameState) {
         }
         if (observerCard(c.id)) {
           const needsSpotter = own.some(
-            (u) => !CARDS[u.id].air && (weaponCard(u).range ?? 0) >= 700,
+            (u) =>
+              !CARDS[u.id].air &&
+              (weaponCard(u).indirect || (weaponCard(u).range ?? 0) >= 700),
           );
           score = own.some((u) => observerCard(u.id))
             ? -100
@@ -3583,9 +3585,28 @@ function updateAI(s: GameState) {
                 : screens >= 2
                   ? 4
                   : 0;
-        if (foot.length >= 4 && (model === 'machinegun' || c.indirect))
+        // Suppression assault: machine guns pin targets so assault troops close in.
+        const hasAssault =
+          own.some(
+            (u) => CARDS[u.id].trait === 'close_assault' && isCombatant(u),
+          ) || p.hand.some((h) => CARDS[h.id].trait === 'close_assault');
+        const hasSpotter = own.some(
+          (u) => observerCard(u.id) && isCombatant(u),
+        );
+        // Massed infantry is only worth suppressing when assault troops can
+        // exploit the pin, and indirect fire only lands tightly with a spotter.
+        if (
+          foot.length >= 4 &&
+          ((model === 'machinegun' && hasAssault) ||
+            (c.indirect && hasSpotter))
+        )
           score += 6;
-        if (model === 'sniper' && foot.length) score += 3;
+        // Forward observer: indirect fire is faster and tighter with a spotter.
+        if (c.indirect && hasSpotter) score += 5;
+        if (model === 'machinegun' && hasAssault && foot.length >= 2)
+          score += 7;
+        if (model === 'sniper' && foot.length && !observerCard(c.id))
+          score += 3;
         if (c.deployDraw && p.hand.length <= 4) score += 3;
         if (c.armored && !c.airOnly && cohorts >= 1) score += 3;
         if (c.id === 'pickup') score += foot.length >= 4 ? 8 : 0;
