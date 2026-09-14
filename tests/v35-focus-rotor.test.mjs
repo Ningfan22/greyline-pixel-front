@@ -74,7 +74,7 @@ test('targetValue finishes off badly wounded units', () => {
 test('isRotorcraft recognises airlift and heli airframes only', () => {
   assert.ok(isRotorcraft(mockUnit('air_assault')), 'transport heli is rotorcraft');
   assert.ok(isRotorcraft(mockUnit('rocket_heli')), 'rocket heli is rotorcraft');
-  assert.ok(!isRotorcraft(mockUnit('helicopter')), 'base heli card has no rotor airframe');
+  assert.ok(isRotorcraft(mockUnit('helicopter')), 'base heli counts as rotorcraft (v36)');
   assert.ok(!isRotorcraft(mockUnit('infantry')), 'infantry is not rotorcraft');
   assert.ok(!isRotorcraft(mockUnit('tank')), 'tank is not rotorcraft');
 });

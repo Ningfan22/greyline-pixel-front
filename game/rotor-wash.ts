@@ -5,6 +5,8 @@ import type { GameState, Unit } from './engine';
 export function isRotorcraft(u: Unit): boolean {
   const c = CARDS[u.id];
   if (c.airlift) return true;
+  // The base attack helicopter is `air: true` without an airframe field.
+  if (c.id === 'helicopter') return true;
   const af = c.airframe;
   return af === 'transport_heli' || af === 'rocket_heli';
 }

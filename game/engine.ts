@@ -238,6 +238,10 @@ export interface Unit {
   member: number;
   personalMorale: number;
   suppression: number;
+  /** Blast near-miss reaction: infantry hit the dirt until this time. */
+  flinchUntil?: number;
+  /** Whether the flinch goes prone (close) or just crouches (far). */
+  flinchProne?: boolean;
   decisionIn: number;
   tactic:
     | 'advance'
@@ -1623,6 +1627,27 @@ export function explode(
         sheltered.get(u.uid) ?? 0,
         'blast',
       );
+  }
+  // Near misses landing just outside the kill radius still make infantry
+  // hit the dirt — the closer the blast, the longer and lower the reaction.
+  for (const u of s.units) {
+    if (
+      u.side === side ||
+      !CARDS[u.id].members ||
+      u.wounded ||
+      u.surrendered ||
+      !canTakeDamage(u)
+    )
+      continue;
+    const inner = radius + 12;
+    const dist = Math.hypot(u.x - x, u.y - 20 - y);
+    if (dist <= inner || dist > inner * 2.1) continue;
+    const proximity = 1 - (dist - inner) / (inner * 1.1);
+    u.suppression = Math.min(100, u.suppression + 10 + proximity * 22);
+    u.flinchUntil = s.time + 0.4 + proximity * 0.45;
+    u.flinchProne = dist < inner * 1.35;
+    u.decisionIn = Math.max(u.decisionIn, 0.3);
+    u.lastThreat = { x, y, until: s.time + 2 };
   }
   for (const target of [0, 1] as Side[]) {
     if (target === side) continue;
@@ -5063,6 +5088,22 @@ export function tick(s: GameState, dt: number) {
               : 'idle'
       : 'idle';
     if (c.members && u.withdrawStandby) u.pose = 'crouch';
+    // A blast that landed nearby pins the soldier: they drop low and stop
+    // shooting until the flinch window passes.
+    if (
+      c.members &&
+      (u.flinchUntil ?? 0) > s.time &&
+      u.climbing <= 0 &&
+      u.motion === 'ground'
+    ) {
+      u.pose = u.flinchProne ? 'prone' : 'crouch';
+      u.moving = false;
+      u.coverGoal = null;
+      u.fire = 0;
+      u.secondaryFire = 0;
+      u.walk = 0;
+      continue;
+    }
     if (c.members && u.climbing > 0) {
       u.cover = 0;
       const wall = s.walls.find((w) => w.uid === u.climbWall);
