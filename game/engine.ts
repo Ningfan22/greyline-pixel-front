@@ -336,7 +336,16 @@ export interface Projectile {
   smallArmsAir?: boolean;
 }
 export interface Particle {
-  kind?: 'smoke' | 'dust' | 'spark' | 'chip' | 'casing' | 'tracer' | 'impact';
+  kind?:
+    | 'smoke'
+    | 'dust'
+    | 'spark'
+    | 'chip'
+    | 'casing'
+    | 'tracer'
+    | 'impact'
+    | 'cloud'
+    | 'mote';
   endX?: number;
   endY?: number;
   variant?: number;
@@ -451,6 +460,10 @@ export interface GameState {
   fxSeed: number;
   injurySeed: number;
   explosions: number;
+  wind: number;
+  windTarget: number;
+  windIn: number;
+  dustIn: number;
 }
 function rnd(s: GameState) {
   s.seed = (Math.imul(1664525, s.seed) + 1013904223) >>> 0;
@@ -537,6 +550,10 @@ export function createGame(
     fxSeed: (seed ^ 0x7f4a7c15) >>> 0,
     injurySeed: (seed ^ 0x4cf5ad43) >>> 0,
     explosions: 0,
+    wind: 0,
+    windTarget: 0,
+    windIn: 3,
+    dustIn: 0.4,
   };
   for (const side of [0, 1] as Side[]) {
     const player = s.players[side];
@@ -1118,6 +1135,26 @@ function burst(
   s.blasts.push(blast);
   s.blasts = s.blasts.slice(-32);
   if (blastVisible(s, 0, blast)) s.shake = Math.min(12, radius / 7);
+  // Lingering dust clouds rise and drift after the blast sprite fades.
+  if (kind !== 'air' && kind !== 'penetration') {
+    const cloudCount = Math.min(12, Math.round(radius / 10));
+    for (let i = 0; i < cloudCount; i++) {
+      const a = fxRnd(s) * Math.PI * 2;
+      const d = fxRnd(s) * radius * 0.65;
+      const life = 1.8 + fxRnd(s) * 2.2;
+      s.particles.push({
+        kind: 'cloud',
+        x: x + Math.cos(a) * d,
+        y: y - fxRnd(s) * 14,
+        vx: (fxRnd(s) * 2 - 1) * 16,
+        vy: -12 - fxRnd(s) * 18,
+        life,
+        maxLife: life,
+        color: '#6e6358',
+        size: radius * (0.3 + fxRnd(s) * 0.35),
+      });
+    }
+  }
   // Generated sprite frames contain the fire, smoke and debris. Only animation state is simulated.
   fxRnd(s);
 }
@@ -4484,6 +4521,41 @@ export function tick(s: GameState, dt: number) {
   s.time = Math.min(s.campaign?.duration ?? DURATION, s.time + dt);
   updateComeback(s, { damage: hitUnit, spawn: spawnUnit, draw });
   s.shake = Math.max(0, s.shake - dt * 24);
+  // Wind slowly shifts direction and strength, carrying smoke and dust.
+  s.windIn -= dt;
+  if (s.windIn <= 0) {
+    s.windIn = 5 + fxRnd(s) * 9;
+    s.windTarget = (fxRnd(s) * 2 - 1) * 18;
+  }
+  s.wind += (s.windTarget - s.wind) * Math.min(1, dt * 0.15);
+  // Ambient dust motes drift through contested ground to keep the battlefield alive.
+  s.dustIn -= dt;
+  if (s.dustIn <= 0) {
+    s.dustIn = 0.5 + fxRnd(s) * 0.7;
+    let pick: Unit | null = null;
+    let count = 0;
+    for (const u of s.units) {
+      if (u.hp > 0 && isCombatant(u) && !CARDS[u.id].air) {
+        count++;
+        if (fxRnd(s) < 1 / count) pick = u;
+      }
+    }
+    if (count >= 4 && pick) {
+      const u = pick;
+      const life = 2.5 + fxRnd(s) * 3;
+      s.particles.push({
+        kind: 'mote',
+        x: u.x + (fxRnd(s) * 2 - 1) * 160,
+        y: ground(s, u.x) - 30 - fxRnd(s) * 60,
+        vx: (fxRnd(s) * 2 - 1) * 6,
+        vy: -2 - fxRnd(s) * 4,
+        life,
+        maxLife: life,
+        color: '#8a7e6e',
+        size: 2 + fxRnd(s) * 3,
+      });
+    }
+  }
   for (const side of [0, 1] as Side[]) {
     const p = s.players[side];
     updateEconomy(s, side, dt);
@@ -4503,7 +4575,10 @@ export function tick(s: GameState, dt: number) {
     updateAI(s);
     s.aiIn = 0.75 + rnd(s) * 0.6;
   }
-  for (const f of s.smokes) f.life -= dt;
+  for (const f of s.smokes) {
+    f.life -= dt;
+    f.x += s.wind * dt * 0.5;
+  }
   s.smokes = s.smokes.filter((f) => f.life > 0);
   for (const m of s.markers) {
     const c = ARTILLERY[m.kind ?? 'artillery'];
@@ -5889,11 +5964,23 @@ export function tick(s: GameState, dt: number) {
     p.vy +=
       (p.kind === 'smoke'
         ? -2
-        : p.kind === 'dust'
+        : p.kind === 'cloud'
+          ? -9
+          : p.kind === 'mote'
+            ? -1.5
+            : p.kind === 'dust'
           ? 6
           : p.kind === 'casing'
             ? 320
             : 190) * dt;
+    // Wind carries smoke, dust and lingering clouds across the battlefield.
+    if (
+      p.kind === 'smoke' ||
+      p.kind === 'dust' ||
+      p.kind === 'cloud' ||
+      p.kind === 'mote'
+    )
+      p.x += s.wind * dt * (p.kind === 'mote' ? 2.2 : p.kind === 'cloud' ? 1.6 : 1);
   }
   s.particles = s.particles.filter((p) => p.life > 0).slice(-700);
   // Resolve construction after movement, firing and incoming impacts for this frame.

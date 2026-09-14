@@ -213,7 +213,11 @@ export function drawParticle(
   impacts?: HTMLCanvasElement[][],
 ) {
   const life = Math.max(0, p.life / p.maxLife),
-    smoke = p.kind === 'smoke' || p.kind === 'dust';
+    smoke =
+      p.kind === 'smoke' ||
+      p.kind === 'dust' ||
+      p.kind === 'cloud' ||
+      p.kind === 'mote';
   if (p.kind === 'impact') {
     if (impacts) {
       const row = p.variant ?? 0;
@@ -248,11 +252,23 @@ export function drawParticle(
     return;
   }
   ctx.globalAlpha = smoke
-    ? life * (p.kind === 'smoke' ? 0.22 : 0.46)
+    ? life *
+      (p.kind === 'smoke'
+        ? 0.22
+        : p.kind === 'cloud'
+          ? 0.3
+          : p.kind === 'mote'
+            ? 0.12
+            : 0.46)
     : Math.min(1, life * 2);
   ctx.fillStyle = p.color;
   const size = smoke
-    ? Math.max(2, Math.round(p.size * (1 + (1 - life) * 0.8)))
+    ? Math.max(
+        2,
+        Math.round(
+          p.size * (p.kind === 'mote' ? 1 : 1 + (1 - life) * 0.8),
+        ),
+      )
     : p.size;
   const x = Math.round(p.x),
     y = Math.round(p.y);

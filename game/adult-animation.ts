@@ -55,7 +55,14 @@ export function adultFrameChoice(u: Unit): AdultFrameChoice {
       (low ? 5 : 4) + Math.min(low ? 2 : 3, Math.floor(u.woundedTime * 6)),
     );
   }
-  if ((u.fragThrow ?? 0) > 0) return action(8);
+  // Grenade throw is a 0.45s countdown. The projectile spawns at the start of
+  // the animation, so the arm comes forward early and settles into a follow-through.
+  if ((u.fragThrow ?? 0) > 0) {
+    const t = u.fragThrow ?? 0;
+    if (t > 0.33) return action(8); // wind-up (arm back)
+    if (t > 0.17) return action(9); // release (arm forward)
+    return action(10); // follow-through
+  }
   // Medics alternate between a kneeling pose and a low crouch while treating,
   // never the hit-reaction fall frames.
   if (u.tending)
