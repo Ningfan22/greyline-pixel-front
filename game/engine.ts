@@ -170,6 +170,9 @@ export interface Unit {
   bleedOut: number;
   woundedBy: Side;
   rescueProgress: number;
+  crawling?: boolean;
+  rescuedAt?: number;
+  crawlFxAt?: number;
   injuryCooldown: number;
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
@@ -360,7 +363,8 @@ export interface Particle {
     | 'tracer'
     | 'impact'
     | 'cloud'
-    | 'mote';
+    | 'mote'
+    | 'blood';
   endX?: number;
   endY?: number;
   variant?: number;
@@ -1017,7 +1021,10 @@ export function playCard(
         u.hp = Math.min(u.maxHp, u.hp + 18);
         u.personalMorale = Math.min(100, u.personalMorale + 8);
         u.healing = 0.7;
-        if (u.wounded) u.rescueProgress += 1.6;
+        if (u.wounded) {
+          u.rescueProgress += 1.6;
+          u.rescuedAt = s.time;
+        }
       }
     }
     if (c.effect === 'fortify') {
@@ -4993,6 +5000,38 @@ export function tick(s: GameState, dt: number) {
       u.fire = 0;
       u.secondaryFire = 0;
       u.moving = false;
+      // After the initial shock, a wounded soldier crawls back toward his own
+      // line while no medic is actively tending him.
+      const farFromBase =
+        u.side === 0 ? u.x > 104 : u.x < W - 104;
+      if (
+        u.woundedTime >= 2.2 &&
+        s.time - (u.rescuedAt ?? -99) >= 2.5 &&
+        u.bleedOut > 8 &&
+        farFromBase
+      ) {
+        const dir = u.side === 0 ? -1 : 1;
+        u.crawling = true;
+        u.moving = true;
+        u.x = Math.max(90, Math.min(W - 90, u.x + dir * 9 * dt));
+        u.walk += dt * 1.6;
+        if (u.crawlFxAt === undefined || s.time >= u.crawlFxAt) {
+          s.particles.push({
+            kind: 'blood',
+            x: u.x - dir * 6,
+            y: ground(s, u.x) - 2,
+            vx: (fxRnd(s) - 0.5) * 4,
+            vy: -6 - fxRnd(s) * 5,
+            life: 0.5,
+            maxLife: 0.5,
+            color: '#7a2420',
+            size: 2,
+          });
+          u.crawlFxAt = s.time + 0.35 + fxRnd(s) * 0.3;
+        }
+      } else {
+        u.crawling = false;
+      }
       u.y = ground(s, u.x);
       u.healing = Math.max(0, u.healing - dt);
       if (
@@ -5259,7 +5298,10 @@ export function tick(s: GameState, dt: number) {
         } else if (u.supportCooldown <= 0) {
           u.tending = true;
           u.tendingTime = (u.tendingTime ?? 0) + dt;
-          if (patient.wounded) patient.rescueProgress += 0.8;
+          if (patient.wounded) {
+            patient.rescueProgress += 0.8;
+            patient.rescuedAt = s.time;
+          }
           patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
           patient.healing = 0.6;
           u.healing = 0.6;

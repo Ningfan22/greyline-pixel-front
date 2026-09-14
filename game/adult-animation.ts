@@ -48,6 +48,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
             : 3,
     );
   if (u.wounded) {
+    if (u.crawling)
+      return action(Math.floor(u.walk * 2) % 2 ? 12 : 2);
     if (u.woundedFromPose === 'prone' || u.woundedTime >= 0.7)
       return action(14);
     const low = u.woundedFromPose === 'crouch' || u.woundedFromPose === 'land';
