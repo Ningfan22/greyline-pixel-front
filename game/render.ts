@@ -26,6 +26,7 @@ import {
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke } from './ambience';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -157,6 +158,9 @@ export function render(
     terrainArt = terrainTexture(art, map.id);
   drawMapBackground(ctx, art, map.id, camera, viewportWidth);
   ctx.translate(-Math.round(camera), 0);
+  // Sky ambience: birds and distant battle flashes sit behind the terrain.
+  drawBirds(ctx, s, camera, viewportWidth);
+  drawDistantFlashes(ctx, s, camera, viewportWidth);
   const visibleGround = (x: number) =>
     s.knownTerrain[0][Math.max(0, Math.min(W - 1, Math.floor(x)))];
   const left = Math.max(0, Math.floor(camera / 3) * 3),
@@ -604,6 +608,7 @@ export function render(
       visible: true,
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
+  drawWreckSmoke(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;

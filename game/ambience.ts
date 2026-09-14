@@ -1,0 +1,171 @@
+import { CARDS, W, ground, type GameState } from './engine';
+
+/** Deterministic hash → [0,1) */
+function hash(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+// ── Birds ────────────────────────────────────────────────
+const FLOCK_PERIOD = 27; // seconds between flocks
+const FLOCK_CROSS = 11; // seconds for a flock to cross the map
+
+/**
+ * Small flocks cross the sky, suggesting a living world beyond the trenches.
+ * Purely decorative — drawn in world space so the camera transform applies.
+ */
+export function drawBirds(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const t = s.time;
+  const cycle = t % FLOCK_PERIOD;
+  if (cycle >= FLOCK_CROSS) return;
+
+  const flockIdx = Math.floor(t / FLOCK_PERIOD);
+  const seed = flockIdx * 91.7;
+  const dir = hash(seed) > 0.5 ? 1 : -1;
+  const progress = cycle / FLOCK_CROSS;
+  const startX = dir > 0 ? -60 : W + 60;
+  const endX = dir > 0 ? W + 60 : -60;
+  const cx = startX + (endX - startX) * progress;
+  const baseY = 28 + hash(seed + 1) * 52;
+  const count = 4 + Math.floor(hash(seed + 2) * 5);
+
+  ctx.strokeStyle = 'rgba(35,38,33,0.45)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < count; i++) {
+    const ox = (i - count / 2) * 9;
+    const bx = cx + ox * dir;
+    if (bx < camera - 20 || bx > camera + viewportWidth + 20) continue;
+    const by =
+      baseY + Math.abs(ox) * 0.32 + Math.sin(t * 2.5 + i * 1.3) * 1.5;
+    const flap = Math.sin(t * 9 + i * 2.1) * 1.5;
+    ctx.moveTo(bx - 2.5, by + flap);
+    ctx.lineTo(bx, by - flap * 0.6);
+    ctx.lineTo(bx + 2.5, by + flap);
+  }
+  ctx.stroke();
+}
+
+// ── Distant horizon flashes ──────────────────────────────
+const FLASH_PERIOD = 18;
+const FLASH_DURATION = 0.55;
+
+/**
+ * Brief flashes at the far left/right edges suggest a larger battle
+ * happening just beyond the playable area.
+ */
+export function drawDistantFlashes(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const t = s.time;
+  const cycle = t % FLASH_PERIOD;
+  if (cycle >= FLASH_DURATION) return;
+
+  const flashIdx = Math.floor(t / FLASH_PERIOD);
+  const fseed = flashIdx * 57.3;
+  const side = hash(fseed) > 0.5 ? 0 : 1;
+  const fx =
+    side === 0
+      ? 24 + hash(fseed + 1) * 90
+      : W - 24 - hash(fseed + 1) * 90;
+  if (fx < camera - 60 || fx > camera + viewportWidth + 60) return;
+
+  const fy = ground(s, fx) - 55 - hash(fseed + 2) * 45;
+  const intensity = 1 - cycle / FLASH_DURATION;
+  const r = 14 + hash(fseed + 3) * 20;
+
+  const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
+  grad.addColorStop(0, `rgba(255,210,130,${0.45 * intensity})`);
+  grad.addColorStop(0.4, `rgba(255,160,70,${0.18 * intensity})`);
+  grad.addColorStop(1, 'rgba(255,100,30,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(fx - r, fy - r, r * 2, r * 2);
+}
+
+// ── Wreck smoke columns ──────────────────────────────────
+const SMOKE_PUFF_INTERVAL = 0.38;
+const SMOKE_PUFF_LIFE = 4.0;
+const SMOKE_COLUMN_HEIGHT = 62;
+
+/**
+ * Destroyed vehicles bleed slow smoke columns that drift with the wind.
+ * Fresh wrecks smoke heavily; the column thins over two minutes.
+ */
+export function drawWreckSmoke(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  for (const w of s.wrecks) {
+    const c = CARDS[w.cardId];
+    if (!c.armored && !c.vehicle) continue;
+    if (w.x < camera - 80 || w.x > camera + viewportWidth + 80) continue;
+
+    const strength = Math.max(0, 1 - w.age / 120);
+    if (strength <= 0.02) continue;
+
+    const baseY = w.y - 10;
+    const seedBase = w.id * 13.7;
+    const latestPuff = Math.floor(now / SMOKE_PUFF_INTERVAL);
+    const maxPuffs = Math.ceil(SMOKE_PUFF_LIFE / SMOKE_PUFF_INTERVAL);
+
+    for (let p = 0; p < maxPuffs; p++) {
+      const puffIdx = latestPuff - p;
+      if (puffIdx < 0) continue;
+      const puffStart = puffIdx * SMOKE_PUFF_INTERVAL;
+      const age = now - puffStart;
+      if (age > SMOKE_PUFF_LIFE) continue;
+
+      const lifeT = age / SMOKE_PUFF_LIFE;
+      const rise = lifeT * SMOKE_COLUMN_HEIGHT;
+      const sway =
+        Math.sin(now * 0.7 + puffIdx * 1.3) * 3 * lifeT +
+        s.wind * age * 0.6;
+      const jitter = (hash(seedBase + puffIdx * 7.1) - 0.5) * 6;
+      const px = w.x + sway + jitter;
+      const py = baseY - rise;
+      const size = Math.round(
+        (3 + lifeT * 12) * (0.65 + strength * 0.35),
+      );
+      const alpha = (1 - lifeT) * 0.3 * strength;
+      if (alpha < 0.015) continue;
+
+      ctx.fillStyle = `rgba(68,66,60,${alpha.toFixed(3)})`;
+      // Two overlapping rects → soft blob, matching the particle style.
+      ctx.fillRect(
+        Math.round(px - size / 2),
+        Math.round(py - size / 3),
+        size,
+        Math.max(1, Math.round(size * 0.65)),
+      );
+      ctx.fillRect(
+        Math.round(px - size / 3),
+        Math.round(py - size / 2),
+        Math.max(1, Math.round(size * 0.65)),
+        size,
+      );
+    }
+  }
+}
+
+/** One-call entry for the render pipeline. */
+export function drawAmbience(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  drawBirds(ctx, s, camera, viewportWidth);
+  drawDistantFlashes(ctx, s, camera, viewportWidth);
+  drawWreckSmoke(ctx, s, camera, viewportWidth);
+}
