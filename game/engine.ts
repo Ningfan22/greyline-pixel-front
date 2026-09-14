@@ -1150,6 +1150,25 @@ function footPuff(s: GameState, u: Unit, heavy = false) {
     });
   }
 }
+// Tracked and armored movement throws a substantial rooster-tail of soil that
+// lingers behind the vehicle, so advances read as heavy, tracked motion.
+function vehicleDust(s: GameState, u: Unit) {
+  for (let i = 0; i < 4; i++) {
+    const life = 0.8 + fxRnd(s) * 0.7;
+    const roll = fxRnd(s);
+    s.particles.push({
+      kind: 'dust',
+      x: u.x - u.facing * 10 + (fxRnd(s) - 0.5) * 28,
+      y: u.y - 2,
+      vx: (fxRnd(s) - 0.5) * 12 - u.facing * (6 + fxRnd(s) * 6),
+      vy: -3 - fxRnd(s) * 6,
+      life,
+      maxLife: life,
+      color: roll < 0.4 ? '#94876b' : roll < 0.75 ? '#a79571' : '#857a5f',
+      size: 8 + fxRnd(s) * 10,
+    });
+  }
+}
 function burst(
   s: GameState,
   x: number,
@@ -5988,9 +6007,9 @@ export function tick(s: GameState, dt: number) {
         if (u.moving) u.facing = moveDir;
         if (u.moving && (c.armored || c.vehicle)) {
           u.stepDust = (u.stepDust ?? 0) + Math.abs(u.x - before);
-          if (u.stepDust >= 14) {
+          if (u.stepDust >= 12) {
             u.stepDust = 0;
-            footPuff(s, u, true);
+            vehicleDust(s, u);
           }
         }
       }
