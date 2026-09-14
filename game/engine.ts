@@ -443,6 +443,8 @@ export interface GameState {
   aiWaveUntil?: number;
   aiArmorSeenUntil?: number;
   aiAirSeenUntil?: number;
+  aiArchetype?: string;
+  aiPushUntil?: number;
   shake: number;
   uid: number;
   seed: number;
@@ -3253,6 +3255,39 @@ function commandAiSquads(
   }
 }
 
+// The AI's 20-card deck is always the union of deck + discard + hand (plus
+// sortie tokens currently airborne), so the archetype is stable at any moment.
+function inferArchetype(s: GameState): string {
+  const p = s.players[1];
+  const ids: CardId[] = [
+    ...p.deck.map((h) => h.id),
+    ...p.discard.map((h) => h.id),
+    ...p.hand.map((h) => h.id),
+    ...s.units
+      .filter((u) => u.side === 1 && u.sortieCard)
+      .map((u) => u.sortieCard!.id),
+  ];
+  const count = (id: CardId) => ids.filter((x) => x === id).length;
+  const has = (id: CardId) => count(id) > 0;
+  const countAny = (list: CardId[]) =>
+    list.reduce((n, id) => n + count(id), 0);
+  if (
+    (has('artillery') || has('mortar_carrier')) &&
+    (has('scouts') || has('recon'))
+  )
+    return 'fire_support';
+  if (countAny(['air_assault', 'strike_jet', 'paratroopers']) >= 2)
+    return 'air_mobile';
+  if (
+    countAny(['assault', 'commandos', 'marines', 'rangers']) >= 2 &&
+    has('smoke')
+  )
+    return 'assault';
+  if (countAny(['reserve_mobilization', 'smoke_withdrawal']) >= 2)
+    return 'counterattack';
+  return 'combined';
+}
+
 function updateAI(s: GameState) {
   const p = s.players[1];
   const own = s.units.filter((u) => u.side === 1 && isCombatant(u));
@@ -3396,6 +3431,10 @@ function updateAI(s: GameState) {
     .filter((u) => !CARDS[u.id].air)
     .reduce((x, u) => Math.min(x, u.x), W - 112);
 
+  if (!s.aiArchetype) s.aiArchetype = inferArchetype(s);
+  const archetype = s.aiArchetype;
+  const pushing = s.time < (s.aiPushUntil ?? 0);
+
   // Stage a short opening/rebuilding wave by squad, not individual soldier.
   if (!cohorts) s.aiWaveUntil = s.time + 10;
   const staging =
@@ -3406,7 +3445,11 @@ function updateAI(s: GameState) {
     s.time < (s.aiWaveUntil ?? 0);
   // Double-time only between contacts. Once a threat is close, normal advance
   // gives each squad its own firing/cover decisions instead of a global rush.
-  p.order = staging ? 'hold' : !battle && cohorts >= 2 ? 'rush' : 'advance';
+  p.order = staging
+    ? 'hold'
+    : (!battle && cohorts >= 2) || (pushing && battle && !emergency)
+      ? 'rush'
+      : 'advance';
   // Keep newly deployed reinforcements mobile; local cover orders defend the line.
   commandAiSquads(s, own, foes, staging);
 
@@ -3636,6 +3679,21 @@ function updateAI(s: GameState) {
       } else if (c.id === 'jam') {
         if (battle && cohorts >= 2 && s.players[0].jam <= 0) score = 8;
       }
+      // Archetype flavour: nudge the generic scoring toward the deck's plan.
+      // Hard vetoes (-100) stay negative after a nudge, so this never revives
+      // a card the situation forbids.
+      if (archetype === 'assault') {
+        if (c.trait === 'close_assault' || c.infantryAbility === 'smoke_assault')
+          score += 4;
+      } else if (archetype === 'fire_support') {
+        if (observerCard(c.id)) score += 4;
+        if (c.id === 'artillery' || c.id === 'precision') score += 6;
+        if (c.id === 'fortify') score += 3;
+      } else if (archetype === 'air_mobile') {
+        if (c.air && !c.observer) score += 3;
+      } else if (archetype === 'counterattack') {
+        if (c.comeback) score += 4;
+      }
       if (c.targetGround && (x === undefined || !Number.isFinite(x)))
         score = -100;
       return {
@@ -3836,6 +3894,40 @@ function updateAI(s: GameState) {
     }
     // If no draw pool remains, ordinary affordable defence is still preferable
     // to waiting forever. Fall through to the existing choice logic.
+  }
+
+  // Proactive tactics: fight the next battle on the AI's terms, not just react.
+  if (!emergency && cohorts >= 2) {
+    // Smoke-contact: blind the enemy line so shock troops can close the gap.
+    const smokeX = Math.max(100, Math.min(W - 100, front - 170));
+    const smokeCovered = s.smokes.some(
+      (m) => m.side === 1 && m.life > 2 && Math.abs(m.x - smokeX) < 210,
+    );
+    const shockTroops = fighters.filter(
+      (u) =>
+        CARDS[u.id].trait === 'close_assault' ||
+        CARDS[u.id].infantryAbility === 'smoke_assault',
+    );
+    const contactAhead = groundFoes.some(
+      (v) => front - v.x > 160 && front - v.x < 950,
+    );
+    const readySmoke = p.hand.find(
+      (h) =>
+        h.id === 'smoke' &&
+        cardReadyIn(s, h) <= 0 &&
+        cardCost(h) <= p.energy + 1e-6,
+    );
+    if (
+      readySmoke &&
+      !smokeCovered &&
+      contactAhead &&
+      (shockTroops.length > 0 || (archetype === 'assault' && screens >= 2.5))
+    ) {
+      if (playCard(s, 1, readySmoke.uid, smokeX).ok) {
+        s.aiPushUntil = s.time + 9;
+        return;
+      }
+    }
   }
 
   const reserve = !emergency && !battle && !screenNeed ? 2 : 0;
