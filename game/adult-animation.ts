@@ -157,12 +157,63 @@ export function dugInBlastGlanceChoice(
 }
 
 /**
+ * Trace glance: fresh drag marks on the ground — blood left by a casualty
+ * hauled across the dirt — snag a holding soldier's attention for a beat.
+ * Animation-only, exactly like the blast glance: the returned `dir` flips
+ * the sprite toward the trace while the unit's real facing and the
+ * omni-directional sight system are untouched. Ranks below the blast glance
+ * because an explosion is more salient than a blood smear, but above the
+ * routine sector scan because a fresh trail means recent contact nearby.
+ */
+export function traceGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.traceGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  return { ...action(0), dir: u.traceGlanceDir ?? 1 };
+}
+
+/**
+ * Dug-in trace glance: the same blood-trail awareness as
+ * {@link traceGlanceChoice}, but for soldiers holding a low crouch or prone
+ * position. They keep their profile down and only turn to track the trace.
+ * Animation-only, with the same gating as the dug-in blast glance — pinned
+ * defenders keep their heads down instead of looking at the blood.
+ */
+export function dugInTraceGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.traceGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose === 'crouch')
+    return { ...action(1), dir: u.traceGlanceDir ?? 1 };
+  if (u.pose === 'prone')
+    return { ...action(2), dir: u.traceGlanceDir ?? 1 };
+  return null;
+}
+
+/**
  * Composed idle pose for the renderer: a structured sector scan takes
  * precedence over the random idle micro-motion, so the two never fight over
  * the same frame. A fresh blast glance outranks both — an explosion always
  * interrupts a routine scan. Dug-in defenders (crouch/prone) get their own
- * glance layer between the standing glance and the routine scan. Returns null
- * when the soldier should hold the default patrol idle frame.
+ * glance layer between the standing glance and the routine scan. A fresh
+ * blood-trail glance ranks just below the blast glance — the trail means
+ * recent contact, but a shellburst is louder. Returns null when the soldier
+ * should hold the default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   // A fresh hand-signal acknowledgment outranks routine scans and fidgets.
@@ -170,6 +221,8 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   return (
     blastGlanceChoice(u, time) ??
     dugInBlastGlanceChoice(u, time) ??
+    traceGlanceChoice(u, time) ??
+    dugInTraceGlanceChoice(u, time) ??
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );

@@ -296,6 +296,12 @@ export interface Unit {
   blastGlanceUntil?: number;
   /** Sprite-flip direction toward the blast that triggered the glance. */
   blastGlanceDir?: 1 | -1;
+  /** v79: staggered scan clock for noticing fresh blood trails on the ground. */
+  traceScanAt?: number;
+  /** v79: a fresh drag mark snagged the soldier's eye for a beat. */
+  traceGlanceUntil?: number;
+  /** Sprite-flip direction toward the blood trail that triggered the glance. */
+  traceGlanceDir?: 1 | -1;
   /** Near-miss rounds crack overhead: soldier ducks for a beat. */
   duckUntil?: number;
   /** Recon-by-fire throttle: next time this soldier may probe a last-known contact. */
@@ -507,6 +513,18 @@ export interface DragMark {
   seed: number;
   born: number; // s.time when the smear was laid
 }
+/**
+ * v79: the freshest blood trail a side has laid eyes on. Medics read it as
+ * a friendly casualty's last known position and follow it; the AI director
+ * reads enemy blood as proof of contact in that sector. `side` is the
+ * casualty's side, not the observer's — consumers must match it themselves.
+ */
+export interface TraceIntel {
+  x: number;
+  side: Side;
+  at: number; // s.time of the freshest mark folded into this intel
+  until: number; // intelligence goes stale after this time
+}
 export interface Notice {
   audience?: Side[];
   text: string;
@@ -589,6 +607,8 @@ export interface GameState {
   scorches: Scorch[];
   treads: TreadMark[];
   dragMarks: DragMark[];
+  /** v79: per-side freshest blood-trail intelligence, indexed by side. */
+  traceIntel: (TraceIntel | undefined)[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -702,6 +722,7 @@ export function createGame(
     scorches: [],
     treads: [],
     dragMarks: [],
+    traceIntel: [undefined, undefined],
     notices: [],
     result: null,
     aiIn: 1.1,
@@ -4348,6 +4369,15 @@ function updateAI(s: GameState) {
     .filter((u) => !CARDS[u.id].air)
     .reduce((x, u) => Math.min(x, u.x), W - 112);
 
+  // v79: enemy blood on the ground is proof of contact in that sector — the
+  // player is hauling wounded, so the line there is shifting. The director
+  // screens an advance through the sector with smoke and values recon while
+  // the trace is fresh. Only enemy-side intel (side 0) counts; the AI never
+  // reacts to its own casualties' blood.
+  const trace = s.traceIntel[1];
+  const enemyTrace =
+    trace && trace.side === 0 && trace.until > s.time ? trace : undefined;
+
   if (!s.aiArchetype) s.aiArchetype = inferArchetype(s);
   const archetype = s.aiArchetype;
   const pushing = s.time < (s.aiPushUntil ?? 0);
@@ -4696,6 +4726,11 @@ function updateAI(s: GameState) {
         } else if (battle && assault) {
           x = Math.max(100, assault.x - 110);
           score = 19;
+        } else if (enemyTrace) {
+          // v79: screen the push through the contact sector — the blood
+          // trail says the player's line there is busy hauling wounded.
+          x = Math.max(100, Math.min(W - 100, enemyTrace.x + 140));
+          score = battle ? 16 : 12;
         }
         if (
           x !== undefined &&
@@ -4709,6 +4744,7 @@ function updateAI(s: GameState) {
           score = fighters.some((u) => (CARDS[u.id].range ?? 0) >= 650)
             ? 19
             : 9;
+        else if (p.recon <= 0 && enemyTrace && cohorts) score = 8;
       } else if (c.id === 'repair') {
         if (
           armorDamage > 80 &&
@@ -5877,6 +5913,41 @@ export function tick(s: GameState, dt: number) {
       u.y = ground(s, u.x);
       continue;
     }
+    // v79: blood-trail intelligence. On a staggered scan a soldier notices
+    // fresh drag marks — blood left by a casualty hauled across the ground —
+    // and glances toward the contact trace for a beat. Own-side blood is
+    // always known; enemy blood needs line of sight at scan time, so
+    // advancing onto a fresh enemy trail reads as genuine intelligence.
+    // The freshest mark a side has seen feeds medic triage and the AI
+    // director. Bounded: the scan walks at most 70 marks with an x-distance
+    // early-out, and runs per soldier on a ~0.6s jittered clock.
+    if ((u.traceScanAt ?? 0) <= s.time) {
+      u.traceScanAt = s.time + 0.55 + (u.uid % 5) * 0.08;
+      if (u.suppression < 40 && !u.rappelling) {
+        let best: DragMark | undefined;
+        for (const m of s.dragMarks) {
+          if (Math.abs(m.x - u.x) > 320) continue;
+          const age = s.time - m.born;
+          if (age < 0 || age > 15) continue;
+          if (m.side !== u.side && !pointVisible(s, u.side, m.x, m.y))
+            continue;
+          if (!best || m.born > best.born) best = m;
+        }
+        if (best) {
+          u.traceGlanceUntil = s.time + 1.0;
+          u.traceGlanceDir = (best.x >= u.x ? 1 : -1) as 1 | -1;
+          const intel = s.traceIntel[u.side];
+          if (!intel || best.born > intel.at) {
+            s.traceIntel[u.side] = {
+              x: best.x,
+              side: best.side,
+              at: best.born,
+              until: s.time + 8,
+            };
+          }
+        }
+      }
+    }
     const c = weaponCard(u),
       dir = u.side === 0 ? 1 : -1,
       enemySide: Side = u.side === 0 ? 1 : 0,
@@ -6303,6 +6374,32 @@ export function tick(s: GameState, dt: number) {
       } else {
         u.tending = false;
         u.tendingTime = 0;
+        // v79: no patient in triage range — a medic follows a fresh friendly
+        // blood trail to where a casualty was last dragged, closing the gap
+        // until normal triage picks the man up. Enemy blood is ignored:
+        // medics do not chase the other side's wounded.
+        const intel = s.traceIntel[u.side];
+        if (
+          intel &&
+          intel.side === u.side &&
+          intel.until > s.time &&
+          Math.abs(intel.x - u.x) > 40 &&
+          Math.abs(intel.x - u.x) < 320 &&
+          u.squadOrder !== 'retreat'
+        ) {
+          // Treat the trail as a live task: squad movement and fire commands
+          // must not yank the medic off the blood trail mid-follow, exactly
+          // like the move-to-patient branch above.
+          treating = true;
+          u.pose = 'walk';
+          moveSoldier(
+            s,
+            u,
+            Math.sign(intel.x - u.x),
+            c.speed! * u.pace * 0.8,
+            dt,
+          );
+        }
       }
     }
     const primaryAmmo = ammunition(u.id, u.member);
