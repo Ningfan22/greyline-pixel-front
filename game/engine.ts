@@ -225,6 +225,10 @@ export interface Unit {
   breachShots?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
+  /** Shoot-and-scoot: indirect-fire teams displace to this x once the enemy
+   * sound rangers have refined a fix on their current position. */
+  displaceGoal?: number | null;
+  displaceUntil?: number;
   withdrawStartedAt?: number;
   withdrawUntil?: number;
   withdrawGoal?: number;
@@ -6478,6 +6482,9 @@ export function tick(s: GameState, dt: number) {
     const seeking =
       !withdrawing &&
       (!!holdTravel || (moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5));
+    if (u.displaceGoal != null && Math.abs(u.displaceGoal - u.x) <= 2)
+      u.displaceGoal = null;
+    const displacing = u.displaceGoal != null;
     const dispersionStep =
       seeking &&
       u.dispersionGoal !== undefined &&
@@ -6551,6 +6558,7 @@ export function tick(s: GameState, dt: number) {
       (!c.armorOnly || !!target) &&
       (target || coverShot || baseInRange || counterBattery) &&
       (!seeking || contactFire) &&
+      !displacing &&
       !closeThreat &&
       !treating &&
       (!bounding || contactFire) &&
@@ -6684,6 +6692,45 @@ export function tick(s: GameState, dt: number) {
           // their launch points are off-board or already obvious).
           if (c.indirect && !c.air && !c.sortie)
             detectBattery(s, u, sx, sy);
+          // Shoot-and-scoot: once the enemy's sound rangers have refined a
+          // fix on this battery, displace to a fresh firing position before
+          // their counter-battery fire arrives. The stale report on the old
+          // position decays while the team limbers up and moves.
+          if (
+            c.indirect &&
+            !c.air &&
+            !c.sortie &&
+            !c.static &&
+            (c.speed ?? 0) > 0 &&
+            order !== 'hold' &&
+            s.time >= (u.displaceUntil ?? 0)
+          ) {
+            const fix = s.batteryReports.find(
+              (r) =>
+                r.side !== u.side &&
+                r.hits >= 2 &&
+                Math.abs(r.x - u.x) < r.scatter + 100,
+            );
+            if (fix) {
+              const dirBack = u.side === 0 ? -1 : 1;
+              // Stay inside our own firing range: a battery that displaces
+              // past max range can neither shoot nor advance (it still holds
+              // a target, so the advance gate never moves it forward again).
+              // Only displace when there is room to fall back at least 60px
+              // while keeping the aim point 80px inside max range.
+              const room =
+                (c.range ?? 0) - Math.abs(tx - u.x) - 80;
+              if (room >= 60) {
+                const back = Math.min(150 + (u.uid % 5) * 18, room);
+                u.displaceGoal = Math.max(
+                  80,
+                  Math.min(W - 80, u.x + dirBack * back),
+                );
+              }
+              u.displaceUntil = s.time + 9;
+              u.coverGoal = null;
+            }
+          }
           // Counter-battery shells landing on a known fix force the enemy
           // battery to displace, burning the report down to its last seconds.
           if (burnedReport) burnedReport.life = Math.min(burnedReport.life, 4);
@@ -6785,6 +6832,7 @@ export function tick(s: GameState, dt: number) {
         seeking ||
         bounding ||
         retreating ||
+        displacing ||
         (!!closeThreat &&
           (!c.members ||
             (u.squadOrder !== 'hold' && u.squadOrder !== 'watch'))) ||
@@ -6842,6 +6890,8 @@ export function tick(s: GameState, dt: number) {
             ? u.x > closeThreat.x
               ? 1
               : -1
+            : displacing
+              ? Math.sign(u.displaceGoal! - u.x)
             : seeking
               ? Math.sign(moveGoal! - u.x)
               : dir;
@@ -6861,14 +6911,16 @@ export function tick(s: GameState, dt: number) {
         u.lane += laneChange;
         u.walk += Math.abs(laneChange) / 6;
         const beforeMove = u.x;
-        moveSoldier(
-          s,
-          u,
-          moveDir,
-          seeking || withdrawing
-            ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt)
-            : speed,
-          dt,
+          moveSoldier(
+            s,
+            u,
+            moveDir,
+            seeking || withdrawing
+              ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt)
+              : displacing
+                ? Math.min(speed, Math.abs(u.displaceGoal! - u.x) / dt)
+              : speed,
+            dt,
           !target || withdrawing,
         );
         if (laneChange) u.moving = true;
