@@ -99,6 +99,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
         : u.motionTime / Math.max(0.01, u.motionDuration);
     return action(8 + Math.min(3, Math.max(0, Math.floor(progress * 4))));
   }
+  // Squad leaders pump a hand signal for a beat after an order changes, so the
+  // chain of command reads on the field. The arm-over-head frame alternates
+  // with the alert stand so it waves instead of freezing like a statue.
+  if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0)
+    return action(Math.floor((u.signalUntil - time) * 6) % 2 ? 8 : 0);
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
@@ -122,6 +127,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   }
   if (u.pose === 'hunker') {
     if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
+    if (reloading) return action(13);
     // Pinned behind cover: head down, stealing a brief glance over the rim
     // every few seconds to check whether the coast is clear. The phase is
     // offset by uid so a whole squad doesn't peek in unison.

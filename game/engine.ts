@@ -205,6 +205,7 @@ export interface Unit {
   contactUntil?: number;
   dragScanAt?: number;
   sortKey?: number;
+  signalUntil?: number;
   dispersionGoal?: number;
   dispersionUntil?: number;
   trafficYieldUntil?: number;

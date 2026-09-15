@@ -332,6 +332,12 @@ export function setSquadOrder(
     trench.workRows = rows;
     trench.workStartedAt ??= s.time;
   }
+  // The squad leader (lowest uid among the living) punctuates a fresh order
+  // with a hand signal so the chain of command reads on the field, not just
+  // in the order UI. Repeated orders return earlier and never re-signal.
+  let leader = members[0];
+  for (const m of members) if (m.uid < leader.uid) leader = m;
+  leader.signalUntil = s.time + 1.1;
   for (let i = 0; i < ordered.length; i++) {
     const u = ordered[i];
     u.squadOrder = order;
