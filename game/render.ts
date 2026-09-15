@@ -46,7 +46,10 @@ import {
   type Projectile,
   type GameState,
   type CardId,
+  type Unit,
 } from './engine';
+import { unitByUid } from './spatial';
+import { unitSynergy, synergyProviderUid, type SynergyKind } from './synergy';
 import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
 import {
   coverProp,
@@ -208,6 +211,57 @@ function drawNightOverlay(
   }
   nightCtx.globalCompositeOperation = 'source-over';
   ctx.drawImage(nightCanvas, Math.round(camera), 0);
+}
+
+const SYNERGY_KINDS: SynergyKind[] = [
+  'armor_assault',
+  'fire_base',
+  'medevac_chain',
+];
+
+/**
+ * Draw faint dashed links between infantry and the provider powering their
+ * active synergy (v48). Links render under the units themselves so soldiers
+ * and vehicles stay readable; the pulse keeps the effect alive without
+ * turning the battlefield into a wiring diagram.
+ */
+function drawSynergyLinks(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  sorted: Unit[],
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  let drawn = 0;
+  const MAX_LINKS = 40;
+  for (const u of sorted) {
+    if (drawn >= MAX_LINKS) break;
+    const syn = unitSynergy(s, u, now);
+    for (const kind of SYNERGY_KINDS) {
+      if (drawn >= MAX_LINKS) break;
+      if (!syn[kind]) continue;
+      const providerUid = synergyProviderUid(s, u, kind, now);
+      if (providerUid === undefined) continue;
+      const p = unitByUid(s, providerUid);
+      if (!p) continue;
+      if (p.x < camera - 180 || p.x > camera + viewportWidth + 180) continue;
+      const pulse = 0.55 + 0.45 * Math.sin(now * 2.6 + u.uid * 1.7);
+      const alpha = (kind === 'medevac_chain' ? 0.09 : 0.07) * pulse;
+      ctx.strokeStyle =
+        u.side === 0
+          ? `rgba(126,178,255,${alpha})`
+          : `rgba(255,138,120,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash(kind === 'medevac_chain' ? [2, 5] : [5, 7]);
+      ctx.beginPath();
+      ctx.moveTo(u.x - camera, u.y - 12);
+      ctx.lineTo(p.x - camera, p.y - 12);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      drawn++;
+    }
+  }
 }
 
 export function render(
@@ -442,6 +496,7 @@ export function render(
     .sort((a, b) => layer(a) - layer(b) || a.lane - b.lane);
   let coverDrawn = false;
   const seenInfantry = new Set<number>();
+  drawSynergyLinks(ctx, s, sorted, camera, viewportWidth);
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
       drawCoverProps(true);

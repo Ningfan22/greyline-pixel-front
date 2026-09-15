@@ -53,6 +53,7 @@ import {
   squadMates,
   type SpatialIndex,
 } from './spatial';
+import { unitSynergy } from './synergy';
 import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
@@ -1539,9 +1540,11 @@ function hitUnit(
       ).length >= 2;
     const resolve = supported || c.infantryAbility === 'elite' ? 0.65 : 1;
     const umbrella = aaUmbrella(s, u.side, u.x) ? 0.7 : 1;
+    const firebase = unitSynergy(s, u, s.time).fire_base ? 0.65 : 1;
     u.suppression = Math.min(
       100,
-      u.suppression + ((actual / u.maxHp) * 90 + 6) * resolve * umbrella,
+      u.suppression +
+        ((actual / u.maxHp) * 90 + 6) * resolve * umbrella * firebase,
     );
     u.personalMorale = Math.max(
       0,
@@ -4091,11 +4094,31 @@ function updateAI(s: GameState) {
     !battle &&
     cohorts < 2 &&
     s.time < (s.aiWaveUntil ?? 0);
+  // Armor assault: when the AI has an active armor_assault synergy (armored
+  // vehicle + infantry within 170px) and contact is made, push the advantage
+  // instead of settling into a static firefight.
+  const armorAssault =
+    battle &&
+    !emergency &&
+    own.some(
+      (v) =>
+        CARDS[v.id].vehicle === true &&
+        CARDS[v.id].armored === true &&
+        !CARDS[v.id].air,
+    ) &&
+    own.some(
+      (v) =>
+        (CARDS[v.id].members ?? 0) > 0 &&
+        !CARDS[v.id].indirect &&
+        unitSynergy(s, v, s.time).armor_assault,
+    );
   // Double-time only between contacts. Once a threat is close, normal advance
   // gives each squad its own firing/cover decisions instead of a global rush.
   p.order = staging
     ? 'hold'
-    : (!battle && cohorts >= 2) || (pushing && battle && !emergency)
+    : (!battle && cohorts >= 2) ||
+        (pushing && battle && !emergency) ||
+        armorAssault
       ? 'rush'
       : 'advance';
   // Keep newly deployed reinforcements mobile; local cover orders defend the line.
@@ -5448,7 +5471,17 @@ export function tick(s: GameState, dt: number) {
         const dir = u.side === 0 ? -1 : 1;
         u.crawling = true;
         u.moving = true;
-        u.x = Math.max(90, Math.min(W - 90, u.x + dir * 9 * dt));
+        u.x = Math.max(
+          90,
+          Math.min(
+            W - 90,
+            u.x +
+              dir *
+                9 *
+                (unitSynergy(s, u, s.time).medevac_chain ? 1.35 : 1) *
+                dt,
+          ),
+        );
         u.walk += dt * 1.6;
         if (u.crawlFxAt === undefined || s.time >= u.crawlFxAt) {
           emitParticle(s, {
@@ -5604,7 +5637,11 @@ export function tick(s: GameState, dt: number) {
     u.cooldown -= dt;
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
-    u.suppression = Math.max(0, u.suppression - dt * 7);
+    u.suppression = Math.max(
+      0,
+      u.suppression -
+        dt * 7 * (unitSynergy(s, u, s.time).armor_assault ? 1.6 : 1),
+    );
     if (c.members) {
       prepareInfantry(s, u, dt);
       decideTactic(s, u, dt);
