@@ -15,13 +15,16 @@
  *    is unaimed or blocked outright, so troops under their own screen
  *    regain their nerve and keep manoeuvring — the classic smoke-assault
  *    rhythm of blind, push, close.
+ *  - supply_run: a friendly supply team within 210px of a heavy weapon team
+ *    (mortar, MG, AT gun, AA gun, rocket) speeds that team's reload 1.6x —
+ *    the runners keep the guns fed.
  *
  * Results are cached per unit and refreshed on a staggered 0.4–0.6s cycle,
  * so the per-tick cost is a handful of spatial queries spread across frames
  * instead of an O(N²) scan every tick.
  */
 
-import { CARDS, modelOf } from './cards';
+import { CARDS, modelOf, type CardId } from './cards';
 import { nearUnits } from './spatial';
 import type { GameState, Unit } from './engine';
 
@@ -29,13 +32,15 @@ export type SynergyKind =
   | 'armor_assault'
   | 'fire_base'
   | 'medevac_chain'
-  | 'smoke_screen';
+  | 'smoke_screen'
+  | 'supply_run';
 
 export interface SynergyState {
   armor_assault: boolean;
   fire_base: boolean;
   medevac_chain: boolean;
   smoke_screen: boolean;
+  supply_run: boolean;
 }
 
 const NONE: SynergyState = Object.freeze({
@@ -43,6 +48,7 @@ const NONE: SynergyState = Object.freeze({
   fire_base: false,
   medevac_chain: false,
   smoke_screen: false,
+  supply_run: false,
 });
 
 const ARMOR_ASSAULT_RANGE = 170;
@@ -51,6 +57,7 @@ const MEDEVAC_RANGE = 220;
 // Smoke clouds are 95px half-width; a soldier just outside the visible
 // edge is still screened from long-range direct fire.
 const SMOKE_SCREEN_RANGE = 130;
+const SUPPLY_RUN_RANGE = 210;
 const REFRESH = 0.4;
 
 interface Entry {
@@ -78,6 +85,24 @@ function isMedicProvider(u: Unit): boolean {
   return modelOf(u.id) === 'medic';
 }
 
+/**
+ * Heavy weapon teams that consume ammunition at a high rate and benefit
+ * from a supply team running belts/rounds up to the position. Mortar
+ * carriers are vehicles, snipers/javelins are light — neither qualifies.
+ */
+function isWeaponTeam(u: Unit): boolean {
+  const m = modelOf(u.id);
+  if (m === 'mortar' || m === 'machinegun' || m === 'rocket') return true;
+  return u.id === 'aa_gun';
+}
+
+/** Card-id-only variant for AI deck scoring (no live Unit needed). */
+export function isWeaponTeamId(id: CardId): boolean {
+  const m = modelOf(id);
+  if (m === 'mortar' || m === 'machinegun' || m === 'rocket') return true;
+  return id === 'aa_gun';
+}
+
 function isInfantry(u: Unit): boolean {
   const c = CARDS[u.id];
   return (c.members ?? 0) > 0 && !c.indirect;
@@ -93,6 +118,7 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     fire_base: false,
     medevac_chain: false,
     smoke_screen: false,
+    supply_run: false,
   };
   const providers: Partial<Record<SynergyKind, number>> = {};
   const side = u.side;
@@ -168,6 +194,26 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     }
   }
 
+  // Supply run: a friendly supply team within 210px keeps a heavy weapon
+  // team fed, speeding its reload 1.6x. Only weapon teams receive it; the
+  // supply team itself has no use for the bonus.
+  if (isWeaponTeam(u)) {
+    nearUnits(s, u.x, SUPPLY_RUN_RANGE, scratch);
+    for (let i = 0; i < scratch.length; i++) {
+      const v = scratch[i];
+      if (
+        v.side === side &&
+        providerAlive(v) &&
+        v.id === 'supply_team' &&
+        Math.abs(v.x - u.x) <= SUPPLY_RUN_RANGE
+      ) {
+        state.supply_run = true;
+        providers.supply_run = v.uid;
+        break;
+      }
+    }
+  }
+
   return { state, providers, at: now };
 }
 
@@ -201,11 +247,12 @@ function entryFor(s: GameState, u: Unit, now: number): Entry {
 }
 
 /**
- * Synergy state for a unit. Non-infantry always returns the frozen NONE
- * object; infantry results are cached on a staggered refresh cycle.
+ * Synergy state for a unit. Units that are neither infantry nor heavy weapon
+ * teams always return the frozen NONE object; everyone else is cached on a
+ * staggered refresh cycle.
  */
 export function unitSynergy(s: GameState, u: Unit, now: number): SynergyState {
-  if (!isInfantry(u)) return NONE;
+  if (!isInfantry(u) && !isWeaponTeam(u)) return NONE;
   return entryFor(s, u, now).state;
 }
 
@@ -219,6 +266,6 @@ export function synergyProviderUid(
   kind: SynergyKind,
   now: number,
 ): number | undefined {
-  if (!isInfantry(u)) return undefined;
+  if (!isInfantry(u) && !isWeaponTeam(u)) return undefined;
   return entryFor(s, u, now).providers[kind];
 }

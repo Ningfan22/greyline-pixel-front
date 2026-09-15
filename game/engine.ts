@@ -53,7 +53,7 @@ import {
   squadMates,
   type SpatialIndex,
 } from './spatial';
-import { unitSynergy } from './synergy';
+import { isWeaponTeamId, unitSynergy } from './synergy';
 import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
@@ -4315,6 +4315,14 @@ function updateAI(s: GameState) {
           score = hasAssault && wallAhead ? 24 : wallAhead ? 12 : score;
         }
         if (c.deployDraw && p.hand.length <= 4) score += 3;
+        // Supply run: a supply team keeps the AI's heavy weapon teams fed.
+        if (c.id === 'supply_team') {
+          const weaponTeams = own.filter(
+            (u) => isWeaponTeamId(u.id) && isCombatant(u),
+          );
+          if (weaponTeams.length)
+            score += 4 + Math.min(4, weaponTeams.length);
+        }
         if (c.armored && !c.airOnly && cohorts >= 1) score += 3;
         if (c.id === 'pickup') score += foot.length >= 4 ? 8 : 0;
         if (c.vehicleSupport === 'repair')
@@ -5762,11 +5770,11 @@ export function tick(s: GameState, dt: number) {
       }
     }
     const morale = s.players[u.side].morale > 0;
+    const syn = unitSynergy(s, u, s.time);
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
-    u.cooldown -= dt;
+    u.cooldown -= dt * (syn.supply_run ? 1.6 : 1);
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
-    const syn = unitSynergy(s, u, s.time);
     u.suppression = Math.max(
       0,
       u.suppression -
