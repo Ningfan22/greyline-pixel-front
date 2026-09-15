@@ -1,4 +1,4 @@
-import { CARDS, W, ground, type GameState, type Scorch, type TreadMark } from './engine';
+import { CARDS, W, ground, pointVisible, type DragMark, type GameState, type Scorch, type TreadMark } from './engine';
 
 /** Deterministic hash → [0,1) */
 function hash(n: number): number {
@@ -405,4 +405,86 @@ export function drawAmbience(
   drawBirds(ctx, s, camera, viewportWidth);
   drawDistantFlashes(ctx, s, camera, viewportWidth);
   drawWreckSmoke(ctx, s, camera, viewportWidth);
+}
+
+// ── Dragged-casualty blood trails ────────────────────────
+
+const DRAG_MARK_LIFETIME = 35; // seconds before a smear fully fades
+
+function drawDragMark(
+  ctx: CanvasRenderingContext2D,
+  m: DragMark,
+  age: number,
+) {
+  const fade = Math.max(0, 1 - age / DRAG_MARK_LIFETIME);
+  if (fade <= 0) return;
+  let seed = m.seed;
+  const rnd = () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const bw = 9 + rnd() * 5; // smear width, px
+  const bh = 3 + rnd() * 2; // smear height, px
+  ctx.save();
+  // Soaked-in base: a soft dark-red dab wider than it is tall.
+  ctx.fillStyle = '#4a1410';
+  ctx.globalAlpha = 0.34 * fade;
+  ctx.beginPath();
+  ctx.ellipse(
+    Math.round(m.x),
+    Math.round(m.y - 1),
+    bw / 2,
+    bh / 2,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // Fresher core: a tighter, brighter smear offset along the drag path.
+  ctx.fillStyle = '#6e1d16';
+  ctx.globalAlpha = 0.4 * fade;
+  ctx.beginPath();
+  ctx.ellipse(
+    Math.round(m.x + (rnd() - 0.5) * 4),
+    Math.round(m.y - 1 + (rnd() - 0.5) * 2),
+    bw / 3.4,
+    bh / 2.4,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // Spatter flecks in the same crimson as the crawl blood particles.
+  ctx.fillStyle = '#7a2420';
+  ctx.globalAlpha = 0.3 * fade;
+  const flecks = 2 + Math.floor(rnd() * 3);
+  for (let i = 0; i < flecks; i++) {
+    ctx.fillRect(
+      Math.round(m.x + (rnd() - 0.5) * (bw + 6)),
+      Math.round(m.y - 1 + (rnd() - 0.5) * (bh + 2)),
+      rnd() > 0.5 ? 2 : 1,
+      1,
+    );
+  }
+  ctx.restore();
+}
+
+/** Persistent blood smears left by dragged casualties, under units and props. */
+export function drawDragMarks(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  for (const m of s.dragMarks) {
+    if (m.x < camera - 80 || m.x > camera + viewportWidth + 80) continue;
+    const age = now - m.born;
+    if (age >= DRAG_MARK_LIFETIME) continue;
+    // Fog of war: the player always knows their own casualties' trails, but
+    // an enemy blood trail is only revealed where the player can currently
+    // see the ground — advancing onto a cold smear is how you discover it.
+    if (m.side !== 0 && !pointVisible(s, 0, m.x, m.y)) continue;
+    drawDragMark(ctx, m, age);
+  }
 }

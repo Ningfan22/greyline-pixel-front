@@ -27,7 +27,7 @@ import {
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
-import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads } from './ambience';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks } from './ambience';
 import { drawWeather } from './weather';
 import { pointVisible, visibleToSide } from './world';
 import {
@@ -310,6 +310,7 @@ export function render(
   );
   drawScorches(ctx, s, camera, viewportWidth);
   drawTreads(ctx, s, camera, viewportWidth);
+  drawDragMarks(ctx, s, camera, viewportWidth);
   const foregroundBounds: { x: number; y: number; w: number; h: number }[] = [];
   const drawCoverProps = (front: boolean) => {
     for (const wall of Object.values(s.knownWalls[0])) {

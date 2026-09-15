@@ -222,6 +222,8 @@ export interface Unit {
   contactScanAt?: number;
   contactUntil?: number;
   dragScanAt?: number;
+  /** Distance accumulator for laying persistent blood smears while dragging a casualty. */
+  dragMarkAccum?: number;
   sortKey?: number;
   signalUntil?: number;
   /** Animation-only: squad mate is answering the leader's hand signal. */
@@ -497,6 +499,14 @@ export interface TreadMark {
   seed: number;
   born: number; // s.time when the mark was laid
 }
+export interface DragMark {
+  x: number;
+  y: number; // ground height at creation time
+  /** Casualty's side: own-side trails are always known, enemy trails need line of sight. */
+  side: Side;
+  seed: number;
+  born: number; // s.time when the smear was laid
+}
 export interface Notice {
   audience?: Side[];
   text: string;
@@ -578,6 +588,7 @@ export interface GameState {
   blasts: Blast[];
   scorches: Scorch[];
   treads: TreadMark[];
+  dragMarks: DragMark[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -690,6 +701,7 @@ export function createGame(
     blasts: [],
     scorches: [],
     treads: [],
+    dragMarks: [],
     notices: [],
     result: null,
     aiIn: 1.1,
@@ -5914,12 +5926,30 @@ export function tick(s: GameState, dt: number) {
         if (Math.abs(gap) > 18) {
           moveSoldier(s, u, Math.sign(gap), c.speed! * u.pace * 0.85, dt);
         } else {
+          const px = patient.x;
           u.x = Math.max(80, Math.min(W - 80, u.x + baseDir * 16 * dt));
           u.walk += dt * 1.8;
           patient.x = u.x - baseDir * 16;
           patient.y = ground(s, patient.x);
           patient.crawling = true;
           patient.walk += dt * 1.2;
+          // Persistent blood trail: a casualty hauled across the ground
+          // leaves a dark smear that lingers long after the drag is over.
+          u.dragMarkAccum = (u.dragMarkAccum ?? 0) + Math.abs(patient.x - px);
+          if (u.dragMarkAccum >= 14) {
+            u.dragMarkAccum = 0;
+            s.dragMarks.push({
+              x: patient.x,
+              y: patient.y,
+              side: patient.side,
+              seed:
+                (s.fxSeed ^
+                  Math.imul(Math.floor(patient.x * 7 + u.uid), 2654435761)) >>>
+                0,
+              born: s.time,
+            });
+            s.dragMarks = s.dragMarks.slice(-70);
+          }
           if (
             patient.crawlFxAt === undefined ||
             s.time >= patient.crawlFxAt
