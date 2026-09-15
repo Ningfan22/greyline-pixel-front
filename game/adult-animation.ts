@@ -321,6 +321,18 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.pose === 'hunker') {
     if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
     if (reloading) return action(13);
+    // Heavy suppression: the soldier drops fully to the deck, too pinned to
+    // kneel or steal a glance. They lie on their side hugging the earth,
+    // stirring between a propped-on-elbow lie and a full curl so the pin
+    // reads as living fear rather than a static corpse. Only the down-time
+    // between peeks reaches this branch — peekShouldExpose still lifts them
+    // to fire — so the cower shows a soldier forcing themselves up to shoot
+    // and dropping back flat, never a hard stun. The phase is offset by uid
+    // so a pinned squad doesn't cower in sync.
+    if (u.suppression >= 80) {
+      const cower = (time + u.uid * 3.31) % 5.2;
+      return reaction(cower < 3.4 ? 6 : 7);
+    }
     // Pinned behind cover: head down, stealing a brief glance over the rim
     // every few seconds to check whether the coast is clear. The phase is
     // offset by uid so a whole squad doesn't peek in unison.
