@@ -221,6 +221,8 @@ export interface Unit {
   ammoSearchAt?: number;
   /** Animation-only: soldier is passing / receiving a magazine with a buddy. */
   ammoShareUntil?: number;
+  /** Timestamp until which a rescued (ammo-shared) soldier surges toward the enemy. */
+  rescuedUntil?: number;
   observingUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
@@ -7010,6 +7012,21 @@ export function tick(s: GameState, dt: number) {
             u.ammoShareUntil = s.time + 1.0;
             buddy.ammoShareUntil = s.time + 1.0;
             u.ammoBuddyUid = undefined;
+            // v82: a rescued soldier surges. The magazine handoff is a
+            // morale event — suppression drops and, if the enemy is still
+            // out there, the man springs up and charges back into rifle
+            // range with a faster burst.
+            u.suppression = Math.max(0, u.suppression - 35);
+            u.assaultBurstUntil = s.time + 4.5;
+            if (
+              target &&
+              !u.wounded &&
+              order !== 'prone' &&
+              order !== 'hold'
+            ) {
+              u.assaultSurgeUntil = s.time + 4.5;
+              u.rescuedUntil = s.time + 4.5;
+            }
           }
         } else {
           ammoGoalX = buddy.x;
@@ -7017,6 +7034,17 @@ export function tick(s: GameState, dt: number) {
       }
     } else if (u.ammoBuddyUid !== undefined) {
       u.ammoBuddyUid = undefined;
+    }
+    // v82: rescued-man surge goal. A soldier who just received a buddy's
+    // magazine charges back toward the enemy, stopping at rifle range.
+    let rescuedGoalX: number | null = null;
+    if (
+      (u.rescuedUntil ?? 0) > s.time &&
+      target &&
+      !u.wounded &&
+      Math.abs(target.x - u.x) > 320
+    ) {
+      rescuedGoalX = target.x + dir * 320;
     }
     const moveGoal = withdrawing
       ? u.withdrawGoal!
@@ -7029,6 +7057,7 @@ export function tick(s: GameState, dt: number) {
               ? u.escortGoal!
               : null
             : (ammoGoalX ??
+              rescuedGoalX ??
               u.coverGoal ??
               u.firingGoal ??
               u.dispersionGoal ??
