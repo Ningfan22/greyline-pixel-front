@@ -786,6 +786,13 @@ export function render(
       ctx.textAlign = 'center';
       ctx.fillText(u.moving ? '分散' : '避炮', u.x, u.y - 78);
     }
+    if ((u.calloutUntil ?? 0) > s.time) {
+      ctx.fillStyle = '#f0d060';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      const arrow = (u.calloutDir ?? 1) > 0 ? '▶' : '◀';
+      ctx.fillText(`${arrow}接触!`, u.x, u.y - 78);
+    }
     if (u.secondaryFire > 0)
       drawMuzzle(
         ctx,

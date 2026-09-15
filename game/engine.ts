@@ -237,6 +237,14 @@ export interface Unit {
   contactAir?: boolean;
   contactScanAt?: number;
   contactUntil?: number;
+  /** v87: contact callout — until this timestamp the soldier is shouting a spot report. */
+  calloutUntil?: number;
+  /** v87: direction the callout points toward the threat. */
+  calloutDir?: 1 | -1;
+  /** v87: when a squadmate heard a callout and should orient toward the reported threat. */
+  heardContactAt?: number;
+  /** v87: direction of the heard callout's threat. */
+  heardContactDir?: 1 | -1;
   dragScanAt?: number;
   /** Distance accumulator for laying persistent blood smears while dragging a casualty. */
   dragMarkAccum?: number;
@@ -3681,6 +3689,35 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.contactAir = !!CARDS[threat.id].air;
     u.contactUntil = s.time + 1.2;
   } else u.contactAir = false;
+  // v87: a soldier who newly spots a threat shouts a contact report so
+  // nearby squadmates orient toward the danger before they see it
+  // themselves. Throttled per squad so a platoon does not chant in chorus.
+  if (newContact && (u.calloutUntil ?? 0) <= s.time) {
+    const squadShouting = s.units.some(
+      (v) =>
+        v !== u &&
+        v.side === u.side &&
+        v.squad === u.squad &&
+        (v.calloutUntil ?? 0) > s.time,
+    );
+    if (!squadShouting) {
+      const dir = (threat.x > u.x ? 1 : -1) as 1 | -1;
+      u.calloutUntil = s.time + 0.9;
+      u.calloutDir = dir;
+      for (const v of s.units) {
+        if (
+          v !== u &&
+          v.side === u.side &&
+          v.squad === u.squad &&
+          isCombatant(v) &&
+          Math.abs(v.x - u.x) <= 140
+        ) {
+          v.heardContactAt = s.time;
+          v.heardContactDir = dir;
+        }
+      }
+    }
+  }
   const reactNow = newContact && u.tactic === 'advance';
   if (!reactNow && u.decisionIn > 0) return;
   u.decisionIn = 1.1 + (u.member % 4) * 0.18;
@@ -7862,6 +7899,19 @@ export function tick(s: GameState, dt: number) {
           }
         }
       }
+    }
+    // v87: a soldier who heard a contact callout but has not yet spotted the
+    // threat themselves turns toward the reported direction so their muzzle
+    // and attention are already on the danger when it appears. Only when
+    // stationary — a moving soldier looks where they are going.
+    if (
+      c.members &&
+      u.motion === 'ground' &&
+      !u.moving &&
+      (u.contactUntil ?? 0) <= s.time &&
+      (u.heardContactAt ?? 0) > s.time - 1.2
+    ) {
+      u.facing = u.heardContactDir ?? u.facing;
     }
     // Rounds cracking past the soldier's head drop them into a crouch for a
     // beat — they keep shooting and moving, just lower to the ground.
