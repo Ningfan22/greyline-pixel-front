@@ -3333,8 +3333,17 @@ export function squadRoleOffset(
   }
   return rec.offset;
 }
+// Extra suppression a unit absorbs before pinning when a halted sniper team
+// is overwatching it. Covered infantry stay on their feet and keep manoeuvring
+// through fire that would flatten an uncovered squad.
+const OVERWATCH_NERVE = 14;
 function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn -= dt;
+  // Overwatch nerve: infantry covered by a halted sniper team keep their
+  // nerve under fire and only pin at a higher suppression level, so an
+  // overwatched advance keeps bounding through fire that would flatten an
+  // uncovered squad. Matches the overwatch synergy's suppression-decay buff.
+  const nerve = unitSynergy(s, u, s.time).overwatch ? OVERWATCH_NERVE : 0;
   const quickContact =
     u.tactic === 'advance' && (u.contactScanAt ?? 0) <= s.time;
   if (u.decisionIn > 0 && !quickContact) return;
@@ -3448,7 +3457,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.coverGoal = null;
     u.firingGoal = null;
     u.lastThreat = undefined;
-    u.tactic = u.suppression > 68 ? 'prone' : 'advance';
+    u.tactic = u.suppression > 68 + nerve ? 'prone' : 'advance';
     if (u.personalMorale < (c.discipline ?? 80))
       u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
     return;
@@ -3468,7 +3477,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   // Fire teams trade bound/cover roles on a squad-wide cadence so one group
   // sprints while the other shoots (bounding overwatch / fire and movement).
   u.tactic =
-    u.suppression > 65
+    u.suppression > 65 + nerve
       ? 'prone'
       : list[
           (u.member + squadRoleOffset(s, u, survivorList)) % list.length
@@ -5841,6 +5850,7 @@ export function tick(s: GameState, dt: number) {
     if (
       c.members &&
       (u.flinchUntil ?? 0) > s.time &&
+      (u.evadeUntil ?? 0) <= s.time &&
       u.climbing <= 0 &&
       u.motion === 'ground'
     ) {
