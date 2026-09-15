@@ -69,7 +69,10 @@ function scenario(side, heavy, support = false, far = false) {
         assert(u.moving && u.motion === 'ground' && !u.climbing);
         assert.equal(u.facing, Math.sign(enemy.x - u.x));
         assert((u.x - before.get(u.uid)) * dir < 0);
-        assert.equal(u.pose, 'crouch');
+        assert.ok(
+          ['crouch', 'prone'].includes(u.pose),
+          `expected crouch or prone, got ${u.pose}`,
+        );
         assert.equal(
           u.fire,
           0,

@@ -2896,6 +2896,28 @@ function moveSoldier(
       u.stepDust = 0;
       footPuff(s, u);
     }
+    // Healthy soldiers crawling under fire kick up a steady dust trail on a
+    // time cadence — at prone speed the distance-based foot puff above only
+    // fires every ~3 s, far too sparse to read as a low crawl. The wounded
+    // crawl uses the same timer for blood; the two branches never overlap.
+    if (
+      u.pose === 'prone' &&
+      !u.wounded &&
+      (u.crawlFxAt === undefined || s.time >= u.crawlFxAt)
+    ) {
+      emitParticle(s, {
+        kind: 'dust',
+        x: u.x - u.facing * 5 + (fxRnd(s) - 0.5) * 6,
+        y: u.y - 1,
+        vx: (fxRnd(s) - 0.5) * 6 - u.facing * 2,
+        vy: -2 - fxRnd(s) * 3,
+        life: 0.4 + fxRnd(s) * 0.2,
+        maxLife: 0.6,
+        color: fxRnd(s) < 0.5 ? '#94876b' : '#a79571',
+        size: 2 + fxRnd(s) * 2,
+      });
+      u.crawlFxAt = s.time + 0.38 + fxRnd(s) * 0.22;
+    }
   }
 }
 export function isCombatant(u: Unit) {
@@ -7080,7 +7102,9 @@ export function tick(s: GameState, dt: number) {
             ? 'run'
             : order === 'crouch' ||
                 (withdrawing && withdrawalThreat && order !== 'prone')
-              ? 'crouch'
+              ? u.suppression > 65
+                ? 'prone'
+                : 'crouch'
               : order === 'prone'
                 ? 'prone'
                 : withdrawing || escortAhead
