@@ -8,7 +8,7 @@ import {
   type CampaignState,
 } from './campaign';
 import { blastVisible } from './impact-fx';
-import { squadFocus } from './focus-fire';
+import { squadFocus, squadSuppressionTarget } from './focus-fire';
 import { rotorWash } from './rotor-wash';
 import {
   initialEconomy,
@@ -6005,10 +6005,31 @@ export function tick(s: GameState, dt: number) {
           : CARDS[v.id].armored
             ? 2
             : 1;
-    // Infantry squads concentrate fire on one designated high-value target.
-    const focusUid = c.members
-      ? squadFocus(s, u.side, u.squad, s.time)
-      : undefined;
+    // Infantry squads concentrate fire on one designated high-value target,
+    // while a two-man support team (every third member) suppresses the next
+    // nearest visible enemy so the tracer fan covers the whole enemy line.
+    let focusUid: number | undefined;
+    if (c.members) {
+      const squadFocusUid = squadFocus(s, u.side, u.squad, s.time);
+      focusUid = squadFocusUid;
+      if (
+        squadFocusUid !== undefined &&
+        u.member % 3 === 1 &&
+        !c.indirect &&
+        !c.air &&
+        !c.armorOnly &&
+        order !== 'rush'
+      ) {
+        focusUid =
+          squadSuppressionTarget(
+            s,
+            u.side,
+            u.squad,
+            squadFocusUid,
+            s.time,
+          ) ?? squadFocusUid;
+      }
+    }
     // Spatial pre-filter: only nearby cells are scanned, then the exact
     // predicate below (including the precise distance checks) is applied.
     nearUnits(s, u.x, range, candNearScratch);
