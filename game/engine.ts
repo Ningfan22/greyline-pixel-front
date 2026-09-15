@@ -4302,6 +4302,9 @@ function updateAI(s: GameState) {
           score += 3;
         // Recon + marksman: scouts designate targets for snipers.
         if (model === 'sniper' && hasSpotter) score += 5;
+        // Overwatch: a halted sniper covering a massed infantry advance lets
+        // those squads shed suppression faster under fire.
+        if (model === 'sniper' && foot.length >= 4) score += 2;
         // Spotter on the field makes precision howitzers and guided AT teams
         // significantly deadlier — the AI values them more accordingly.
         if (c.id === 'precision' && hasSpotter) score += 5;
@@ -5781,7 +5784,8 @@ export function tick(s: GameState, dt: number) {
         dt *
           7 *
           (syn.armor_assault ? 1.6 : 1) *
-          (syn.smoke_screen ? 1.5 : 1),
+          (syn.smoke_screen ? 1.5 : 1) *
+          (syn.overwatch ? 1.35 : 1),
     );
     if (c.members) {
       prepareInfantry(s, u, dt);

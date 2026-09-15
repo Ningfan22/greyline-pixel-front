@@ -18,6 +18,12 @@
  *  - supply_run: a friendly supply team within 210px of a heavy weapon team
  *    (mortar, MG, AT gun, AA gun, rocket) speeds that team's reload 1.6x —
  *    the runners keep the guns fed.
+ *  - overwatch: a friendly sniper team that has halted and set up (stationary
+ *    for 0.65s) within 500px lets covered infantry shed suppression 1.35x
+ *    faster — troops under a precision rifle keep their nerve and keep
+ *    manoeuvring. The sniper must stop moving to overwatch, so the synergy
+ *    only fires when the marksmen have planted their feet and are scanning
+ *    their sector, exactly like real overwatch.
  *
  * Results are cached per unit and refreshed on a staggered 0.4–0.6s cycle,
  * so the per-tick cost is a handful of spatial queries spread across frames
@@ -33,7 +39,8 @@ export type SynergyKind =
   | 'fire_base'
   | 'medevac_chain'
   | 'smoke_screen'
-  | 'supply_run';
+  | 'supply_run'
+  | 'overwatch';
 
 export interface SynergyState {
   armor_assault: boolean;
@@ -41,6 +48,7 @@ export interface SynergyState {
   medevac_chain: boolean;
   smoke_screen: boolean;
   supply_run: boolean;
+  overwatch: boolean;
 }
 
 const NONE: SynergyState = Object.freeze({
@@ -49,6 +57,7 @@ const NONE: SynergyState = Object.freeze({
   medevac_chain: false,
   smoke_screen: false,
   supply_run: false,
+  overwatch: false,
 });
 
 const ARMOR_ASSAULT_RANGE = 170;
@@ -58,6 +67,7 @@ const MEDEVAC_RANGE = 220;
 // edge is still screened from long-range direct fire.
 const SMOKE_SCREEN_RANGE = 130;
 const SUPPLY_RUN_RANGE = 210;
+const OVERWATCH_RANGE = 500;
 const REFRESH = 0.4;
 
 interface Entry {
@@ -83,6 +93,21 @@ function isMgProvider(u: Unit): boolean {
 
 function isMedicProvider(u: Unit): boolean {
   return modelOf(u.id) === 'medic';
+}
+
+/**
+ * A sniper team can only overwatch when it has halted and set up. The
+ * stationary predicate matches the one used by mountain_fire and guard
+ * abilities (stillFor >= 0.65s), so a sniper that just stopped this tick
+ * does not instantly provide cover — it needs a beat to settle.
+ */
+function isSniperProvider(u: Unit): boolean {
+  return (
+    modelOf(u.id) === 'sniper' &&
+    !u.moving &&
+    u.motion === 'ground' &&
+    (u.stillFor ?? 0) >= 0.65
+  );
 }
 
 /**
@@ -119,6 +144,7 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     medevac_chain: false,
     smoke_screen: false,
     supply_run: false,
+    overwatch: false,
   };
   const providers: Partial<Record<SynergyKind, number>> = {};
   const side = u.side;
@@ -211,6 +237,25 @@ function compute(s: GameState, u: Unit, now: number): Entry {
         providers.supply_run = v.uid;
         break;
       }
+    }
+  }
+
+  // Overwatch: a friendly sniper team that has halted within 500px covers
+  // the advance. A sniper cannot overwatch itself (v.uid !== u.uid), but
+  // two sniper teams can overwatch each other — a shooter-spotter pair.
+  nearUnits(s, u.x, OVERWATCH_RANGE, scratch);
+  for (let i = 0; i < scratch.length; i++) {
+    const v = scratch[i];
+    if (
+      v.uid !== u.uid &&
+      v.side === side &&
+      providerAlive(v) &&
+      isSniperProvider(v) &&
+      Math.abs(v.x - u.x) <= OVERWATCH_RANGE
+    ) {
+      state.overwatch = true;
+      providers.overwatch = v.uid;
+      break;
     }
   }
 

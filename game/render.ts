@@ -218,6 +218,7 @@ const SYNERGY_KINDS: SynergyKind[] = [
   'fire_base',
   'medevac_chain',
   'supply_run',
+  'overwatch',
 ];
 
 /**
