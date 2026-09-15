@@ -4795,6 +4795,23 @@ function updateAI(s: GameState) {
     const contactAhead = groundFoes.some(
       (v) => front - v.x > 160 && front - v.x < 950,
     );
+    // Pinned screen: line infantry stalled under fire at the contact line.
+    // Own smoke speeds their suppression recovery 1.5x (v53 synergy) while
+    // blinding the guns pinning them, so a screen on the front breaks the
+    // stalemate and the rush order carries the squads through to better ground.
+    // Two distinct squads must be pinned — one squad's bad moment does not
+    // burn the army's smoke, but a stalled front does.
+    const pinnedCohorts = new Set(
+      fighters
+        .filter(
+          (u) =>
+            lineInfantry(u.id) &&
+            u.suppression > 68 &&
+            u.x - front >= 0 &&
+            u.x - front < 500,
+        )
+        .map((u) => u.squad),
+    ).size;
     const readySmoke = p.hand.find(
       (h) =>
         h.id === 'smoke' &&
@@ -4805,7 +4822,9 @@ function updateAI(s: GameState) {
       readySmoke &&
       !smokeCovered &&
       contactAhead &&
-      (shockTroops.length > 0 || (archetype === 'assault' && screens >= 2.5))
+      (shockTroops.length > 0 ||
+        (archetype === 'assault' && screens >= 2.5) ||
+        pinnedCohorts >= 2)
     ) {
       if (playCard(s, 1, readySmoke.uid, smokeX).ok) {
         s.aiPushUntil = s.time + 9;
