@@ -2263,6 +2263,100 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
   }
   return best;
 }
+// --- v46: combat AI — medic triage, patient claiming, peek rhythm ---
+
+/**
+ * Triage score for a medic choosing who to treat. Higher = treat first.
+ * Returns -Infinity for patients who cannot be saved in time (bleedout
+ * already too far gone), so the medic skips them and spends the heal on
+ * someone who will survive it.
+ */
+export function medicTriageScore(medic: Unit, patient: Unit): number {
+  if (patient.wounded && patient.bleedOut <= 2.5) return -Infinity;
+  let score: number;
+  if (patient.wounded) {
+    score = 100 + Math.max(0, 18 - patient.bleedOut) * 2.2;
+    if (patient.hp > patient.maxHp * 0.55) score -= 25;
+  } else {
+    score = (1 - patient.hp / patient.maxHp) * 12;
+  }
+  score -= Math.abs(patient.x - medic.x) * 0.12;
+  return score;
+}
+
+/**
+ * True when another unhurt medic of the same side is already tending this
+ * patient (within 70px). Requires the other medic to have *committed*
+ * (tending === true) so two medics arriving on the same tick do not
+ * deadlock by both assuming the other will take the patient.
+ */
+export function anotherMedicOnPatient(
+  s: GameState,
+  medic: Unit,
+  patient: Unit,
+): boolean {
+  return s.units.some(
+    (v) =>
+      v !== medic &&
+      v.side === medic.side &&
+      CARDS[v.id].heal &&
+      v.hp > 0 &&
+      !v.wounded &&
+      v.tending === true &&
+      Math.abs(v.x - patient.x) < 70,
+  );
+}
+
+/**
+ * Pick the best patient for a medic this tick, or undefined when nobody is
+ * worth treating. Radius follows the watch-order rule (64px for downed
+ * wounded under watch, 140px otherwise) and is evaluated per candidate.
+ */
+export function pickMedicPatient(
+  s: GameState,
+  medic: Unit,
+): Unit | undefined {
+  let best: Unit | undefined;
+  let bestScore = -Infinity;
+  for (const v of s.units) {
+    if (
+      v.side !== medic.side ||
+      !canTakeDamage(v) ||
+      (!v.wounded && v.hp >= v.maxHp) ||
+      !CARDS[v.id].members
+    )
+      continue;
+    const radius = medic.squadOrder === 'watch' && v.wounded ? 64 : 140;
+    if (Math.abs(v.x - medic.x) > radius) continue;
+    if (v.wounded && anotherMedicOnPatient(s, medic, v)) continue;
+    const score = medicTriageScore(medic, v);
+    if (score > bestScore) {
+      bestScore = score;
+      best = v;
+    }
+  }
+  return best;
+}
+
+/**
+ * Decide whether an infantryman behind cover should expose (stand) to fire
+ * this tick. Enforces a peek rhythm: up for a short window, drop back to
+ * reload, hesitate longer while suppressed. Mutates u.exposedUntil when a
+ * new peek starts.
+ */
+export function peekShouldExpose(s: GameState, u: Unit): boolean {
+  if ((u.exposedUntil ?? 0) > s.time) return true;
+  if (u.cooldown > 0.05) return false;
+  if (u.suppression > 45) {
+    const hesitation = 0.3 + u.suppression * 0.004;
+    if (s.time - (u.lastCombatShotAt ?? -Infinity) < hesitation) return false;
+  }
+  let peek = 0.55 + (u.uid % 3) * 0.06 - Math.min(0.2, u.suppression * 0.003);
+  peek = Math.max(0.3, peek);
+  u.exposedUntil = s.time + peek;
+  return true;
+}
+
 function coveringMate(
   s: GameState,
   u: Unit,
@@ -5624,21 +5718,7 @@ export function tick(s: GameState, dt: number) {
     const range = unitRange(s, u);
     let treating = serviceVehicle(s, u);
     if (c.heal) {
-      const patient = s.units
-        .filter(
-          (v) =>
-            v.side === u.side &&
-            canTakeDamage(v) &&
-            (v.wounded || v.hp < v.maxHp) &&
-            CARDS[v.id].members &&
-            Math.abs(v.x - u.x) <=
-              (u.squadOrder === 'watch' && v.wounded ? 64 : 140),
-        )
-        .sort(
-          (a, b) =>
-            Number(b.wounded) - Number(a.wounded) ||
-            a.hp / a.maxHp - b.hp / b.maxHp,
-        )[0];
+      const patient = pickMedicPatient(s, u);
       if (patient) {
         treating = true;
         u.pose = 'crouch';
@@ -6112,9 +6192,9 @@ export function tick(s: GameState, dt: number) {
       if (u.id === 'scouts') u.observingUntil = s.time + 0.25;
     }
     if (u.cover > 0.2 && !seeking && threat) {
-      // Keep the firing stance through a whole engagement, not one reload cycle.
+      // Peek rhythm: pop up to fire, drop back behind cover to reload.
       if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
-        u.exposedUntil = s.time + 2.5;
+        peekShouldExpose(s, u);
       u.pose =
         (u.exposedUntil ?? 0) > s.time
           ? 'idle'
@@ -6210,7 +6290,9 @@ export function tick(s: GameState, dt: number) {
       ) {
         if (firingHeight(s, u, tx, ty) === 47) {
           u.pose = 'idle';
-          u.exposedUntil = s.time + 2.5;
+          // Brief follow-through only — the peek rhythm in the cover block
+          // decides how long he stays up, so he drops back to reload between shots.
+          u.exposedUntil = Math.max(u.exposedUntil ?? -Infinity, s.time + 0.35);
         }
         const point = muzzlePoint(u, tx),
           sx = point.x,
