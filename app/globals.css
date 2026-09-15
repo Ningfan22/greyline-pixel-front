@@ -2152,6 +2152,28 @@ footer button {
   height: 6px;
   background: #93947b;
 }
+.map-battery {
+  position: absolute;
+  bottom: 12px;
+  width: 7px;
+  height: 7px;
+  border: 1.5px solid #ffb347;
+  border-radius: 50%;
+  background: transparent;
+  z-index: 2;
+  animation: map-battery-ping 1.6s ease-out infinite;
+}
+@keyframes map-battery-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 179, 71, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 179, 71, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 179, 71, 0);
+  }
+}
 .map-window {
   position: absolute;
   inset-block: 0;

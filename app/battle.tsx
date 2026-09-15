@@ -1475,6 +1475,17 @@ export default function Battle({
                 }}
               />
             ))}
+          {view.batteryReports?.map((r) => (
+            <i
+              key={r.uid}
+              className="map-battery"
+              style={{
+                left: `${(r.x / W) * 100}%`,
+                opacity: Math.min(1, r.life / (r.maxLife * 0.5)),
+              }}
+              title={`敌方炮位 ${Math.ceil(r.life)}s`}
+            />
+          ))}
           <span
             className="map-window"
             style={{

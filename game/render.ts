@@ -764,6 +764,53 @@ export function render(
     ctx.fill();
     ctx.restore();
   }
+  // Sound-ranging fixes on enemy batteries: a dashed uncertainty circle
+  // with an expanding sonar ripple, fading as the report goes stale.
+  for (const r of s.batteryReports) {
+    if (r.side !== 0) continue;
+    if (r.x < camera - 220 || r.x > camera + viewportWidth + 220) continue;
+    const gy = ground(s, r.x) - 6;
+    const fresh = Math.min(1, r.life / (r.maxLife * 0.5));
+    const phase = (s.time * 0.9 + r.uid * 0.37) % 1;
+    ctx.save();
+    ctx.globalAlpha = 0.55 * fresh;
+    ctx.strokeStyle = '#ffb347';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    ctx.arc(r.x, gy, r.scatter, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Expanding sonar ring.
+    ctx.globalAlpha = 0.4 * fresh * (1 - phase);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r.x, gy, r.scatter * (0.35 + phase * 0.9), 0, Math.PI * 2);
+    ctx.stroke();
+    // Crosshair tick at the estimated muzzle.
+    ctx.globalAlpha = 0.8 * fresh;
+    ctx.strokeStyle = '#ffd28a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(r.x - 9, gy);
+    ctx.lineTo(r.x - 3, gy);
+    ctx.moveTo(r.x + 3, gy);
+    ctx.lineTo(r.x + 9, gy);
+    ctx.moveTo(r.x, gy - 9);
+    ctx.lineTo(r.x, gy - 3);
+    ctx.moveTo(r.x, gy + 3);
+    ctx.lineTo(r.x, gy + 9);
+    ctx.stroke();
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd28a';
+    ctx.fillText(
+      `敌方炮位 ${Math.ceil(r.life)}s`,
+      r.x,
+      gy - r.scatter - 10,
+    );
+    ctx.restore();
+  }
   drawWreckSmoke(ctx, s, camera, viewportWidth);
   drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {

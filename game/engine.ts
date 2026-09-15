@@ -420,6 +420,20 @@ export interface Flare {
   side: Side;
   seed: number;
 }
+// Sound-ranging fix on an enemy battery: every time a hostile gun fires,
+// acoustic detection estimates its position (with error) for the opposing
+// side. The report decays as the battery displaces, and repeat detections
+// converge on the true location. Counter-battery fire aimed at a fresh
+// report lands with a tightly reduced scatter.
+export interface BatteryReport {
+  uid: number;
+  x: number;
+  side: Side; // side that received the intelligence
+  life: number;
+  maxLife: number;
+  scatter: number; // acoustic error radius, px
+  hits: number; // how many detections converged into this report
+}
 export interface Scorch {
   x: number;
   y: number;
@@ -485,6 +499,7 @@ export interface GameState {
   markers: Marker[];
   smokes: Smoke[];
   flares: Flare[];
+  batteryReports: BatteryReport[];
   blasts: Blast[];
   scorches: Scorch[];
   notices: Notice[];
@@ -591,6 +606,7 @@ export function createGame(
     markers: [],
     smokes: [],
     flares: [],
+    batteryReports: [],
     blasts: [],
     scorches: [],
     notices: [],
@@ -855,12 +871,28 @@ function callArtillery(
   kind: keyof typeof ARTILLERY,
 ) {
   const c = ARTILLERY[kind];
+  // Counter-battery: aiming at a fresh sound-ranging fix tightens the
+  // sheaf dramatically, and the targeted battery displaces under fire,
+  // burning the report down to its last seconds of usefulness.
+  let scatterMul = 1;
+  const report = s.batteryReports.find(
+    (r) =>
+      r.side === side &&
+      r.life > 2 &&
+      Math.abs(r.x - x) <= Math.max(160, r.scatter + 60),
+  );
+  if (report) {
+    scatterMul = 0.45;
+    report.life = Math.min(report.life, 4);
+  }
   const impacts = Array.from({ length: c.count }, (_, i) =>
     Math.max(
       0,
       Math.min(
         W,
-        x + (i - (c.count - 1) / 2) * c.spacing + (rnd(s) * 2 - 1) * c.scatter,
+        x +
+          (i - (c.count - 1) / 2) * c.spacing +
+          (rnd(s) * 2 - 1) * c.scatter * scatterMul,
       ),
     ),
   );
@@ -921,6 +953,42 @@ export function launchFlare(s: GameState, side: Side, x: number) {
     maxLife: 10,
     side,
     seed: Math.floor(rnd(s) * 1e9),
+  });
+}
+// Sound ranging: an enemy gun firing gives away an approximate bearing.
+// Detection error shrinks as repeated shots from the same area refine the
+// fix; the report goes stale as the battery displaces after firing.
+export function detectBattery(
+  s: GameState,
+  shooter: Unit,
+  sx: number,
+  sy: number,
+) {
+  const side: Side = shooter.side === 0 ? 1 : 0;
+  const fresh = s.batteryReports.find(
+    (r) =>
+      r.side === side &&
+      r.life > r.maxLife * 0.6 &&
+      Math.abs(r.x - sx) < 140,
+  );
+  if (fresh) {
+    // Converge toward the true muzzle and tighten the error ellipse.
+    const w = Math.min(4, fresh.hits + 1);
+    fresh.x = fresh.x + (sx - fresh.x) / w;
+    fresh.scatter = Math.max(26, fresh.scatter * 0.8);
+    fresh.life = fresh.maxLife;
+    fresh.hits++;
+    return;
+  }
+  const scatter = 55 + rnd(s) * 45;
+  s.batteryReports.push({
+    uid: ++s.uid,
+    x: Math.max(20, Math.min(W - 20, sx + (rnd(s) * 2 - 1) * scatter)),
+    side,
+    life: 20,
+    maxLife: 20,
+    scatter,
+    hits: 1,
   });
 }
 export function playCard(
@@ -3465,6 +3533,15 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
         visibleToSide(s, u.side, v) &&
         Math.abs(v.x - u.x) >= (c.minRange ?? 0) &&
         Math.abs(v.x - u.x) <= range,
+    ) ||
+    // A fresh sound-ranging fix on an enemy battery is enough to emplace
+    // and prepare counter-battery fire even without a visible target.
+    s.batteryReports.some(
+      (r) =>
+        r.side === u.side &&
+        r.life > 3 &&
+        Math.abs(r.x - u.x) >= (c.minRange ?? 0) &&
+        Math.abs(r.x - u.x) <= range,
     );
   if (canEngage) {
     u.emplacementIdleSince = undefined;
@@ -4055,6 +4132,24 @@ function updateAI(s: GameState) {
               ? 16
               : -100;
         if ((c.indirect || c.vehicleSupport) && screens < 1.5) score = -100;
+        // Counter-battery: a fresh sound-ranging fix on an enemy gun is the
+        // natural job of howitzers. It overrides the "no visible target" and
+        // "no screen" penalties above — the gun fights blind, off map data.
+        if (c.id === 'artillery' || c.id === 'precision') {
+          const fix = s.batteryReports
+            .filter((r) => r.side === 1 && r.life > 3)
+            .sort((a, b) => b.hits - a.hits || b.life - a.life)[0];
+          if (fix) {
+            const position = emplacementPosition(s, 1, c.id);
+            const inRange =
+              Math.abs(fix.x - position) >= (c.minRange ?? 0) &&
+              Math.abs(fix.x - position) <= c.range!;
+            if (inRange) {
+              x = fix.x;
+              score = fix.hits >= 3 ? 26 : 20;
+            }
+          }
+        }
         // Avoid continuously buying a specialised role already covered by own units.
         score -= Math.min(6, groups(own.filter((u) => u.id === c.id)) * 2);
       } else if (c.economy) {
@@ -4158,6 +4253,38 @@ function updateAI(s: GameState) {
         if (cluster && cluster.n >= 3) {
           x = cluster.x;
           score = 13;
+        }
+      } else if (c.id === 'artillery' || c.id === 'precision') {
+        // Counter-battery is these cards' natural job: a fresh sound-ranging
+        // fix on an enemy gun is the highest-value target on the map.
+        const fix = s.batteryReports
+          .filter((r) => r.side === 1 && r.life > 3)
+          .sort((a, b) => b.hits - a.hits || b.life - a.life)[0];
+        if (fix) {
+          x = fix.x;
+          score = fix.hits >= 3 ? 26 : 20;
+        } else {
+          // No fix: fall back to a visible armour concentration or a
+          // sizeable infantry cluster, whichever the sheaf covers best.
+          const armorCluster = armor
+            .map((v) => ({
+              x: v.x,
+              n: armor.filter((a) => Math.abs(a.x - v.x) < 150).length,
+            }))
+            .sort((a, b) => b.n - a.n)[0];
+          const blob = groundFoes
+            .map((v) => ({
+              x: v.x,
+              n: groundFoes.filter((a) => Math.abs(a.x - v.x) < 130).length,
+            }))
+            .sort((a, b) => b.n - a.n)[0];
+          if (armorCluster && armorCluster.n >= 2) {
+            x = armorCluster.x;
+            score = 16;
+          } else if (blob && blob.n >= 4) {
+            x = blob.x;
+            score = 12;
+          }
         }
       } else if (c.effect === 'sabotage') {
         if (battle && foes.some((u) => u.cooldown < 1.2))
@@ -5100,6 +5227,8 @@ export function tick(s: GameState, dt: number) {
     f.x += Math.sin(f.life * 2.2 + f.seed) * 9 * dt;
   }
   s.flares = s.flares.filter((f) => f.life > 0);
+  for (const r of s.batteryReports) r.life -= dt;
+  s.batteryReports = s.batteryReports.filter((r) => r.life > 0);
   for (const m of s.markers) {
     const c = ARTILLERY[m.kind ?? 'artillery'];
     m.timer -= dt;
@@ -5716,21 +5845,40 @@ export function tick(s: GameState, dt: number) {
        }
      }
    }
-    const baseInRange =
+   const baseInRange =
+     !target &&
+     !c.airOnly &&
+     !c.armorOnly &&
+     (c.attackRun !== 'strafe' ||
+       (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
+     Math.abs(baseX - u.x) <= range &&
+     Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
+     firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
+    // Counter-battery: a howitzer with no visible target can fire at a
+    // fresh sound-ranging fix on an enemy battery position.
+    let counterBattery: BatteryReport | null = null;
+    if (
+      c.emplacement === 'howitzer' &&
       !target &&
-      !c.airOnly &&
-      !c.armorOnly &&
-      (c.attackRun !== 'strafe' ||
-        (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
-      Math.abs(baseX - u.x) <= range &&
-      Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
-      firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
+      !baseInRange
+    ) {
+      counterBattery =
+        s.batteryReports
+          .filter(
+            (r) =>
+              r.side === u.side &&
+              r.life > 3 &&
+              Math.abs(r.x - u.x) <= range &&
+              Math.abs(r.x - u.x) >= (c.minRange ?? 0),
+          )
+          .sort((a, b) => b.hits - a.hits || b.life - a.life)[0] ?? null;
+    }
     // A howitzer's dead zone excludes that target, not a separate valid distant target.
     const closeThreat =
       c.minRange &&
       !(
         (c.emplacement === 'howitzer' || u.id === 'tow_ifv') &&
-        (target || baseInRange)
+        (target || baseInRange || counterBattery)
       )
         ? s.units.find(
             (v) =>
@@ -6000,7 +6148,7 @@ export function tick(s: GameState, dt: number) {
     if (
       (c.damage ?? 0) > 0 &&
       (!c.armorOnly || !!target) &&
-      (target || coverShot || baseInRange) &&
+      (target || coverShot || baseInRange || counterBattery) &&
       (!seeking || contactFire) &&
       !closeThreat &&
       !treating &&
@@ -6008,12 +6156,14 @@ export function tick(s: GameState, dt: number) {
       !withdrawalStep &&
       !retreating
     ) {
-      let tx = target ? target.x : coverShot ? coverShot.x : baseX;
+      let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : baseX;
       let ty = target
         ? target.y - bodyHeight(target)
         : coverShot
           ? coverShot.y
-          : ground(s, baseX) - 25;
+          : counterBattery
+            ? ground(s, counterBattery.x) - 8
+            : ground(s, baseX) - 25;
       if (target && c.antiAir && !c.guided && CARDS[target.id].air) {
         const speed = FLIGHT[ammunition(u.id, u.member)].speed;
         const travel = Math.min(1, Math.hypot(tx - u.x, ty - u.y) / speed);
@@ -6025,11 +6175,20 @@ export function tick(s: GameState, dt: number) {
         u.exposedUntil = s.time + 2.5;
       }
       let spotted = false;
+      let burnedReport: BatteryReport | null = null;
       if (c.indirect && u.cooldown <= 0) {
         spotted = scoutSpotter(s, u.side, tx, ground(s, tx) - 8);
+        burnedReport =
+          s.batteryReports.find(
+            (r) =>
+              r.side === u.side &&
+              r.life > 3 &&
+              Math.abs(r.x - tx) <= Math.max(160, r.scatter + 60),
+          ) ?? null;
         const scatter =
           (u.id === 'precision' ? 14 : c.emplacement ? 42 : 26) *
-          (spotted ? 0.55 : 1);
+          (spotted ? 0.55 : 1) *
+          (burnedReport ? 0.45 : 1);
         tx += (rnd(s) - 0.5) * scatter * 2;
         ty = ground(s, tx) - 8;
       }
@@ -6116,6 +6275,14 @@ export function tick(s: GameState, dt: number) {
           u.muzzleY = sy;
           u.shotAngle = Math.atan2(ty - sy - 4 * flight.arc, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
+          // Indirect guns cannot hide: every shell gives the enemy's sound
+          // rangers a fix on the battery (aircraft sorties are excluded —
+          // their launch points are off-board or already obvious).
+          if (c.indirect && !c.air && !c.sortie)
+            detectBattery(s, u, sx, sy);
+          // Counter-battery shells landing on a known fix force the enemy
+          // battery to displace, burning the report down to its last seconds.
+          if (burnedReport) burnedReport.life = Math.min(burnedReport.life, 4);
           s.projectiles.push({
             uid: ++s.uid,
             guided: c.guided && !c.indirect,
@@ -6832,6 +6999,9 @@ export function snapshot(s: GameState, viewer: Side = 0) {
     walls: Object.values(s.knownWalls[viewer]).map((w) => ({ ...w })),
     smokes: s.smokes.map((f) => ({ ...f })),
     flares: s.flares.map((f) => ({ ...f })),
+    batteryReports: s.batteryReports
+      .filter((r) => r.side === viewer)
+      .map((r) => ({ ...r })),
     explosions: s.audibleExplosions[viewer],
     notices: s.notices
       .filter((n) => !n.audience || n.audience.includes(viewer))
