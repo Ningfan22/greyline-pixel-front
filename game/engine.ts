@@ -240,6 +240,18 @@ export interface Unit {
   dragScanAt?: number;
   /** Distance accumulator for laying persistent blood smears while dragging a casualty. */
   dragMarkAccum?: number;
+  /** v84: combat lifesaver channel — until this timestamp the soldier kneels over a casualty applying a tourniquet. */
+  firstAidUntil?: number;
+  /** v84: uid of the casualty receiving buddy aid. */
+  firstAidTargetUid?: number;
+  /** v84: throttle for the casualty scan so a squad does not scan every tick. */
+  firstAidScanAt?: number;
+  /** v84: after a completed treatment the lifesaver waits before treating again. */
+  firstAidCooldownUntil?: number;
+  /** v84: on the casualty — uid of the buddy currently applying aid (holds him still). */
+  firstAidByUid?: number;
+  /** v84: on the casualty — tourniquet window; bleedout nearly frozen until this time. */
+  stabilizedUntil?: number;
   sortKey?: number;
   signalUntil?: number;
   /** Animation-only: squad mate is answering the leader's hand signal. */
@@ -1742,6 +1754,15 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
     if (d) d.draggingUid = undefined;
     u.draggedByUid = undefined;
   }
+  // v84: sever the lifesaver bond — the man he was bandaging is gone.
+  if (u.firstAidByUid !== undefined) {
+    const d = s.units.find((q) => q.uid === u.firstAidByUid);
+    if (d) {
+      d.firstAidUntil = undefined;
+      d.firstAidTargetUid = undefined;
+    }
+    u.firstAidByUid = undefined;
+  }
   const overkill = Math.max(0, -u.hp);
   u.hp = 0;
   u.wounded = false;
@@ -1839,6 +1860,8 @@ function revive(u: Unit) {
   u.woundedTime = 0;
   u.bleedOut = 0;
   u.rescueProgress = 0;
+  u.stabilizedUntil = 0;
+  u.firstAidByUid = undefined;
   // The dragger notices his comrade is back on his feet and lets go.
   u.draggedByUid = undefined;
   u.injuryCooldown = 4;
@@ -5735,6 +5758,26 @@ const coverNearScratch: Unit[] = [];
 const scanNearScratch: Unit[] = [];
 const ammoNearScratch: Unit[] = [];
 
+/**
+ * v84: a lifesaver only kneels over a casualty while the enemy is far enough
+ * away that 1.5 s of heads-down work is not a suicide pact. Tighter than the
+ * drag rule's under-fire check — care under fire happens, just not with a
+ * rifleman 200 px away.
+ */
+function firstAidHotZone(s: GameState, u: Unit): boolean {
+  nearUnits(s, u.x, 700, tacticNearScratch);
+  for (const v of tacticNearScratch) {
+    if (
+      v.side !== u.side &&
+      isCombatant(v) &&
+      visibleToSide(s, u.side, v) &&
+      Math.abs(v.x - u.x) <= 340
+    )
+      return true;
+  }
+  return false;
+}
+
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
   dt = Math.min(0.05, Math.max(0, dt));
@@ -5865,17 +5908,29 @@ export function tick(s: GameState, dt: number) {
         if (p) p.draggedByUid = undefined;
         u.draggingUid = undefined;
       }
+      // A lifesaver who is himself hit lets go of the casualty he was
+      // bandaging before he collapses.
+      if (u.firstAidTargetUid !== undefined) {
+        const p = unitByUid(s, u.firstAidTargetUid);
+        if (p && p.firstAidByUid === u.uid) p.firstAidByUid = undefined;
+        u.firstAidUntil = undefined;
+        u.firstAidTargetUid = undefined;
+      }
       u.woundedTime += dt;
-      u.bleedOut -= dt;
+      // v84: a tourniquet buys time — a stabilized casualty bleeds out at a
+      // trickle, long enough for a medic to arrive or a buddy to drag him in.
+      u.bleedOut -= (u.stabilizedUntil ?? 0) > s.time ? dt * 0.15 : dt;
       u.fire = 0;
       u.secondaryFire = 0;
       u.moving = false;
       // After the initial shock, a wounded soldier crawls back toward his own
       // line while no medic is actively tending him.
+      // v84: a man being bandaged lies still so the lifesaver can work.
       const farFromBase =
         u.side === 0 ? u.x > 104 : u.x < W - 104;
       if (
         u.draggedByUid === undefined &&
+        u.firstAidByUid === undefined &&
         u.woundedTime >= 2.2 &&
         s.time - (u.rescuedAt ?? -99) >= 2.5 &&
         u.bleedOut > 8 &&
@@ -5990,6 +6045,49 @@ export function tick(s: GameState, dt: number) {
         u.rapidUntil = s.time + 8;
       }
       continue;
+    }
+    // v84: combat lifesaver channel. A rifleman kneeling beside a downed
+    // squadmate, working a tourniquet. He keeps at it while the casualty is
+    // still there, still bleeding, and the zone has not turned hot; the
+    // moment it does he is back on his weapon.
+    if (u.firstAidUntil !== undefined) {
+      const patient =
+        u.firstAidTargetUid !== undefined
+          ? unitByUid(s, u.firstAidTargetUid)
+          : undefined;
+      const stillValid =
+        patient !== undefined &&
+        patient.wounded &&
+        patient.hp > 0 &&
+        patient.bleedOut > 0 &&
+        patient.draggedByUid === undefined &&
+        patient.firstAidByUid === u.uid &&
+        Math.abs(patient.x - u.x) <= 96 &&
+        u.suppression < 55 &&
+        u.hp >= u.maxHp * 0.4 &&
+        !firstAidHotZone(s, u);
+      if (!stillValid) {
+        if (patient && patient.firstAidByUid === u.uid)
+          patient.firstAidByUid = undefined;
+        u.firstAidUntil = undefined;
+        u.firstAidTargetUid = undefined;
+      } else if (s.time >= u.firstAidUntil) {
+        // Tourniquet on: the casualty stops bleeding out for a long window,
+        // buying the medic time to reach him or a buddy time to drag him in.
+        patient.stabilizedUntil = s.time + 14;
+        patient.rescueProgress += 0.5;
+        patient.firstAidByUid = undefined;
+        u.firstAidUntil = undefined;
+        u.firstAidTargetUid = undefined;
+        u.firstAidCooldownUntil = s.time + 8;
+      } else {
+        u.fire = 0;
+        u.secondaryFire = 0;
+        u.moving = false;
+        u.pose = 'crouch';
+        u.y = ground(s, u.x);
+        continue;
+      }
     }
     // Buddy drag: a squadmate hauling a bleeding casualty back to the line.
     if (u.draggingUid !== undefined) {
@@ -6129,6 +6227,56 @@ export function tick(s: GameState, dt: number) {
         if (bestPatient) {
           u.draggingUid = bestPatient.uid;
           bestPatient.draggedByUid = u.uid;
+        }
+      }
+    }
+    // v84: decision to start buddy aid. Same squad, the casualty lying right
+    // beside him, bleeding out but not yet stabilized, and no enemy close
+    // enough to punish a kneeling man. One lifesaver per squad at a time.
+    if (
+      c.members &&
+      u.hp >= u.maxHp * 0.5 &&
+      u.personalMorale >= 40 &&
+      u.suppression < 55 &&
+      !u.tending &&
+      u.id !== 'medic' &&
+      u.squadOrder !== 'retreat' &&
+      u.withdrawHeavyUid === undefined &&
+      !u.backpedaling &&
+      (u.firstAidCooldownUntil ?? 0) <= s.time &&
+      (u.firstAidScanAt ?? 0) <= s.time
+    ) {
+      u.firstAidScanAt = s.time + 0.3 + (u.uid % 5) * 0.05;
+      const squadAider = s.units.some(
+        (v) =>
+          v !== u &&
+          v.side === u.side &&
+          v.squad === u.squad &&
+          v.firstAidUntil !== undefined,
+      );
+      if (!squadAider && !firstAidHotZone(s, u)) {
+        let bestPatient: Unit | undefined;
+        for (const q of s.units) {
+          if (
+            q.side === u.side &&
+            q.squad === u.squad &&
+            q.wounded &&
+            q.draggedByUid === undefined &&
+            q.firstAidByUid === undefined &&
+            (q.stabilizedUntil ?? 0) <= s.time &&
+            q.bleedOut > 0 &&
+            q.bleedOut < 20 &&
+            s.time - (q.rescuedAt ?? -99) > 3 &&
+            Math.abs(q.x - u.x) <= 64 &&
+            (q.side === 0 ? q.x > 110 : q.x < W - 110) &&
+            (!bestPatient || q.bleedOut < bestPatient.bleedOut)
+          )
+            bestPatient = q;
+        }
+        if (bestPatient) {
+          u.firstAidTargetUid = bestPatient.uid;
+          u.firstAidUntil = s.time + 1.5;
+          bestPatient.firstAidByUid = u.uid;
         }
       }
     }

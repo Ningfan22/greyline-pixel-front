@@ -305,6 +305,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone') return action(13);
   // v83: looting a fallen comrade's weapon — the same huddled beat.
   if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone') return action(13);
+  // v84: combat lifesaver kneeling over a casualty, working a tourniquet.
+  if ((u.firstAidUntil ?? 0) > time && u.pose !== 'prone') return action(13);
   if (
     (u.ammoSignalUntil ?? 0) > time &&
     !u.moving &&
