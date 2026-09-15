@@ -4235,7 +4235,11 @@ function updateAI(s: GameState) {
     if (c.oneWay) return ((c.damage ?? 0) * (c.armorMultiplier ?? 1)) / 650;
     return c.guided && c.armorOnly ? 1 : c.guided ? 0.75 : 0.4;
   };
-  const observerCard = (id: CardId) => CARDS[id].observer || id === 'scouts';
+  // Mirrors synergy.isSpotterProvider: recon squads (scout trait) and dedicated
+  // observer cards are spotters. Rangers carry the scout trait, so the director
+  // must value them as recon assets — not double-buy observers alongside them.
+  const observerCard = (id: CardId) =>
+    CARDS[id].observer || CARDS[id].trait === 'scout';
   const canSupportContact = (u: Unit, target: Unit) => {
     const c = weaponCard(u),
       distance = Math.abs(target.x - u.x);
