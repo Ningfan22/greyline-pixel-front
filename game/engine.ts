@@ -3337,13 +3337,19 @@ export function squadRoleOffset(
 // is overwatching it. Covered infantry stay on their feet and keep manoeuvring
 // through fire that would flatten an uncovered squad.
 const OVERWATCH_NERVE = 14;
+// Covered infantry also hold their nerve longer before *breaking*: the
+// overwatch sniper's covering fire shaves the morale-break point by this many
+// points, so a covered squad only routs at 28 morale instead of 35.
+const OVERWATCH_MORALE_NERVE = 7;
 function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn -= dt;
   // Overwatch nerve: infantry covered by a halted sniper team keep their
   // nerve under fire and only pin at a higher suppression level, so an
   // overwatched advance keeps bounding through fire that would flatten an
   // uncovered squad. Matches the overwatch synergy's suppression-decay buff.
-  const nerve = unitSynergy(s, u, s.time).overwatch ? OVERWATCH_NERVE : 0;
+  const overwatch = unitSynergy(s, u, s.time).overwatch;
+  const nerve = overwatch ? OVERWATCH_NERVE : 0;
+  const moraleNerve = overwatch ? OVERWATCH_MORALE_NERVE : 0;
   const quickContact =
     u.tactic === 'advance' && (u.contactScanAt ?? 0) <= s.time;
   if (u.decisionIn > 0 && !quickContact) return;
@@ -3462,7 +3468,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
       u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
     return;
   }
-  if (u.personalMorale < 35 && !orderedWithdrawal(s, u)) {
+  if (u.personalMorale < 35 - moraleNerve && !orderedWithdrawal(s, u)) {
     u.originalSquad = u.squad;
     u.conflictChecked = false;
     u.regroupProgress = 0;
