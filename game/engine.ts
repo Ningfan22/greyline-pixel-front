@@ -372,6 +372,7 @@ export interface Unit {
   coverGoal: number | null;
   trafficWait?: number;
   passingLane?: number;
+  passClearAt?: number;
   coverSearch: number;
   supportCooldown: number;
   healing: number;
@@ -825,7 +826,11 @@ export function formationPositions(side: Side, id: CardId, x: number) {
  */
 export function formationLane(member: number, count: number) {
   if (count <= 1) return 0;
-  return (member - (count - 1) / 2) * 12;
+  // Multiplier 8 keeps a 6-member squad within ±20, inside the traffic
+  // system's tuned ±24 passing-lane clamp (see moveSoldier).  The old
+  // ×12 table reached ±30 and changed passing dynamics enough to pile
+  // retreating squads up (v22 regression).
+  return (member - (count - 1) / 2) * 8;
 }
 export function spawnUnit(
   s: GameState,
@@ -3002,6 +3007,10 @@ function moveSoldier(
         u.lane = u.passingLane;
         u.passingLane = undefined;
         u.trafficWait = 0;
+        // Hold the passing lane briefly instead of snapping back to the
+        // formation slot — the blocker we just passed is still alongside,
+        // and formation drift would immediately re-block us (v82 surge).
+        u.passClearAt = s.time;
       }
     }
   }
@@ -7786,6 +7795,7 @@ export function tick(s: GameState, dt: number) {
           : escortTravel
             ? u.escortLane
             : u.passingLane === undefined &&
+                (u.passClearAt ?? -1e9) + 0.6 <= s.time &&
                 (u.dispersionUntil ?? 0) <= s.time &&
                 !withdrawing &&
                 !retreating

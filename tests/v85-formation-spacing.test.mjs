@@ -45,16 +45,16 @@ function arena() {
 // ── formationLane helper ──────────────────────────────────────────────
 check('formationLane spreads members evenly around zero', () => {
   assert.equal(formationLane(0, 1), 0, 'single member stays at 0');
-  // 4 members: matches the old spawn table [-18, -6, 6, 18]
+  // 4 members: [-12, -4, 4, 12] — spread, but inside the ±24 traffic clamp
   assert.deepEqual(
     [0, 1, 2, 3].map((m) => formationLane(m, 4)),
-    [-18, -6, 6, 18],
+    [-12, -4, 4, 12],
   );
   // 6 members: every member gets a unique slot (old code repeated lanes)
   const lanes6 = [0, 1, 2, 3, 4, 5].map((m) => formationLane(m, 6));
   assert.equal(new Set(lanes6).size, 6, 'all 6 lanes unique');
-  assert.deepEqual(lanes6, [-30, -18, -6, 6, 18, 30]);
-  return { lanes4: [-18, -6, 6, 18], lanes6 };
+  assert.deepEqual(lanes6, [-20, -12, -4, 4, 12, 20]);
+  return { lanes4: [-12, -4, 4, 12], lanes6 };
 });
 
 // ── spawn lanes ───────────────────────────────────────────────────────
