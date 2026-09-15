@@ -303,6 +303,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // who is out. Only upright soldiers signal — a pinned rifleman stays
   // low and waits for a lull in the fire.
   if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone') return action(13);
+  // v83: looting a fallen comrade's weapon — the same huddled beat.
+  if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone') return action(13);
   if (
     (u.ammoSignalUntil ?? 0) > time &&
     !u.moving &&

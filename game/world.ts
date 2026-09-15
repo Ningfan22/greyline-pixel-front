@@ -47,6 +47,10 @@ export interface Wreck {
   pose?: Unit['pose'];
   facing?: number;
   lane?: number;
+  /** v83: fallen infantry keep their weapon's remaining ammo so living squadmates can loot it. */
+  member?: number;
+  ammo?: number;
+  ammoReserve?: number;
   id: number;
   cardId: Unit['id'];
   side: Side;

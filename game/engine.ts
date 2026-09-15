@@ -223,6 +223,10 @@ export interface Unit {
   ammoShareUntil?: number;
   /** Timestamp until which a rescued (ammo-shared) soldier surges toward the enemy. */
   rescuedUntil?: number;
+  /** v83: id of the fallen comrade's wreck a dry soldier is looting ammo from. */
+  scavengeWreckId?: number;
+  /** v83: loot window — until this timestamp the soldier is huddled over the body. */
+  scavengeUntil?: number;
   observingUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
@@ -1766,6 +1770,11 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
     falling: !!c.air,
     vx: c.air ? u.facing * 70 : 0,
     vy: 0,
+    // v83: a fallen rifleman keeps his remaining ammunition on the body
+    // so a dry squadmate can pull a magazine off the same weapon.
+    ...(magazine(u.id, u.member)
+      ? { member: u.member, ammo: u.ammo, ammoReserve: u.ammoReserve ?? 0 }
+      : {}),
   });
   if (!c.members && !c.air)
     burst(s, u.x, u.y - 20, c.armored ? 60 : 42, 'wreck');
@@ -6956,6 +6965,7 @@ export function tick(s: GameState, dt: number) {
     // suppression / close threats, so under contact the squad keeps
     // whatever fire it has instead of staging a bullet handoff in the open.
     let ammoGoalX: number | null = null;
+    let scavengeGoalX: number | null = null;
     const magSpec = magazine(u.id, u.member);
     const dryAmmo =
       !!magSpec &&
@@ -6989,6 +6999,30 @@ export function tick(s: GameState, dt: number) {
           }
         }
         u.ammoBuddyUid = bestBuddy ? bestBuddy.uid : undefined;
+        // v83: no living donor — look for a fallen comrade still carrying
+        // the same weapon. A dry rifleman pulls a magazine off a
+        // squadmate's body before he goes back in with an empty rifle.
+        if (!bestBuddy) {
+          let bestWreck: Wreck | undefined;
+          let bestWreckDist = Infinity;
+          for (const w of s.wrecks) {
+            if (
+              w.side === u.side &&
+              ammunition(w.cardId, w.member ?? 0) ===
+                ammunition(u.id, u.member) &&
+              (w.ammo ?? 0) + (w.ammoReserve ?? 0) > 0
+            ) {
+              const d = Math.abs(w.x - u.x);
+              if (d < 160 && d < bestWreckDist) {
+                bestWreckDist = d;
+                bestWreck = w;
+              }
+            }
+          }
+          u.scavengeWreckId = bestWreck ? bestWreck.id : undefined;
+        } else {
+          u.scavengeWreckId = undefined;
+        }
       }
       const buddy = unitByUid(s, u.ammoBuddyUid);
       if (
@@ -7032,8 +7066,51 @@ export function tick(s: GameState, dt: number) {
           ammoGoalX = buddy.x;
         }
       }
-    } else if (u.ammoBuddyUid !== undefined) {
-      u.ammoBuddyUid = undefined;
+      // v83: looting the fallen. Same fire gates as a living handoff:
+      // walk to the body, hunker over the weapon for 1.2s, then pull up
+      // to 30 rounds — reserve first, then the magazine in the weapon.
+      if (ammoGoalX === null) {
+        const wreck = s.wrecks.find((w) => w.id === u.scavengeWreckId);
+        if (
+          wreck &&
+          (wreck.ammo ?? 0) + (wreck.ammoReserve ?? 0) > 0 &&
+          u.suppression < 55 &&
+          !closeThreat
+        ) {
+          const dist = Math.abs(wreck.x - u.x);
+          if (dist <= 26) {
+            // 0 means "never started"; a past timestamp means the window
+            // has closed and it is time to pull the rounds. Using <= s.time
+            // here would re-open the window forever and never transfer.
+            if ((u.scavengeUntil ?? 0) === 0) {
+              u.scavengeUntil = s.time + 1.2;
+            } else if (s.time >= u.scavengeUntil!) {
+              const take = Math.min(
+                30,
+                (wreck.ammoReserve ?? 0) + (wreck.ammo ?? 0),
+              );
+              const fromReserve = Math.min(take, wreck.ammoReserve ?? 0);
+              wreck.ammoReserve = (wreck.ammoReserve ?? 0) - fromReserve;
+              wreck.ammo = (wreck.ammo ?? 0) - (take - fromReserve);
+              u.ammoReserve = (u.ammoReserve ?? 0) + take;
+              u.reloadingUntil = s.time + magSpec.reload;
+              u.scavengeWreckId = undefined;
+              u.scavengeUntil = 0;
+            }
+          } else {
+            u.scavengeUntil = 0;
+            scavengeGoalX = wreck.x;
+          }
+        } else {
+          u.scavengeUntil = 0;
+        }
+      }
+    } else {
+      if (u.ammoBuddyUid !== undefined) u.ammoBuddyUid = undefined;
+      if (u.scavengeWreckId !== undefined) {
+        u.scavengeWreckId = undefined;
+        u.scavengeUntil = 0;
+      }
     }
     // v82: rescued-man surge goal. A soldier who just received a buddy's
     // magazine charges back toward the enemy, stopping at rifle range.
@@ -7057,6 +7134,7 @@ export function tick(s: GameState, dt: number) {
               ? u.escortGoal!
               : null
             : (ammoGoalX ??
+              scavengeGoalX ??
               rescuedGoalX ??
               u.coverGoal ??
               u.firingGoal ??
