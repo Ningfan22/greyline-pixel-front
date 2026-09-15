@@ -130,15 +130,44 @@ export function blastGlanceChoice(
 }
 
 /**
+ * Dug-in blast glance: the same distant-blast awareness as
+ * {@link blastGlanceChoice}, but for soldiers holding a low crouch or prone
+ * position. They keep their profile down — a crouching defender stays on one
+ * knee, a prone defender stays on the deck — and only turn to track the
+ * impact. Animation-only, exactly like the standing glance: the returned
+ * `dir` flips the sprite while the real facing and the omni-directional
+ * sight system are untouched. Heavily suppressed soldiers (hunker pose) are
+ * gated out by the suppression check, so a pinned defender keeps their head
+ * down instead of looking up at the shellburst.
+ */
+export function dugInBlastGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.blastGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose === 'crouch') return { ...action(1), dir: u.blastGlanceDir ?? 1 };
+  if (u.pose === 'prone') return { ...action(2), dir: u.blastGlanceDir ?? 1 };
+  return null;
+}
+
+/**
  * Composed idle pose for the renderer: a structured sector scan takes
  * precedence over the random idle micro-motion, so the two never fight over
  * the same frame. A fresh blast glance outranks both — an explosion always
- * interrupts a routine scan. Returns null when the soldier should hold the
- * default patrol idle frame.
+ * interrupts a routine scan. Dug-in defenders (crouch/prone) get their own
+ * glance layer between the standing glance and the routine scan. Returns null
+ * when the soldier should hold the default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   return (
     blastGlanceChoice(u, time) ??
+    dugInBlastGlanceChoice(u, time) ??
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );

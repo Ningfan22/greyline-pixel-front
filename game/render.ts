@@ -571,8 +571,24 @@ export function render(
     // stay alive. Only applies when the soldier is truly idle (not walking,
     // firing, aiming, reloading, digging, or dragging).
     let microDir: 1 | -1 | undefined;
+    // Dug-in defenders hold a crouch or prone pose (no patrol frame), but they
+    // still track distant blasts — the same glance layer, kept low to the
+    // ground. Specialist sprites, climbers, rappellers and casualties keep
+    // their own animation path.
+    const heldPose =
+      c.members &&
+      !isDead &&
+      !u.wounded &&
+      !u.surrendered &&
+      !u.rappelling &&
+      !u.backpedaling &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      !specialist &&
+      (u.reloadingUntil ?? 0) <= s.time &&
+      ['crouch', 'prone'].includes(u.pose);
     const idleMicro =
-      patrol &&
+      (patrol || heldPose) &&
       !u.moving &&
       u.fire <= 0 &&
       (u.aimUntil ?? 0) <= s.time &&
