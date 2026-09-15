@@ -204,6 +204,7 @@ export interface Unit {
   contactScanAt?: number;
   contactUntil?: number;
   dragScanAt?: number;
+  sortKey?: number;
   dispersionGoal?: number;
   dispersionUntil?: number;
   trafficYieldUntil?: number;
@@ -5397,6 +5398,7 @@ const neighborOutScratch: Unit[] = [];
 const tacticNearScratch: Unit[] = [];
 const tacticOutScratch: Unit[] = [];
 const coverNearScratch: Unit[] = [];
+const scanNearScratch: Unit[] = [];
 
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
@@ -6006,20 +6008,35 @@ export function tick(s: GameState, dt: number) {
       )
         candOutScratch.push(v);
     }
-    const candidates = candOutScratch.sort(
-        (a, b) =>
-          Number(b.uid === focusUid) - Number(a.uid === focusUid) ||
-          ((c.attackRun === 'strafe' ||
-            softTargetWeapon ||
-            ((c.armorMultiplier ?? 1) < 0.8 &&
-              isCoverBullet(ammunition(u.id, u.member)))
-              ? softTargetRank(a) - softTargetRank(b)
-              : modelOf(u.id) === 'sniper'
-                ? Number(!CARDS[a.id].members) - Number(!CARDS[b.id].members)
-                : modelOf(u.id) === 'tank' || (c.armorMultiplier ?? 1) > 1.2
-                  ? Number(!CARDS[a.id].armored) - Number(!CARDS[b.id].armored)
-                  : 0) || Math.abs(a.x - u.x) - Math.abs(b.x - u.x)),
-      );
+    // The ranking mode and each candidate's rank are invariant within one
+    // sort, so precompute a numeric key per candidate instead of recomputing
+    // ammunition/model lookups on every comparator call.
+    const coverAmmo = isCoverBullet(primaryAmmo);
+    const sortMode: 'soft' | 'sniper' | 'armor' | 'none' =
+      c.attackRun === 'strafe' ||
+      softTargetWeapon ||
+      ((c.armorMultiplier ?? 1) < 0.8 && coverAmmo)
+        ? 'soft'
+        : modelOf(u.id) === 'sniper'
+          ? 'sniper'
+          : modelOf(u.id) === 'tank' || (c.armorMultiplier ?? 1) > 1.2
+            ? 'armor'
+            : 'none';
+    for (const v of candOutScratch) {
+      const rank =
+        sortMode === 'soft'
+          ? softTargetRank(v)
+          : sortMode === 'sniper'
+            ? Number(!CARDS[v.id].members)
+            : sortMode === 'armor'
+              ? Number(!CARDS[v.id].armored)
+              : 0;
+      v.sortKey =
+        (v.uid === focusUid ? 0 : 1_000_000) +
+        rank * 10_000 +
+        Math.abs(v.x - u.x);
+    }
+    const candidates = candOutScratch.sort((a, b) => a.sortKey! - b.sortKey!);
     if (candidates[0])
       u.lastThreat = {
         x: candidates[0].x,
@@ -6044,7 +6061,7 @@ export function tick(s: GameState, dt: number) {
       (u.id === 'scouts' &&
         order !== 'rush' &&
         !candidates.length &&
-        nearUnits(s, u.x, 600, []).some(
+        nearUnits(s, u.x, 600, scanNearScratch).some(
           (v) =>
             v.side !== u.side &&
             isCombatant(v) &&
@@ -6102,16 +6119,23 @@ export function tick(s: GameState, dt: number) {
         !CARDS[target.id].air &&
         Math.abs(target.x - u.x) <= 220
       ) {
-        const cluster = nearUnits(s, target.x, 150, []).filter(
-          (v) =>
+        const clusterNear = nearUnits(s, target.x, 150, scanNearScratch);
+        let clusterCount = 0;
+        let clusterSumX = 0;
+        for (const v of clusterNear) {
+          if (
             v.side !== u.side &&
             isCombatant(v) &&
             !CARDS[v.id].air &&
             visibleToSide(s, u.side, v) &&
-            Math.abs(v.x - target.x) <= 150,
-        );
-        if (cluster.length >= 2) {
-          const cx = cluster.reduce((sum, v) => sum + v.x, 0) / cluster.length;
+            Math.abs(v.x - target.x) <= 150
+          ) {
+            clusterCount++;
+            clusterSumX += v.x;
+          }
+        }
+        if (clusterCount >= 2) {
+          const cx = clusterSumX / clusterCount;
           const cy = ground(s, cx);
           const sx = u.x;
           const sy = Math.min(u.y - bodyHeight(u) + 20, ground(s, u.x) - 6);
@@ -6179,7 +6203,7 @@ export function tick(s: GameState, dt: number) {
         (c.emplacement === 'howitzer' || u.id === 'tow_ifv') &&
         (target || baseInRange || counterBattery)
       )
-        ? nearUnits(s, u.x, c.minRange!, []).find(
+        ? nearUnits(s, u.x, c.minRange!, scanNearScratch).find(
             (v) =>
               v.side !== u.side &&
               isCombatant(v) &&
@@ -6195,21 +6219,32 @@ export function tick(s: GameState, dt: number) {
       order !== 'hold' &&
       order !== 'rush'
     );
-    const withdrawalThreat = withdrawing
-      ? ((target && tacticalReach(s, target, u, 36) ? target : undefined) ??
-        airContact ??
-        nearUnits(s, u.x, 640, [])
-          .filter(
-            (v) =>
-              v.side !== u.side &&
-              (!CARDS[v.id].air || sustainedAirThreat(v)) &&
-              isCombatant(v) &&
-              visibleToSide(s, u.side, v) &&
-              Math.abs(v.x - u.x) <= 640 &&
-              tacticalReach(s, v, u, 36),
-          )
-          .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0])
-      : undefined;
+    let withdrawalThreat: Unit | undefined;
+    if (withdrawing) {
+      withdrawalThreat =
+        (target && tacticalReach(s, target, u, 36) ? target : undefined) ??
+        airContact;
+      if (!withdrawalThreat) {
+        const near = nearUnits(s, u.x, 640, scanNearScratch);
+        let bestDist = Infinity;
+        for (const v of near) {
+          if (
+            v.side !== u.side &&
+            (!CARDS[v.id].air || sustainedAirThreat(v)) &&
+            isCombatant(v) &&
+            visibleToSide(s, u.side, v) &&
+            Math.abs(v.x - u.x) <= 640 &&
+            tacticalReach(s, v, u, 36)
+          ) {
+            const d = Math.abs(v.x - u.x);
+            if (d < bestDist) {
+              bestDist = d;
+              withdrawalThreat = v;
+            }
+          }
+        }
+      }
+    }
     if (
       withdrawing &&
       !orderedWithdrawal(s, u) &&
@@ -6226,28 +6261,48 @@ export function tick(s: GameState, dt: number) {
         }
       }
     }
-    const withdrawalCoverPossible =
-      withdrawalThreat &&
-      s.units.some(
-        (v) =>
-          v !== u &&
-          (v.squad === u.squad ||
-            (CARDS[withdrawalThreat.id].air && Math.abs(v.x - u.x) <= 260)) &&
-          v.side === u.side &&
-          isCombatant(v) &&
-          (!CARDS[withdrawalThreat.id].air || weaponCard(v).antiAir) &&
-          (!CARDS[withdrawalThreat.id].armored ||
-            weaponCard(v).penetration ||
-            (weaponCard(v).armorMultiplier ?? 1) > 1.2) &&
-          (CARDS[v.id].members || CARDS[withdrawalThreat.id].air) &&
-          Math.abs(v.x - withdrawalThreat.x) <= unitRange(s, v) &&
-          firingHeight(
-            s,
-            v,
-            withdrawalThreat.x,
-            withdrawalThreat.y - bodyHeight(withdrawalThreat),
-          ) !== null,
-      );
+    // Only squad mates (or, against air threats, nearby anti-air units) can
+    // satisfy this check — iterate the squad index instead of scanning every
+    // unit on the field.
+    let withdrawalCoverPossible = false;
+    if (withdrawalThreat) {
+      const threat = withdrawalThreat;
+      const threatAir = CARDS[threat.id].air;
+      const threatArmored = CARDS[threat.id].armored;
+      const coverCheck = (v: Unit): boolean =>
+        v !== u &&
+        v.side === u.side &&
+        isCombatant(v) &&
+        (!threatAir || weaponCard(v).antiAir) &&
+        (!threatArmored ||
+          weaponCard(v).penetration ||
+          (weaponCard(v).armorMultiplier ?? 1) > 1.2) &&
+        (CARDS[v.id].members || threatAir) &&
+        Math.abs(v.x - threat.x) <= unitRange(s, v) &&
+        firingHeight(
+          s,
+          v,
+          threat.x,
+          threat.y - bodyHeight(threat),
+        ) !== null;
+      const mates = squadMates(s, u.side, u.squad);
+      for (let i = 0; i < mates.length; i++) {
+        if (coverCheck(mates[i])) {
+          withdrawalCoverPossible = true;
+          break;
+        }
+      }
+      if (!withdrawalCoverPossible && threatAir) {
+        nearUnits(s, u.x, 260, scanNearScratch);
+        for (let i = 0; i < scanNearScratch.length; i++) {
+          const v = scanNearScratch[i];
+          if (Math.abs(v.x - u.x) <= 260 && coverCheck(v)) {
+            withdrawalCoverPossible = true;
+            break;
+          }
+        }
+      }
+    }
     const withdrawalStep =
       withdrawing &&
       Math.abs(u.withdrawGoal! - u.x) > 0.5 &&

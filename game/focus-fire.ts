@@ -1,12 +1,14 @@
 import { CARDS } from './cards';
 import { visibleToSide } from './world';
-import { nearUnits, unitByUid } from './spatial';
+import { nearUnits, unitByUid, squadMates } from './spatial';
 import type { GameState, Side, Unit } from './engine';
 
 /** A squad re-picks its priority target at most this often, so fire stays concentrated. */
 const FOCUS_TTL = 0.6;
 /** Only targets within this radius of the squad centre can be designated. */
 const FOCUS_RADIUS = 720;
+/** Reused across calls — the near-units query only ever needs a temporary list. */
+const focusNearScratch: Unit[] = [];
 
 /** Per-game cache: `${side}:${squad}` -> the designated target uid and when it was chosen. */
 const focusCache = new WeakMap<
@@ -66,26 +68,32 @@ export function squadFocus(
   }
 
   // Squad centre from its living ground members, so the radius is measured
-  // from where the squad actually is, not from a single soldier.
-  const members = s.units.filter(
-    (u) =>
-      u.side === side &&
-      u.squad === squad &&
+  // from where the squad actually is, not from a single soldier. The squad
+  // index already narrows this to side+squad; just filter out the dead.
+  const mates = squadMates(s, side, squad);
+  let centerSum = 0;
+  let centerCount = 0;
+  for (let i = 0; i < mates.length; i++) {
+    const u = mates[i];
+    if (
       u.hp > 0 &&
       !u.surrendered &&
       !u.wounded &&
-      !CARDS[u.id].air,
-  );
-  if (!members.length) {
+      !CARDS[u.id].air
+    ) {
+      centerSum += u.x;
+      centerCount++;
+    }
+  }
+  if (!centerCount) {
     cache.delete(key);
     return undefined;
   }
-  const center =
-    members.reduce((sum, u) => sum + u.x, 0) / members.length;
+  const center = centerSum / centerCount;
 
   let best: Unit | undefined;
   let bestValue = 0;
-  for (const v of nearUnits(s, center, FOCUS_RADIUS, [])) {
+  for (const v of nearUnits(s, center, FOCUS_RADIUS, focusNearScratch)) {
     if (v.side === side) continue;
     if (v.hp <= 0 || v.surrendered || v.wounded) continue;
     if (CARDS[v.id].air) continue;
