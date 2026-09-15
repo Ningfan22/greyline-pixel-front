@@ -31,6 +31,26 @@ const reaction = (index: number): AdultFrameChoice => ({
 });
 const cycle = (walk: number, length: number) =>
   ((Math.floor(walk) % length) + length) % length;
+
+/**
+ * Idle micro-motion: a soldier holding position briefly shifts to an alert
+ * stance or takes a knee to scan, so the front line never freezes into
+ * statues. Returns null most of the time; the caller falls back to the
+ * normal idle frame. Phase is offset by uid so squads don't move in sync.
+ */
+export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  // Alert stance: rifle across chest, ~1.6 s every 11 s.
+  const alertPhase = (time + u.uid * 7.31) % 11;
+  if (alertPhase < 1.6) return action(0);
+  // Crouch glance: take a knee to scan, ~2.2 s every 27 s.
+  const crouchPhase = (time + u.uid * 13.7) % 27;
+  if (crouchPhase < 2.2) return action(1);
+  return null;
+}
+
 /** Every living, casualty and surrender state uses the same adult anatomy. */
 export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Reverse the existing raised-rifle gait while the body keeps facing contact.
@@ -91,7 +111,12 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return action(2);
   }
   if (u.pose === 'crouch') {
-    if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
+    if (u.moving) {
+      // Hauling a casualty: a slow, heavy gait at half the cadence of a
+      // normal crouch-walk so the drag reads as effort, not patrol.
+      const gait = u.draggingUid !== undefined ? u.walk / 2 : step;
+      return { group: 'crouch8', index: cycle(gait, 8) };
+    }
     if (reloading) return action(13);
     return action(1);
   }

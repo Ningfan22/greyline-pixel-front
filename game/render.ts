@@ -21,6 +21,7 @@ import {
 import {
   adultIdentity,
   adultFrameChoice,
+  idleMicroChoice,
   adultWreckChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
@@ -506,9 +507,24 @@ export function render(
             (u.uid % 8) * 0.2,
           )
         : null;
+    // Idle micro-motion: when patrol would hold the static idle frame,
+    // occasionally cut to an alert or crouch-glance pose so held positions
+    // stay alive. Only applies when the soldier is truly idle (not walking,
+    // firing, aiming, reloading, digging, or dragging).
+    const idleMicro =
+      patrol &&
+      !u.moving &&
+      u.fire <= 0 &&
+      (u.aimUntil ?? 0) <= s.time &&
+      adult
+        ? (() => {
+            const micro = idleMicroChoice(u, s.time);
+            return micro ? adult[micro.group][micro.index] : null;
+          })()
+        : null;
     const img = body
       ? uniformFrame(
-          digging ?? patrol ?? specialist?.image ?? body,
+          digging ?? idleMicro ?? patrol ?? specialist?.image ?? body,
           c.uniform === 'recon' || c.uniform === 'assault'
             ? c.uniform
             : undefined,
