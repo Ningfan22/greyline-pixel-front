@@ -28,6 +28,7 @@ import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches } from './ambience';
+import { drawWeather } from './weather';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -1074,5 +1075,6 @@ export function render(
     }
   }
   if (s.night) drawNightOverlay(ctx, s, camera, viewportWidth);
+  drawWeather(ctx, s, camera, viewportWidth, H);
   ctx.restore();
 }

@@ -2,6 +2,8 @@ export type Difficulty = 'standard' | 'veteran' | 'elite';
 export interface MatchOptions {
   difficulty?: Difficulty;
   night?: boolean;
+  /** Weather cycles (v62). Defaults to on; pass false to keep a clear sky. */
+  weather?: boolean;
 }
 export type EconomyEffect = 'logistics' | 'capacity' | 'bonds';
 export const DEFAULT_DIFFICULTY: Difficulty = 'veteran';

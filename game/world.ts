@@ -3,6 +3,7 @@ import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import { treeBoxesV17 } from './tree-state-v17';
 import type { GameState, Side, Unit } from './engine';
+import { weatherVisibility } from './weather';
 export interface SceneryPart {
   id: number;
   x: number;
@@ -526,7 +527,8 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
     const range =
       sightRange(u) *
       (s.players[side].recon > 0 ? 1.15 : 1) *
-      (s.night ? 0.45 : 1);
+      (s.night ? 0.45 : 1) *
+      weatherVisibility(s);
     const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
     if (distance > range) return false;
     const eye =

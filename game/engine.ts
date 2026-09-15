@@ -84,6 +84,13 @@ import {
 } from './world';
 export { refreshVision, visibleToSide, pointVisible } from './world';
 import {
+  createWeather,
+  smokeDecayMultiplier,
+  updateWeather,
+  weatherDegradesVision,
+  type WeatherState,
+} from './weather';
+import {
   CARDS,
   DECK,
   validDeck,
@@ -562,6 +569,7 @@ export interface GameState {
   windTarget: number;
   windIn: number;
   dustIn: number;
+  weather: WeatherState;
 }
 function rnd(s: GameState) {
   s.seed = (Math.imul(1664525, s.seed) + 1013904223) >>> 0;
@@ -657,6 +665,7 @@ export function createGame(
     windTarget: 0,
     windIn: 3,
     dustIn: 0.4,
+    weather: createWeather(layout.id, seed, options.weather === false),
   };
   for (const side of [0, 1] as Side[]) {
     const player = s.players[side];
@@ -4907,7 +4916,11 @@ function updateAI(s: GameState) {
           cardCost(h) <= p.energy + 1e-6,
       );
       const hiddenFoes = groundFoes.some((v) => !visibleToSide(s, 1, v));
-      if (enemySmokeAhead || (strikeHeld && hiddenFoes)) {
+      // Foul weather blinds the line as surely as smoke: when the rain or
+      // fog closes in and foes vanish, the AI lights the front (v62).
+      const weatherBlinds =
+        weatherDegradesVision(s) && hiddenFoes && p.energy >= 4;
+      if (enemySmokeAhead || (strikeHeld && hiddenFoes) || weatherBlinds) {
         const flareX = enemySmokeAhead
           ? enemySmokeAhead.x
           : Math.max(100, Math.min(W - 100, front - 220));
@@ -5492,6 +5505,9 @@ export function tick(s: GameState, dt: number) {
     s.windTarget = (fxRnd(s) * 2 - 1) * 18;
   }
   s.wind += (s.windTarget - s.wind) * Math.min(1, dt * 0.15);
+  // Map weather cycles between clear spells and the front's signature
+  // condition, degrading everyone's vision symmetrically (v62).
+  updateWeather(s, dt);
   // Ambient dust motes drift through contested ground to keep the battlefield alive.
   s.dustIn -= dt;
   if (s.dustIn <= 0) {
@@ -5540,7 +5556,7 @@ export function tick(s: GameState, dt: number) {
     s.aiIn = 0.75 + rnd(s) * 0.6;
   }
   for (const f of s.smokes) {
-    f.life -= dt;
+    f.life -= dt * smokeDecayMultiplier(s);
     f.x += s.wind * dt * 0.5;
   }
   s.smokes = s.smokes.filter((f) => f.life > 0);
@@ -7488,6 +7504,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
     time: s.time,
     result: s.result,
     night: s.night,
+    weather: { kind: s.weather.kind, intensity: s.weather.intensity },
     players: s.players.map((p, i) => ({
       side: i,
       order: p.order,

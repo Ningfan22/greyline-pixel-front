@@ -19,7 +19,7 @@ function test(name, fn) {
 }
 
 function arena() {
-  const s = createGame(1);
+  const s = createGame(1, undefined, undefined, undefined, { weather: false });
   startGame(s);
   s.terrain.fill(374);
   s.original.fill(374);
