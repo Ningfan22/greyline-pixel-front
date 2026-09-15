@@ -224,6 +224,8 @@ export interface Unit {
   dragScanAt?: number;
   sortKey?: number;
   signalUntil?: number;
+  /** Animation-only: squad mate is answering the leader's hand signal. */
+  ackUntil?: number;
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
   vacuum?: boolean;
   dispersionGoal?: number;

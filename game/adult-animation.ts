@@ -165,6 +165,8 @@ export function dugInBlastGlanceChoice(
  * when the soldier should hold the default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
+  // A fresh hand-signal acknowledgment outranks routine scans and fidgets.
+  if ((u.ackUntil ?? 0) > time) return null;
   return (
     blastGlanceChoice(u, time) ??
     dugInBlastGlanceChoice(u, time) ??
@@ -230,6 +232,18 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // with the alert stand so it waves instead of freezing like a statue.
   if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0)
     return action(Math.floor((u.signalUntil - time) * 6) % 2 ? 8 : 0);
+  // Squad mates answer a fresh hand signal with a quick return pump of the
+  // arm. Only upright members answer — crouched and prone defenders stay low
+  // instead of popping up out of a trench to wave back.
+  if (
+    (u.ackUntil ?? 0) > time &&
+    !u.moving &&
+    u.fire <= 0 &&
+    (u.aimUntil ?? 0) <= time &&
+    (u.reloadingUntil ?? 0) <= time &&
+    (u.pose === 'idle' || u.pose === 'walk')
+  )
+    return action(Math.floor((u.ackUntil - time) * 7) % 2 ? 8 : 0);
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);

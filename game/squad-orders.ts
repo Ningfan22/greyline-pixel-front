@@ -338,6 +338,15 @@ export function setSquadOrder(
   let leader = members[0];
   for (const m of members) if (m.uid < leader.uid) leader = m;
   leader.signalUntil = s.time + 1.1;
+  // Nearby squad mates answer the signal with a quick return pump of the arm,
+  // so the chain of command reads as a two-way exchange instead of a one-man
+  // wave. The window is staggered by uid so acknowledgments ripple through the
+  // squad, and only members close enough to have seen the gesture answer.
+  for (const m of members) {
+    if (m === leader) continue;
+    if (Math.hypot(m.x - leader.x, m.y - leader.y) > 230) continue;
+    m.ackUntil = s.time + 0.55 + (m.uid % 3) * 0.18;
+  }
   for (let i = 0; i < ordered.length; i++) {
     const u = ordered[i];
     u.squadOrder = order;
