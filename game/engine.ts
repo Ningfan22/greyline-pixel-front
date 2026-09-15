@@ -6006,7 +6006,8 @@ export function tick(s: GameState, dt: number) {
     const morale = s.players[u.side].morale > 0;
     const syn = unitSynergy(s, u, s.time);
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
-    u.cooldown -= dt * (syn.supply_run ? 1.6 : 1);
+    u.cooldown -=
+      dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
     // Small-arms magazines: lazy-init on first tick, then seat a fresh mag
     // once the reload window closes. A dry reserve leaves the weapon silent.
     if (u.ammo === undefined) {

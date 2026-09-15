@@ -24,6 +24,12 @@
  *    manoeuvring. The sniper must stop moving to overwatch, so the synergy
  *    only fires when the marksmen have planted their feet and are scanning
  *    their sector, exactly like real overwatch.
+ *  - recon_spot: a friendly scout or observer (rangers, scout marksmen,
+ *    recon quadcopter) within 500px spots for a friendly indirect-fire team
+ *    (mortar, mortar carrier, field/heavy/precision howitzer), speeding its
+ *    fire mission cycle 1.3x — the forward observer calls the fall of shot.
+ *    This complements the per-shot scatter reduction scoutSpotter already
+ *    gives: the observer both tightens the aim and quickens the rate.
  *
  * Results are cached per unit and refreshed on a staggered 0.4–0.6s cycle,
  * so the per-tick cost is a handful of spatial queries spread across frames
@@ -40,7 +46,8 @@ export type SynergyKind =
   | 'medevac_chain'
   | 'smoke_screen'
   | 'supply_run'
-  | 'overwatch';
+  | 'overwatch'
+  | 'recon_spot';
 
 export interface SynergyState {
   armor_assault: boolean;
@@ -49,6 +56,7 @@ export interface SynergyState {
   smoke_screen: boolean;
   supply_run: boolean;
   overwatch: boolean;
+  recon_spot: boolean;
 }
 
 const NONE: SynergyState = Object.freeze({
@@ -58,6 +66,7 @@ const NONE: SynergyState = Object.freeze({
   smoke_screen: false,
   supply_run: false,
   overwatch: false,
+  recon_spot: false,
 });
 
 const ARMOR_ASSAULT_RANGE = 170;
@@ -68,6 +77,7 @@ const MEDEVAC_RANGE = 220;
 const SMOKE_SCREEN_RANGE = 130;
 const SUPPLY_RUN_RANGE = 210;
 const OVERWATCH_RANGE = 500;
+const RECON_SPOT_RANGE = 500;
 const REFRESH = 0.4;
 
 interface Entry {
@@ -133,6 +143,32 @@ function isInfantry(u: Unit): boolean {
   return (c.members ?? 0) > 0 && !c.indirect;
 }
 
+/**
+ * Recon spotters: scouts (rangers, scout marksmen) and dedicated observers
+ * (recon quadcopter). Mountain troops are not scouts — their trait is
+ * 'mountain' — so they do not provide recon_spot.
+ */
+function isSpotterProvider(u: Unit): boolean {
+  const c = CARDS[u.id];
+  return c.trait === 'scout' || c.observer === true;
+}
+
+/**
+ * Indirect-fire receivers: mortar teams, mortar carriers, and the three
+ * howitzer cards. The tactical bomber also carries `indirect: true`, but it
+ * is an aircraft flying a sortie, not a rear fire mission — a ground
+ * observer cannot speed its launch cycle, so air units are excluded.
+ *
+ * Barrage is excluded as well: it fires a pre-planned five-round salvo on a
+ * fixed schedule, not single-gun fire missions. An observer can tighten the
+ * spread of a barrage (the existing `scoutSpotter` path) but cannot shorten
+ * its cycle — the shells are already on their way when the mission fires.
+ */
+function isIndirectFire(u: Unit): boolean {
+  const c = CARDS[u.id];
+  return c.indirect === true && !c.air && u.id !== 'barrage';
+}
+
 function providerAlive(u: Unit): boolean {
   return u.hp > 0 && !u.wounded && !u.surrendered;
 }
@@ -145,6 +181,7 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     smoke_screen: false,
     supply_run: false,
     overwatch: false,
+    recon_spot: false,
   };
   const providers: Partial<Record<SynergyKind, number>> = {};
   const side = u.side;
@@ -259,6 +296,27 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     }
   }
 
+  // Recon spot: a friendly scout/observer within 500px spots for the
+  // indirect-fire team, speeding its fire mission cycle 1.3x. Only ground
+  // indirect fire receives it; the spotter cannot spot for itself.
+  if (isIndirectFire(u)) {
+    nearUnits(s, u.x, RECON_SPOT_RANGE, scratch);
+    for (let i = 0; i < scratch.length; i++) {
+      const v = scratch[i];
+      if (
+        v.uid !== u.uid &&
+        v.side === side &&
+        providerAlive(v) &&
+        isSpotterProvider(v) &&
+        Math.abs(v.x - u.x) <= RECON_SPOT_RANGE
+      ) {
+        state.recon_spot = true;
+        providers.recon_spot = v.uid;
+        break;
+      }
+    }
+  }
+
   return { state, providers, at: now };
 }
 
@@ -293,11 +351,11 @@ function entryFor(s: GameState, u: Unit, now: number): Entry {
 
 /**
  * Synergy state for a unit. Units that are neither infantry nor heavy weapon
- * teams always return the frozen NONE object; everyone else is cached on a
- * staggered refresh cycle.
+ * teams nor indirect-fire receivers always return the frozen NONE object;
+ * everyone else is cached on a staggered refresh cycle.
  */
 export function unitSynergy(s: GameState, u: Unit, now: number): SynergyState {
-  if (!isInfantry(u) && !isWeaponTeam(u)) return NONE;
+  if (!isInfantry(u) && !isWeaponTeam(u) && !isIndirectFire(u)) return NONE;
   return entryFor(s, u, now).state;
 }
 
@@ -311,6 +369,6 @@ export function synergyProviderUid(
   kind: SynergyKind,
   now: number,
 ): number | undefined {
-  if (!isInfantry(u) && !isWeaponTeam(u)) return undefined;
+  if (!isInfantry(u) && !isWeaponTeam(u) && !isIndirectFire(u)) return undefined;
   return entryFor(s, u, now).providers[kind];
 }

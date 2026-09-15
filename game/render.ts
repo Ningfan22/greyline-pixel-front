@@ -220,6 +220,7 @@ const SYNERGY_KINDS: SynergyKind[] = [
   'medevac_chain',
   'supply_run',
   'overwatch',
+  'recon_spot',
 ];
 
 /**
