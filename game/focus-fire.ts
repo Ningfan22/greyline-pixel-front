@@ -1,5 +1,6 @@
 import { CARDS } from './cards';
 import { visibleToSide } from './world';
+import { nearUnits, unitByUid } from './spatial';
 import type { GameState, Side, Unit } from './engine';
 
 /** A squad re-picks its priority target at most this often, so fire stays concentrated. */
@@ -51,7 +52,7 @@ export function squadFocus(
   }
   const cached = cache.get(key);
   if (cached && now - cached.at < FOCUS_TTL) {
-    const target = s.units.find((u) => u.uid === cached.uid);
+    const target = unitByUid(s, cached.uid);
     if (
       target &&
       target.hp > 0 &&
@@ -84,7 +85,7 @@ export function squadFocus(
 
   let best: Unit | undefined;
   let bestValue = 0;
-  for (const v of s.units) {
+  for (const v of nearUnits(s, center, FOCUS_RADIUS, [])) {
     if (v.side === side) continue;
     if (v.hp <= 0 || v.surrendered || v.wounded) continue;
     if (CARDS[v.id].air) continue;

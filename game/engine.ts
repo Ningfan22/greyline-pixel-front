@@ -44,6 +44,15 @@ import {
   type Entrenchment,
   type SquadOrder,
 } from './squad-orders';
+import {
+  buildSpatial,
+  buildByUid,
+  buildSquadIndex,
+  nearUnits,
+  unitByUid,
+  squadMates,
+  type SpatialIndex,
+} from './spatial';
 import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
@@ -495,6 +504,13 @@ export interface GameState {
   original: number[];
   walls: Wall[];
   units: Unit[];
+  // Per-tick acceleration structures, rebuilt at the top of tick(). Optional
+  // so code paths exercised outside a tick (tests, editors) degrade to scans.
+  spatial?: SpatialIndex;
+  byUid?: Map<number, Unit>;
+  squadIndex?: Map<number, Unit[]>;
+  /** Front-line x per side: [side0 foremost x, side1 foremost x]. */
+  frontX?: [number, number];
   projectiles: Projectile[];
   particles: Particle[];
   particlePool?: Particle[];
@@ -2357,14 +2373,14 @@ export function peekShouldExpose(s: GameState, u: Unit): boolean {
   return true;
 }
 
-function coveringMate(
+export function coveringMate(
   s: GameState,
   u: Unit,
   target: Unit,
   requireShot = false,
 ) {
   const airThreat = !!CARDS[target.id].air;
-  return s.units.some((v) => {
+  const check = (v: Unit): boolean => {
     const c = weaponCard(v);
     if (
       v === u ||
@@ -2399,7 +2415,19 @@ function coveringMate(
         s.time - (v.lastCombatShotAt ?? -Infinity) <=
           Math.max(0.8, c.rate! * 1.35))
     );
-  });
+  };
+  // Same-squad mates are the common case; the squad index makes that O(squad).
+  for (const v of squadMates(s, u.side, u.squad)) {
+    if (check(v)) return true;
+  }
+  // Anti-air cover is the only case where a non-squadmate counts, and only
+  // within 260px — the spatial index keeps that scan local too.
+  if (airThreat) {
+    for (const v of nearUnits(s, u.x, 260, coverNearScratch)) {
+      if (v.side === u.side && v.squad !== u.squad && check(v)) return true;
+    }
+  }
+  return false;
 }
 
 function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
@@ -2662,14 +2690,22 @@ function moveSoldier(
     u.pose = 'climb';
     return;
   }
-  const neighbors = s.units.filter(
-    (v) =>
+  // Only same-side infantry within 72px affect traffic flow; the spatial
+  // index shrinks the scan to a few cells. The closures below capture this
+  // array but are all invoked synchronously before moveSoldier returns.
+  nearUnits(s, u.x, 72, neighborNearScratch);
+  neighborOutScratch.length = 0;
+  for (const v of neighborNearScratch) {
+    if (
       v !== u &&
       v.side === u.side &&
       isCombatant(v) &&
       CARDS[v.id].members &&
-      Math.abs(v.x - u.x) < 72,
-  );
+      Math.abs(v.x - u.x) < 72
+    )
+      neighborOutScratch.push(v);
+  }
+  const neighbors = neighborOutScratch;
   const nearestBlocker = () =>
     neighbors
       .filter(
@@ -3233,17 +3269,27 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   if (u.decisionIn > 0 && !quickContact) return;
   u.contactScanAt = s.time + 0.09 + (u.uid % 3) * 0.015;
   const c = CARDS[u.id];
-  const threat = s.units
-    .filter(
-      (v) =>
-        v.side !== u.side &&
-        isCombatant(v) &&
-        visibleToSide(s, u.side, v) &&
-        (!CARDS[v.id].air ||
-          (sustainedAirThreat(v) &&
-            Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 40))),
-    )
-    .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
+  // 1200px covers the longest effective range (max card range 900, times
+  // recon/mountain modifiers ~1125); every downstream use of `threat`
+  // (inContact, surrender, retreat morale, planWithdrawal) treats a foe
+  // beyond that distance identically to no threat at all.
+  nearUnits(s, u.x, 1200, tacticNearScratch);
+  tacticOutScratch.length = 0;
+  for (const v of tacticNearScratch) {
+    if (
+      v.side !== u.side &&
+      isCombatant(v) &&
+      visibleToSide(s, u.side, v) &&
+      (!CARDS[v.id].air ||
+        (sustainedAirThreat(v) &&
+          Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 40)))
+    ) {
+      tacticOutScratch.push(v);
+    }
+  }
+  const threat = tacticOutScratch.sort(
+    (a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
+  )[0];
   const inContact =
     !!threat &&
     Math.abs(threat.x - u.x) <=
@@ -5249,6 +5295,17 @@ function flyFpv(s: GameState, u: Unit, dt: number) {
   u.y = y;
   u.hullAngle = 0;
 }
+// Reused per-unit scratch buffers for spatial candidate queries. The game is
+// single-threaded and each buffer is drained (filtered into a persistent array
+// or consumed inline) before the next unit runs, so reuse is safe.
+const candNearScratch: Unit[] = [];
+const candOutScratch: Unit[] = [];
+const neighborNearScratch: Unit[] = [];
+const neighborOutScratch: Unit[] = [];
+const tacticNearScratch: Unit[] = [];
+const tacticOutScratch: Unit[] = [];
+const coverNearScratch: Unit[] = [];
+
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
   dt = Math.min(0.05, Math.max(0, dt));
@@ -5341,6 +5398,22 @@ export function tick(s: GameState, dt: number) {
   s.markers = s.markers.filter(
     (m) => m.wave < ARTILLERY[m.kind ?? 'artillery'].count,
   );
+  // Rebuild the per-tick lookup structures once, O(N). Units spawned later
+  // this tick (airlift roping, bailing crews) are absent until next tick;
+  // every query site keeps exact distance/hp checks as a backstop.
+  s.spatial = buildSpatial(s.units, W);
+  s.byUid = buildByUid(s.units);
+  s.squadIndex = buildSquadIndex(s.units);
+  let front0 = 650;
+  let front1 = W - 650;
+  for (const v of s.units) {
+    if (isCombatant(v) && !CARDS[v.id].air) {
+      if (v.side === 0) {
+        if (v.x > front0) front0 = v.x;
+      } else if (v.x < front1) front1 = v.x;
+    }
+  }
+  s.frontX = [front0, front1];
   for (const u of s.units) {
     u.digging = false;
     u.backpedaling = false;
@@ -5352,7 +5425,7 @@ export function tick(s: GameState, dt: number) {
     if (u.wounded) {
       // A dragger who is himself hit releases his comrade before collapsing.
       if (u.draggingUid !== undefined) {
-        const p = s.units.find((q) => q.uid === u.draggingUid);
+        const p = unitByUid(s, u.draggingUid);
         if (p) p.draggedByUid = undefined;
         u.draggingUid = undefined;
       }
@@ -5439,7 +5512,7 @@ export function tick(s: GameState, dt: number) {
     }
     // Buddy drag: a squadmate hauling a bleeding casualty back to the line.
     if (u.draggingUid !== undefined) {
-      const patient = s.units.find((q) => q.uid === u.draggingUid);
+      const patient = unitByUid(s, u.draggingUid);
       const baseDir = -dir;
       const reachedBase = u.side === 0 ? u.x <= 116 : u.x >= W - 116;
       if (
@@ -5691,15 +5764,11 @@ export function tick(s: GameState, dt: number) {
     }
     if (c.observer && controlledNavigation) continue;
     if (c.observer) {
-      const front = s.units.filter(
-        (v) =>
-          v !== u && v.side === u.side && isCombatant(v) && !CARDS[v.id].air,
-      );
-      const frontX = front.length
-        ? dir === 1
-          ? Math.max(...front.map((v) => v.x))
-          : Math.min(...front.map((v) => v.x))
-        : dir === 1
+      // Observers are air units, so the front line (ground combatants only)
+      // never includes u itself; frontX is exact for this query.
+      const frontX = s.frontX
+        ? s.frontX[u.side]
+        : u.side === 0
           ? 650
           : W - 650;
       const goal = Math.max(250, Math.min(W - 250, frontX + dir * 180));
@@ -5772,25 +5841,30 @@ export function tick(s: GameState, dt: number) {
     const focusUid = c.members
       ? squadFocus(s, u.side, u.squad, s.time)
       : undefined;
-    const candidates = s.units
-      .filter(
-        (v) =>
-          v.side !== u.side &&
-          isCombatant(v) &&
-          visibleToSide(s, u.side, v) &&
-          (!CARDS[v.id].air || c.antiAir || rifleRotorTarget(u, v)) &&
-          (!c.airOnly || CARDS[v.id].air) &&
-          (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
-          (!c.patrolTime || !u.patrolExiting) &&
-          (!c.sortie ||
-            (v.x - u.x) * (c.patrolTime ? u.facing : dir) >
-              muzzleOffset(u) + 8) &&
-          (c.attackRun !== 'strafe' ||
-            (v.x - u.x) * dir > muzzleOffset(u) + 16) &&
-          Math.abs(v.x - u.x) <= range &&
-          Math.abs(v.x - u.x) >= (c.minRange ?? 0),
+    // Spatial pre-filter: only nearby cells are scanned, then the exact
+    // predicate below (including the precise distance checks) is applied.
+    nearUnits(s, u.x, range, candNearScratch);
+    candOutScratch.length = 0;
+    for (const v of candNearScratch) {
+      if (
+        v.side !== u.side &&
+        isCombatant(v) &&
+        visibleToSide(s, u.side, v) &&
+        (!CARDS[v.id].air || c.antiAir || rifleRotorTarget(u, v)) &&
+        (!c.airOnly || CARDS[v.id].air) &&
+        (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
+        (!c.patrolTime || !u.patrolExiting) &&
+        (!c.sortie ||
+          (v.x - u.x) * (c.patrolTime ? u.facing : dir) >
+            muzzleOffset(u) + 8) &&
+        (c.attackRun !== 'strafe' ||
+          (v.x - u.x) * dir > muzzleOffset(u) + 16) &&
+        Math.abs(v.x - u.x) <= range &&
+        Math.abs(v.x - u.x) >= (c.minRange ?? 0)
       )
-      .sort(
+        candOutScratch.push(v);
+    }
+    const candidates = candOutScratch.sort(
         (a, b) =>
           Number(b.uid === focusUid) - Number(a.uid === focusUid) ||
           ((c.attackRun === 'strafe' ||
@@ -5810,16 +5884,16 @@ export function tick(s: GameState, dt: number) {
         y: candidates[0].y,
         until: s.time + 3,
       };
+    const contactUnit =
+      c.members && u.contactAir ? unitByUid(s, u.contactUid) : undefined;
     const airContact =
-      c.members && u.contactAir
-        ? s.units.find(
-            (v) =>
-              v.uid === u.contactUid &&
-              isCombatant(v) &&
-              sustainedAirThreat(v) &&
-              visibleToSide(s, u.side, v) &&
-              Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 40),
-          )
+      contactUnit &&
+      isCombatant(contactUnit) &&
+      sustainedAirThreat(contactUnit) &&
+      visibleToSide(s, u.side, contactUnit) &&
+      Math.abs(contactUnit.x - u.x) <=
+        Math.min(560, unitRange(s, contactUnit) + 40)
+        ? contactUnit
         : undefined;
     // Unarmed-for-air infantry takes cover, while actual AA retains its own target selection.
     // Observers hold their useful sight line instead of marching into rifle range.
@@ -5828,7 +5902,7 @@ export function tick(s: GameState, dt: number) {
       (u.id === 'scouts' &&
         order !== 'rush' &&
         !candidates.length &&
-        s.units.some(
+        nearUnits(s, u.x, 600, []).some(
           (v) =>
             v.side !== u.side &&
             isCombatant(v) &&
@@ -5868,9 +5942,7 @@ export function tick(s: GameState, dt: number) {
       Math.abs(target.x - u.x) <= 140
     ) {
       s.smokes.push({ x: u.x, life: 4, side: u.side });
-      for (const mate of s.units.filter(
-        (v) => v.side === u.side && v.squad === u.squad,
-      )) {
+      for (const mate of squadMates(s, u.side, u.squad)) {
         mate.smokeAssaultSpent = true;
         if (isCombatant(mate) && Math.abs(mate.x - u.x) <= 96)
           mate.assaultBurstUntil = s.time + 4;
@@ -5888,7 +5960,7 @@ export function tick(s: GameState, dt: number) {
         !CARDS[target.id].air &&
         Math.abs(target.x - u.x) <= 220
       ) {
-        const cluster = s.units.filter(
+        const cluster = nearUnits(s, target.x, 150, []).filter(
           (v) =>
             v.side !== u.side &&
             isCombatant(v) &&
@@ -5965,7 +6037,7 @@ export function tick(s: GameState, dt: number) {
         (c.emplacement === 'howitzer' || u.id === 'tow_ifv') &&
         (target || baseInRange || counterBattery)
       )
-        ? s.units.find(
+        ? nearUnits(s, u.x, c.minRange!, []).find(
             (v) =>
               v.side !== u.side &&
               isCombatant(v) &&
@@ -5984,7 +6056,7 @@ export function tick(s: GameState, dt: number) {
     const withdrawalThreat = withdrawing
       ? ((target && tacticalReach(s, target, u, 36) ? target : undefined) ??
         airContact ??
-        s.units
+        nearUnits(s, u.x, 640, [])
           .filter(
             (v) =>
               v.side !== u.side &&
