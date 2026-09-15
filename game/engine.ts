@@ -288,6 +288,10 @@ export interface Unit {
   flinchUntil?: number;
   /** Whether the flinch goes prone (close) or just crouches (far). */
   flinchProne?: boolean;
+  /** Distant blast awareness: holding infantry glance toward the impact. */
+  blastGlanceUntil?: number;
+  /** Sprite-flip direction toward the blast that triggered the glance. */
+  blastGlanceDir?: 1 | -1;
   /** Near-miss rounds crack overhead: soldier ducks for a beat. */
   duckUntil?: number;
   /** Recon-by-fire throttle: next time this soldier may probe a last-known contact. */
@@ -1919,6 +1923,22 @@ export function explode(
     u.flinchProne = dist < inner * 1.35;
     u.decisionIn = Math.max(u.decisionIn, 0.3);
     u.lastThreat = { x, y, until: s.time + 2 };
+  }
+  // Distant blasts draw the eye: infantry well outside the flinch band snap
+  // their gaze toward the impact for a beat, so the whole line reacts to
+  // artillery instead of only the men caught in the open. Both sides glance —
+  // the flash and dust column read across the battlefield — and the reaction
+  // is animation-only (a sprite-flip hint consumed by the idle pose layer),
+  // never a change to facing, vision or AI state.
+  const glanceInner = (radius + 12) * 2.1;
+  const awareness = Math.min(800, Math.max(280, (radius + 12) * 4.5));
+  for (const u of s.units) {
+    if (!CARDS[u.id].members || u.wounded || u.surrendered || u.hp <= 0)
+      continue;
+    const dist = Math.hypot(u.x - x, u.y - 20 - y);
+    if (dist <= glanceInner || dist > awareness) continue;
+    u.blastGlanceUntil = s.time + 0.85;
+    u.blastGlanceDir = (u.x >= x ? -1 : 1) as 1 | -1;
   }
   for (const target of [0, 1] as Side[]) {
     if (target === side) continue;

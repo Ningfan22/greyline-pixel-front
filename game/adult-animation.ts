@@ -106,13 +106,42 @@ export function sectorScanChoice(
 }
 
 /**
+ * Blast glance: a distant explosion snags a holding soldier's attention —
+ * they snap to the alert stance and look toward the impact for a beat. Like
+ * the sector scan this is animation-only: the returned `dir` flips the sprite
+ * while the unit's real facing (muzzle direction, movement) is untouched, and
+ * the omni-directional sight system means the glance never changes what the
+ * soldier can see. Takes priority over the routine sector scan because a
+ * fresh blast is far more salient than a scheduled sweep.
+ */
+export function blastGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.blastGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  return { ...action(0), dir: u.blastGlanceDir ?? 1 };
+}
+
+/**
  * Composed idle pose for the renderer: a structured sector scan takes
  * precedence over the random idle micro-motion, so the two never fight over
- * the same frame. Returns null when the soldier should hold the default
- * patrol idle frame.
+ * the same frame. A fresh blast glance outranks both — an explosion always
+ * interrupts a routine scan. Returns null when the soldier should hold the
+ * default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
-  return sectorScanChoice(u, time) ?? idleMicroChoice(u, time);
+  return (
+    blastGlanceChoice(u, time) ??
+    sectorScanChoice(u, time) ??
+    idleMicroChoice(u, time)
+  );
 }
 
 /** Every living, casualty and surrender state uses the same adult anatomy. */
