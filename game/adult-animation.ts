@@ -297,6 +297,23 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.pose === 'idle' || u.pose === 'walk')
   )
     return action(Math.floor((u.ackUntil - time) * 7) % 2 ? 8 : 0);
+  // v81: dry-ammo battle drill. While a magazine is being passed both
+  // soldiers huddle over the weapon for a beat; the dry man otherwise
+  // waves an arm overhead and checks his mag well so the squad can see
+  // who is out. Only upright soldiers signal — a pinned rifleman stays
+  // low and waits for a lull in the fire.
+  if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone') return action(13);
+  if (
+    (u.ammoSignalUntil ?? 0) > time &&
+    !u.moving &&
+    u.fire <= 0 &&
+    (u.aimUntil ?? 0) <= time &&
+    (u.reloadingUntil ?? 0) <= time &&
+    (u.pose === 'idle' || u.pose === 'walk')
+  ) {
+    const t = u.ammoSignalUntil - time;
+    return Math.floor((1.4 - t) * 2.2) % 2 ? action(8) : action(13);
+  }
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);

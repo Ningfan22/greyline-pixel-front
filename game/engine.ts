@@ -211,6 +211,16 @@ export interface Unit {
   /** Rounds left in the current magazine. 0 = dry, -1 = no magazine management. */
   ammo?: number;
   ammoReserve?: number;
+  /** Animation-only: dry soldier is signalling for ammunition (wave / work weapon). */
+  ammoSignalUntil?: number;
+  /** Throttle for re-raising the ammo signal once the previous window closes. */
+  ammoSignalAt?: number;
+  /** Uid of the buddy with spare ammo the dry soldier is walking to. */
+  ammoBuddyUid?: number;
+  /** Throttle for the donor search so a dry squad doesn't scan every tick. */
+  ammoSearchAt?: number;
+  /** Animation-only: soldier is passing / receiving a magazine with a buddy. */
+  ammoShareUntil?: number;
   observingUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
@@ -5712,6 +5722,7 @@ const tacticNearScratch: Unit[] = [];
 const tacticOutScratch: Unit[] = [];
 const coverNearScratch: Unit[] = [];
 const scanNearScratch: Unit[] = [];
+const ammoNearScratch: Unit[] = [];
 
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
@@ -6934,6 +6945,79 @@ export function tick(s: GameState, dt: number) {
     );
     const escortTravel = escorting && Math.abs(u.escortGoal! - u.x) > 8;
     const escortAhead = escorting && (u.x - u.escortGoal!) * dir > 12;
+    // v81: dry-ammo battle drill. A soldier who has burned through every
+    // magazine does not just stand silent: he waves for ammunition, then
+    // walks to the nearest buddy with a deep reserve while the fire
+    // situation allows, takes a mag, and gets back in the fight. Donors
+    // only give up half their reserve so the squad never strips one man
+    // to feed another. The search is throttled and the walk gated on
+    // suppression / close threats, so under contact the squad keeps
+    // whatever fire it has instead of staging a bullet handoff in the open.
+    let ammoGoalX: number | null = null;
+    const magSpec = magazine(u.id, u.member);
+    const dryAmmo =
+      !!magSpec &&
+      u.ammo === 0 &&
+      (u.ammoReserve ?? 0) === 0 &&
+      (u.reloadingUntil ?? 0) <= s.time;
+    if (dryAmmo && !u.wounded && !u.surrendered) {
+      if (s.time >= (u.ammoSignalAt ?? 0)) {
+        u.ammoSignalUntil = s.time + 1.4;
+        u.ammoSignalAt = s.time + 6.0;
+      }
+      if (s.time >= (u.ammoSearchAt ?? 0)) {
+        u.ammoSearchAt = s.time + 0.6;
+        let bestBuddy: Unit | undefined;
+        let bestDist = Infinity;
+        for (const v of nearUnits(s, u.x, 120, ammoNearScratch)) {
+          if (
+            v.side === u.side &&
+            v.hp > 0 &&
+            !v.wounded &&
+            !v.surrendered &&
+            v.ammo !== 0 &&
+            (v.ammoReserve ?? 0) >= 30 &&
+            magazine(v.id, v.member)
+          ) {
+            const d = Math.abs(v.x - u.x);
+            if (d < bestDist) {
+              bestDist = d;
+              bestBuddy = v;
+            }
+          }
+        }
+        u.ammoBuddyUid = bestBuddy ? bestBuddy.uid : undefined;
+      }
+      const buddy = unitByUid(s, u.ammoBuddyUid);
+      if (
+        buddy &&
+        buddy.hp > 0 &&
+        !buddy.wounded &&
+        (buddy.ammoReserve ?? 0) >= 30 &&
+        u.suppression < 55 &&
+        !closeThreat
+      ) {
+        const dist = Math.abs(buddy.x - u.x);
+        if (dist <= 26) {
+          const share = Math.min(
+            30,
+            Math.floor((buddy.ammoReserve ?? 0) / 2),
+          );
+          if (share > 0) {
+            buddy.ammoReserve = (buddy.ammoReserve ?? 0) - share;
+            u.ammoReserve = (u.ammoReserve ?? 0) + share;
+            u.reloadingUntil = s.time + magSpec.reload;
+            u.ammoShareUntil = s.time + 1.0;
+            buddy.ammoShareUntil = s.time + 1.0;
+            u.ammoBuddyUid = undefined;
+          }
+        } else {
+          ammoGoalX = buddy.x;
+        }
+      }
+    } else if (u.ammoBuddyUid !== undefined) {
+      u.ammoBuddyUid = undefined;
+    }
     const moveGoal = withdrawing
       ? u.withdrawGoal!
       : holdTravel
@@ -6944,7 +7028,11 @@ export function tick(s: GameState, dt: number) {
             ? escortTravel
               ? u.escortGoal!
               : null
-            : (u.coverGoal ?? u.firingGoal ?? u.dispersionGoal ?? null);
+            : (ammoGoalX ??
+              u.coverGoal ??
+              u.firingGoal ??
+              u.dispersionGoal ??
+              null);
     const seeking =
       !withdrawing &&
       (!!holdTravel || (moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5));
