@@ -271,10 +271,17 @@ function stubUnit(overrides = {}) {
 
 const action = (i) => ({ group: 'actions20', index: i });
 
-check('H. during a handoff both soldiers huddle over the weapon', () => {
-  const c = adultFrameChoice(stubUnit({ ammoShareUntil: 10 }), 3.0);
-  assert.deepEqual(c, action(13));
-  return c;
+check('H. during a handoff the giver extends the mag and the receiver hunches', () => {
+  // v86: the pair splits into a giver (arm extended) and a receiver
+  // (hunched over the mag well) instead of two identical hunches.
+  const giver = adultFrameChoice(stubUnit({ ammoShareUntil: 10 }), 3.0);
+  assert.deepEqual(giver, action(9));
+  const receiver = adultFrameChoice(
+    stubUnit({ ammoShareUntil: 10, reloadingUntil: 11 }),
+    3.0,
+  );
+  assert.deepEqual(receiver, action(13));
+  return { giver, receiver };
 });
 
 check('I. a prone soldier does not huddle — he stays on the deck', () => {
@@ -324,7 +331,7 @@ check('M. a live handoff outranks the wave — the share pose always wins', () =
   for (let t = 0; t < 9; t += 0.5) {
     assert.deepEqual(
       adultFrameChoice(u, t),
-      action(13),
+      action(9),
       `share pose must hold at t=${t}`,
     );
   }

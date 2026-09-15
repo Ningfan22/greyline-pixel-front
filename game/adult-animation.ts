@@ -297,16 +297,21 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.pose === 'idle' || u.pose === 'walk')
   )
     return action(Math.floor((u.ackUntil - time) * 7) % 2 ? 8 : 0);
-  // v81: dry-ammo battle drill. While a magazine is being passed both
-  // soldiers huddle over the weapon for a beat; the dry man otherwise
-  // waves an arm overhead and checks his mag well so the squad can see
-  // who is out. Only upright soldiers signal — a pinned rifleman stays
-  // low and waits for a lull in the fire.
-  if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone') return action(13);
-  // v83: looting a fallen comrade's weapon — the same huddled beat.
-  if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone') return action(13);
-  // v84: combat lifesaver kneeling over a casualty, working a tourniquet.
-  if ((u.firstAidUntil ?? 0) > time && u.pose !== 'prone') return action(13);
+  // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
+  // receiver only, so during the handoff the pair splits into a giver (arm
+  // extended with the magazine) and a receiver (hunched over the mag well)
+  // instead of two identical hunches. Only upright soldiers run the drill —
+  // a pinned rifleman stays low and waits for a lull in the fire.
+  if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
+    return (u.reloadingUntil ?? 0) > time ? action(13) : action(9);
+  // v83: looting a fallen comrade's kit — a knee-down rummage beat
+  // alternating with the huddled work beat so the search reads as active.
+  if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
+    return Math.floor(time * 2.5 + u.uid) % 2 ? action(1) : action(13);
+  // v84: combat lifesaver working a tourniquet — the medic kneel / low-crouch
+  // rhythm already used while tending, so the aid reads as skilled labour.
+  if ((u.firstAidUntil ?? 0) > time && u.pose !== 'prone')
+    return Math.floor(time * 2.5 + u.uid) % 2 ? action(17) : reaction(5);
   if (
     (u.ammoSignalUntil ?? 0) > time &&
     !u.moving &&
