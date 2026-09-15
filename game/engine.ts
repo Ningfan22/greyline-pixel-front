@@ -199,6 +199,12 @@ export interface Unit {
   injuryCooldown: number;
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
+  /**
+   * Last observed enemy position kept for probing fire. Unlike lastThreat this
+   * is never cleared by the morale/tactics pass, so a squad that lost sight of
+   * a contact can still walk suppressive bursts onto the spot.
+   */
+  reconMemory?: { x: number; y: number; until: number };
   aimUntil?: number;
   reloadingUntil?: number;
   observingUntil?: number;
@@ -280,6 +286,8 @@ export interface Unit {
   flinchProne?: boolean;
   /** Near-miss rounds crack overhead: soldier ducks for a beat. */
   duckUntil?: number;
+  /** Recon-by-fire throttle: next time this soldier may probe a last-known contact. */
+  reconFireNextAt?: number;
   decisionIn: number;
   tactic:
     | 'advance'
@@ -6295,6 +6303,12 @@ export function tick(s: GameState, dt: number) {
         y: candidates[0].y,
         until: s.time + 3,
       };
+    if (candidates[0])
+      u.reconMemory = {
+        x: candidates[0].x,
+        y: candidates[0].y,
+        until: s.time + 3,
+      };
     const contactUnit =
       c.members && u.contactAir ? unitByUid(s, u.contactUid) : undefined;
     const airContact =
@@ -6610,6 +6624,44 @@ export function tick(s: GameState, dt: number) {
       !target && order !== 'hold' && order !== 'rush'
         ? enemyCoverShot(s, u, candidates[0])
         : null;
+    // Recon by fire: infantry with a fresh contact but no visible target walk
+    // controlled bursts onto the last known enemy position. The rounds suppress
+    // anyone still near that spot and screen the squad's own movement.
+    let reconFire: { x: number; y: number } | null = null;
+    if (
+      c.members &&
+      !c.indirect &&
+      !c.airOnly &&
+      !c.armorOnly &&
+      !target &&
+      !coverShot &&
+      !baseInRange &&
+      !counterBattery &&
+      u.reconMemory &&
+      u.reconMemory.until > s.time &&
+      // Recon by fire is a stationary, probing tactic. A squad on the advance
+      // should regain contact through movement, not by walking bursts onto a
+      // remembered spot — the near-miss pressure feeds back into friendly
+      // dispersal and stalls the very maneuver the advance ordered.
+      infantryOrder(s, u) !== 'advance' &&
+      // A static watch post that loses sight should wait for the enemy to
+      // reappear, not probe a remembered spot — its near-miss suppression
+      // stalls the advancing squad's dispersal out of cover.
+      u.squadOrder !== 'watch' &&
+      s.time >= (u.reconFireNextAt ?? 0) &&
+      (u.suppression > 25 || (u.lastCombatShotAt ?? -100) > s.time - 6)
+    ) {
+      const lt = u.reconMemory;
+      const dist = Math.abs(lt.x - u.x);
+      if (
+        dist >= (c.minRange ?? 0) &&
+        dist <= range &&
+        (lt.x - u.x) * dir > 0 &&
+        firingHeight(s, u, lt.x, lt.y - 20) !== null
+      ) {
+        reconFire = { x: lt.x, y: lt.y };
+      }
+    }
     const blockedContact = !!(
       c.members &&
       !airContact &&
@@ -6775,7 +6827,7 @@ export function tick(s: GameState, dt: number) {
     if (
       (c.damage ?? 0) > 0 &&
       (!c.armorOnly || !!target) &&
-      (target || coverShot || baseInRange || counterBattery) &&
+      (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
       !displacing &&
       !closeThreat &&
@@ -6785,14 +6837,18 @@ export function tick(s: GameState, dt: number) {
       !retreating &&
       !breachRun
     ) {
-      let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : baseX;
+      let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : reconFire ? reconFire.x : baseX;
       let ty = target
         ? target.y - bodyHeight(target)
         : coverShot
           ? coverShot.y
           : counterBattery
             ? ground(s, counterBattery.x) - 8
-            : ground(s, baseX) - 25;
+            : reconFire
+              ? reconFire.y - 20
+              : ground(s, baseX) - 25;
+      // Memory-based aim: walk the burst around the last known position.
+      if (reconFire) tx += (fxRnd(s) - 0.5) * 80;
       if (target && c.antiAir && !c.guided && CARDS[target.id].air) {
         const speed = FLIGHT[ammunition(u.id, u.member)].speed;
         const travel = Math.min(1, Math.hypot(tx - u.x, ty - u.y) / speed);
@@ -7014,7 +7070,7 @@ export function tick(s: GameState, dt: number) {
             ty,
             side: u.side,
             targetUid: target?.uid ?? null,
-            base: target || coverShot ? null : enemySide,
+            base: target || coverShot || reconFire ? null : enemySide,
             damage:
               ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               openingDamage *
@@ -7070,6 +7126,15 @@ export function tick(s: GameState, dt: number) {
             startX: sx,
             startY: sy,
           });
+          // Recon-by-fire rounds need explicit lanes so suppressNearMiss can
+          // project their pressure through depth (aimProjectileDepth only
+          // assigns lanes when a concrete target unit exists).
+          if (reconFire) {
+            const proj = s.projectiles[s.projectiles.length - 1];
+            proj.startLane = u.lane;
+            proj.targetLane = u.lane;
+            u.reconFireNextAt = s.time + 2.2 + (u.uid % 4) * 0.3;
+          }
           if (c.oneWay) {
             u.hp = 0;
             u.deadFor = 0;
