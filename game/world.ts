@@ -529,7 +529,15 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
       (s.night ? 0.45 : 1);
     const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
     if (distance > range) return false;
-    const eye = u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48);
+    const eye =
+      u.y -
+      (CARDS[u.id].air
+        ? 20
+        : u.pose === 'prone'
+          ? 12
+          : u.pose === 'hunker'
+            ? 20
+            : 48);
     if (distance > range - observationPenalty(s, u.x, eye, x, y, range))
       return false;
     return clearSight(
@@ -572,7 +580,12 @@ export function refreshVision(s: GameState) {
       .filter(
         (u) =>
           u.side === side ||
-          pointVisible(s, side, u.x, u.y - (u.pose === 'prone' ? 8 : 28)) ||
+          pointVisible(
+            s,
+            side,
+            u.x,
+            u.y - (u.pose === 'prone' ? 8 : u.pose === 'hunker' ? 16 : 28),
+          ) ||
           // Night: a muzzle flash betrays the shooter to anyone nearby.
           (s.night &&
             (u.flashUntil ?? 0) > s.time &&

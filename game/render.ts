@@ -807,7 +807,13 @@ export function render(
     }
     const by =
         u.y -
-        (u.pose === 'prone' ? 22 : u.pose === 'crouch' ? 47 : h) +
+        (u.pose === 'prone'
+          ? 22
+          : u.pose === 'hunker'
+            ? 34
+            : u.pose === 'crouch'
+              ? 47
+              : h) +
         infantryDepth(u.lane) -
         3,
       bw = c.members ? 18 : 42;

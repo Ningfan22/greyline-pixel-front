@@ -75,7 +75,7 @@ export function coverProp(uid: number, cover: number): CoverBlock[] {
 const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
 const easeInCubic = (t: number) => t * t * t;
 
-const isLow = (p: Pose) => p === 'crouch' || p === 'prone';
+const isLow = (p: Pose) => p === 'crouch' || p === 'hunker' || p === 'prone';
 const isHigh = (p: Pose) => p === 'idle' || p === 'walk' || p === 'run';
 
 /**

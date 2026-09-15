@@ -280,6 +280,7 @@ export interface Unit {
     | 'run'
     | 'climb'
     | 'crouch'
+    | 'hunker'
     | 'prone'
     | 'jump'
     | 'land';
@@ -1517,7 +1518,14 @@ function hitUnit(
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
-  const protection = u.pose === 'prone' ? 0.7 : u.pose === 'crouch' ? 0.85 : 1;
+  const protection =
+    u.pose === 'prone'
+      ? 0.7
+      : u.pose === 'hunker'
+        ? 0.8
+        : u.pose === 'crouch'
+          ? 0.85
+          : 1;
   const actual =
     source === 'gas'
       ? damage
@@ -1940,7 +1948,13 @@ function retreatingFriendlyHit(
     )
       continue;
     const height =
-      u.wounded || u.pose === 'prone' ? 14 : u.pose === 'crouch' ? 32 : 56;
+      u.wounded || u.pose === 'prone'
+        ? 14
+        : u.pose === 'crouch'
+          ? 32
+          : u.pose === 'hunker'
+            ? 26
+            : 56;
     let near = 0,
       far = 1;
     for (const [start, delta, min, max] of [
@@ -2026,7 +2040,9 @@ export function muzzleHeight(u: MuzzleBody) {
             ? 9
             : u.pose === 'crouch' || u.pose === 'land'
               ? 28
-              : 47;
+              : u.pose === 'hunker'
+                ? 24
+                : 47;
 }
 export function muzzlePoint(
   u: MuzzleBody,
@@ -2053,7 +2069,9 @@ function bodyHeight(
     ? 7
     : u.pose === 'crouch' || u.pose === 'land'
       ? 18
-      : 27;
+      : u.pose === 'hunker'
+        ? 15
+        : 27;
 }
 export function unitRange(s: GameState, u: Unit) {
   return (
@@ -5757,7 +5775,8 @@ export function tick(s: GameState, dt: number) {
       u.cover = 0;
       u.coverGoal = null;
       u.suppression = Math.max(u.suppression, 55);
-      u.pose = u.suppression > 78 ? 'prone' : 'crouch';
+      u.pose =
+        u.suppression > 78 ? 'prone' : u.suppression > 55 ? 'hunker' : 'crouch';
       u.facing = -dir;
       moveSoldier(
         s,
@@ -5766,7 +5785,8 @@ export function tick(s: GameState, dt: number) {
         c.speed! * u.pace * 0.38 * (morale ? 1.2 : 1),
         dt,
       );
-      if (!u.moving && u.motion === 'ground') u.pose = 'crouch';
+      if (!u.moving && u.motion === 'ground')
+        u.pose = u.suppression > 55 ? 'hunker' : 'crouch';
       continue;
     }
     if (c.members && u.tactic === 'retreat' && !orderedWithdrawal(s, u)) {
@@ -6309,7 +6329,9 @@ export function tick(s: GameState, dt: number) {
           ? 'idle'
           : u.tactic === 'prone' || order === 'prone'
             ? 'prone'
-            : 'crouch';
+            : u.suppression > 55
+              ? 'hunker'
+              : 'crouch';
     }
     if (airContact && !c.antiAir && !seeking && order !== 'rush')
       u.pose = 'prone';

@@ -120,6 +120,15 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     if (reloading) return action(13);
     return action(1);
   }
+  if (u.pose === 'hunker') {
+    if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
+    // Pinned behind cover: head down, stealing a brief glance over the rim
+    // every few seconds to check whether the coast is clear. The phase is
+    // offset by uid so a whole squad doesn't peek in unison.
+    const glance = (time + u.uid * 5.17) % 6.5;
+    if (glance < 0.5) return action(1);
+    return reaction(5);
+  }
   if (u.moving)
     return u.pose === 'run' || u.tactic === 'retreat'
       ? action(16 + cycle(u.walk / 2, 4))
@@ -133,7 +142,7 @@ export function adultWreckChoice(
   pose?: Unit['pose'],
 ): AdultFrameChoice {
   if (pose === 'prone') return action(15);
-  if (pose === 'crouch' || pose === 'land')
+  if (pose === 'crouch' || pose === 'hunker' || pose === 'land')
     return age < 0.45
       ? reaction(5 + Math.min(2, Math.floor(age * 6)))
       : action(15);

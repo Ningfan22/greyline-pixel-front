@@ -53,6 +53,8 @@ export function depthHit(p: Projectile, u: Unit, x = u.x) {
       ? 14
       : u.pose === 'prone'
         ? 3.2
+        : u.pose === 'hunker'
+          ? 3.6
         : u.pose === 'crouch'
           ? 4
           : 5;
@@ -116,7 +118,14 @@ export function suppressNearMiss(
     )
       continue;
     const chest =
-      u.y - (u.pose === 'prone' ? 9 : u.pose === 'crouch' ? 22 : 36);
+      u.y -
+      (u.pose === 'prone'
+        ? 9
+        : u.pose === 'hunker'
+          ? 16
+          : u.pose === 'crouch'
+            ? 22
+            : 36);
     const t = Math.max(
       0,
       Math.min(1, ((u.x - sx) * dx + (chest - sy) * dy) / length2),
