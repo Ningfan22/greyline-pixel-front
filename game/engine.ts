@@ -484,6 +484,13 @@ export interface Scorch {
   radius: number;
   seed: number;
 }
+export interface TreadMark {
+  x: number;
+  y: number; // ground height at creation time
+  half: number; // vehicle half-width, drives track spacing
+  seed: number;
+  born: number; // s.time when the mark was laid
+}
 export interface Notice {
   audience?: Side[];
   text: string;
@@ -564,6 +571,7 @@ export interface GameState {
   batteryReports: BatteryReport[];
   blasts: Blast[];
   scorches: Scorch[];
+  treads: TreadMark[];
   notices: Notice[];
   result: Side | 'draw' | null;
   aiIn: number;
@@ -675,6 +683,7 @@ export function createGame(
     batteryReports: [],
     blasts: [],
     scorches: [],
+    treads: [],
     notices: [],
     result: null,
     aiIn: 1.1,
@@ -7318,6 +7327,16 @@ export function tick(s: GameState, dt: number) {
           if (u.stepDust >= 12) {
             u.stepDust = 0;
             vehicleDust(s, u);
+            // Persistent tread marks record the vehicle's path long after
+            // the transient dust has settled.
+            s.treads.push({
+              x: u.x,
+              y: ground(s, u.x),
+              half: armorHalf(u.id),
+              seed: (s.fxSeed ^ Math.imul(Math.floor(u.x), 2654435761)) >>> 0,
+              born: s.time,
+            });
+            s.treads = s.treads.slice(-90);
           }
         }
       }

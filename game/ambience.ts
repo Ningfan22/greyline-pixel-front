@@ -1,4 +1,4 @@
-import { CARDS, W, ground, type GameState, type Scorch } from './engine';
+import { CARDS, W, ground, type GameState, type Scorch, type TreadMark } from './engine';
 
 /** Deterministic hash → [0,1) */
 function hash(n: number): number {
@@ -242,6 +242,79 @@ export function drawScorches(
   for (const sc of s.scorches) {
     if (sc.x < camera - 80 || sc.x > camera + viewportWidth + 80) continue;
     drawScorch(ctx, sc, ground(s, sc.x));
+  }
+}
+
+// ── Vehicle tread marks ──────────────────────────────────
+
+const TREAD_LIFETIME = 40; // seconds before a mark fully fades
+
+function drawTread(
+  ctx: CanvasRenderingContext2D,
+  t: TreadMark,
+  gy: number,
+  age: number,
+) {
+  const fade = Math.max(0, 1 - age / TREAD_LIFETIME);
+  if (fade <= 0) return;
+  let seed = t.seed;
+  const rnd = () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const spacing = t.half * 0.88; // track centres sit just inside the hull edge
+  const bandW = 7; // track width, px
+  const bandL = 15; // mark length along the direction of travel
+  ctx.save();
+  for (const side of [-1, 1]) {
+    const bx = t.x + side * spacing;
+    // Compressed earth band
+    ctx.fillStyle = '#241f19';
+    ctx.globalAlpha = 0.3 * fade;
+    ctx.fillRect(
+      Math.round(bx - bandL / 2),
+      Math.round(gy - bandW / 2),
+      bandL,
+      bandW,
+    );
+    // Slight ridge at the leading edge
+    ctx.fillStyle = '#3a322a';
+    ctx.globalAlpha = 0.18 * fade;
+    ctx.fillRect(
+      Math.round(bx - bandL / 2),
+      Math.round(gy - bandW / 2 - 1),
+      bandL,
+      1,
+    );
+    // Texture flecks
+    ctx.fillStyle = '#1a1612';
+    ctx.globalAlpha = 0.22 * fade;
+    const flecks = 3 + Math.floor(rnd() * 3);
+    for (let i = 0; i < flecks; i++) {
+      ctx.fillRect(
+        Math.round(bx - bandL / 2 + rnd() * bandL),
+        Math.round(gy - bandW / 2 + rnd() * bandW),
+        2,
+        1,
+      );
+    }
+  }
+  ctx.restore();
+}
+
+/** Persistent vehicle tread marks drawn on the ground, under units and props. */
+export function drawTreads(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  for (const t of s.treads) {
+    if (t.x < camera - 80 || t.x > camera + viewportWidth + 80) continue;
+    const age = now - t.born;
+    if (age >= TREAD_LIFETIME) continue;
+    drawTread(ctx, t, t.y, age);
   }
 }
 
