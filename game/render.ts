@@ -21,7 +21,7 @@ import {
 import {
   adultIdentity,
   adultFrameChoice,
-  idleMicroChoice,
+  idlePoseChoice,
   adultWreckChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
@@ -570,6 +570,7 @@ export function render(
     // occasionally cut to an alert or crouch-glance pose so held positions
     // stay alive. Only applies when the soldier is truly idle (not walking,
     // firing, aiming, reloading, digging, or dragging).
+    let microDir: 1 | -1 | undefined;
     const idleMicro =
       patrol &&
       !u.moving &&
@@ -577,7 +578,8 @@ export function render(
       (u.aimUntil ?? 0) <= s.time &&
       adult
         ? (() => {
-            const micro = idleMicroChoice(u, s.time);
+            const micro = idlePoseChoice(u, s.time);
+            microDir = micro?.dir;
             return micro ? adult[micro.group][micro.index] : null;
           })()
         : null;
@@ -680,7 +682,7 @@ export function render(
         groundInset * Math.cos(u.hullAngle),
       c.members ? img.width : w,
       c.members ? img.height : h,
-      c.members || c.air ? u.facing < 0 : u.side === 1,
+      c.members || c.air ? (microDir ?? u.facing) < 0 : u.side === 1,
       alpha,
       c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
     );

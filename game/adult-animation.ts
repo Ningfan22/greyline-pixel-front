@@ -10,6 +10,12 @@ export interface AdultSprites {
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
   index: number;
+  /**
+   * Visual facing override for the renderer's sprite flip. Sector scans set
+   * this so the soldier visibly glances toward a flank without touching the
+   * unit's real facing, which keeps driving muzzle direction and movement.
+   */
+  dir?: 1 | -1;
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -58,6 +64,55 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
   const crouchPhase = (time + u.uid * 13.7) % 27;
   if (crouchPhase < 2.2) return action(1);
   return null;
+}
+
+/**
+ * Sector scan: a soldier holding a position works through a structured scan
+ * cycle — alert check to the front, take a knee and glance over the shoulder
+ * toward the covered flank, then rise back to the alert stance. The scan is
+ * animation-only: the returned `dir` overrides the sprite flip in the
+ * renderer while the unit's real facing (muzzle direction, movement) is
+ * untouched, and the omni-directional sight system means the scan never
+ * changes what the soldier can actually see. Pure O(1) arithmetic; the phase
+ * is offset by uid so a squad's scans interleave instead of rippling in
+ * sync, and the period stretches slightly with uid so neighbours drift out
+ * of phase over time.
+ */
+export function sectorScanChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  // Scanning is a deliberate hold behaviour: only from a standing idle pose.
+  // Crouch/prone/hunker poses have their own glance cycles.
+  if (u.pose !== 'idle') return null;
+  // 23 s + up to ~8.5 s, so a six-man squad never locks into a shared rhythm.
+  const period = 23 + (u.uid % 6) * 1.7;
+  const phase = (time + u.uid * 5.77) % period;
+  if (phase >= 3.0) return null;
+  const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
+  const rear = (front * -1) as 1 | -1;
+  // Beat 1 (0.0–0.9 s): alert stance, eyes front.
+  if (phase < 0.9) return { ...action(0), dir: front };
+  // Beat 2 (0.9–2.0 s): take a knee and check the covered flank/rear.
+  if (phase < 2.0) return { ...action(1), dir: rear };
+  // Beat 3 (2.0–3.0 s): rise back to the alert stance, eyes front.
+  return { ...action(0), dir: front };
+}
+
+/**
+ * Composed idle pose for the renderer: a structured sector scan takes
+ * precedence over the random idle micro-motion, so the two never fight over
+ * the same frame. Returns null when the soldier should hold the default
+ * patrol idle frame.
+ */
+export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
+  return sectorScanChoice(u, time) ?? idleMicroChoice(u, time);
 }
 
 /** Every living, casualty and surrender state uses the same adult anatomy. */
