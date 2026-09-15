@@ -145,6 +145,17 @@ export function suppressNearMiss(
     );
     u.lastThreat = { x: p.startX, y: p.startY, until: s.time + 2 };
     if (u.suppression > 22) u.decisionIn = 0;
+    // Rounds cracking within arm's reach make the soldier duck instinctively.
+    // Sustained fire keeps refreshing the window — heads stay down until the
+    // fire lets up, then pop back up a third of a second later.
+    if (
+      Math.hypot(u.x - x, chest - y) < 14 &&
+      (u.pose === 'idle' ||
+        u.pose === 'walk' ||
+        u.pose === 'run' ||
+        u.pose === 'crouch')
+    )
+      u.duckUntil = s.time + 0.35;
     // Rounds cracking overhead kick up dust where they pass, making the
     // suppressing fire visible on the ground below the bullet's path.
     const gx = Math.max(0, Math.min(s.terrain.length - 1, Math.floor(x)));

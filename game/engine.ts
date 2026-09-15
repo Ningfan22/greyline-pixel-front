@@ -278,6 +278,8 @@ export interface Unit {
   flinchUntil?: number;
   /** Whether the flinch goes prone (close) or just crouches (far). */
   flinchProne?: boolean;
+  /** Near-miss rounds crack overhead: soldier ducks for a beat. */
+  duckUntil?: number;
   decisionIn: number;
   tactic:
     | 'advance'
@@ -7209,6 +7211,16 @@ export function tick(s: GameState, dt: number) {
         }
       }
     }
+    // Rounds cracking past the soldier's head drop them into a crouch for a
+    // beat — they keep shooting and moving, just lower to the ground.
+    if (
+      c.members &&
+      (u.duckUntil ?? 0) > s.time &&
+      u.motion === 'ground' &&
+      u.climbing <= 0 &&
+      (u.pose === 'idle' || u.pose === 'walk' || u.pose === 'run')
+    )
+      u.pose = 'crouch';
     if (
       worksite?.pending &&
       worksite.digTurn &&
