@@ -154,6 +154,7 @@ export interface Unit {
   squad: number;
   moving: boolean;
   fire: number;
+  flashUntil?: number;
   heat?: number;
   heatAt?: number;
   deadFor: number;
@@ -476,6 +477,7 @@ export interface GameState {
   comeback?: ComebackState;
   entrenchments?: Entrenchment[];
   mapId: MapId;
+  night: boolean;
   scenery: Scenery[];
   wrecks: Wreck[];
   mines: Mine[];
@@ -581,6 +583,7 @@ export function createGame(
   });
   const s: GameState = {
     mapId: layout.id,
+    night: options.night ?? false,
     scenery: createScenery(original, layout.scenerySites),
     wrecks: [],
     mines: [],
@@ -3371,6 +3374,7 @@ function fireCoax(s: GameState, u: Unit) {
     target.x - sx,
   );
   muzzleParticles(s, u, 'machinegun', sx, sy, true);
+  if (s.night) u.flashUntil = s.time + 0.9;
   u.secondaryCooldown = personal
     ? 1.4
     : u.secondaryShots % 4 === 0
@@ -4798,6 +4802,7 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
       }
       u.muzzleX = point.x;
       u.muzzleY = point.y;
+      if (s.night) u.flashUntil = s.time + 0.9;
       u.shotAngle = Math.atan2(former.y - 27 - point.y, former.x - point.x);
       u.aimUntil = s.time + 1;
       u.lastAmmo = 'rifle';
@@ -6275,6 +6280,7 @@ export function tick(s: GameState, dt: number) {
           u.muzzleY = sy;
           u.shotAngle = Math.atan2(ty - sy - 4 * flight.arc, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
+          if (s.night) u.flashUntil = s.time + 0.9;
           // Indirect guns cannot hide: every shell gives the enemy's sound
           // rangers a fix on the battery (aircraft sorties are excluded —
           // their launch points are off-board or already obvious).
@@ -6961,6 +6967,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
     status: s.status,
     time: s.time,
     result: s.result,
+    night: s.night,
     players: s.players.map((p, i) => ({
       side: i,
       order: p.order,

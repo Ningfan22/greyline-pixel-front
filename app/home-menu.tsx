@@ -172,6 +172,8 @@ export default function HomeMenu({
   deckCount,
   mapId,
   onMapChange,
+  night,
+  onNightChange,
   onNavigate,
   onStart,
   difficulty,
@@ -185,6 +187,8 @@ export default function HomeMenu({
   deckCount: number;
   mapId: MapId;
   onMapChange: (id: MapId) => void;
+  night: boolean;
+  onNightChange: (value: boolean) => void;
   onNavigate: (page: LobbyPage) => void;
   onStart: () => void;
   difficulty: Difficulty;
@@ -228,6 +232,21 @@ export default function HomeMenu({
         </nav>
         {page !== 'campaign' && (
           <MapSelector value={mapId} onChange={onMapChange} disabled={!ready} />
+        )}
+        {page !== 'campaign' && (
+          <button
+            type="button"
+            className={styles.difficultyLink}
+            disabled={!ready}
+            aria-pressed={night}
+            onClick={() => onNightChange(!night)}
+            title="夜间战场：视野大幅缩减，开火会暴露枪口焰"
+          >
+            时段 · {night ? '夜间' : '昼间'}
+            <small>
+              {night ? '黑暗中只有火光与照明弹能揭示敌人' : '切换到夜战'}
+            </small>
+          </button>
         )}
         <button
           type="button"

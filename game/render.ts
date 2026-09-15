@@ -143,6 +143,72 @@ function drawMapBackground(
   }
 }
 
+// Night battles are draped in a translucent dark layer with radial holes
+// punched around every light source: flares, muzzle flashes, explosions,
+// bases and the soft glow around each friendly squad.
+const nightCanvas = document.createElement('canvas');
+const nightCtx = nightCanvas.getContext('2d')!;
+function drawNightOverlay(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  if (nightCanvas.width !== viewportWidth || nightCanvas.height !== H) {
+    nightCanvas.width = viewportWidth;
+    nightCanvas.height = H;
+  }
+  nightCtx.clearRect(0, 0, viewportWidth, H);
+  nightCtx.fillStyle = 'rgba(7, 9, 18, 0.86)';
+  nightCtx.fillRect(0, 0, viewportWidth, H);
+  nightCtx.globalCompositeOperation = 'destination-out';
+  const punch = (x: number, y: number, r: number, strength: number) => {
+    const sx = x - camera;
+    if (sx < -r || sx > viewportWidth + r) return;
+    const g = nightCtx.createRadialGradient(sx, y, 0, sx, y, r);
+    g.addColorStop(0, `rgba(0,0,0,${strength})`);
+    g.addColorStop(0.55, `rgba(0,0,0,${strength * 0.55})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    nightCtx.fillStyle = g;
+    nightCtx.beginPath();
+    nightCtx.arc(sx, y, r, 0, Math.PI * 2);
+    nightCtx.fill();
+  };
+  // Bases glow.
+  punch(70, ground(s, 70) - 40, 130, 0.9);
+  punch(W - 70, ground(s, W - 70) - 40, 130, 0.9);
+  // Flares are the primary night illuminators.
+  for (const f of s.flares) {
+    if (f.life <= 0) continue;
+    punch(f.x, f.y, 300, 0.95);
+  }
+  // Friendly squads carry a soft local light.
+  for (const u of s.units) {
+    if (u.side !== 0 || u.hp <= 0) continue;
+    punch(u.x, u.y - 24, 120, 0.55);
+  }
+  // Muzzle flashes briefly betray the shooter.
+  for (const u of s.units) {
+    if (u.hp <= 0 || (u.flashUntil ?? 0) <= s.time) continue;
+    if (u.side !== 0 && !visibleToSide(s, 0, u)) continue;
+    punch(u.muzzleX ?? u.x, (u.muzzleY ?? u.y) - 10, 80, 0.95);
+  }
+  // Explosions flash across the dark.
+  for (const b of s.blasts) {
+    if (b.age > 0.45) continue;
+    punch(b.x, b.y, 140, 0.9);
+  }
+  // Burning wrecks gutter with orange light.
+  for (const w of s.wrecks) {
+    const c = CARDS[w.cardId];
+    if (!c.armored && !c.vehicle) continue;
+    if (w.age > 40) continue;
+    punch(w.x, w.y - 14, 100, 0.8 * (1 - w.age / 40));
+  }
+  nightCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(nightCanvas, Math.round(camera), 0);
+}
+
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -928,5 +994,6 @@ export function render(
       ctx.stroke();
     }
   }
+  if (s.night) drawNightOverlay(ctx, s, camera, viewportWidth);
   ctx.restore();
 }

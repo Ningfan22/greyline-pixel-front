@@ -1,6 +1,7 @@
 export type Difficulty = 'standard' | 'veteran' | 'elite';
 export interface MatchOptions {
   difficulty?: Difficulty;
+  night?: boolean;
 }
 export type EconomyEffect = 'logistics' | 'capacity' | 'bonds';
 export const DEFAULT_DIFFICULTY: Difficulty = 'veteran';

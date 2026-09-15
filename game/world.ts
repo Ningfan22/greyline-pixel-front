@@ -523,7 +523,10 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
   return s.units.some((u) => {
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
       return false;
-    const range = sightRange(u) * (s.players[side].recon > 0 ? 1.15 : 1);
+    const range =
+      sightRange(u) *
+      (s.players[side].recon > 0 ? 1.15 : 1) *
+      (s.night ? 0.45 : 1);
     const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
     if (distance > range) return false;
     const eye = u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48);
@@ -569,7 +572,18 @@ export function refreshVision(s: GameState) {
       .filter(
         (u) =>
           u.side === side ||
-          pointVisible(s, side, u.x, u.y - (u.pose === 'prone' ? 8 : 28)),
+          pointVisible(s, side, u.x, u.y - (u.pose === 'prone' ? 8 : 28)) ||
+          // Night: a muzzle flash betrays the shooter to anyone nearby.
+          (s.night &&
+            (u.flashUntil ?? 0) > s.time &&
+            s.units.some(
+              (v) =>
+                v.side === side &&
+                v.hp > 0 &&
+                !v.wounded &&
+                !v.surrendered &&
+                Math.abs(v.x - u.x) <= 560,
+            )),
       )
       .map((u) => u.uid);
     for (let bin = 0; bin < 60; bin++) {

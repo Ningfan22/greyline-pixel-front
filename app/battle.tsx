@@ -114,6 +114,7 @@ export default function Battle({
   seed,
   mapId = DEFAULT_MAP,
   difficulty = DEFAULT_DIFFICULTY,
+  night = false,
   missionId,
   onMissionComplete,
   onNextMission,
@@ -124,6 +125,7 @@ export default function Battle({
   seed: number;
   mapId?: MapId;
   difficulty?: Difficulty;
+  night?: boolean;
   missionId?: MissionId;
   onMissionComplete?: (id: MissionId) => void;
   onNextMission?: () => void;
@@ -132,7 +134,7 @@ export default function Battle({
   const [initialGame] = useState(() =>
     missionId
       ? createCampaignGame(seed, playerDeck, missionId, difficulty)
-      : createGame(seed, playerDeck, aiDeck, mapId, { difficulty }),
+      : createGame(seed, playerDeck, aiDeck, mapId, { difficulty, night }),
   );
   const game = useRef<GameState>(initialGame);
   const [view, setView] = useState(() => snapshot(initialGame));
@@ -297,6 +299,7 @@ export default function Battle({
       ? createCampaignGame(nextSeed, playerDeck, missionId, difficulty)
       : createGame(nextSeed, playerDeck, chooseAiDeck(nextSeed), mapId, {
           difficulty,
+          night,
         });
     startGame(game.current);
     if (missionId) {
@@ -317,6 +320,7 @@ export default function Battle({
     playerDeck,
     mapId,
     difficulty,
+    night,
     missionId,
     interruptCardHold,
     selectSquad,
