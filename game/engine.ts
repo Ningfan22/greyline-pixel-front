@@ -4351,7 +4351,8 @@ function updateAI(s: GameState) {
         if (model === 'sniper' && hasSpotter) score += 5;
         // Overwatch: a halted sniper covering a massed infantry advance lets
         // those squads shed suppression faster under fire.
-        if (model === 'sniper' && foot.length >= 4) score += 2;
+        if (model === 'sniper' && !observerCard(c.id) && foot.length >= 4)
+          score += 2;
         // Spotter on the field makes precision howitzers and guided AT teams
         // significantly deadlier — the AI values them more accordingly.
         if (c.id === 'precision' && hasSpotter) score += 5;
@@ -5899,13 +5900,21 @@ export function tick(s: GameState, dt: number) {
       u.climbing <= 0 &&
       u.motion === 'ground'
     ) {
-      u.pose = u.flinchProne ? 'prone' : 'crouch';
-      u.moving = false;
-      u.coverGoal = null;
+      // A soldier already committed to a withdrawal keeps scrambling back
+      // under fire — the blast drops them low and stops their shooting, but
+      // it cannot freeze a retreat in place.
+      const pinned =
+        (u.withdrawUntil ?? 0) <= s.time || u.withdrawGoal === undefined;
+      u.pose = pinned && u.flinchProne ? 'prone' : 'crouch';
       u.fire = 0;
       u.secondaryFire = 0;
+      if (pinned) {
+        u.moving = false;
+        u.coverGoal = null;
+        u.walk = 0;
+        continue;
+      }
       u.walk = 0;
-      continue;
     }
     if (c.members && u.climbing > 0) {
       u.cover = 0;
