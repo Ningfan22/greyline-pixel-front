@@ -98,6 +98,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // never the hit-reaction fall frames.
   if (u.tending)
     return Math.floor((u.tendingTime ?? 0) * 2.5) % 2 ? action(17) : reaction(5);
+  // While changing a cooked barrel the gunner drops to one knee and works the
+  // weapon, alternating with a low crouch so the pause reads as urgent labour.
+  if ((u.overheatedUntil ?? 0) > time && !u.moving)
+    return action(Math.floor((u.overheatedUntil - time) * 2.2) % 2 ? 13 : 1);
   if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
   if (u.motion === 'land')
     return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);

@@ -174,6 +174,7 @@ export interface Unit {
   flashUntil?: number;
   heat?: number;
   heatAt?: number;
+  overheatedUntil?: number;
   deadFor: number;
   lane: number;
   pace: number;
@@ -1414,6 +1415,25 @@ export function emitParticle(s: GameState, init: Particle): void {
   s.particles.push(p);
 }
 
+// --- Weapon overheat -----------------------------------------------------
+// Sustained automatic fire cooks the barrel: past OVERHEAT_HOT the gunner's
+// aim wanders as the barrel shimmers, and at OVERHEAT_CRIT he is forced to
+// break off and change barrels before the weapon jams or cooks off.
+export const OVERHEAT_HOT = 4.5;
+export const OVERHEAT_CRIT = 7;
+const OVERHEAT_LOCK = 2.5;
+const OVERHEAT_VENT = 4.5;
+export function canOverheat(u: Unit): boolean {
+  const a = ammunition(u.id, u.member);
+  return a === 'machinegun' || a === 'autocannon';
+}
+export function unitHeat(s: GameState, u: Unit): number {
+  return (u.heat ?? 0) * Math.exp(-(s.time - (u.heatAt ?? s.time)) / 4);
+}
+export function overheated(s: GameState, u: Unit): boolean {
+  return (u.overheatedUntil ?? 0) > s.time;
+}
+
 function muzzleParticles(
   s: GameState,
   u: Unit,
@@ -1442,15 +1462,14 @@ function muzzleParticles(
       : kind === 'rocket' || kind === 'mortar'
         ? 1.6
         : kind === 'machinegun'
-          ? 0.42
+          ? 0.5
           : kind === 'autocannon'
-            ? 0.6
+            ? 0.75
             : 0.5;
   const since = s.time - (u.heatAt ?? s.time);
   u.heat = (u.heat ?? 0) * Math.exp(-since / 4) + heatGain;
   u.heatAt = s.time;
   if (u.heat >= 3) {
-    u.heat -= 1.6;
     const life = 6 + fxRnd(s) * 6;
     emitParticle(s, {
       kind: 'haze',
@@ -2960,11 +2979,19 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit) {
       : 1;
   // Compare sustained weapons, not recruitment prices; splash pressures a small local group.
   const splash = t.members && c.radius ? 1 + Math.min(0.8, c.radius / 60) : 1;
+  // A cooking or locked-up automatic weapon is a moment of weakness: the
+  // enemy reads the steam and knows the gun cannot answer right now.
+  const heatFactor = overheated(s, source)
+    ? 0.05
+    : canOverheat(source) && unitHeat(s, source) > OVERHEAT_HOT
+      ? 0.85
+      : 1;
   return (
     (hit / (c.members ?? 1) / Math.max(0.12, cycle)) *
     (rifleRotorTarget(source, target) ? 0.018 : 1) *
     multiplier *
     splash *
+    heatFactor *
     Math.sqrt(40 / Math.max(25, target.maxHp)) *
     Math.sqrt(Math.max(0.1, source.hp / source.maxHp))
   );
@@ -6770,9 +6797,19 @@ export function tick(s: GameState, dt: number) {
         tx += (rnd(s) - 0.5) * scatter * 2;
         ty = ground(s, tx) - 8;
       }
+      // A cooking barrel drags the sight picture off target: the hotter the
+      // gun, the wider the wander, until the gunner is forced to change tubes.
+      if (!c.indirect && canOverheat(u)) {
+        const h = unitHeat(s, u);
+        if (h > OVERHEAT_HOT) {
+          const jitter = Math.min(14, (h - OVERHEAT_HOT) * 4);
+          tx += (rnd(s) - 0.5) * jitter * 2;
+        }
+      }
       if (c.indirect && !c.vehicle) u.pose = 'crouch';
       if (
         u.cooldown <= 0 &&
+        !overheated(s, u) &&
         !(
           c.members &&
           ['idle', 'walk'].includes(u.pose) &&
@@ -6855,6 +6892,27 @@ export function tick(s: GameState, dt: number) {
           u.muzzleY = sy;
           u.shotAngle = Math.atan2(ty - sy - 4 * flight.arc, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
+          // Critical heat: the gunner breaks off, vents the barrel and swaps
+          // tubes. Steam and haze burst off the weapon while he works.
+          if (canOverheat(u) && !overheated(s, u) && unitHeat(s, u) >= OVERHEAT_CRIT) {
+            u.overheatedUntil = s.time + OVERHEAT_LOCK;
+            u.heat = Math.max(0, (u.heat ?? 0) - OVERHEAT_VENT);
+            u.heatAt = s.time;
+            u.cooldown = Math.max(u.cooldown, OVERHEAT_LOCK);
+            for (let i = 0; i < 6; i++) {
+              emitParticle(s, {
+                kind: 'haze',
+                x: sx + (fxRnd(s) - 0.5) * 10,
+                y: sy - 4 - fxRnd(s) * 6,
+                vx: (fxRnd(s) - 0.5) * 8,
+                vy: -8 - fxRnd(s) * 6,
+                life: 0.8 + fxRnd(s) * 0.5,
+                maxLife: 1.3,
+                color: '#d8dcd2',
+                size: 8 + fxRnd(s) * 6,
+              });
+            }
+          }
           if (s.night) u.flashUntil = s.time + 0.9;
           // Indirect guns cannot hide: every shell gives the enemy's sound
           // rangers a fix on the battery (aircraft sorties are excluded —
