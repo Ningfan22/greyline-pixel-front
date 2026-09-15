@@ -817,6 +817,16 @@ export function formationPositions(side: Side, id: CardId, x: number) {
     (_, i) => front - (side === 0 ? 1 : -1) * i * SQUAD_SPACING,
   );
 }
+/**
+ * Stable depth slot for each squad member in the skirmish line.  Spreads
+ * soldiers across lanes so an advancing squad reads as a battle line
+ * rather than a single-file column.  Lane only affects rendered depth
+ * (infantryDepth), never cover or collision.
+ */
+export function formationLane(member: number, count: number) {
+  if (count <= 1) return 0;
+  return (member - (count - 1) / 2) * 12;
+}
 export function spawnUnit(
   s: GameState,
   side: Side,
@@ -857,7 +867,7 @@ export function spawnUnit(
       digElapsed: 0,
       fire: 0,
       deadFor: 0,
-      lane: count === 1 ? 0 : [-18, -6, 6, 18][i % 4],
+      lane: formationLane(i, count),
       pace: 0.94 + rnd(s) * 0.12,
       climbing: 0,
       climbFrom: 0,
@@ -7775,7 +7785,12 @@ export function tick(s: GameState, dt: number) {
           ? worksite.lane
           : escortTravel
             ? u.escortLane
-            : undefined;
+            : u.passingLane === undefined &&
+                (u.dispersionUntil ?? 0) <= s.time &&
+                !withdrawing &&
+                !retreating
+              ? formationLane(u.member, c.members ?? 1)
+              : undefined;
         const laneChange =
           desiredLane !== undefined
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
