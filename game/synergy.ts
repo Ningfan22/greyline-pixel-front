@@ -10,6 +10,11 @@
  *    suppression buildup by 0.65 (covering fire keeps heads down).
  *  - medevac_chain: a friendly medic near wounded infantry speeds their
  *    crawl back to cover by 1.35 (medics organise the drag).
+ *  - smoke_screen: infantry standing in or right behind a friendly smoke
+ *    screen shed suppression 1.5x faster. Enemy direct fire through smoke
+ *    is unaimed or blocked outright, so troops under their own screen
+ *    regain their nerve and keep manoeuvring — the classic smoke-assault
+ *    rhythm of blind, push, close.
  *
  * Results are cached per unit and refreshed on a staggered 0.4–0.6s cycle,
  * so the per-tick cost is a handful of spatial queries spread across frames
@@ -20,23 +25,32 @@ import { CARDS, modelOf } from './cards';
 import { nearUnits } from './spatial';
 import type { GameState, Unit } from './engine';
 
-export type SynergyKind = 'armor_assault' | 'fire_base' | 'medevac_chain';
+export type SynergyKind =
+  | 'armor_assault'
+  | 'fire_base'
+  | 'medevac_chain'
+  | 'smoke_screen';
 
 export interface SynergyState {
   armor_assault: boolean;
   fire_base: boolean;
   medevac_chain: boolean;
+  smoke_screen: boolean;
 }
 
 const NONE: SynergyState = Object.freeze({
   armor_assault: false,
   fire_base: false,
   medevac_chain: false,
+  smoke_screen: false,
 });
 
 const ARMOR_ASSAULT_RANGE = 170;
 const FIRE_BASE_RANGE = 240;
 const MEDEVAC_RANGE = 220;
+// Smoke clouds are 95px half-width; a soldier just outside the visible
+// edge is still screened from long-range direct fire.
+const SMOKE_SCREEN_RANGE = 130;
 const REFRESH = 0.4;
 
 interface Entry {
@@ -78,6 +92,7 @@ function compute(s: GameState, u: Unit, now: number): Entry {
     armor_assault: false,
     fire_base: false,
     medevac_chain: false,
+    smoke_screen: false,
   };
   const providers: Partial<Record<SynergyKind, number>> = {};
   const side = u.side;
@@ -134,6 +149,22 @@ function compute(s: GameState, u: Unit, now: number): Entry {
         providers.medevac_chain = v.uid;
         break;
       }
+    }
+  }
+
+  // Smoke screen: a friendly smoke cloud at or just behind the unit. Smoke
+  // is not a unit, so there is no provider uid to link to — the cloud
+  // itself is the visual. Only the side that laid the screen gets the
+  // nerve bonus; enemy smoke is an obstacle, not cover.
+  for (let i = 0; i < s.smokes.length; i++) {
+    const f = s.smokes[i];
+    if (
+      f.side === side &&
+      f.life > 0 &&
+      Math.abs(f.x - u.x) <= SMOKE_SCREEN_RANGE
+    ) {
+      state.smoke_screen = true;
+      break;
     }
   }
 

@@ -205,6 +205,46 @@ check(
   },
 );
 
+// --- Smoke screen suppression recovery (v53) ---
+
+check(
+  'infantry under friendly smoke recover suppression 1.5x faster',
+  () => {
+    const s = arena();
+    const smoked = solo(s, 0, 'infantry', 600, { suppression: 90 });
+    const plain = solo(s, 0, 'infantry', 2000, { suppression: 90 });
+    s.smokes.push({ x: 600, life: 10, side: 0 });
+    for (let i = 0; i < 120; i++) tick(s, DT);
+    const smokedRecovered = 90 - smoked.suppression;
+    const plainRecovered = 90 - plain.suppression;
+    const ratio = smokedRecovered / Math.max(0.001, plainRecovered);
+    assert.ok(
+      ratio > 1.4 && ratio < 1.6,
+      `smoke recovery ratio ${ratio.toFixed(2)} ≈ 1.5`,
+    );
+    return { ratio: Number(ratio.toFixed(2)) };
+  },
+);
+
+check(
+  'enemy smoke does not speed suppression recovery',
+  () => {
+    const s = arena();
+    const smoked = solo(s, 0, 'infantry', 600, { suppression: 90 });
+    const plain = solo(s, 0, 'infantry', 2000, { suppression: 90 });
+    s.smokes.push({ x: 600, life: 10, side: 1 });
+    for (let i = 0; i < 120; i++) tick(s, DT);
+    const smokedRecovered = 90 - smoked.suppression;
+    const plainRecovered = 90 - plain.suppression;
+    const ratio = smokedRecovered / Math.max(0.001, plainRecovered);
+    assert.ok(
+      ratio > 0.95 && ratio < 1.05,
+      `enemy-smoke recovery ratio ${ratio.toFixed(2)} ≈ 1.0`,
+    );
+    return { ratio: Number(ratio.toFixed(2)) };
+  },
+);
+
 fs.writeFileSync(
   path.join(out, 'checks.json'),
   JSON.stringify({ results, failures }, null, 2),

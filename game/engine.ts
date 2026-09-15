@@ -5743,10 +5743,14 @@ export function tick(s: GameState, dt: number) {
     u.cooldown -= dt;
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
+    const syn = unitSynergy(s, u, s.time);
     u.suppression = Math.max(
       0,
       u.suppression -
-        dt * 7 * (unitSynergy(s, u, s.time).armor_assault ? 1.6 : 1),
+        dt *
+          7 *
+          (syn.armor_assault ? 1.6 : 1) *
+          (syn.smoke_screen ? 1.5 : 1),
     );
     if (c.members) {
       prepareInfantry(s, u, dt);
