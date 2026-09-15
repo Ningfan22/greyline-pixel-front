@@ -203,6 +203,7 @@ export interface Unit {
   contactAir?: boolean;
   contactScanAt?: number;
   contactUntil?: number;
+  dragScanAt?: number;
   dispersionGoal?: number;
   dispersionUntil?: number;
   trafficYieldUntil?: number;
@@ -511,6 +512,11 @@ export interface GameState {
   spatial?: SpatialIndex;
   byUid?: Map<number, Unit>;
   squadIndex?: Map<number, Unit[]>;
+  /** Per-squad fire-team rotation state for bounding overwatch. */
+  squadManeuver?: Record<
+    number,
+    { offset: number; lastRotate: number; lastContact: number }
+  >;
   /** Front-line x per side: [side0 foremost x, side1 foremost x]. */
   frontX?: [number, number];
   projectiles: Projectile[];
@@ -622,6 +628,7 @@ export function createGame(
       ...wall,
     })),
     units: [],
+    squadManeuver: {},
     projectiles: [],
     particles: [],
     markers: [],
@@ -3283,6 +3290,43 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
   }
 }
 
+/**
+ * Fire-team rotation (bounding overwatch): while a squad stays in contact,
+ * members periodically trade who sprints (bound) and who shoots from cover.
+ * Returns the squad's current role offset; the caller applies it modulo the
+ * doctrine list. Frozen when the squad is too depleted or too suppressed to
+ * manoeuvre, and re-clocked when contact was lost long enough to count as a
+ * fresh engagement.
+ */
+export function squadRoleOffset(
+  s: GameState,
+  u: Unit,
+  survivors: Unit[],
+): number {
+  if (!s.squadManeuver) s.squadManeuver = {};
+  const rec =
+    s.squadManeuver[u.squad] ??
+    (s.squadManeuver[u.squad] = {
+      offset: 0,
+      lastRotate: s.time,
+      lastContact: s.time,
+    });
+  const now = s.time;
+  // A contact gap over 3s is a fresh engagement; don't rotate on first touch.
+  if (now - rec.lastContact > 3) rec.lastRotate = now;
+  rec.lastContact = now;
+  const fighting = survivors.filter((v) => isCombatant(v));
+  if (fighting.length < 3) return rec.offset;
+  const avgSuppression =
+    fighting.reduce((n, v) => n + v.suppression, 0) / fighting.length;
+  if (avgSuppression >= 50) return rec.offset;
+  const cadence = 5.2 + (u.squad % 3) * 0.7;
+  if (now - rec.lastRotate >= cadence) {
+    rec.offset++;
+    rec.lastRotate = now;
+  }
+  return rec.offset;
+}
 function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn -= dt;
   const quickContact =
@@ -3351,9 +3395,10 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.dispersionStartedAt = s.time;
     u.passingLane = slot.lane;
   }
-  const survivors = s.units.filter(
+  const survivorList = s.units.filter(
     (v) => v.squad === u.squad && isCombatant(v),
-  ).length;
+  );
+  const survivors = survivorList.length;
   if (
     !c.neverSurrender &&
     u.personalMorale < 18 &&
@@ -3414,8 +3459,14 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   if (!orderedWithdrawal(s, u)) planWithdrawal(s, u, threat);
   const doctrine = doctrineOf(u.id),
     list = roles[doctrine];
-  // Stable member roles; short bounds alternate locally while contact continues.
-  u.tactic = u.suppression > 65 ? 'prone' : list[u.member % list.length];
+  // Fire teams trade bound/cover roles on a squad-wide cadence so one group
+  // sprints while the other shoots (bounding overwatch / fire and movement).
+  u.tactic =
+    u.suppression > 65
+      ? 'prone'
+      : list[
+          (u.member + squadRoleOffset(s, u, survivorList)) % list.length
+        ];
 }
 function evadeArtillery(s: GameState, u: Unit, dt: number) {
   const eta = (p: Projectile) =>
@@ -5627,27 +5678,61 @@ export function tick(s: GameState, dt: number) {
       u.id !== 'medic' &&
       u.squadOrder !== 'retreat' &&
       u.withdrawHeavyUid === undefined &&
-      !u.backpedaling
+      !u.backpedaling &&
+      (u.dragScanAt ?? 0) <= s.time
     ) {
-      let bestPatient: Unit | undefined;
-      for (const q of s.units) {
-        if (
-          q.side === u.side &&
-          q.squad === u.squad &&
-          q.wounded &&
-          q.draggedByUid === undefined &&
-          q.bleedOut > 0 &&
-          q.bleedOut < 25 &&
-          s.time - (q.rescuedAt ?? -99) > 3 &&
-          Math.abs(q.x - u.x) <= 150 &&
-          (q.side === 0 ? q.x > 130 : q.x < W - 130) &&
-          (!bestPatient || q.bleedOut < bestPatient.bleedOut)
-        )
-          bestPatient = q;
+      u.dragScanAt = s.time + 0.25 + (u.uid % 4) * 0.06;
+      // One buddy per squad may haul casualties, and only while no armed
+      // foe is visible in weapons range: under direct fire the rest of the
+      // fireteam keeps their weapons up (bounding overwatch, not a
+      // stretcher race in the open).
+      const squadDragger = s.units.some(
+        (v) =>
+          v !== u &&
+          v.side === u.side &&
+          v.squad === u.squad &&
+          v.draggingUid !== undefined,
+      );
+      let underFire = false;
+      if (!squadDragger) {
+        nearUnits(s, u.x, 1200, tacticNearScratch);
+        for (const v of tacticNearScratch) {
+          if (
+            v.side !== u.side &&
+            isCombatant(v) &&
+            visibleToSide(s, u.side, v) &&
+            (!CARDS[v.id].air ||
+              (sustainedAirThreat(v) &&
+                Math.abs(v.x - u.x) <= Math.min(560, unitRange(s, v) + 40))) &&
+            Math.abs(v.x - u.x) <=
+              Math.max(unitRange(s, u), Math.min(720, unitRange(s, v) + 40))
+          ) {
+            underFire = true;
+            break;
+          }
+        }
       }
-      if (bestPatient) {
-        u.draggingUid = bestPatient.uid;
-        bestPatient.draggedByUid = u.uid;
+      if (!squadDragger && !underFire) {
+        let bestPatient: Unit | undefined;
+        for (const q of s.units) {
+          if (
+            q.side === u.side &&
+            q.squad === u.squad &&
+            q.wounded &&
+            q.draggedByUid === undefined &&
+            q.bleedOut > 0 &&
+            q.bleedOut < 25 &&
+            s.time - (q.rescuedAt ?? -99) > 3 &&
+            Math.abs(q.x - u.x) <= 150 &&
+            (q.side === 0 ? q.x > 130 : q.x < W - 130) &&
+            (!bestPatient || q.bleedOut < bestPatient.bleedOut)
+          )
+            bestPatient = q;
+        }
+        if (bestPatient) {
+          u.draggingUid = bestPatient.uid;
+          bestPatient.draggedByUid = u.uid;
+        }
       }
     }
     const morale = s.players[u.side].morale > 0;
