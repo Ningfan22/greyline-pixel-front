@@ -33,6 +33,24 @@ export function ammunition(id: CardId, member = 0): Ammunition {
   if (model === 'machinegun' || model === 'helicopter') return 'machinegun';
   return 'rifle';
 }
+
+/** Infantry small-arms magazine profile. Heavy weapons (rockets, mortars,
+ * grenades, vehicle guns) return null and keep cooldown-only pacing. */
+export interface MagazineSpec {
+  mag: number;
+  reserve: number;
+  reload: number; // seconds to swap magazines under fire
+}
+export function magazine(id: CardId, member = 0): MagazineSpec | null {
+  if (!CARDS[id].members) return null;
+  const kind = ammunition(id, member);
+  if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
+  if (kind === 'rifle') {
+    if (id === 'sniper') return { mag: 5, reserve: 25, reload: 3.0 };
+    return { mag: 30, reserve: 150, reload: 2.5 };
+  }
+  return null;
+}
 export const FLIGHT: Record<
   Ammunition,
   { speed: number; minimum: number; arc: number }

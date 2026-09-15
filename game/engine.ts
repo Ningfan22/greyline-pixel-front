@@ -62,6 +62,7 @@ import {
   FLIGHT,
   isTracer,
   isCoverBullet,
+  magazine,
   type Ammunition,
 } from './ballistics';
 import {
@@ -207,6 +208,9 @@ export interface Unit {
   reconMemory?: { x: number; y: number; until: number };
   aimUntil?: number;
   reloadingUntil?: number;
+  /** Rounds left in the current magazine. 0 = dry, -1 = no magazine management. */
+  ammo?: number;
+  ammoReserve?: number;
   observingUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
@@ -3644,8 +3648,15 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     list = roles[doctrine];
   // Fire teams trade bound/cover roles on a squad-wide cadence so one group
   // sprints while the other shoots (bounding overwatch / fire and movement).
+  // A visible foe caught mid-reload (dry magazine, swap in progress) cannot
+  // fire back, so pinned units discount their suppression and seize the
+  // window to bound. Only genuine reloads count (ammo === 0), not the
+  // decorative bolt-cycle flag on slow-firing rifles.
+  const threatReloading =
+    !!threat && threat.ammo === 0 && (threat.reloadingUntil ?? 0) > s.time;
+  const effectiveSuppression = u.suppression - (threatReloading ? 30 : 0);
   u.tactic =
-    u.suppression > 65 + nerve
+    effectiveSuppression > 65 + nerve
       ? 'prone'
       : list[
           (u.member + squadRoleOffset(s, u, survivorList)) % list.length
@@ -5965,6 +5976,25 @@ export function tick(s: GameState, dt: number) {
     const syn = unitSynergy(s, u, s.time);
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
     u.cooldown -= dt * (syn.supply_run ? 1.6 : 1);
+    // Small-arms magazines: lazy-init on first tick, then seat a fresh mag
+    // once the reload window closes. A dry reserve leaves the weapon silent.
+    if (u.ammo === undefined) {
+      const spec = magazine(u.id, u.member);
+      u.ammo = spec ? spec.mag : -1;
+      u.ammoReserve = spec ? spec.reserve : 0;
+    } else if (
+      u.ammo === 0 &&
+      (u.reloadingUntil ?? 0) > 0 &&
+      s.time >= u.reloadingUntil!
+    ) {
+      const spec = magazine(u.id, u.member);
+      if (spec) {
+        const take = Math.min(spec.mag, u.ammoReserve ?? 0);
+        u.ammo = take;
+        u.ammoReserve = Math.max(0, (u.ammoReserve ?? 0) - take);
+      }
+      u.reloadingUntil = 0;
+    }
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
     u.suppression = Math.max(
@@ -6835,7 +6865,8 @@ export function tick(s: GameState, dt: number) {
       (!bounding || contactFire) &&
       !withdrawalStep &&
       !retreating &&
-      !breachRun
+      !breachRun &&
+      u.ammo !== 0
     ) {
       let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : reconFire ? reconFire.x : baseX;
       let ty = target
@@ -6959,6 +6990,19 @@ export function tick(s: GameState, dt: number) {
               : dir
             : Math.sign(tx - u.x) || dir;
           u.shots++;
+          // Small arms burn a round per shot; a dry magazine locks the
+          // weapon into a visible reload (slower while pinned) that the
+          // enemy can exploit.
+          if (u.ammo > 0) {
+            u.ammo--;
+            if (u.ammo === 0 && (u.ammoReserve ?? 0) > 0) {
+              const spec = magazine(u.id, u.member);
+              if (spec) {
+                const rt = spec.reload * (u.suppression > 50 ? 1.5 : 1);
+                u.reloadingUntil = s.time + rt;
+              }
+            }
+          }
           if (target) u.lastCombatShotAt = s.time;
           if (coverShot) {
             u.breachShots =
