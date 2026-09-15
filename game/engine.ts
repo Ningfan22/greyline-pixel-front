@@ -217,6 +217,7 @@ export interface Unit {
   rapidUntil?: number;
   smokeAssaultSpent?: boolean;
   assaultBurstUntil?: number;
+  assaultSurgeUntil?: number;
   buddyRallied?: boolean;
   fragLeft?: number;
   fragThrow?: number;
@@ -2710,6 +2711,28 @@ function moveSoldier(
               Math.abs(mate.x - wall.x) <= 200
             ) {
               mate.assaultBurstUntil = s.time + 5;
+              mate.assaultSurgeUntil = s.time + 4;
+            }
+          }
+          // The blast showers defenders behind the wall with dust and
+          // rubble — they flinch and lose their footing for a beat while
+          // the assault pours through the gap.
+          for (const foe of s.units) {
+            if (
+              foe.side !== u.side &&
+              CARDS[foe.id].members &&
+              !foe.wounded &&
+              canTakeDamage(foe) &&
+              Math.abs(foe.x - wall.x) <= 130
+            ) {
+              foe.suppression = Math.min(100, foe.suppression + 26);
+              foe.flinchUntil = s.time + 0.5;
+              foe.decisionIn = Math.max(foe.decisionIn, 0.4);
+              foe.lastThreat = {
+                x: wall.x,
+                y: ground(s, wall.x),
+                until: s.time + 2,
+              };
             }
           }
         }
@@ -6180,8 +6203,10 @@ export function tick(s: GameState, dt: number) {
       s.smokes.push({ x: u.x, life: 4, side: u.side });
       for (const mate of squadMates(s, u.side, u.squad)) {
         mate.smokeAssaultSpent = true;
-        if (isCombatant(mate) && Math.abs(mate.x - u.x) <= 96)
+        if (isCombatant(mate) && Math.abs(mate.x - u.x) <= 96) {
           mate.assaultBurstUntil = s.time + 4;
+          mate.assaultSurgeUntil = s.time + 3.2;
+        }
       }
     }
     if (c.frags) {
@@ -6473,6 +6498,20 @@ export function tick(s: GameState, dt: number) {
         u.firingSearchAt = s.time + 0.7;
       }
     } else u.firingGoal = null;
+    // Combat engineers push to a breachable wall instead of stopping to trade
+    // rifle shots — their job is demolition, and the breach only triggers from
+    // moveSoldier, so they must keep moving the last stretch under fire.
+    const breachRun =
+      c.members &&
+      CARDS[u.id].trait === 'engineer' &&
+      order !== 'hold' &&
+      order !== 'prone' &&
+      s.walls.some(
+        (w) =>
+          w.hp > 0 &&
+          (w.x - u.x) * dir >= w.width / 2 + 5 &&
+          Math.abs(w.x - u.x) < w.width / 2 + 40,
+      );
     if (
       (u.dispersionUntil ?? 0) <= s.time ||
       (u.dispersionGoal !== undefined && Math.abs(u.dispersionGoal - u.x) <= 1)
@@ -6591,7 +6630,8 @@ export function tick(s: GameState, dt: number) {
       !treating &&
       (!bounding || contactFire) &&
       !withdrawalStep &&
-      !retreating
+      !retreating &&
+      !breachRun
     ) {
       let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : baseX;
       let ty = target
@@ -6868,14 +6908,16 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
-          !target &&
+          (!target || breachRun) &&
           !baseInRange &&
           !blockedContact &&
-          (!c.members || order !== 'hold')))
+        (!c.members || order !== 'hold')))
     ) {
       if (c.members)
         u.pose =
-          order === 'rush' || bounding || retreating
+          (u.assaultSurgeUntil ?? 0) > s.time && !withdrawing && !retreating
+            ? 'run'
+            : order === 'rush' || bounding || retreating || breachRun
             ? 'run'
             : order === 'crouch' ||
                 (withdrawing && withdrawalThreat && order !== 'prone')
@@ -6948,8 +6990,8 @@ export function tick(s: GameState, dt: number) {
               : displacing
                 ? Math.min(speed, Math.abs(u.displaceGoal! - u.x) / dt)
               : speed,
-            dt,
-          !target || withdrawing,
+          dt,
+          !target || withdrawing || breachRun,
         );
         if (laneChange) u.moving = true;
         if (
