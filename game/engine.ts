@@ -1498,7 +1498,9 @@ function muzzleParticles(
     });
   }
   if (kind === 'rifle' || kind === 'machinegun' || kind === 'autocannon') {
-    const life = 0.25;
+    // Casings arc out of the ejection port, bounce off the dirt and lie
+    // glinting on the ground for a few seconds before they fade.
+    const life = 2.4 + fxRnd(s) * 1.8;
     emitParticle(s, {
       kind: 'casing',
       x: u.x + (u.side === 0 ? 1 : -1) * (secondary ? 40 : 4),
@@ -1507,7 +1509,7 @@ function muzzleParticles(
       vy: -25 - fxRnd(s) * 12,
       life,
       maxLife: life,
-      color: '#a18a55',
+      color: fxRnd(s) < 0.5 ? '#c8a84e' : '#a18a55',
       size: 1,
     });
   }
@@ -7736,6 +7738,22 @@ export function tick(s: GameState, dt: number) {
             : p.kind === 'cloud'
               ? 1.6
               : 1);
+    // Spent brass bounces off the dirt, sheds energy and comes to rest
+    // glinting on the ground; a breeze nudges settled casings along.
+    if (p.kind === 'casing') {
+      const gy = ground(s, p.x);
+      if (p.y >= gy) {
+        p.y = gy;
+        if (p.vy > 30) {
+          p.vy = -p.vy * 0.32;
+          p.vx *= 0.55;
+        } else {
+          p.vy = 0;
+          p.vx *= Math.max(0, 1 - 6 * dt);
+        }
+      }
+      p.x += s.wind * dt * 0.35;
+    }
   }
   {
     const pool = (s.particlePool ??= []);
