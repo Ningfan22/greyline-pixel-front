@@ -42,6 +42,15 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
   if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
   if (u.suppression > 0.4) return null;
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  // Command vacuum: leaderless soldiers glance around nervously, cycling
+  // between alert stance and a knee-scan on a short, irregular cadence so
+  // the disorganisation reads visually without any UI hint.
+  if (u.vacuum) {
+    const phase = (time + u.uid * 3.91) % 4.6;
+    if (phase < 1.1) return action(0);
+    if (phase < 2.0) return action(1);
+    return null;
+  }
   // Alert stance: rifle across chest, ~1.6 s every 11 s.
   const alertPhase = (time + u.uid * 7.31) % 11;
   if (alertPhase < 1.6) return action(0);

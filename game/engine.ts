@@ -213,6 +213,8 @@ export interface Unit {
   dragScanAt?: number;
   sortKey?: number;
   signalUntil?: number;
+  /** True while the squad is in a command vacuum (leader down, no successor yet). */
+  vacuum?: boolean;
   dispersionGoal?: number;
   dispersionUntil?: number;
   trafficYieldUntil?: number;
@@ -531,6 +533,11 @@ export interface GameState {
     number,
     { offset: number; lastRotate: number; lastContact: number }
   >;
+  /** Per-squad command state: leader uid and command-vacuum window. */
+  squadCommand?: Record<
+    number,
+    { leaderUid: number; vacuumUntil: number }
+  >;
   /** Front-line x per side: [side0 foremost x, side1 foremost x]. */
   frontX?: [number, number];
   projectiles: Projectile[];
@@ -644,6 +651,7 @@ export function createGame(
     })),
     units: [],
     squadManeuver: {},
+    squadCommand: {},
     projectiles: [],
     particles: [],
     markers: [],
@@ -3167,7 +3175,8 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   )
     return;
   // A squad makes one assessment, even if its individual decision timers differ.
-  for (const mate of squad) mate.withdrawAssessAt = s.time + 0.75;
+  for (const mate of squad)
+    mate.withdrawAssessAt = s.time + vacuumAssessInterval(s, u);
   const center = squad.reduce((n, v) => n + v.x, 0) / squad.length;
   const fighters = s.units.filter(
     (v) =>
@@ -3328,6 +3337,66 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
   }
 }
 
+/** Seconds of disorganisation after a squad leader falls before a successor takes over. */
+export const COMMAND_VACUUM_DURATION = 5;
+/** Suppression recovery is slowed to this fraction while leaderless. */
+const VACUUM_SUPPRESSION_FACTOR = 0.55;
+/** Withdrawal assessments are spaced this far apart (seconds) while leaderless. */
+const VACUUM_ASSESS_INTERVAL = 2.4;
+
+/**
+ * Squad command tracking: the leader is the living combatant with the lowest
+ * uid in the squad (matching the hand-signal convention in squad-orders).
+ * When the leader dies the squad enters a command vacuum for
+ * COMMAND_VACUUM_DURATION seconds — suppression recovery slows, bounding
+ * overwatch freezes, and withdrawal assessments lag — until the next man
+ * steps up. Called once per tick after the squad index is rebuilt.
+ */
+export function updateSquadCommand(s: GameState) {
+  if (!s.squadCommand) s.squadCommand = {};
+  const cmd = s.squadCommand;
+  const seen = new Set<number>();
+  for (const [key, mates] of s.squadIndex ?? []) {
+    seen.add(key);
+    const living = mates.filter(
+      (v) => v.hp > 0 && isCombatant(v) && CARDS[v.id].members,
+    );
+    if (!living.length) continue;
+    let leader = living[0];
+    for (const m of living) if (m.uid < leader.uid) leader = m;
+    const rec = cmd[key];
+    if (!rec) {
+      cmd[key] = { leaderUid: leader.uid, vacuumUntil: 0 };
+    } else if (rec.leaderUid !== leader.uid) {
+      // The previous leader is gone (dead or the squad was wiped and
+      // reformed). Open a vacuum window, then hand over to the successor.
+      rec.vacuumUntil = s.time + COMMAND_VACUUM_DURATION;
+      rec.leaderUid = leader.uid;
+    }
+  }
+  // Drop records for squads that no longer exist so the map doesn't grow
+  // across a long battle.
+  for (const key of Object.keys(cmd)) {
+    if (!seen.has(Number(key))) delete cmd[Number(key)];
+  }
+}
+
+/** True while the squad is leaderless and hasn't yet handed over command. */
+export function squadInVacuum(s: GameState, side: Side, squad: number): boolean {
+  const rec = s.squadCommand?.[side * 1048576 + squad];
+  return !!rec && s.time < rec.vacuumUntil;
+}
+
+/** Suppression-decay multiplier for a unit, accounting for command vacuum. */
+export function vacuumSuppressionFactor(s: GameState, u: Unit): number {
+  return squadInVacuum(s, u.side, u.squad) ? VACUUM_SUPPRESSION_FACTOR : 1;
+}
+
+/** Withdrawal-assessment interval for a squad, extended while leaderless. */
+export function vacuumAssessInterval(s: GameState, u: Unit): number {
+  return squadInVacuum(s, u.side, u.squad) ? VACUUM_ASSESS_INTERVAL : 0.75;
+}
+
 /**
  * Fire-team rotation (bounding overwatch): while a squad stays in contact,
  * members periodically trade who sprints (bound) and who shoots from cover.
@@ -3355,6 +3424,8 @@ export function squadRoleOffset(
   rec.lastContact = now;
   const fighting = survivors.filter((v) => isCombatant(v));
   if (fighting.length < 3) return rec.offset;
+  // A leaderless squad can't coordinate fire-and-manoeuvre rotation.
+  if (squadInVacuum(s, u.side, u.squad)) return rec.offset;
   const avgSuppression =
     fighting.reduce((n, v) => n + v.suppression, 0) / fighting.length;
   if (avgSuppression >= 50) return rec.offset;
@@ -5598,9 +5669,13 @@ export function tick(s: GameState, dt: number) {
     }
   }
   s.frontX = [front0, front1];
+  updateSquadCommand(s);
   for (const u of s.units) {
     u.digging = false;
     u.backpedaling = false;
+    u.vacuum = CARDS[u.id].members
+      ? squadInVacuum(s, u.side, u.squad)
+      : false;
     if (u.hp <= 0) {
       u.deadFor -= dt;
       u.y = Math.min(ground(s, u.x), u.y + 110 * dt);
@@ -5840,7 +5915,8 @@ export function tick(s: GameState, dt: number) {
           7 *
           (syn.armor_assault ? 1.6 : 1) *
           (syn.smoke_screen ? 1.5 : 1) *
-          (syn.overwatch ? 1.35 : 1),
+          (syn.overwatch ? 1.35 : 1) *
+          vacuumSuppressionFactor(s, u),
     );
     if (c.members) {
       prepareInfantry(s, u, dt);
