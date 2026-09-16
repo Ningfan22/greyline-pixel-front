@@ -263,14 +263,6 @@ export function createMapLayout(
 ): MapLayout {
   const definition = mapDefinition(id),
     mapId = definition.id;
-  const walls =
-    mapId === 'greyline'
-      ? [510, 1150, 1920, 2690, WIDTH - 510]
-      : mapId === 'jungle'
-        ? [590, WIDTH - 1 - 590]
-        : mapId === 'mountains'
-          ? [1270, WIDTH - 1 - 1270]
-          : [1270, WIDTH - 1 - 1270];
   return {
     id: mapId,
     seed: definition.layoutSeed,
@@ -279,11 +271,9 @@ export function createMapLayout(
       mapId === 'greyline'
         ? villageScenerySites(width)
         : mirroredSites(mapId, width),
-    wallSites: walls.map((x) => ({
-      x: Math.round((x * width) / WIDTH),
-      width: 34,
-      height: 32,
-      hp: 140,
-    })),
+    // v99: low walls removed from all maps — the battlefield is now open
+    // ground. The Wall type and vault/destruction mechanics remain in the
+    // engine for scripted scenarios and future map designs.
+    wallSites: [],
   };
 }

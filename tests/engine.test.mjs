@@ -275,6 +275,9 @@ check('驻守、推进、奔跑、蹲行、卧倒分别驱动独立姿态', () =
 });
 check('士兵逐个攀越矮墙，结束后正确回到地面', () => {
   const s = fresh();
+  // v99: maps no longer ship with walls; stage one explicitly so the
+  // vault mechanic stays covered.
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
   s.units = [];
   spawnUnit(s, 0, 'infantry', 477);
   const first = s.units[0];
@@ -293,6 +296,7 @@ check('士兵逐个攀越矮墙，结束后正确回到地面', () => {
 });
 check('被炸毁的墙不再触发攀越', () => {
   const s = fresh();
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
   explode(s, 510, ground(s, 510) - 10, 80, 200, 0);
   assert.equal(s.walls[0].hp, 0);
   s.units = [];
@@ -2298,6 +2302,13 @@ check('未观察到的墙体破坏保持旧记忆，再次观察时才更新', (
   startGame(s);
   s.aiIn = 1e6;
   s.scenery = [];
+  // v99: maps no longer ship with walls; stage one explicitly so the
+  // fog-of-war wall-memory mechanic stays covered.
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
+  s.knownWalls = [
+    { 1: { uid: 1, x: 510, width: 34, height: 32, hp: 140 } },
+    { 1: { uid: 1, x: 510, width: 34, height: 32, hp: 140 } },
+  ];
   const w = s.walls.at(-1);
   spawnUnit(s, 1, 'tank', w.x);
   tick(s, 1 / 60);

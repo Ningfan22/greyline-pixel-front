@@ -504,7 +504,11 @@ export default function Battle({
         s,
         camera.current,
         viewport.current,
-        !document.hidden && !portraitGate.current && s.status === 'playing',
+        // v99: music starts the moment the battle screen appears (status
+        // 'ready'), not only after the first card is deployed.
+        !document.hidden &&
+          !portraitGate.current &&
+          (s.status === 'playing' || s.status === 'ready'),
       );
       if (now - lastView > 90) {
         setView(snapshot(s));
