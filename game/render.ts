@@ -29,6 +29,7 @@ import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
 import { drawWeather } from './weather';
+import { WhipStreakLayer } from './whip-streak';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -60,6 +61,10 @@ import {
   type Pose,
 } from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+// Supersonic rounds that whip past the camera leave a brief white streak.
+// Render-layer only: the simulation never knows these exist.
+const whipStreaks = new WhipStreakLayer();
+let whipStatus = '';
 const poseTracker = new Map<number, { prev: Pose; pose: Pose; at: number }>();
 const wreckBounds = new WeakMap<
   object,
@@ -282,6 +287,10 @@ export function render(
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, viewportWidth, H);
   ctx.save();
+  if (s.status !== whipStatus) {
+    whipStatus = s.status;
+    whipStreaks.reset();
+  }
   if (s.shake > 0 && !reduced)
     ctx.translate(
       Math.sin(s.time * 134) * s.shake,
@@ -1039,6 +1048,14 @@ export function render(
       projectileOffsets.set(p, offset);
     }
     drawProjectile(ctx, projectileForRender(s, p, offset));
+    if (!reduced)
+      whipStreaks.consider(
+        p,
+        camera + viewportWidth / 2,
+        H / 2,
+        viewportWidth,
+        s.time,
+      );
   }
   for (const b of s.blasts)
     if (blastVisible(s, 0, b))
@@ -1106,5 +1123,6 @@ export function render(
   }
   if (s.night) drawNightOverlay(ctx, s, camera, viewportWidth);
   drawWeather(ctx, s, camera, viewportWidth, H);
+  if (!reduced) whipStreaks.draw(ctx, s.time);
   ctx.restore();
 }
