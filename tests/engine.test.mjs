@@ -669,7 +669,7 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert.equal(u.pose, 'idle');
 });
 check('69种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 69);
+  assert.equal(Object.keys(CARDS).length, 74);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
@@ -980,6 +980,7 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
       const h = p.hand.find(
         (h) =>
           cardReadyIn(s, h) <= 0 &&
+          !comebackBlock(s, side, CARDS[h.id].comeback) &&
           (!CARDS[h.id].economy || !economyBlock(p, CARDS[h.id].economy)),
       );
       if (h)
@@ -992,19 +993,16 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
           ).ok,
         );
       draw(s, side, 1);
-      assert.deepEqual(
-        [
+      const __now = [
           ...p.hand,
           ...p.deck,
           ...p.discard,
           ...s.units
             .filter((u) => u.side === side && u.sortieCard)
             .map((u) => u.sortieCard),
-        ]
-          .map((h) => h.id)
-          .sort(),
-        originals[side],
-      );
+        ].map((h) => h.id).sort();
+      const __orig = originals[side];
+      assert.deepEqual(__now, __orig);
     }
 });
 check('枪弹、炮弹和火箭使用各自速度与弹道，曳光按射击次数间隔显示', () => {
@@ -4337,8 +4335,8 @@ check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各
     assert(deck.reduce((n, id) => n + CARDS[id].cost, 0) / 20 <= 3.2);
   }
   assert.equal(decks.size, AI_DECKS.length);
-  assert.equal(AI_DECKS.length, 5);
-  assert.equal(DECK_PRESETS.length, 5);
+  assert.equal(AI_DECKS.length, 7);
+  assert.equal(DECK_PRESETS.length, 7);
   for (const deck of AI_DECKS)
     assert(
       decks.has(deck.join(',')),

@@ -71,7 +71,12 @@ export type CardId =
   | 'barrage'
   | 'medevac'
   | 'fortify'
-  | 'sabotage';
+  | 'sabotage'
+  | 'overdraft'
+  | 'airborne_insertion'
+  | 'signal_jam'
+  | 'forced_march'
+  | 'cyber_suppression';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -130,6 +135,8 @@ export interface Card {
   observer?: boolean;
   oneWay?: boolean;
   airlift?: CardId;
+  /** Parachute insertion: spawns at the selected ground point and descends under canopy. */
+  airdrop?: boolean;
   antiAir?: boolean;
   radius?: number;
   members?: number;
@@ -168,7 +175,10 @@ export interface Card {
     | 'barrage'
     | 'medevac'
     | 'fortify'
-    | 'sabotage';
+    | 'sabotage'
+    | 'signal_jam'
+    | 'forced_march'
+    | 'cyber_suppression';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
   infantry: {
@@ -509,6 +519,63 @@ export const CARDS: Record<CardId, Card> = {
     detail:
       '支付1点，18秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
   }),
+  overdraft: variant('supply', 'overdraft', '透支指挥', 1, '立即获得5点指挥点，25秒内回点放缓', {
+    en: 'OVERDRAFT',
+    economy: 'overdraft',
+    tag: '发展 · 透支爆发',
+    detail:
+      '立即获得5点指挥点（可超过上限），代价是25秒内指挥点回复间隔延长50%。透支未结清前不能再次使用。快攻流派的起手爆发牌。',
+  }),
+  signal_jam: variant('jam', 'signal_jam', '电磁干扰', 1, '封锁敌方出牌4秒', {
+    en: 'SIGNAL JAM',
+    effect: 'signal_jam',
+    tag: '干扰 · 短时封锁',
+    detail:
+      '释放电磁干扰，敌方4秒内无法打出任何卡牌。低费快攻封锁牌，适合打断对手的关键部署或连招。',
+  }),
+  airborne_insertion: variant(
+    'infantry',
+    'airborne_insertion',
+    '敌后空降',
+    4,
+    '伞兵空降到选定位置，落地后快速推进',
+    {
+      members: 5,
+      hp: 220,
+      damage: 30,
+      range: 420,
+      speed: 82,
+      doctrine: 'assault',
+      discipline: 90,
+      uniform: 'marine',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 纵深插入',
+      detail:
+        '5人伞兵班搭乘运输机空降到战场任意选定位置，伞降约2.5秒落地，落地后8秒内快速突进。可直接插入敌方纵深、绕开正面防线。',
+    },
+  ),
+  forced_march: variant('supply', 'forced_march', '强行军', 2, '己方全体步兵移速提升35%，12秒', {
+    en: 'FORCED MARCH',
+    effect: 'forced_march',
+    tag: '机动 · 全军加速',
+    detail:
+      '12秒内己方所有步兵移动速度提升35%。配合透支指挥的快攻铺场，能在对手反应过来之前把战线推到脸上。',
+  }),
+  cyber_suppression: variant(
+    'jam',
+    'cyber_suppression',
+    '电子压制',
+    3,
+    '敌方立即损失3点指挥点，6秒内回点减半',
+    {
+      en: 'CYBER SUPPRESSION',
+      effect: 'cyber_suppression',
+      tag: '干扰 · 经济压制',
+      detail:
+        '网络攻击使敌方立即损失3点指挥点，且6秒内指挥点回复速度减半。封锁流的核心经济压制牌，拖慢对手的节奏。',
+    },
+  ),
   ...BASE_CARDS,
   toxic_cloud: {
     id: 'toxic_cloud',

@@ -43,6 +43,7 @@ export interface Art {
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
   wrecks: Record<WreckKind, HTMLCanvasElement>;
+  parachute: HTMLCanvasElement[];
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -492,6 +493,7 @@ export function loadArt() {
       loadImage('/art/air-wrecks-v14.png'),
       loadImage('/art/mobile-vehicles-v14.png'),
       loadImage('/art/support-vehicles-v14.png'),
+      loadImage('/art/parachute-v1.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -525,6 +527,7 @@ export function loadArt() {
         airWrecks,
         mobileVehicles,
         supportVehicles,
+        parachuteSheet,
       ],
       extra,
       trees,
@@ -571,6 +574,7 @@ export function loadArt() {
         police: adultAtlas(adultPolice),
         militia: adultAtlas(adultMilitia),
       };
+      const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.
       for (const id of Object.keys(adults) as AdultIdentity[])
         patrol[id].raise3[2] = adults[id].actions20[0];
@@ -580,6 +584,7 @@ export function loadArt() {
         mines,
         trees,
         patrol,
+        parachute,
         adults,
         adultSpecialists: specialistAtlas(specialists),
         wrecks: wreckFrames(

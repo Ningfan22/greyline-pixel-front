@@ -146,26 +146,7 @@ export class BattleAudio {
   }
   async unlock() {
     if (!this.settings.enabled) return;
-    if (!this.context) {
-      const ctor =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext?: typeof AudioContext })
-          .webkitAudioContext;
-      if (!ctor) return;
-      this.context = new ctor();
-      const compressor = this.context.createDynamicsCompressor();
-      compressor.threshold.value = -14;
-      compressor.knee.value = 16;
-      compressor.ratio.value = 5;
-      compressor.attack.value = 0.005;
-      compressor.release.value = 0.18;
-      this.effectsGain = this.context.createGain();
-      this.musicGain = this.context.createGain();
-      this.effectsGain.connect(compressor);
-      this.musicGain.connect(compressor);
-      compressor.connect(this.context.destination);
-      this.applyVolumes();
-    }
+    if (!this.ensureContext()) return;
     const ctx = this.context;
     try {
       await ctx.resume();
@@ -220,6 +201,45 @@ export class BattleAudio {
     }
     await this.loading;
     this.startMusic(true);
+  }
+  /**
+   * Lightweight nudge used when entering battle: tries to resume an existing
+   * context and start music immediately. Unlike unlock() it never fetches
+   * files or logs errors — browsers may block it when there was no prior
+   * gesture, and that is fine; the pointer/key listeners will unlock later.
+   */
+  kick() {
+    if (!this.settings.enabled) return;
+    if (!this.ensureContext()) return;
+    const ctx = this.context!;
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {
+        /* Gesture unlock will retry. */
+      });
+    }
+    this.startMusic(true);
+  }
+  private ensureContext(): boolean {
+    if (this.context) return true;
+    const ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!ctor) return false;
+    this.context = new ctor();
+    const compressor = this.context.createDynamicsCompressor();
+    compressor.threshold.value = -14;
+    compressor.knee.value = 16;
+    compressor.ratio.value = 5;
+    compressor.attack.value = 0.005;
+    compressor.release.value = 0.18;
+    this.effectsGain = this.context.createGain();
+    this.musicGain = this.context.createGain();
+    this.effectsGain.connect(compressor);
+    this.musicGain.connect(compressor);
+    compressor.connect(this.context.destination);
+    this.applyVolumes();
+    return true;
   }
   private applyVolumes() {
     if (!this.context) return;

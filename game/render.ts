@@ -695,6 +695,24 @@ export function render(
         ctx.stroke();
       }
     }
+    if (u.parachuting && art.parachute.length) {
+      const sway = Math.sin(s.time * 1.7 + u.uid * 1.3) * 3;
+      const chute =
+        art.parachute[
+          Math.floor(s.time * 7 + u.uid * 1.3) % art.parachute.length
+        ];
+      const chuteX = u.x + sway;
+      const chuteY = u.y + infantryDepth(u.lane) - 46;
+      drawSprite(ctx, chute, chuteX, chuteY, 82, 82, (microDir ?? u.facing) < 0);
+      ctx.strokeStyle = 'rgba(184,178,154,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(chuteX - 22), Math.round(chuteY - 30));
+      ctx.lineTo(Math.round(u.x - 5), Math.round(u.y + infantryDepth(u.lane) - 20));
+      ctx.moveTo(Math.round(chuteX + 22), Math.round(chuteY - 30));
+      ctx.lineTo(Math.round(u.x + 5), Math.round(u.y + infantryDepth(u.lane) - 20));
+      ctx.stroke();
+    }
     drawSprite(
       ctx,
       img,

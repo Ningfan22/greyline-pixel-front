@@ -221,6 +221,9 @@ export default function Battle({
     // 进入战斗立即激活音乐（菜单已解锁时无缝延续，未解锁时在首次手势后播放）。
     mixer.setActive(true);
     void mixer.unlock();
+    // 轻量双保险：进战斗即推音乐，300ms 后再试一次覆盖异步解锁的空窗。
+    mixer.kick();
+    const kickTimer = setTimeout(() => mixer.kick(), 300);
     let mounted = true;
     queueMicrotask(() => {
       if (mounted) setAudioSettings({ ...mixer.settings });
@@ -232,6 +235,7 @@ export default function Battle({
     window.addEventListener('keydown', unlock);
     return () => {
       mounted = false;
+      clearTimeout(kickTimer);
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       mixer.setActive(false);
@@ -827,6 +831,12 @@ export default function Battle({
             +1 / {p.energyInterval.toFixed(1)}秒
             {p.bondDueAt !== null
               ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
+              : ''}
+            {p.overdraftUntil !== null && p.overdraftUntil > view.time
+              ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
+              : ''}
+            {p.suppressedUntil !== null && p.suppressedUntil > view.time
+              ? ` · 遭压制 ${Math.max(0, Math.ceil(p.suppressedUntil - view.time))}秒`
               : ''}
           </small>
         </div>
@@ -1606,6 +1616,12 @@ export default function Battle({
               {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
               {p.bondDueAt !== null
                 ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒后结算`
+                : ''}
+              {p.overdraftUntil !== null && p.overdraftUntil > view.time
+                ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
+                : ''}
+              {p.suppressedUntil !== null && p.suppressedUntil > view.time
+                ? ` · 遭压制 ${Math.max(0, Math.ceil(p.suppressedUntil - view.time))}秒`
                 : ''}
             </span>
             <span>

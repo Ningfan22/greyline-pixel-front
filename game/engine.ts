@@ -426,6 +426,10 @@ export interface Unit {
     squad?: number;
   };
   rappelling?: boolean;
+  /** Parachute insertion from an airdrop card: descending under canopy, no fire. */
+  parachuting?: boolean;
+  /** Forced-march order: movement speed boosted while active. */
+  forceMarchUntil?: number;
   slowedUntil: number;
   /** Disoriented period after bailing out of a destroyed vehicle: no fire, slow stumble. */
   bailoutUntil?: number;
@@ -1233,7 +1237,7 @@ export function playCard(
     };
   const blocked = c.comeback && comebackBlock(s, side, c.comeback);
   if (blocked) return { ok: false, message: blocked };
-  const economyBlocked = c.economy && economyBlock(p, c.economy);
+  const economyBlocked = c.economy && economyBlock(p, c.economy, s.time);
   if (economyBlocked) return { ok: false, message: economyBlocked };
   if (
     c.type === 'unit' &&
@@ -1241,11 +1245,13 @@ export function playCard(
     (!Number.isFinite(x) || x < 0 || x > W)
   )
     return { ok: false, message: '无效的入场位置' };
-  const landingX = c.airlift
-    ? safeLanding(s, x ?? defaultLanding(s, side))
-    : undefined;
-  // The transport also enters at HQ; its selected point is a flight destination.
-  if (c.type === 'unit') x = side === 0 ? 112 : W - 112;
+  const landingX =
+    c.airlift || c.airdrop
+      ? safeLanding(s, x ?? defaultLanding(s, side))
+      : undefined;
+  // Airdrop units descend onto the selected point; airlift transports still enter at HQ.
+  if (c.airdrop) x = landingX;
+  else if (c.type === 'unit') x = side === 0 ? 112 : W - 112;
   if (
     c.targetGround &&
     (x === undefined || !Number.isFinite(x) || x < 0 || x > W)
@@ -1270,6 +1276,7 @@ export function playCard(
   if (c.economy) {
     applyEconomy(p, c.economy, s.time);
   } else if (c.type === 'unit') {
+    const spawnedAt = s.units.length;
     spawnUnit(s, side, c.id, x!);
     if (c.airlift)
       s.units.at(-1)!.airlift = {
@@ -1278,6 +1285,12 @@ export function playCard(
         dropped: 0,
         nextAt: s.time,
       };
+    if (c.airdrop)
+      for (let i = spawnedAt; i < s.units.length; i++) {
+        const u = s.units[i];
+        u.parachuting = true;
+        u.y = ground(s, u.x) - 340;
+      }
     if (c.sortie) s.units.at(-1)!.sortieCard = token;
     if (c.deployDraw) draw(s, side, c.deployDraw);
     refreshVision(s);
@@ -1349,6 +1362,13 @@ export function playCard(
           u.cooldown = Math.max(u.cooldown, 3);
           u.secondaryCooldown = Math.max(u.secondaryCooldown, 3);
         }
+    if (c.effect === 'signal_jam') foe.jam = Math.max(foe.jam, 4);
+    if (c.effect === 'forced_march')
+      for (const u of own) u.forceMarchUntil = s.time + 12;
+    if (c.effect === 'cyber_suppression') {
+      foe.energy = Math.max(0, foe.energy - 3);
+      foe.suppressedUntil = s.time + 6;
+    }
   } else if (c.id === 'artillery') {
     callArtillery(s, side, x!, 'artillery');
   } else if (c.id === 'precision') {
@@ -2270,9 +2290,17 @@ export function projectileIntercept(
   const hardDistance = hardHit
     ? Math.hypot(hardHit.x - sx, hardHit.y - sy)
     : Infinity;
+  // 枪口前半程不被己方掩体挡弹：士兵躲在废墟后开火时，
+  // 贴着枪口的掩体不应吃掉自己的子弹。
+  const totalPath = Math.hypot(p.tx - p.startX, p.ty - p.startY) || 1;
+  const muzzleClear = totalPath * 0.5;
   for (const hit of sceneryCoverHits(s, sx, sy, tx, ty)) {
     if (Math.hypot(hit.x - sx, hit.y - sy) >= hardDistance) break;
     if (p.passedCover?.includes(hit.id)) continue;
+    if (Math.hypot(hit.x - p.startX, hit.y - p.startY) < muzzleClear) {
+      (p.passedCover ??= []).push(hit.id);
+      continue;
+    }
     (p.passedCover ??= []).push(hit.id);
     // A projectile rolls once per whole prop, independent of frame rate and wall pieces.
     if (rnd(s) < 0.5) return { x: hit.x, y: hit.y };
@@ -4984,6 +5012,13 @@ function updateAI(s: GameState) {
           x = safeLanding(s, defaultLanding(s, 1));
           score = cohorts >= 2 && groundFoes.length ? 18 : -2;
         }
+        if (c.airdrop) {
+          const enemyFront = groundFoes.length
+            ? Math.min(...groundFoes.map((u) => u.x))
+            : defaultLanding(s, 1);
+          x = safeLanding(s, enemyFront - 140);
+          score = cohorts >= 2 && groundFoes.length ? 17 : -2;
+        }
         if (c.air && !c.observer && !c.airOnly) {
           const enemyAA = groups(foes.filter((u) => weaponCard(u).antiAir));
           score +=
@@ -5040,7 +5075,7 @@ function updateAI(s: GameState) {
       } else if (c.economy) {
         const peaceful =
           !battle && !emergency && !armor.length && !armedAir.length;
-        if (peaceful && !economyBlock(p, c.economy)) {
+        if (peaceful && !economyBlock(p, c.economy, s.time)) {
           if (
             c.economy === 'logistics' &&
             screens >= 2 &&
@@ -5061,6 +5096,12 @@ function updateAI(s: GameState) {
             (screens >= 1 || s.time < 12)
           )
             score = screens >= 1 ? 18 : 5;
+          if (
+            c.economy === 'overdraft' &&
+            s.time < DURATION - 60 &&
+            p.hand.length >= 2
+          )
+            score = archetype === 'assault' ? 20 : 13;
         }
       } else if (c.id === 'antitank_mine') {
         x = armor
@@ -5180,6 +5221,13 @@ function updateAI(s: GameState) {
           score = 25;
       } else if (c.id === 'jam') {
         if (battle && cohorts >= 2 && s.players[0].jam <= 0) score = 8;
+      } else if (c.effect === 'signal_jam') {
+        if (battle && cohorts >= 2 && s.players[0].jam <= 0) score = 11;
+      } else if (c.effect === 'forced_march') {
+        if (battle && own.filter((u) => CARDS[u.id].members).length >= 3)
+          score = groundFoes.length ? 15 : 8;
+      } else if (c.effect === 'cyber_suppression') {
+        if (battle && s.players[0].energy >= 4) score = 16;
       }
       // Archetype flavour: nudge the generic scoring toward the deck's plan.
       // Hard vetoes (-100) stay negative after a nudge, so this never revives
@@ -6350,6 +6398,23 @@ export function tick(s: GameState, dt: number) {
       dir = u.side === 0 ? 1 : -1,
       enemySide: Side = u.side === 0 ? 1 : 0,
       baseX = enemySide === 0 ? 70 : W - 70;
+    if (u.parachuting) {
+      u.fire = 0;
+      u.secondaryFire = 0;
+      u.moving = true;
+      u.pose = 'climb';
+      u.walk += dt * 5;
+      u.y = Math.min(ground(s, u.x), u.y + 135 * dt);
+      if (u.y >= ground(s, u.x)) {
+        u.parachuting = false;
+        u.pose = 'land';
+        u.motion = 'land';
+        u.motionTime = 0;
+        u.motionDuration = 0.3;
+        u.rapidUntil = s.time + 8;
+      }
+      continue;
+    }
     if (u.rappelling) {
       u.fire = 0;
       u.secondaryFire = 0;
@@ -8083,7 +8148,8 @@ export function tick(s: GameState, dt: number) {
           ? 1.8
           : 1) *
         (morale ? 1.2 : 1) *
-        (u.slowedUntil > s.time ? 0.5 : 1);
+        (u.slowedUntil > s.time ? 0.5 : 1) *
+        ((u.forceMarchUntil ?? 0) > s.time ? 1.35 : 1);
       const moveDir = withdrawing
         ? Math.sign(u.withdrawGoal! - u.x)
         : reversing
@@ -8702,6 +8768,8 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       logisticsLevel: i === viewer ? p.logisticsLevel : 0,
       bondUses: i === viewer ? p.bondUses : 0,
       bondDueAt: i === viewer ? p.bondDueAt : null,
+      overdraftUntil: i === viewer ? p.overdraftUntil : null,
+      suppressedUntil: i === viewer ? p.suppressedUntil : null,
       hand:
         i === viewer
           ? p.hand.map((h) => ({
