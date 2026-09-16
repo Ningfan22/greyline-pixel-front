@@ -1,5 +1,9 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
+function hexa(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
+}
 export type Ammunition =
   | 'ap'
   | 'rifle'
@@ -307,6 +311,24 @@ export function drawParticle(
     ctx.globalAlpha = 1;
     return;
   }
+  if (p.kind === 'flash') {
+    // v111 additive detonation flash / lingering embers, drawn under the
+    // blast sprite so the fire reads as glowing from within.
+    const r = Math.max(2, p.size * (0.6 + (1 - life) * 0.6));
+    const a = Math.min(0.85, life * 2.4);
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    grad.addColorStop(0, hexa(p.color, a));
+    grad.addColorStop(0.4, hexa(p.color, a * 0.45));
+    grad.addColorStop(1, hexa(p.color, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.globalAlpha = smoke
     ? life *
       (p.kind === 'smoke'
@@ -359,6 +381,7 @@ export function drawBlast(
   b: Blast,
   legacy: HTMLCanvasElement[][],
   generated?: HTMLCanvasElement[][],
+  v13?: HTMLCanvasElement[][],
 ) {
   const penetration = b.kind === 'penetration',
     grenade = b.kind === 'grenade';
@@ -373,10 +396,17 @@ export function drawBlast(
         : crash
           ? 3.2
           : 5;
-  const frames =
-    penetration || !generated
-      ? legacy[penetration ? 0 : 1]
-      : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
+  const frames = penetration
+    ? legacy[0]
+    : !generated
+      ? legacy[1]
+      : v13 && (crash || b.kind === 'wreck')
+        ? v13[0]
+        : v13 && b.kind === 'artillery'
+          ? v13[1]
+          : v13 && grenade
+            ? v13[2]
+            : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
   // More of the first second is spent on expansion; the last frames dissipate slowly.
   const phases = penetration
     ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]

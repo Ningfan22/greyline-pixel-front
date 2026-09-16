@@ -500,6 +500,7 @@ export interface Particle {
     | 'cloud'
     | 'mote'
     | 'haze'
+    | 'flash'
     | 'blood';
   endX?: number;
   endY?: number;
@@ -1676,6 +1677,81 @@ function burst(
   s.blasts.push(blast);
   s.blasts = s.blasts.slice(-32);
   if (blastVisible(s, 0, blast)) s.shake = Math.min(12, radius / 7);
+  // v111: kind-tell particles layered under the authored v13 sprite frames.
+  // A white-hot core flash sells the detonation in the first ~100ms; heavy
+  // shells throw brown soil clods, vehicle kills spray sparks and embers.
+  {
+    const flashLife = 0.09 + fxRnd(s) * 0.05;
+    emitParticle(s, {
+      kind: 'flash',
+      x,
+      y: y - radius * 0.25,
+      vx: 0,
+      vy: 0,
+      life: flashLife,
+      maxLife: flashLife,
+      color: kind === 'air' ? '#fff7e0' : '#ffe9b8',
+      size:
+        radius *
+        (kind === 'crash' || kind === 'wreck'
+          ? 1.25
+          : kind === 'air'
+            ? 1.1
+            : 0.9 + fxRnd(s) * 0.3),
+    });
+  }
+  if (kind === 'artillery' || (kind === 'he' && radius >= 26)) {
+    const clods = Math.min(14, Math.max(6, Math.round(radius / 3)));
+    for (let i = 0; i < clods; i++) {
+      const a = -Math.PI / 2 + (fxRnd(s) - 0.5) * 1.7;
+      const sp = 60 + fxRnd(s) * 130;
+      const life = 0.5 + fxRnd(s) * 0.5;
+      emitParticle(s, {
+        kind: 'chip',
+        x: x + (fxRnd(s) - 0.5) * radius * 0.4,
+        y: y - 4,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.5 ? '#6b5638' : '#7d6543',
+        size: 2 + fxRnd(s) * 3,
+      });
+    }
+  }
+  if (kind === 'wreck' || kind === 'crash') {
+    const sparks = Math.min(22, Math.max(10, Math.round(radius / 4)));
+    for (let i = 0; i < sparks; i++) {
+      const a = -Math.PI / 2 + (fxRnd(s) - 0.5) * 2.2;
+      const sp = 90 + fxRnd(s) * 200;
+      const life = 0.25 + fxRnd(s) * 0.4;
+      emitParticle(s, {
+        kind: 'spark',
+        x: x + (fxRnd(s) - 0.5) * radius * 0.5,
+        y: y - radius * 0.3,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.6 ? '#ffd27a' : '#ff9a3c',
+        size: 2,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      const life = 0.8 + fxRnd(s) * 1.2;
+      emitParticle(s, {
+        kind: 'flash',
+        x: x + (fxRnd(s) - 0.5) * radius * 0.6,
+        y: y - radius * (0.2 + fxRnd(s) * 0.4),
+        vx: (fxRnd(s) - 0.5) * 12,
+        vy: -8 - fxRnd(s) * 14,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.5 ? '#ff8a3c' : '#ffb05a',
+        size: 3 + fxRnd(s) * 4,
+      });
+    }
+  }
   // Lingering dust clouds rise and drift after the blast sprite fades.
   if (kind !== 'air' && kind !== 'penetration') {
     const cloudCount = Math.min(16, Math.max(5, Math.round(radius / 5)));
@@ -8986,7 +9062,9 @@ export function tick(s: GameState, dt: number) {
     p.x += p.vx * dt;
     p.y += p.vy * dt;
     p.vy +=
-      (p.kind === 'smoke'
+      (p.kind === 'flash'
+        ? -10
+        : p.kind === 'smoke'
         ? -2
         : p.kind === 'cloud'
           ? -9

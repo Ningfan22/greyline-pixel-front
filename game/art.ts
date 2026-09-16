@@ -43,6 +43,7 @@ export interface Art {
   armor: Record<string, HTMLCanvasElement[]>;
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
+  combatExplosionsV13: HTMLCanvasElement[][];
   wrecks: Record<WreckKind, HTMLCanvasElement>;
   wreckVariants: Record<
     WreckKind,
@@ -487,6 +488,7 @@ export function loadArt() {
       loadImage('/art/rotorcraft-v12.png'),
       loadImage('/art/tanks-v12.png'),
       loadImage('/art/explosions-v12.png'),
+      loadImage('/art/explosions-v13.png'),
       loadImage('/art/buildings-v13.png'),
       loadImage('/art/building-collapse-v13.png'),
       loadImage('/art/adult-infantry-v13.png'),
@@ -521,6 +523,7 @@ export function loadArt() {
         rotorcraft,
         tanks,
         combatExplosions,
+        combatExplosionsV13,
         buildings,
         collapse,
         adultInfantry,
@@ -572,6 +575,7 @@ export function loadArt() {
         true,
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
+      const fx13 = atlasFrames(transparentSheet(combatExplosionsV13), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const adults = {
         infantry: adultAtlas(adultInfantry),
@@ -643,6 +647,19 @@ export function loadArt() {
             (i) => fx[2 + Math.floor(i / 8)][i % 8],
           ),
           fx[4].concat(fx[5]),
+        ],
+        // v13 authored families: A fuel-air vehicle blast, B vertical artillery
+        // column, C sharp grenade flash — each 16 frames over two atlas rows.
+        combatExplosionsV13: [
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[Math.floor(i / 8)][i % 8],
+          ),
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[2 + Math.floor(i / 8)][i % 8],
+          ),
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[4 + Math.floor(i / 8)][i % 8],
+          ),
         ],
       };
     },
