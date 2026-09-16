@@ -1843,11 +1843,9 @@ function hitUnit(
   if (c.members && source !== 'gas') {
     const supported =
       c.infantryAbility === 'cohesion' &&
-      s.units.filter(
+      squadMates(s, u.side, u.squad).filter(
         (v) =>
           v !== u &&
-          v.side === u.side &&
-          v.squad === u.squad &&
           isCombatant(v) &&
           Math.abs(v.x - u.x) <= 90,
       ).length >= 2;
@@ -3594,11 +3592,9 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     !tacticalReach(s, threat, u, 36)
   )
     return;
-  const squad = s.units
+  const squad = squadMates(s, u.side, u.squad)
     .filter(
       (v) =>
-        v.side === u.side &&
-        v.squad === u.squad &&
         isCombatant(v) &&
         CARDS[v.id].members &&
         v.tactic !== 'retreat' &&
@@ -3751,19 +3747,15 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
   if (
     c.infantryAbility === 'buddy_rally' &&
     !u.buddyRallied &&
-    s.units.some(
+    squadMates(s, u.side, u.squad).some(
       (v) =>
         v !== u &&
-        v.squad === u.squad &&
-        v.side === u.side &&
         v.hp > 0 &&
         (v.wounded || v.hp < v.maxHp * 0.5) &&
         Math.abs(v.x - u.x) <= 96,
     )
   ) {
-    for (const mate of s.units.filter(
-      (v) => v.side === u.side && v.squad === u.squad,
-    )) {
+    for (const mate of squadMates(s, u.side, u.squad)) {
       mate.buddyRallied = true;
       if (isCombatant(mate) && Math.abs(mate.x - u.x) <= 96) {
         mate.personalMorale = Math.max(
@@ -3946,25 +3938,15 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   // nearby squadmates orient toward the danger before they see it
   // themselves. Throttled per squad so a platoon does not chant in chorus.
   if (newContact && (u.calloutUntil ?? 0) <= s.time) {
-    const squadShouting = s.units.some(
-      (v) =>
-        v !== u &&
-        v.side === u.side &&
-        v.squad === u.squad &&
-        (v.calloutUntil ?? 0) > s.time,
+    const squadShouting = squadMates(s, u.side, u.squad).some(
+      (v) => v !== u && (v.calloutUntil ?? 0) > s.time,
     );
     if (!squadShouting) {
       const dir = (threat.x > u.x ? 1 : -1) as 1 | -1;
       u.calloutUntil = s.time + 0.9;
       u.calloutDir = dir;
-      for (const v of s.units) {
-        if (
-          v !== u &&
-          v.side === u.side &&
-          v.squad === u.squad &&
-          isCombatant(v) &&
-          Math.abs(v.x - u.x) <= 140
-        ) {
+      for (const v of squadMates(s, u.side, u.squad)) {
+        if (v !== u && isCombatant(v) && Math.abs(v.x - u.x) <= 140) {
           v.heardContactAt = s.time;
           v.heardContactDir = dir;
         }
@@ -4001,9 +3983,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.dispersionStartedAt = s.time;
     u.passingLane = slot.lane;
   }
-  const survivorList = s.units.filter(
-    (v) => v.squad === u.squad && isCombatant(v),
-  );
+  const survivorList = squadMates(s, u.side, u.squad).filter(isCombatant);
   const survivors = survivorList.length;
   if (
     !c.neverSurrender &&
@@ -6498,12 +6478,8 @@ export function tick(s: GameState, dt: number) {
       // foe is visible in weapons range: under direct fire the rest of the
       // fireteam keeps their weapons up (bounding overwatch, not a
       // stretcher race in the open).
-      const squadDragger = s.units.some(
-        (v) =>
-          v !== u &&
-          v.side === u.side &&
-          v.squad === u.squad &&
-          v.draggingUid !== undefined,
+      const squadDragger = squadMates(s, u.side, u.squad).some(
+        (v) => v !== u && v.draggingUid !== undefined,
       );
       let underFire = false;
       if (!squadDragger) {
@@ -6526,10 +6502,8 @@ export function tick(s: GameState, dt: number) {
       }
       if (!squadDragger && !underFire) {
         let bestPatient: Unit | undefined;
-        for (const q of s.units) {
+        for (const q of squadMates(s, u.side, u.squad)) {
           if (
-            q.side === u.side &&
-            q.squad === u.squad &&
             q.wounded &&
             q.draggedByUid === undefined &&
             q.bleedOut > 0 &&
@@ -6564,19 +6538,13 @@ export function tick(s: GameState, dt: number) {
       (u.firstAidScanAt ?? 0) <= s.time
     ) {
       u.firstAidScanAt = s.time + 0.3 + (u.uid % 5) * 0.05;
-      const squadAider = s.units.some(
-        (v) =>
-          v !== u &&
-          v.side === u.side &&
-          v.squad === u.squad &&
-          v.firstAidUntil !== undefined,
+      const squadAider = squadMates(s, u.side, u.squad).some(
+        (v) => v !== u && v.firstAidUntil !== undefined,
       );
       if (!squadAider && !firstAidHotZone(s, u)) {
         let bestPatient: Unit | undefined;
-        for (const q of s.units) {
+        for (const q of squadMates(s, u.side, u.squad)) {
           if (
-            q.side === u.side &&
-            q.squad === u.squad &&
             q.wounded &&
             q.draggedByUid === undefined &&
             q.firstAidByUid === undefined &&
