@@ -843,6 +843,28 @@ export function formationLane(member: number, count: number) {
   // retreating squads up (v22 regression).
   return (member - (count - 1) / 2) * 8;
 }
+/**
+ * Formation lane for a unit based on its squad's *living* combatants, not
+ * the card's full roster.  A squad thinned by casualties re-centers its
+ * skirmish line on the survivors: a lone survivor holds lane 0 instead of
+ * drifting to the edge slot of a six-man table (which read as a routing
+ * straggler and left bypassing units parked far off-lane once traffic
+ * cleared).  Cost is O(squad size) ≤ 6 per infantry unit per tick.
+ */
+export function squadFormationLane(s: GameState, u: Unit): number {
+  const mates = s.squadIndex?.get(u.side * 1048576 + u.squad);
+  if (!mates) return formationLane(u.member, CARDS[u.id].members ?? 1);
+  let rank = 0;
+  let count = 0;
+  for (const m of mates) {
+    if (m.hp <= 0 || m.surrendered || m.wounded || !CARDS[m.id].members)
+      continue;
+    if (m.member < u.member) rank++;
+    count++;
+  }
+  if (count <= 1) return 0;
+  return formationLane(rank, count);
+}
 export function spawnUnit(
   s: GameState,
   side: Side,
@@ -7883,7 +7905,7 @@ export function tick(s: GameState, dt: number) {
                 (u.dispersionUntil ?? 0) <= s.time &&
                 !withdrawing &&
                 !retreating
-              ? formationLane(u.member, c.members ?? 1)
+              ? squadFormationLane(s, u)
               : undefined;
         const laneChange =
           desiredLane !== undefined
