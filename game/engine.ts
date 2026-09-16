@@ -66,6 +66,13 @@ import {
   type Ammunition,
 } from './ballistics';
 import {
+  canRicochet,
+  ricochetChance,
+  reflectAngle,
+  RICOCHET_LIFE,
+  type Ricochet,
+} from './ricochet';
+import {
   obstacleBoxes,
   segmentBox,
   debrisCover,
@@ -653,6 +660,8 @@ export interface GameState {
   flares: Flare[];
   batteryReports: BatteryReport[];
   blasts: Blast[];
+  /** v95: supersonic rounds skipping off armour. */
+  ricochets: Ricochet[];
   scorches: Scorch[];
   treads: TreadMark[];
   dragMarks: DragMark[];
@@ -771,6 +780,7 @@ export function createGame(
     flares: [],
     batteryReports: [],
     blasts: [],
+    ricochets: [],
     scorches: [],
     treads: [],
     dragMarks: [],
@@ -1692,7 +1702,20 @@ function bulletImpact(
   y: number,
   material: 'soil' | 'armor' | 'cloth',
   direction: number,
+  ammo?: Ammunition,
+  incomingAngle = 0,
 ) {
+  // v95: a supersonic round that strikes armour may skip off it. Visual and
+  // audio only — the round's damage is already resolved by the caller.
+  if (material === 'armor' && canRicochet(ammo) && fxRnd(s) < ricochetChance(ammo))
+    s.ricochets.push({
+      x,
+      y,
+      angle: reflectAngle(incomingAngle, (fxRnd(s) - 0.5) * 0.7),
+      age: 0,
+      seed: s.fxSeed % 8,
+      side: 0,
+    });
   if (material === 'soil')
     emitParticle(s, {
       kind: 'impact',
@@ -8356,6 +8379,8 @@ export function tick(s: GameState, dt: number) {
           impact.y,
           p.ammunition === 'ap' ? 'armor' : 'soil',
           Math.sign(p.tx - p.startX),
+          p.ammunition,
+          p.heading ?? Math.atan2(p.ty - p.startY, p.tx - p.startX),
         );
       }
       continue;
@@ -8429,6 +8454,8 @@ export function tick(s: GameState, dt: number) {
             p.ty,
             CARDS[u.id].armored || CARDS[u.id].vehicle ? 'armor' : 'cloth',
             Math.sign(p.tx - p.startX),
+            p.ammunition,
+            p.heading ?? Math.atan2(p.ty - p.startY, p.tx - p.startX),
           );
         }
       } else if (p.base !== null) {
@@ -8559,6 +8586,8 @@ export function tick(s: GameState, dt: number) {
               ? 3.2
               : 5),
   );
+  for (const r of s.ricochets) r.age += dt;
+  s.ricochets = s.ricochets.filter((r) => r.age < RICOCHET_LIFE);
   for (const p of s.particles) {
     p.life -= dt;
     if (p.kind === 'tracer' || p.kind === 'impact') continue;

@@ -4,6 +4,7 @@ import { CARDS, modelOf, weaponModel } from './cards';
 import { pointVisible } from './world';
 import { H, type Blast, type GameState } from './engine';
 import { CrackTracker } from './bullet-crack';
+import type { Ricochet } from './ricochet';
 
 export interface AudioSettings {
   enabled: boolean;
@@ -44,10 +45,11 @@ export class BattleAudio {
   private musicOffset = 0;
   private musicStarted = 0;
   private active = false;
-  private voices = new Set<AudioBufferSourceNode>();
+  private voices = new Set<AudioScheduledSourceNode>();
   private playedAt = new Map<string, number>();
   private shots = new Map<number, [number, number, number]>();
   private blasts = new WeakSet<Blast>();
+  private ricochets = new WeakSet<Ricochet>();
   private cracks = new CrackTracker();
   private crackNoise: AudioBuffer | null = null;
   private state: GameState | null = null;
@@ -346,6 +348,7 @@ export class BattleAudio {
       this.state = s;
       this.shots.clear();
       this.blasts = new WeakSet();
+      this.ricochets = new WeakSet();
       this.cracks.reset();
       this.playedAt.clear();
       this.lastRumbleCycle = -1;
@@ -418,6 +421,13 @@ export class BattleAudio {
         if (b.kind === 'artillery' || b.kind === 'wreck')
           this.sample('rumble.wav', b.x, 0.28, 0.35, 0.9);
       }
+    }
+    // v95: supersonic rounds skipping off armour whine as they fly off.
+    for (const r of s.ricochets) {
+      if (this.ricochets.has(r)) continue;
+      this.ricochets.add(r);
+      if (!active || !pointVisible(s, 0, r.x, r.y)) continue;
+      this.ricochetWhine(r.x, r.seed);
     }
     const flash = distantFlashState(s.time);
     if (flash.active && flash.index !== this.lastRumbleCycle) {
@@ -524,6 +534,102 @@ export class BattleAudio {
       panNode.disconnect();
     };
     source.start();
+  }
+
+  /**
+   * Synthesised ricochet whine: a sawtooth glissando screaming down from
+   * ~4.2 kHz to ~600 Hz over 0.16 s, layered with the same bandpass noise
+   * used for the bullet crack. The "zzzip" of a round skipping off armour
+   * is the second most recognisable sound of a real firefight.
+   */
+  private ricochetWhine(x: number, seed: number) {
+    const ctx = this.context;
+    if (
+      !ctx ||
+      !this.effectsGain ||
+      !this.active ||
+      !this.settings.enabled ||
+      this.settings.effects === 0
+    )
+      return;
+    const now = ctx.currentTime;
+    if (now - (this.playedAt.get('ricochet') ?? -Infinity) < 0.06) return;
+    this.playedAt.set('ricochet', now);
+    if (!this.crackNoise) {
+      const len = Math.floor(ctx.sampleRate * 0.25),
+        buffer = ctx.createBuffer(1, len, ctx.sampleRate),
+        data = buffer.getChannelData(0);
+      let state = 0x1234abcd;
+      for (let i = 0; i < len; i++) {
+        state ^= state << 13;
+        state ^= state >>> 17;
+        state ^= state << 5;
+        state >>>= 0;
+        data[i] = ((state >>> 16) & 0xffff) / 0x8000 - 1;
+      }
+      this.crackNoise = buffer;
+    }
+    if (this.voices.size >= 22) {
+      const oldest = this.voices.values().next().value;
+      oldest?.stop();
+      if (oldest) this.voices.delete(oldest);
+    }
+    const listenerX = this.camera + this.width / 2;
+    const dist = Math.abs(x - listenerX);
+    const closeness = Math.max(0, 1 - dist / 600);
+    if (closeness <= 0) return;
+    const pan = Math.max(-1, Math.min(1, (x - listenerX) / (this.width * 0.65)));
+    const osc = ctx.createOscillator(),
+      noise = ctx.createBufferSource(),
+      panNode = ctx.createStereoPanner(),
+      oscGain = ctx.createGain(),
+      noiseGain = ctx.createGain(),
+      noiseFilter = ctx.createBiquadFilter();
+    osc.type = 'sawtooth';
+    const startFreq = 4000 + seed * 120;
+    osc.frequency.setValueAtTime(startFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(580 + seed * 30, now + 0.16);
+    noise.buffer = this.crackNoise;
+    noise.playbackRate.value = 1.05 + seed * 0.03;
+    noiseFilter.type = 'bandpass';
+    noiseFilter.Q.value = 1.4;
+    noiseFilter.frequency.setValueAtTime(3100 + seed * 160, now);
+    noiseFilter.frequency.exponentialRampToValueAtTime(
+      900 + seed * 60,
+      now + 0.16,
+    );
+    const level = 0.05 + closeness * 0.16;
+    oscGain.gain.setValueAtTime(0, now);
+    oscGain.gain.linearRampToValueAtTime(level, now + 0.003);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    noiseGain.gain.setValueAtTime(0, now);
+    noiseGain.gain.linearRampToValueAtTime(level * 0.5, now + 0.003);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    panNode.pan.value = pan;
+    osc.connect(oscGain);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    oscGain.connect(panNode);
+    noiseGain.connect(panNode);
+    panNode.connect(this.effectsGain);
+    this.voices.add(osc);
+    this.voices.add(noise);
+    const done = () => {
+      this.voices.delete(osc);
+      this.voices.delete(noise);
+      osc.disconnect();
+      noise.disconnect();
+      noiseFilter.disconnect();
+      oscGain.disconnect();
+      noiseGain.disconnect();
+      panNode.disconnect();
+    };
+    osc.onended = done;
+    noise.onended = done;
+    osc.start();
+    noise.start();
+    osc.stop(now + 0.22);
+    noise.stop(now + 0.22);
   }
 }
 let instance: BattleAudio | null = null;

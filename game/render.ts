@@ -30,6 +30,7 @@ import { drawScenery } from './scenery-art';
 import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
 import { drawWeather } from './weather';
 import { WhipStreakLayer } from './whip-streak';
+import { drawRicochets } from './ricochet';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
@@ -1124,5 +1125,6 @@ export function render(
   if (s.night) drawNightOverlay(ctx, s, camera, viewportWidth);
   drawWeather(ctx, s, camera, viewportWidth, H);
   if (!reduced) whipStreaks.draw(ctx, s.time);
+  if (!reduced) drawRicochets(ctx, s.ricochets);
   ctx.restore();
 }
