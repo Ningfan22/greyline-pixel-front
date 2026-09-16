@@ -437,9 +437,11 @@ export function render(
               : 'grayscale(.85) brightness(.64) sepia(.25)',
         );
         const shape = wreckGeometry(w.cardId);
-        const scaleJ = 0.94 + (wsd % 7) * 0.02;
-        const tiltJ = ((wsd >>> 3) % 5 - 2) * 0.02;
-        const dx = ((wsd >>> 5) % 5 - 2);
+        // v112: structural variants carry the visual variety now — jitter
+        // is kept subtle so same-card wrecks don't look procedurally noisy.
+        const scaleJ = 0.97 + (wsd % 4) * 0.015;
+        const tiltJ = ((wsd >>> 3) % 3 - 1) * 0.015;
+        const dx = ((wsd >>> 5) % 3 - 1);
         const scorch = Math.max(
           18,
           Math.round(shape.width * (0.55 + (wsd % 4) * 0.12)),
@@ -886,7 +888,11 @@ export function render(
     if ((c.armored || c.emplacement) && u.fire > 0 && u.motion === 'ground') {
       const k = u.fire / 0.25;
       if (barrelBand) {
-        barrelRecoil = (barrelBand[2] - barrelBand[0]) * 0.8 * k * k;
+        // v112: the old 0.8×band-width slid the barrel almost fully into
+        // the hull. Recoil scales with barrel length, capped, so the muzzle
+        // kicks back visibly without swallowing a short heavy-tank barrel.
+        const barrelLen = barrelBand[2] - barrelBand[0];
+        barrelRecoil = Math.min(15, barrelLen * 0.3) * k * k;
       } else {
         const recoil = 3 * k * k;
         recoilX = -u.facing * recoil;

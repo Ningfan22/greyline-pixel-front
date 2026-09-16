@@ -705,12 +705,306 @@ function mobilityKill(
   return c;
 }
 
+/** V11: the vehicle is flipped onto its side or roof by a nearby detonation —
+ *  the hulk lies capsized beside its original footprint with a scorch. */
+function capsized(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const W = frame.width;
+  const H = frame.height;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  // scorch where the vehicle originally sat
+  ctx.fillStyle = 'rgba(10,8,6,0.5)';
+  ctx.beginPath();
+  ctx.ellipse(W * 0.5, H * 0.85, W * 0.4, H * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // draw the vehicle flipped 75–105° onto its side
+  const flip = rand() < 0.5 ? 1 : -1;
+  const angle = flip * (Math.PI * (0.42 + rand() * 0.16));
+  const scale = 0.82 + rand() * 0.1;
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.72);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+  ctx.drawImage(frame, -W / 2, -H / 2);
+  ctx.restore();
+  // debris chunks scattered around the capsized hulk
+  ctx.fillStyle = '#2a241e';
+  for (let i = 0; i < 12; i++) {
+    const x = W * (0.08 + rand() * 0.84);
+    const y = H * (0.72 + rand() * 0.24);
+    const s = 1 + rand() * 3;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rand() * Math.PI * 2);
+    ctx.fillRect(-s / 2, -s / 2, s, s * 0.6);
+    ctx.restore();
+  }
+  return c;
+}
+
+/** V12: an aircraft that crashed and broke apart — the fuselage and wings
+ *  lie scattered along a crash line with a fuel-fire scorch trail. */
+function aircraftCrashed(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const W = frame.width;
+  const H = frame.height;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  // scorch trail along the crash path
+  ctx.fillStyle = 'rgba(10,8,6,0.4)';
+  for (let i = 0; i < 5; i++) {
+    const t = i / 4;
+    ctx.beginPath();
+    ctx.ellipse(
+      W * (0.12 + t * 0.72),
+      H * (0.88 - t * 0.35),
+      W * (0.07 + rand() * 0.05),
+      H * 0.08,
+      -0.3,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  // break into 2–3 pieces and scatter them
+  const pieces = 2 + Math.floor(rand() * 2);
+  const regions: Rect[] =
+    pieces === 2
+      ? [
+          [0, 0, 0.55, 1],
+          [0.5, 0, 0.5, 1],
+        ]
+      : [
+          [0, 0, 0.38, 1],
+          [0.33, 0, 0.36, 1],
+          [0.64, 0, 0.36, 1],
+        ];
+  for (const [rx, ry, rw, rh] of regions) {
+    const sw = Math.max(4, Math.round(rw * W));
+    const sh = Math.max(4, Math.round(rh * H));
+    const sx = Math.round(rx * W);
+    const sy = Math.round(ry * H);
+    const part = document.createElement('canvas');
+    part.width = sw;
+    part.height = sh;
+    const pctx = part.getContext('2d')!;
+    pctx.imageSmoothingEnabled = false;
+    pctx.drawImage(frame, sx, sy, sw, sh, 0, 0, sw, sh);
+    const px = W * (0.12 + rand() * 0.68);
+    const py = H * (0.45 + rand() * 0.42);
+    const angle = (rand() - 0.5) * 2.4;
+    const scale = 0.78 + rand() * 0.15;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(angle);
+    ctx.scale(scale, scale);
+    ctx.drawImage(part, -sw / 2, -sh / 2);
+    ctx.restore();
+  }
+  return c;
+}
+
+/** V13: a track or running-gear section is blown off — the hull lists toward
+ *  the missing side and the track lies beside it in the dirt. */
+function blownTrack(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const W = frame.width;
+  const H = frame.height;
+  const c = document.createElement('canvas');
+  c.width = W;
+  c.height = H;
+  const ctx = c.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const bandY = Math.round(H * 0.7);
+  const bandH = H - bandY;
+  const left = rand() < 0.5;
+  const trackW = Math.round(W * (0.28 + rand() * 0.18));
+  const tx = left ? 0 : W - trackW;
+  // extract the track section from the original frame
+  const part = document.createElement('canvas');
+  part.width = trackW;
+  part.height = bandH;
+  const pctx = part.getContext('2d')!;
+  pctx.imageSmoothingEnabled = false;
+  pctx.drawImage(frame, tx, bandY, trackW, bandH, 0, 0, trackW, bandH);
+  // draw the hull tilted toward the missing side
+  const tilt = (left ? -1 : 1) * (0.07 + rand() * 0.08);
+  ctx.save();
+  ctx.translate(W / 2, H * 0.88);
+  ctx.rotate(tilt);
+  ctx.drawImage(frame, -W / 2, -H * 0.88);
+  ctx.restore();
+  // dark gap where the track was torn from
+  ctx.fillStyle = 'rgba(7,6,5,0.85)';
+  ctx.beginPath();
+  ctx.ellipse(
+    W / 2 + (left ? -1 : 1) * W * 0.18,
+    H * 0.9,
+    trackW * 0.45,
+    bandH * 0.35,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // drop the track on the ground beside the hull
+  const landX = left ? W * 0.86 : W * 0.14;
+  const landY = H * 0.92;
+  ctx.fillStyle = 'rgba(10,8,6,0.4)';
+  ctx.beginPath();
+  ctx.ellipse(landX, landY, trackW * 0.4, Math.max(2, bandH * 0.12), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.save();
+  ctx.translate(landX, landY);
+  ctx.rotate((rand() - 0.5) * 1.4);
+  ctx.drawImage(part, -trackW / 2, -bandH / 2);
+  ctx.restore();
+  return c;
+}
+
+/** V14: the turret is blown askew but still attached — rotated 30–75° off its
+ *  normal axis, sitting crooked on the turret ring with scorch marks. */
+function turretAskew(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const region = spec.collapse ?? [0.15, 0.02, 0.7, 0.4];
+  const [rx, ry, rw, rh] = region;
+  const sx = Math.round(rx * W);
+  const sy = Math.round(ry * H);
+  const sw = Math.max(4, Math.round(rw * W));
+  const sh = Math.max(4, Math.round(rh * H));
+  // extract the turret / upper assembly
+  const part = document.createElement('canvas');
+  part.width = sw;
+  part.height = sh;
+  const pctx = part.getContext('2d')!;
+  pctx.imageSmoothingEnabled = false;
+  pctx.drawImage(frame, sx, sy, sw, sh, 0, 0, sw, sh);
+  // black out the original turret position with jagged edges
+  jaggedBlob(ctx, sx + sw / 2, sy + sh / 2, Math.max(sw, sh) * 0.55, rand, 12);
+  ctx.fillStyle = '#0a0908';
+  ctx.fill();
+  // redraw the turret rotated off-axis, slightly offset
+  const angle = (rand() < 0.5 ? 1 : -1) * (0.5 + rand() * 0.8);
+  const ox = (rand() - 0.5) * sw * 0.3;
+  const oy = sh * 0.12;
+  ctx.save();
+  ctx.translate(sx + sw / 2 + ox, sy + sh / 2 + oy);
+  ctx.rotate(angle);
+  ctx.drawImage(part, -sw / 2, -sh / 2);
+  ctx.restore();
+  // scorch at the turret ring
+  ctx.fillStyle = 'rgba(8,6,4,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(
+    sx + sw / 2,
+    sy + sh * 0.82,
+    sw * 0.42,
+    Math.max(2, sh * 0.1),
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  return c;
+}
+
+/** V15: breached hull that subsequently burned out — puncture holes through
+ *  a charred, soot-streaked hulk. */
+function hullBurnt(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  return burnedOut(breached(frame, spec, rand), spec, rand);
+}
+
+/** V16: gutted and burned — the crushed upper structure is also charred
+ *  with ember glow in the collapsed interior. */
+function guttedBurn(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  return burnedOut(gutted(frame, spec, rand), spec, rand);
+}
+
+/** V17: hull split by a catastrophic kill that also ignited the fuel —
+ *  the torn halves are pulled apart and heavily charred. */
+function splitBurnt(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  return burnedOut(splitHull(frame, spec, rand), spec, rand);
+}
+
+/** V18: shot to pieces and then scorched by a secondary fire — dozens of
+ *  small-calibre holes under a patchy burn wash. */
+function riddledBurnt(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  return scorched(riddled(frame, spec, rand), spec, rand);
+}
+
+/** Kinds that are aircraft — they use crash-site states instead of
+ *  track/turret damage which only applies to ground vehicles. */
+const AIRCRAFT: ReadonlySet<WreckKind> = new Set([
+  'scout_drone',
+  'fpv_drone',
+  'helicopter',
+  'rocket_heli',
+  'medevac',
+  'attack_drone',
+  'loiter_drone',
+  'interceptor',
+  'strike_jet',
+  'bomber',
+]);
+
+/** Kinds with a distinct turret / upper assembly that can be blown askew. */
+const TURRETED: ReadonlySet<WreckKind> = new Set([
+  'light_tank',
+  'tank',
+  'heavy_tank',
+  'ifv',
+  'tow_ifv',
+  'sam_vehicle',
+  'recovery_vehicle',
+  'command_vehicle',
+]);
+
 /**
  * Structural damage states per wreck kind, baked once at load and grouped
  * by what killed the vehicle:
- *   blast  — as-is, assembly torn off, hull split, turret blown off, ammo cook-off
- *   bullet — as-is, hull breached, riddled with holes, mobility kill, surface scorched
- *   burn   — as-is, burned out, crushed & gutted
+ *   blast  — as-is, assembly torn off, hull split, turret blown off, ammo
+ *            cook-off, capsized, track blown off, turret askew, split & burnt
+ *   bullet — as-is, hull breached, riddled with holes, mobility kill, surface
+ *            scorched, track blown off, riddled & burnt
+ *   burn   — as-is, burned out, crushed & gutted, hull burnt, gutted & burnt
  * Renderers pick a stable variant per wreck id within the cause family, so
  * same-card wrecks differ structurally and the damage matches the kill.
  */
@@ -725,27 +1019,51 @@ export function wreckVariants(
       const frame = frames[kind];
       const spec = SPECS[kind] ?? {};
       const seed = hash(kind);
+      const isAircraft = AIRCRAFT.has(kind);
+      const isTurreted = TURRETED.has(kind);
+      const blast: HTMLCanvasElement[] = [
+        frame,
+        blownApart(frame, spec, rng(seed ^ 0x9e3779b9)),
+        splitHull(frame, spec, rng(seed ^ 0x165667b1)),
+        ammoCookOff(frame, spec, rng(seed ^ 0xd1b54a32)),
+        capsized(frame, spec, rng(seed ^ 0x27d4eb2f)),
+        splitBurnt(frame, spec, rng(seed ^ 0x165667b2)),
+      ];
+      if (isAircraft) {
+        blast.push(aircraftCrashed(frame, spec, rng(seed ^ 0x8a7cd194)));
+      } else {
+        blast.push(
+          turretBlast(frame, spec, rng(seed ^ 0x8a7cd194)),
+          blownTrack(frame, spec, rng(seed ^ 0x5851f42d)),
+        );
+        if (isTurreted) {
+          blast.push(turretAskew(frame, spec, rng(seed ^ 0x41c6ce57)));
+        }
+      }
+      const bullet: HTMLCanvasElement[] = [
+        frame,
+        breached(frame, spec, rng(seed ^ 0x85ebca6b)),
+        riddled(frame, spec, rng(seed ^ 0x5851f42d)),
+        scorched(frame, spec, rng(seed ^ 0x3e268931)),
+        riddledBurnt(frame, spec, rng(seed ^ 0x27d4eb2e)),
+      ];
+      if (!isAircraft) {
+        bullet.push(
+          mobilityKill(frame, spec, rng(seed ^ 0x41c6ce57)),
+          blownTrack(frame, spec, rng(seed ^ 0x85ebca6c)),
+        );
+      }
       return [
         kind,
         {
-          blast: [
-            frame,
-            blownApart(frame, spec, rng(seed ^ 0x9e3779b9)),
-            splitHull(frame, spec, rng(seed ^ 0x165667b1)),
-            turretBlast(frame, spec, rng(seed ^ 0x8a7cd194)),
-            ammoCookOff(frame, spec, rng(seed ^ 0xd1b54a32)),
-          ],
-          bullet: [
-            frame,
-            breached(frame, spec, rng(seed ^ 0x85ebca6b)),
-            riddled(frame, spec, rng(seed ^ 0x5851f42d)),
-            mobilityKill(frame, spec, rng(seed ^ 0x41c6ce57)),
-            scorched(frame, spec, rng(seed ^ 0x3e268931)),
-          ],
+          blast,
+          bullet,
           burn: [
             frame,
             burnedOut(frame, spec, rng(seed ^ 0x27d4eb2f)),
             gutted(frame, spec, rng(seed ^ 0xc2b2ae35)),
+            hullBurnt(frame, spec, rng(seed ^ 0x9e3779ba)),
+            guttedBurn(frame, spec, rng(seed ^ 0x165667b2)),
           ],
         },
       ];

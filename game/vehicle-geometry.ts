@@ -96,7 +96,9 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 57,
     coaxX: 54,
     coaxY: 57,
-    barrelBand: [62.2, -62.2, 102.0, -54.0],
+    // v112: band must reach the muzzle tip so the whole thin barrel slides
+    // back as one piece — a short x1 left the tip planted in the hull pass.
+    barrelBand: [62.2, -62.2, 120, -54.0],
   },
   tank: {
     size: [270, 135],
@@ -107,7 +109,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 56,
     coaxX: 60,
     coaxY: 56,
-    barrelBand: [89.0, -61.7, 131.3, -52.5],
+    barrelBand: [89.0, -61.7, 151, -52.5],
   },
   heavy_tank: {
     size: [305, 152.5],
@@ -118,7 +120,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 82,
     coaxX: 66,
     coaxY: 82,
-    barrelBand: [126.2, -90.0, 148.3, -75.7],
+    barrelBand: [126.2, -90.0, 157, -75.7],
   },
 };
 export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {

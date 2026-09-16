@@ -1774,18 +1774,25 @@ function burst(
     // v109: heavy blasts leave a standing smoke column — a bomb or tank
     // kill marks the sky for seconds instead of fading with the flash.
     if (soil && radius >= 20) {
-      for (let i = 0; i < 12; i++) {
-        const life = 3 + fxRnd(s) * 2.5;
+      // v112: bombs and heavy shells (radius >= 30) throw a much taller,
+      // darker column — a jet strike on the ground should read as a real
+      // blast, not a rifle puff.
+      const heavy = radius >= 30;
+      const columnCount = heavy ? 24 : 12;
+      for (let i = 0; i < columnCount; i++) {
+        const life = heavy ? 4.5 + fxRnd(s) * 3.5 : 3 + fxRnd(s) * 2.5;
         emitParticle(s, {
           kind: 'cloud',
-          x: x + (fxRnd(s) - 0.5) * radius * 0.5,
+          x: x + (fxRnd(s) - 0.5) * radius * (heavy ? 0.7 : 0.5),
           y: y - fxRnd(s) * 10,
-          vx: (fxRnd(s) - 0.5) * 10,
-          vy: -24 - fxRnd(s) * 26,
+          vx: (fxRnd(s) - 0.5) * (heavy ? 14 : 10),
+          vy: heavy ? -34 - fxRnd(s) * 40 : -24 - fxRnd(s) * 26,
           life,
           maxLife: life,
-          color: fxRnd(s) < 0.5 ? '#5c5347' : '#6e6358',
-          size: radius * (0.5 + fxRnd(s) * 0.45),
+          color: heavy
+            ? (fxRnd(s) < 0.5 ? '#463e34' : '#5c5347')
+            : (fxRnd(s) < 0.5 ? '#5c5347' : '#6e6358'),
+          size: radius * (heavy ? 0.7 + fxRnd(s) * 0.6 : 0.5 + fxRnd(s) * 0.45),
         });
       }
     }
@@ -2643,10 +2650,14 @@ export function projectileIntercept(
     return terrainIntercept(s, sx, sy, tx, ty, true, true);
   if (indirectShell)
     return terrainIntercept(s, sx, sy, tx, ty, false, false, true);
-  // v108: aircraft strafing runs come from above — walls and rubble don't
-  // block 30mm rounds plunging from the sky. Only the ground stops them.
-  if (p.fromAir)
-    return terrainIntercept(s, sx, sy, tx, ty, false, true);
+  // v112: aircraft ordnance is aimed at the target's body centre, which sits
+  // above the ground. A heightfield ray from a high dive angle clips the
+  // near slope of any hill the target stands on and detonates the bomb on
+  // the hillside dozens of pixels short — so a strafing run that should
+  // shred infantry instead scratches dirt. Ground-attack projectiles
+  // therefore fly straight to their aim point and detonate there on life
+  // expiry; burst() snaps the blast down to the soil under the target.
+  if (p.fromAir) return null;
   if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
     return terrainIntercept(s, sx, sy, tx, ty);
   const hardHit = terrainIntercept(s, sx, sy, tx, ty, true);
