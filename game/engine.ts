@@ -198,6 +198,10 @@ export interface Unit {
   draggingUid?: number;
   draggedByUid?: number;
   injuryCooldown: number;
+  /** v92: squad kill tally — the feedstock for veterancy. */
+  kills?: number;
+  /** v92: timestamp of the most recent field promotion (drives the pip flash). */
+  veteranAt?: number;
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
   /**
@@ -1742,6 +1746,49 @@ function bulletImpact(
       });
     }
 }
+// v92: squad veterancy — a squad that has spilled blood keeps its nerve under
+// fire, walks its shells closer, and brings its weapon to bear faster. The
+// director never grants this: both sides earn it the same way, with real kills.
+const VETERAN_KILLS = [3, 7, 12];
+const VETERAN_SUPPRESSION = [1, 0.85, 0.72, 0.6];
+const VETERAN_SCATTER = [1, 0.9, 0.8, 0.7];
+const VETERAN_READINESS = [1, 0.85, 0.7, 0.55];
+const VETERAN_NAMES = ['', '老兵', '精锐', '王牌'];
+export function veteranTier(u: Unit): number {
+  const k = u.kills ?? 0;
+  return k >= VETERAN_KILLS[2]
+    ? 3
+    : k >= VETERAN_KILLS[1]
+      ? 2
+      : k >= VETERAN_KILLS[0]
+        ? 1
+        : 0;
+}
+export function veteranSuppression(u: Unit): number {
+  return VETERAN_SUPPRESSION[veteranTier(u)];
+}
+export function veteranScatter(u: Unit): number {
+  return VETERAN_SCATTER[veteranTier(u)];
+}
+export function veteranReadiness(u: Unit): number {
+  return VETERAN_READINESS[veteranTier(u)];
+}
+
+function creditKill(s: GameState, a: Unit) {
+  const before = veteranTier(a);
+  a.kills = (a.kills ?? 0) + 1;
+  const after = veteranTier(a);
+  if (after > before) {
+    a.veteranAt = s.time;
+    notify(
+      s,
+      `${a.side === 0 ? '我方' : '敌方'}${CARDS[a.id].name}在战火中锤炼为${VETERAN_NAMES[after]}`,
+      'info',
+      ([0, 1] as Side[]).filter((side) => visibleToSide(s, side, a)),
+    );
+  }
+}
+
 function hitUnit(
   s: GameState,
   u: Unit,
@@ -1749,6 +1796,7 @@ function hitUnit(
   side: Side,
   cover = 0,
   source: 'bullet' | 'blast' | 'gas' = 'bullet',
+  attackerUid?: number,
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
@@ -1786,7 +1834,11 @@ function hitUnit(
     u.suppression = Math.min(
       100,
       u.suppression +
-        ((actual / u.maxHp) * 90 + 6) * resolve * umbrella * firebase,
+        ((actual / u.maxHp) * 90 + 6) *
+          resolve *
+          umbrella *
+          firebase *
+          veteranSuppression(u),
     );
     u.personalMorale = Math.max(
       0,
@@ -1797,6 +1849,10 @@ function hitUnit(
   }
   u.flash = 0.16;
   if (u.hp <= 0) {
+    if (attackerUid !== undefined) {
+      const a = s.units.find((q) => q.uid === attackerUid);
+      if (a && a.side !== u.side && a.uid !== u.uid) creditKill(s, a);
+    }
     finishDeath(s, u, side);
     return;
   }
@@ -1865,7 +1921,10 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
   if (side !== u.side) s.players[side].kills++;
   for (const friend of s.units)
     if (friend !== u && friend.squad === u.squad && isCombatant(friend)) {
-      friend.personalMorale = Math.max(0, friend.personalMorale - 9);
+      friend.personalMorale = Math.max(
+        0,
+        friend.personalMorale - 9 * veteranSuppression(friend),
+      );
       friend.decisionIn = 0;
     }
   const c = CARDS[u.id];
@@ -1989,6 +2048,7 @@ export function explode(
   armorMultiplier = 1,
   kind: Blast['kind'] = 'he',
   infantryMultiplier = 1,
+  sourceUid?: number,
 ) {
   burst(s, x, y, radius, kind);
   const sheltered = new Map<number, number>();
@@ -2072,6 +2132,7 @@ export function explode(
         side,
         sheltered.get(u.uid) ?? 0,
         'blast',
+        sourceUid,
       );
   }
   // Near misses landing just outside the kill radius still make infantry
@@ -7660,7 +7721,8 @@ export function tick(s: GameState, dt: number) {
         const scatter =
           (u.id === 'precision' ? 14 : c.emplacement ? 42 : 26) *
           (spotted ? 0.55 : 1) *
-          (burnedReport ? 0.45 : 1);
+          (burnedReport ? 0.45 : 1) *
+          veteranScatter(u);
         tx += (rnd(s) - 0.5) * scatter * 2;
         ty = ground(s, tx) - 8;
       }
@@ -7681,7 +7743,7 @@ export function tick(s: GameState, dt: number) {
           c.members &&
           ['idle', 'walk'].includes(u.pose) &&
           ammunition(u.id, u.member) === 'rifle' &&
-          s.time - (u.readyAt ?? -100) < 0.24
+          s.time - (u.readyAt ?? -100) < 0.24 * veteranReadiness(u)
         ) &&
         (c.sortieAmmo === undefined || u.shots < c.sortieAmmo)
       ) {
@@ -8266,7 +8328,7 @@ export function tick(s: GameState, dt: number) {
         notify(s, '撤退队员进入友军射线，发生误伤', 'warn', [friendly.u.side]);
         friendly.u.friendlyWarnAt = s.time;
       }
-      hitUnit(s, friendly.u, p.damage, p.side);
+      hitUnit(s, friendly.u, p.damage, p.side, 0, 'bullet', p.sourceUid);
       bulletImpact(s, p.x, p.y, 'cloth', Math.sign(p.tx - p.startX));
       continue;
     }
@@ -8284,6 +8346,7 @@ export function tick(s: GameState, dt: number) {
           p.armorMultiplier,
           p.effect,
           p.infantryMultiplier,
+          p.sourceUid,
         );
       else {
         damageScenery(s, impact.x, impact.y, 3, p.damage);
@@ -8311,6 +8374,7 @@ export function tick(s: GameState, dt: number) {
           p.armorMultiplier,
           p.effect,
           p.infantryMultiplier,
+          p.sourceUid,
         );
       else if (p.targetUid !== null) {
         const u = s.units.find((u) => u.uid === p.targetUid);
@@ -8347,6 +8411,7 @@ export function tick(s: GameState, dt: number) {
                   : 1),
             p.side,
             cover,
+            p.sourceUid,
           );
           if (p.ammunition === 'ap')
             s.blasts.push({

@@ -1,4 +1,4 @@
-import { CARDS, W, ground, pointVisible, type DragMark, type GameState, type Scorch, type TreadMark } from './engine';
+import { CARDS, W, ground, pointVisible, veteranTier, type DragMark, type GameState, type Scorch, type TreadMark, type Unit } from './engine';
 
 /** Deterministic hash → [0,1) */
 function hash(n: number): number {
@@ -486,5 +486,26 @@ export function drawDragMarks(
     // see the ground — advancing onto a cold smear is how you discover it.
     if (m.side !== 0 && !pointVisible(s, 0, m.x, m.y)) continue;
     drawDragMark(ctx, m, age);
+  }
+}
+
+/**
+ * v92 veterancy pips — one gold chevron per tier, centered over the squad.
+ * Lives here (not in render.ts) so the QA snapshot can drive it with a
+ * recording canvas under Node, where the DOM-backed render module can't load.
+ */
+export function drawVeterancyPips(ctx: CanvasRenderingContext2D, u: Unit) {
+  const vetTier = veteranTier(u);
+  if (vetTier <= 0) return;
+  ctx.fillStyle = '#b5a05a';
+  const pipY = u.y - 88;
+  for (let i = 0; i < vetTier; i++) {
+    const px = u.x + (i - (vetTier - 1) / 2) * 6;
+    ctx.beginPath();
+    ctx.moveTo(px - 2.5, pipY + 2.5);
+    ctx.lineTo(px, pipY - 2);
+    ctx.lineTo(px + 2.5, pipY + 2.5);
+    ctx.closePath();
+    ctx.fill();
   }
 }

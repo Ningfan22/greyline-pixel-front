@@ -27,7 +27,7 @@ import {
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
-import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks } from './ambience';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
 import { drawWeather } from './weather';
 import { pointVisible, visibleToSide } from './world';
 import {
@@ -793,6 +793,8 @@ export function render(
       const arrow = (u.calloutDir ?? 1) > 0 ? '▶' : '◀';
       ctx.fillText(`${arrow}接触!`, u.x, u.y - 78);
     }
+    // v92: veterancy pips — gold chevrons over the squad, one per tier.
+    drawVeterancyPips(ctx, u);
     if (u.secondaryFire > 0)
       drawMuzzle(
         ctx,
