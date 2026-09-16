@@ -6,6 +6,13 @@ import { H, type Blast, type GameState } from './engine';
 import { CrackTracker } from './bullet-crack';
 import type { Ricochet } from './ricochet';
 import { listenerDistance, soundDelay } from './acoustics';
+import {
+  desiredEngineVoice,
+  isEngineVehicle,
+  observeEngineSpeed,
+  type EngineObservation,
+  type EngineVoiceSpec,
+} from './engine-sound';
 
 export interface AudioSettings {
   enabled: boolean;
@@ -33,6 +40,21 @@ const FILES = [
 ];
 const clamp = (n: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, n));
 
+/** Base gain for a vehicle engine voice at full level. */
+const ENGINE_BASE_LEVEL = 0.13;
+/** Nominal oscillator frequency (Hz) for each engine family at pitch 1. */
+const ENGINE_BASE_FREQ = { tank: 58, ifv: 84 } as const;
+
+interface EngineVoiceNodes {
+  osc: OscillatorNode;
+  sub: OscillatorNode;
+  noise: AudioBufferSourceNode;
+  gain: GainNode;
+  pan: StereoPannerNode;
+  filter: BiquadFilterNode;
+  noiseFilter: BiquadFilterNode;
+}
+
 /** Recorded public audio, mixed locally. No simulation random values are consumed. */
 export class BattleAudio {
   settings = { ...DEFAULT_AUDIO };
@@ -53,6 +75,9 @@ export class BattleAudio {
   private ricochets = new WeakSet<Ricochet>();
   private cracks = new CrackTracker();
   private crackNoise: AudioBuffer | null = null;
+  private engineNoise: AudioBuffer | null = null;
+  private engineVoices = new Map<number, EngineVoiceNodes>();
+  private engineObs = new Map<number, EngineObservation>();
   private state: GameState | null = null;
   private lastRumbleCycle = -1;
   private camera = 0;
@@ -87,6 +112,7 @@ export class BattleAudio {
     this.applyVolumes();
     if (!this.settings.enabled) {
       this.stopVoices();
+      this.stopEngineVoices();
       this.stopMusic();
     } else this.startMusic();
   }
@@ -184,6 +210,7 @@ export class BattleAudio {
     if (value) this.startMusic();
     else {
       this.stopVoices();
+      this.stopEngineVoices();
       this.stopMusic();
     }
   }
@@ -357,9 +384,11 @@ export class BattleAudio {
       this.cracks.reset();
       this.playedAt.clear();
       this.lastRumbleCycle = -1;
+      this.stopEngineVoices();
     }
     this.setActive(active);
     const visible = new Set(s.visible[0]);
+    const engineActive = new Set<number>();
     for (const u of s.units) {
       const foot = Math.floor(u.walk / 4),
         previous = this.shots.get(u.uid) ?? [0, 0, foot];
@@ -406,6 +435,39 @@ export class BattleAudio {
         modelOf(u.id) === 'helicopter'
       )
         this.sample('rotor.wav', u.x, 0.085, 3.8, card.observer ? 1.4 : 0.88);
+      // v97: ground armour runs a continuous diesel voice whose pitch
+      // tracks its observed speed — the growl of a column on the move.
+      if (isEngineVehicle(u)) {
+        const obs = observeEngineSpeed(
+          this.engineObs.get(u.uid),
+          u.x,
+          s.time,
+          u.moving && u.motion === 'ground',
+        );
+        this.engineObs.set(u.uid, obs);
+        const spec = desiredEngineVoice(
+          u,
+          obs,
+          camera,
+          width,
+          CARDS[u.id].speed ?? 0,
+        );
+        if (spec) {
+          const voice = this.engineVoices.get(u.uid);
+          if (voice) this.adjustEngineVoice(voice, spec);
+          else this.startEngineVoice(u.uid, spec);
+          engineActive.add(u.uid);
+        }
+      }
+    }
+    // v97: voices whose vehicle died or rolled beyond the audible margin
+    // fade out and free their nodes; stale speed observations follow.
+    for (const uid of [...this.engineVoices.keys()])
+      if (!engineActive.has(uid)) this.stopEngineVoice(uid);
+    if (this.engineObs.size > s.units.length + 16) {
+      const live = new Set(s.units.map((u) => u.uid));
+      for (const uid of [...this.engineObs.keys()])
+        if (!live.has(uid)) this.engineObs.delete(uid);
     }
     for (const b of s.blasts) {
       if (this.blasts.has(b)) continue;
@@ -637,6 +699,165 @@ export class BattleAudio {
     noise.start(t);
     osc.stop(t + 0.22);
     noise.stop(t + 0.22);
+  }
+
+  /**
+   * Synthesised diesel engine voice for one ground vehicle (v97). Three
+   * layers — a sawtooth fundamental, a square sub-octave, and looped brown
+   * noise through a lowpass — track the vehicle's observed speed: rpm
+   * drives pitch and filter opening, distance drives the level. The voice
+   * starts with the same speed-of-sound lag as gunfire, so armour rolling
+   * in from off-screen is heard before it is seen, exactly as on a real
+   * battlefield. The noise buffer is generated once with a deterministic
+   * xorshift so the audio path consumes no simulation randomness.
+   */
+  private engineNoiseBuffer(): AudioBuffer {
+    if (this.engineNoise) return this.engineNoise;
+    const ctx = this.context!,
+      len = Math.floor(ctx.sampleRate * 2),
+      buffer = ctx.createBuffer(1, len, ctx.sampleRate),
+      data = buffer.getChannelData(0);
+    let state = 0x9e3779b9;
+    const white = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      state >>>= 0;
+      white[i] = ((state >>> 16) & 0xffff) / 0x8000 - 1;
+    }
+    // Integrate the mean-removed white noise: the resulting brown noise is
+    // periodic by construction (the integral returns to ~0 at the wrap),
+    // so the 2 s loop clicks far less than a naive cumulative sum.
+    let mean = 0;
+    for (let i = 0; i < len; i++) mean += white[i];
+    mean /= len;
+    let acc = 0,
+      peak = 0;
+    for (let i = 0; i < len; i++) {
+      acc += white[i] - mean;
+      data[i] = acc;
+      const a = Math.abs(acc);
+      if (a > peak) peak = a;
+    }
+    const norm = peak > 0 ? 0.8 / peak : 1;
+    for (let i = 0; i < len; i++) data[i] *= norm;
+    this.engineNoise = buffer;
+    return buffer;
+  }
+
+  private startEngineVoice(uid: number, spec: EngineVoiceSpec) {
+    const ctx = this.context;
+    if (!ctx || !this.effectsGain) return;
+    const now = ctx.currentTime,
+      base = ENGINE_BASE_FREQ[spec.model],
+      osc = ctx.createOscillator(),
+      sub = ctx.createOscillator(),
+      noise = ctx.createBufferSource(),
+      oscGain = ctx.createGain(),
+      subGain = ctx.createGain(),
+      noiseGain = ctx.createGain(),
+      filter = ctx.createBiquadFilter(),
+      noiseFilter = ctx.createBiquadFilter(),
+      gain = ctx.createGain(),
+      pan = ctx.createStereoPanner();
+    osc.type = 'sawtooth';
+    sub.type = 'square';
+    noise.buffer = this.engineNoiseBuffer();
+    noise.loop = true;
+    oscGain.gain.value = 0.5;
+    subGain.gain.value = 0.28;
+    noiseGain.gain.value = 0.3;
+    filter.type = 'lowpass';
+    noiseFilter.type = 'lowpass';
+    const t0 =
+      now + soundDelay(listenerDistance(spec.x, this.camera, this.width));
+    const pitch = base * spec.pitch;
+    osc.frequency.setValueAtTime(pitch, t0);
+    sub.frequency.setValueAtTime(pitch * 0.5, t0);
+    filter.frequency.setValueAtTime(280 + spec.rpm * 700, t0);
+    noiseFilter.frequency.setValueAtTime(320 + spec.rpm * 500, t0);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, t0, 0.2);
+    pan.pan.setValueAtTime(spec.pan, t0);
+    osc.connect(oscGain);
+    oscGain.connect(filter);
+    sub.connect(subGain);
+    subGain.connect(filter);
+    noise.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(filter);
+    filter.connect(gain);
+    gain.connect(pan);
+    pan.connect(this.effectsGain);
+    osc.onended = () => {
+      for (const node of [
+        osc,
+        sub,
+        noise,
+        oscGain,
+        subGain,
+        noiseGain,
+        filter,
+        noiseFilter,
+        gain,
+        pan,
+      ]) {
+        try {
+          node.disconnect();
+        } catch {
+          /* Already disconnected. */
+        }
+      }
+    };
+    osc.start(t0);
+    sub.start(t0);
+    noise.start(t0);
+    this.engineVoices.set(uid, {
+      osc,
+      sub,
+      noise,
+      gain,
+      pan,
+      filter,
+      noiseFilter,
+    });
+  }
+
+  private adjustEngineVoice(nodes: EngineVoiceNodes, spec: EngineVoiceSpec) {
+    const ctx = this.context;
+    if (!ctx) return;
+    const now = ctx.currentTime,
+      pitch = ENGINE_BASE_FREQ[spec.model] * spec.pitch;
+    nodes.osc.frequency.setTargetAtTime(pitch, now, 0.08);
+    nodes.sub.frequency.setTargetAtTime(pitch * 0.5, now, 0.08);
+    nodes.filter.frequency.setTargetAtTime(280 + spec.rpm * 700, now, 0.1);
+    nodes.noiseFilter.frequency.setTargetAtTime(320 + spec.rpm * 500, now, 0.1);
+    nodes.gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, now, 0.1);
+    nodes.pan.pan.setTargetAtTime(spec.pan, now, 0.1);
+  }
+
+  private stopEngineVoice(uid: number) {
+    const nodes = this.engineVoices.get(uid);
+    if (!nodes) return;
+    this.engineVoices.delete(uid);
+    const ctx = this.context;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    try {
+      nodes.gain.gain.cancelScheduledValues(now);
+      nodes.gain.gain.setTargetAtTime(0, now, 0.05);
+      nodes.osc.stop(now + 0.3);
+      nodes.sub.stop(now + 0.3);
+      nodes.noise.stop(now + 0.3);
+    } catch {
+      /* Already stopped. */
+    }
+  }
+
+  private stopEngineVoices() {
+    for (const uid of [...this.engineVoices.keys()]) this.stopEngineVoice(uid);
+    this.engineObs.clear();
   }
 }
 let instance: BattleAudio | null = null;
