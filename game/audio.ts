@@ -2,7 +2,8 @@ import { assetUrl } from './asset-url';
 import { distantFlashState } from './ambience';
 import { CARDS, modelOf, weaponModel } from './cards';
 import { pointVisible } from './world';
-import type { Blast, GameState } from './engine';
+import { H, type Blast, type GameState } from './engine';
+import { CrackTracker } from './bullet-crack';
 
 export interface AudioSettings {
   enabled: boolean;
@@ -47,6 +48,8 @@ export class BattleAudio {
   private playedAt = new Map<string, number>();
   private shots = new Map<number, [number, number, number]>();
   private blasts = new WeakSet<Blast>();
+  private cracks = new CrackTracker();
+  private crackNoise: AudioBuffer | null = null;
   private state: GameState | null = null;
   private lastRumbleCycle = -1;
   private camera = 0;
@@ -343,6 +346,7 @@ export class BattleAudio {
       this.state = s;
       this.shots.clear();
       this.blasts = new WeakSet();
+      this.cracks.reset();
       this.playedAt.clear();
       this.lastRumbleCycle = -1;
     }
@@ -420,11 +424,106 @@ export class BattleAudio {
       this.lastRumbleCycle = flash.index;
       this.distantRumble(flash.x);
     }
+    // Supersonic rounds that streak past the camera produce a ballistic
+    // crack — the single most recognisable sound of a real firefight.
+    if (active) {
+      const listenerX = camera + width / 2,
+        listenerY = H / 2;
+      for (const p of s.projectiles) {
+        const event = this.cracks.consider(
+          p,
+          listenerX,
+          listenerY,
+          width,
+        );
+        if (event) this.crack(event.closeness, event.pan, event.seed);
+      }
+    }
     if (this.shots.size > s.units.length + 120) {
       const live = new Set(s.units.map((u) => u.uid));
       for (const uid of this.shots.keys())
         if (!live.has(uid)) this.shots.delete(uid);
     }
+  }
+
+  /**
+   * Synthesised bullet crack: a short white-noise burst split into a sharp
+   * bandpass transient (the sonic-boom "crack") and a lowpass body (the
+   * passing weight). No audio asset needed — the noise buffer is generated
+   * once with a deterministic xorshift so the audio path consumes no
+   * simulation randomness.
+   */
+  private crack(closeness: number, pan: number, seed: number) {
+    const ctx = this.context;
+    if (
+      !ctx ||
+      !this.effectsGain ||
+      !this.active ||
+      !this.settings.enabled ||
+      this.settings.effects === 0
+    )
+      return;
+    const now = ctx.currentTime;
+    if (now - (this.playedAt.get('crack') ?? -Infinity) < 0.085) return;
+    this.playedAt.set('crack', now);
+    if (!this.crackNoise) {
+      const len = Math.floor(ctx.sampleRate * 0.25),
+        buffer = ctx.createBuffer(1, len, ctx.sampleRate),
+        data = buffer.getChannelData(0);
+      let state = 0x1234abcd;
+      for (let i = 0; i < len; i++) {
+        state ^= state << 13;
+        state ^= state >>> 17;
+        state ^= state << 5;
+        state >>>= 0;
+        data[i] = ((state >>> 16) & 0xffff) / 0x8000 - 1;
+      }
+      this.crackNoise = buffer;
+    }
+    if (this.voices.size >= 22) {
+      const oldest = this.voices.values().next().value;
+      oldest?.stop();
+      if (oldest) this.voices.delete(oldest);
+    }
+    const source = ctx.createBufferSource(),
+      panNode = ctx.createStereoPanner(),
+      crackGain = ctx.createGain(),
+      thumpGain = ctx.createGain(),
+      crackFilter = ctx.createBiquadFilter(),
+      thumpFilter = ctx.createBiquadFilter();
+    source.buffer = this.crackNoise;
+    source.playbackRate.value = 0.92 + seed * 0.02;
+    crackFilter.type = 'bandpass';
+    crackFilter.frequency.value = 2500 + seed * 220;
+    crackFilter.Q.value = 0.8;
+    thumpFilter.type = 'lowpass';
+    thumpFilter.frequency.value = 420;
+    const level = 0.08 + closeness * 0.3;
+    crackGain.gain.setValueAtTime(0, now);
+    crackGain.gain.linearRampToValueAtTime(level, now + 0.004);
+    crackGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    thumpGain.gain.setValueAtTime(0, now);
+    thumpGain.gain.linearRampToValueAtTime(level * 0.55, now + 0.007);
+    thumpGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    panNode.pan.value = pan;
+    source.connect(crackFilter);
+    crackFilter.connect(crackGain);
+    source.connect(thumpFilter);
+    thumpFilter.connect(thumpGain);
+    crackGain.connect(panNode);
+    thumpGain.connect(panNode);
+    panNode.connect(this.effectsGain);
+    this.voices.add(source);
+    source.onended = () => {
+      this.voices.delete(source);
+      source.disconnect();
+      crackFilter.disconnect();
+      thumpFilter.disconnect();
+      crackGain.disconnect();
+      thumpGain.disconnect();
+      panNode.disconnect();
+    };
+    source.start();
   }
 }
 let instance: BattleAudio | null = null;
