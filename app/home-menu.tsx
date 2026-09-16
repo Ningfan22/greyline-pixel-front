@@ -203,6 +203,8 @@ export default function HomeMenu({
   }, [page]);
   useEffect(() => {
     const mixer = getBattleAudio();
+    // 页面加载后立即预取音频，首次点击时音乐即刻播放，无需等待下载。
+    mixer.prefetch();
     // 回到主菜单时立即恢复背景音乐（音频已解锁的情况下）。
     mixer.setActive(true);
     const unlock = () => {

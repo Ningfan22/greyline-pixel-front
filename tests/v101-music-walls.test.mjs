@@ -14,6 +14,10 @@ const homeMenuSrc = fs.readFileSync(
   path.join(here, '../app/home-menu.tsx'),
   'utf8',
 );
+const battleSrc = fs.readFileSync(
+  path.join(here, '../app/battle.tsx'),
+  'utf8',
+);
 
 const results = [],
   failures = [];
@@ -92,6 +96,31 @@ check('home menu activates the mixer and unlocks on first gesture', () => {
     'home menu must listen for pointer and keyboard gestures',
   );
   return { gestures: ['pointerdown', 'keydown'] };
+});
+
+// --- audio is prefetched so music starts instantly on first interaction ----
+// The 1.4 MB music track takes a moment to download. Prefetching starts the
+// fetch on page load (no gesture needed) so that unlock() finds the bytes
+// already local and music begins immediately.
+
+check('audio is prefetched on menu mount and consumed by unlock', () => {
+  assert.ok(
+    audioSrc.includes('prefetch()'),
+    'audio.ts must define a prefetch() method',
+  );
+  assert.ok(
+    audioSrc.includes('this.prefetched.get(file)'),
+    'unlock() must consume prefetched audio data instead of re-downloading',
+  );
+  assert.ok(
+    homeMenuSrc.includes('mixer.prefetch()'),
+    'home menu must call prefetch() on mount',
+  );
+  assert.ok(
+    battleSrc.includes('mixer.setActive(true)'),
+    'battle screen must activate the mixer on mount',
+  );
+  return { prefetch: true };
 });
 
 // --- summary ------------------------------------------------------------------

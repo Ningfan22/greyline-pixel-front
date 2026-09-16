@@ -218,6 +218,9 @@ export default function Battle({
   useEffect(() => {
     const mixer = getBattleAudio();
     audio.current = mixer;
+    // 进入战斗立即激活音乐（菜单已解锁时无缝延续，未解锁时在首次手势后播放）。
+    mixer.setActive(true);
+    void mixer.unlock();
     let mounted = true;
     queueMicrotask(() => {
       if (mounted) setAudioSettings({ ...mixer.settings });

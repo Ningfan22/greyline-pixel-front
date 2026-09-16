@@ -78,6 +78,8 @@ export class BattleAudio {
   private engineNoise: AudioBuffer | null = null;
   private engineVoices = new Map<number, EngineVoiceNodes>();
   private engineObs = new Map<number, EngineObservation>();
+  private prefetched = new Map<string, ArrayBuffer>();
+  private prefetchStarted = false;
   private state: GameState | null = null;
   private lastRumbleCycle = -1;
   private camera = 0;
@@ -117,6 +119,31 @@ export class BattleAudio {
     } else this.startMusic();
   }
   /** Call from a click/touch, so mobile browsers can authorize the audio context. */
+  /**
+   * Fetch audio bytes as soon as the page loads (network requests don't need a
+   * user gesture). When unlock() later runs on the first interaction, the
+   * files are already local, so music starts instantly instead of waiting for
+   * a download.
+   */
+  prefetch() {
+    if (this.prefetchStarted) return;
+    this.prefetchStarted = true;
+    for (const file of FILES) {
+      if (this.buffers.has(file) || this.prefetched.has(file)) continue;
+      fetch(assetUrl('/audio/' + file))
+        .then((response) =>
+          response.ok
+            ? response.arrayBuffer()
+            : Promise.reject(new Error('Audio unavailable')),
+        )
+        .then((data) => {
+          if (!this.buffers.has(file)) this.prefetched.set(file, data);
+        })
+        .catch(() => {
+          /* unlock() retries on demand. */
+        });
+    }
+  }
   async unlock() {
     if (!this.settings.enabled) return;
     if (!this.context) {
@@ -155,6 +182,11 @@ export class BattleAudio {
             try {
               const buffer = await Promise.race([
                 (async () => {
+                  const prefetched = this.prefetched.get(file);
+                  if (prefetched) {
+                    this.prefetched.delete(file);
+                    return ctx.decodeAudioData(prefetched);
+                  }
                   const response = await fetch(assetUrl('/audio/' + file), {
                     signal: controller.signal,
                   });
