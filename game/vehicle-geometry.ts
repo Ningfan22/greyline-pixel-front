@@ -11,6 +11,13 @@ export interface TankGeometry {
   muzzleY: number;
   coaxX: number;
   coaxY: number;
+  /**
+   * Bounding box [x0, y0, x1, y1] of the thin muzzle section of the barrel,
+   * in final draw space (origin at bottom-centre, y up). Used to slide the
+   * barrel back into the mantlet on recoil while the hull stays planted.
+   * Only the three real tanks have this; other vehicles kick the whole hull.
+  */
+  barrelBand?: [number, number, number, number];
 }
 const TANKS: Record<string, TankGeometry> = {
   pickup: {
@@ -88,6 +95,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 57,
     coaxX: 54,
     coaxY: 57,
+    barrelBand: [62.2, -62.2, 102.0, -54.0],
   },
   tank: {
     size: [270, 135],
@@ -98,6 +106,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 56,
     coaxX: 60,
     coaxY: 56,
+    barrelBand: [89.0, -61.7, 131.3, -52.5],
   },
   heavy_tank: {
     size: [305, 152.5],
@@ -108,6 +117,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 82,
     coaxX: 66,
     coaxY: 82,
+    barrelBand: [126.2, -90.0, 148.3, -75.7],
   },
 };
 export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {

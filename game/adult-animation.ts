@@ -370,20 +370,44 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return u.pose === 'run' || u.tactic === 'retreat'
       ? action(16 + cycle(u.walk / 2, 4))
       : { group: 'walk8', index: cycle(step, 8) };
-  if (u.flash > 0.13) return reaction(4);
+  // v105: two hit flinches — a tall stagger and a knee-buck — so a burst
+  // walking across a squad doesn't pop the identical frame on every man.
+  if (u.flash > 0.13) return reaction(4 + (u.uid % 2));
   if (reloading) return action(13);
   return action(0);
 }
 export function adultWreckChoice(
   age: number,
   pose?: Unit['pose'],
+  seed = 0,
 ): AdultFrameChoice {
   if (pose === 'prone') return action(15);
+  // v105: three visibly different death throes so a field of casualties
+  // doesn't play the same stagger in unison. The seed is the casualty's uid,
+  // stable for the wreck's whole lifetime.
+  const variant = seed % 3;
+  if (variant === 2) return action(15); // clean drop: killed mid-stride
   if (pose === 'crouch' || pose === 'hunker' || pose === 'land')
     return age < 0.45
       ? reaction(5 + Math.min(2, Math.floor(age * 6)))
       : action(15);
+  if (variant === 1)
+    // Crumple: buckle at the knees first, then go down.
+    return age < 0.5
+      ? reaction(5 + Math.min(1, Math.floor(age * 4)))
+      : action(15);
+  // Classic: hit stagger, stumble, drop.
   return age < 0.6
     ? reaction(4 + Math.min(3, Math.floor(age * 6)))
     : action(15);
+}
+
+/**
+ * v106: a soldier thrown by a blast. While airborne the body cycles the
+ * stagger/flinch frames fast so the tumble reads as a man flung through the
+ * air; the renderer spins the sprite on the wreck's spin axis. On landing the
+ * wreck switches to adultWreckChoice's final prone frame.
+ */
+export function ragdollChoice(age: number, seed = 0): AdultFrameChoice {
+  return reaction(4 + ((Math.floor(age * 12) + (seed % 2)) % 4));
 }

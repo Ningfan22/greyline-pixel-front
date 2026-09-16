@@ -23,6 +23,7 @@ import {
   adultFrameChoice,
   idlePoseChoice,
   adultWreckChoice,
+  ragdollChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
@@ -53,7 +54,14 @@ import {
 } from './engine';
 import { unitByUid } from './spatial';
 import { unitSynergy, synergyProviderUid, type SynergyKind } from './synergy';
-import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
+import {
+  drawSprite,
+  drawTankSprite,
+  unitFrame,
+  unitSize,
+  uniformFrame,
+  type Art,
+} from './art';
 import {
   coverProp,
   peekRise,
@@ -66,7 +74,20 @@ const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
 // Render-layer only: the simulation never knows these exist.
 const whipStreaks = new WhipStreakLayer();
 let whipStatus = '';
-const poseTracker = new Map<number, { prev: Pose; pose: Pose; at: number }>();
+const poseTracker = new Map<
+  number,
+  {
+    prev: Pose;
+    pose: Pose;
+    at: number;
+    lastImg?: HTMLCanvasElement;
+    lastFlip?: boolean;
+    snap?: HTMLCanvasElement;
+    snapFlip?: boolean;
+    snapW?: number;
+    snapH?: number;
+  }
+>();
 const wreckBounds = new WeakMap<
   object,
   {
@@ -396,30 +417,65 @@ export function render(
           foregroundBounds.push(...cached.boxes);
         }
         ctx.save();
+        // v105: wrecks of the same card no longer look identical — three
+        // burn conditions plus stable per-wreck tilt/scale jitter and a
+        // scorch mark baked into the ground under the hulk.
+        const wsd = w.id >>> 0;
+        const condition = wsd % 3;
+        // v106: pick one of four authored structural states (as-is, torn
+        // apart, breached, gutted) per wreck id, then layer the burn
+        // condition on top — same-card wrecks now differ structurally.
         const frame = filteredSprite(
-          art.wrecks[wreckKind(w.cardId)],
-          'grayscale(1) brightness(.72)',
+          art.wreckVariants[wreckKind(w.cardId)][wsd % 4],
+          condition === 0
+            ? 'grayscale(1) brightness(.72)'
+            : condition === 1
+              ? 'grayscale(1) brightness(.55) contrast(1.12)'
+              : 'grayscale(.85) brightness(.64) sepia(.25)',
         );
         const shape = wreckGeometry(w.cardId);
+        const scaleJ = 0.94 + (wsd % 7) * 0.02;
+        const tiltJ = ((wsd >>> 3) % 5 - 2) * 0.02;
+        const dx = ((wsd >>> 5) % 5 - 2);
+        const scorch = Math.max(
+          18,
+          Math.round(shape.width * (0.55 + (wsd % 4) * 0.12)),
+        );
+        ctx.fillStyle = `rgba(12,10,8,${0.22 + (wsd % 3) * 0.07})`;
+        ctx.beginPath();
+        ctx.ellipse(
+          Math.round(w.x + dx),
+          Math.round(w.y + 2),
+          scorch,
+          Math.max(4, Math.round(scorch * 0.16)),
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
         const inset = (1 - shape.support[2]) * frame.height;
         const offset =
           shape.spriteOffset * (w.facing ?? (w.side === 0 ? 1 : -1));
         drawSprite(
           ctx,
           frame,
-          w.x + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
+          w.x + dx + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
           w.y + Math.sin(w.angle) * offset + Math.cos(w.angle) * inset,
-          frame.width,
-          frame.height,
+          frame.width * scaleJ,
+          frame.height * scaleJ,
           (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
           1,
-          w.angle,
+          w.angle + tiltJ,
         );
         ctx.restore();
         continue;
       }
       const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
-      const wreckChoice = adultWreck ? adultWreckChoice(w.age, w.pose) : null;
+      const wreckChoice = adultWreck
+        ? w.falling
+          ? ragdollChoice(w.age, w.id)
+          : adultWreckChoice(w.age, w.pose, w.id)
+        : null;
       const wreckImage =
         adultWreck && wreckChoice
           ? uniformFrame(
@@ -430,16 +486,28 @@ export function render(
             )
           : unitFrame(art, w.cardId, 0);
       ctx.save();
+      const bsd = w.id >>> 0;
+      // v106: a fresh casualty keeps its colour and desaturates into the
+      // grayscale corpse over the first seconds, so a man just cut down
+      // doesn't pop in as a pre-aged statue.
+      const decay = Math.min(1, w.age / 10);
+      const shade = 0.55 + (bsd % 3) * 0.07;
       drawSprite(
         ctx,
-        filteredSprite(wreckImage, 'grayscale(1) brightness(.58)'),
-        w.x,
+        filteredSprite(
+          wreckImage,
+          `grayscale(${decay.toFixed(2)}) brightness(${(
+            shade +
+            (1 - decay) * (1 - shade)
+          ).toFixed(2)})`,
+        ),
+        w.x + ((bsd >>> 4) % 3 - 1),
         w.y + infantryDepth(w.lane) + 3,
-        wreckImage.width,
-        wreckImage.height,
+        wreckImage.width * (0.96 + (bsd % 4) * 0.03),
+        wreckImage.height * (0.96 + (bsd % 4) * 0.03),
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
         1,
-        w.angle,
+        w.falling ? w.angle : w.angle + ((bsd >>> 2) % 5 - 2) * 0.03,
       );
       ctx.restore();
     }
@@ -665,15 +733,31 @@ export function render(
     let showProp = false;
     if (c.members && !isDead) {
       seenInfantry.add(u.uid);
+      const poseFlip = (microDir ?? u.facing) < 0;
       const tracked = poseTracker.get(u.uid);
       if (!tracked) {
-        poseTracker.set(u.uid, { prev: u.pose, pose: u.pose, at: s.time });
+        poseTracker.set(u.uid, {
+          prev: u.pose,
+          pose: u.pose,
+          at: s.time,
+          lastImg: img,
+          lastFlip: poseFlip,
+        });
       } else if (tracked.pose !== u.pose) {
         poseTracker.set(u.uid, {
           prev: tracked.pose,
           pose: u.pose,
           at: s.time,
+          lastImg: img,
+          lastFlip: poseFlip,
+          snap: tracked.lastImg,
+          snapFlip: tracked.lastFlip,
+          snapW: tracked.lastImg?.width,
+          snapH: tracked.lastImg?.height,
         });
+      } else {
+        tracked.lastImg = img;
+        tracked.lastFlip = poseFlip;
       }
       const t = poseTracker.get(u.uid)!;
       showProp = u.cover > 0.2 && !u.moving;
@@ -713,25 +797,141 @@ export function render(
       ctx.lineTo(Math.round(u.x + 5), Math.round(u.y + infantryDepth(u.lane) - 20));
       ctx.stroke();
     }
-    drawSprite(
-      ctx,
-      img,
+    // Stance transitions (idle<->crouch<->prone) cross-fade: the old pose's
+    // last frame is blended out while the new pose fades in, so going prone
+    // or crouching reads as motion instead of a hard sprite swap.
+    let poseAlpha = 1;
+    let poseDy = 0;
+    let poseSnap: {
+      img: HTMLCanvasElement;
+      flip: boolean;
+      a: number;
+      dy: number;
+      w: number;
+      h: number;
+    } | null = null;
+    if (c.members && !isDead) {
+      const pt = poseTracker.get(u.uid);
+      if (pt?.snap && pt.snapW && pt.snapH) {
+        const since = s.time - pt.at;
+        const DUR = 0.26;
+        if (since < DUR) {
+          const blend = 1 - Math.pow(1 - since / DUR, 3);
+          poseAlpha = 0.2 + 0.8 * blend;
+          const rank = (p: Pose): number | null =>
+            p === 'prone'
+              ? 2
+              : p === 'crouch' || p === 'hunker'
+                ? 1
+                : p === 'idle'
+                  ? 0
+                  : null;
+          const r0 = rank(pt.prev);
+          const r1 = rank(pt.pose);
+          if (r0 !== null && r1 !== null && r0 !== r1) {
+            const settle = Math.round(4 * (1 - blend));
+            if (r1 > r0) {
+              // Going low: the old (taller) frame sinks as it fades out.
+              poseSnap = {
+                img: pt.snap,
+                flip: pt.snapFlip ?? false,
+                a: 0.85 * (1 - blend),
+                dy: settle,
+                w: pt.snapW,
+                h: pt.snapH,
+              };
+            } else {
+              // Rising: the new (taller) frame starts low and eases up.
+              poseDy = settle;
+              poseSnap = {
+                img: pt.snap,
+                flip: pt.snapFlip ?? false,
+                a: 0.85 * (1 - blend),
+                dy: 0,
+                w: pt.snapW,
+                h: pt.snapH,
+              };
+            }
+          }
+        } else {
+          pt.snap = undefined;
+        }
+      }
+    }
+    if (poseSnap) {
+      drawSprite(
+        ctx,
+        poseSnap.img,
+        u.x,
+        u.y + infantryDepth(u.lane) + 3 + peekY + breathe + poseSnap.dy,
+        poseSnap.w,
+        poseSnap.h,
+        poseSnap.flip,
+        alpha * poseSnap.a,
+        0,
+      );
+    }
+    // Armored vehicles and gun emplacements react when they fire. Real tanks
+    // soak recoil through the breech: the barrel slides back into the
+    // mantlet while the hull stays planted, so tanks with a measured barrel
+    // band recoil the muzzle only. Lighter vehicles and emplacements still
+    // rock the whole hull against the suspension.
+    let recoilX = 0;
+    let recoilY = 0;
+    let barrelRecoil = 0;
+    const barrelBand = geometry?.barrelBand;
+    if ((c.armored || c.emplacement) && u.fire > 0 && u.motion === 'ground') {
+      const k = u.fire / 0.25;
+      if (barrelBand) {
+        barrelRecoil = (barrelBand[2] - barrelBand[0]) * 0.3 * k * k;
+      } else {
+        const recoil = 3 * k * k;
+        recoilX = -u.facing * recoil;
+        recoilY = recoil * 0.35;
+      }
+    }
+    const drawX =
       u.x +
-        tankOffset * Math.cos(u.hullAngle) -
-        groundInset * Math.sin(u.hullAngle),
+      recoilX +
+      tankOffset * Math.cos(u.hullAngle) -
+      groundInset * Math.sin(u.hullAngle);
+    const drawY =
       u.y +
-        infantryDepth(u.lane) +
-        (isTank ? 0 : 3) +
-        peekY +
-        breathe +
-        tankOffset * Math.sin(u.hullAngle) +
-        groundInset * Math.cos(u.hullAngle),
-      c.members ? img.width : w,
-      c.members ? img.height : h,
-      c.members || c.air ? (microDir ?? u.facing) < 0 : u.side === 1,
-      alpha,
-      c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
-    );
+      infantryDepth(u.lane) +
+      (isTank ? 0 : 3) +
+      peekY +
+      breathe +
+      poseDy +
+      recoilY +
+      tankOffset * Math.sin(u.hullAngle) +
+      groundInset * Math.cos(u.hullAngle);
+    if (barrelBand) {
+      drawTankSprite(
+        ctx,
+        img,
+        drawX,
+        drawY,
+        w,
+        h,
+        u.side === 1,
+        alpha * poseAlpha,
+        u.hullAngle,
+        barrelBand,
+        barrelRecoil,
+      );
+    } else {
+      drawSprite(
+        ctx,
+        img,
+        drawX,
+        drawY,
+        c.members ? img.width : w,
+        c.members ? img.height : h,
+        c.members || c.air ? (microDir ?? u.facing) < 0 : u.side === 1,
+        alpha * poseAlpha,
+        c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
+      );
+    }
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
     // Stationary infantry in cover get a per-unit prop (sandbags for deep
@@ -856,6 +1056,36 @@ export function render(
         u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
       );
+    // Heavy guns belch a smoke cloud at the muzzle that blooms and lingers
+    // after the flash dies away — cannon and AP rounds get the biggest puff.
+    if (u.fire > 0 && u.motion === 'ground' && !u.climbing) {
+      const ammo = u.lastAmmo ?? ammunition(u.id, u.member);
+      if (ammo !== 'machinegun' && ammo !== 'rifle' && ammo !== 'drone') {
+        const age = 0.25 - u.fire;
+        const heavy = ammo === 'cannon' || ammo === 'ap';
+        const smokeAge = age - (heavy ? 0.05 : 0.02);
+        if (smokeAge > 0 && smokeAge < 0.42) {
+          const mx = visualMuzzle?.x ?? u.muzzleX;
+          const my =
+            (visualMuzzle?.y ?? u.muzzleY) +
+            (c.members ? infantryDepth(u.lane) : 0);
+          const grow = smokeAge / 0.42;
+          const r = (heavy ? 11 : 7) * (0.35 + grow * 0.9);
+          ctx.save();
+          ctx.globalAlpha = (heavy ? 0.55 : 0.38) * (1 - grow * 0.7);
+          ctx.fillStyle = '#c3c2b2';
+          ctx.beginPath();
+          ctx.arc(mx + u.facing * r * 0.55, my - 2, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = (heavy ? 0.35 : 0.22) * (1 - grow);
+          ctx.fillStyle = '#8f9085';
+          ctx.beginPath();
+          ctx.arc(mx + u.facing * r * 1.0, my - 4, r * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
     if (u.healing > 0 || u.repairTime > 0) {
       ctx.fillStyle = '#e9e6b6';
       ctx.fillRect(u.x - 1, u.y - h - 15, 2, 8);

@@ -62,6 +62,11 @@ export interface Wreck {
   falling: boolean;
   vx: number;
   vy: number;
+  /**
+   * v106: angular velocity (rad/s) for infantry thrown by a blast — the
+   * ragdoll tumbles through the air on this spin, then settles on landing.
+   */
+  spin?: number;
 }
 export interface Mine {
   kind?: 'antipersonnel';

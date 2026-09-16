@@ -28,6 +28,9 @@ export function ammunition(id: CardId, member = 0): Ammunition {
   if (id === 'grenadiers') return 'grenade';
   if (model === 'rocket') return 'rocket';
   if (model === 'tank') return 'cannon';
+  // v106: the strike jet's gun is a real autocannon, not a rifle-calibre
+  // door gun — its rounds kick up proper dust columns on soil impacts.
+  if (id === 'strike_jet') return 'autocannon';
   if (id === 'pickup' || CARDS[id].vehicleSupport) return 'machinegun';
   if (model === 'ifv') return 'autocannon';
   if (model === 'machinegun' || model === 'helicopter') return 'machinegun';
@@ -381,10 +384,15 @@ export function drawBlast(
         0, 0.012, 0.026, 0.044, 0.066, 0.095, 0.13, 0.175, 0.22, 0.29, 0.38,
         0.48, 0.59, 0.71, 0.84, 0.94,
       ].map((t) => t * duration);
+  // Seed-driven variety: no two blasts of the same kind look identical.
+  const sd = b.seed >>> 0;
+  const scaleJ = 0.9 + (sd % 10) / 10 * 0.22; // 0.90 - 1.12
+  const speedJ = 0.88 + ((sd >>> 4) % 8) / 8 * 0.24; // 0.88 - 1.12
+  const tint = (sd >>> 8) % 3; // 0 normal / 1 white-hot / 2 fuel-rich
+  const age = b.age * speedJ;
   let index = 0;
-  while (index < frames.length - 1 && b.age >= phases[index + 1]) index++;
-  const sprite = frames[index];
-  const width = penetration
+  while (index < frames.length - 1 && age >= phases[index + 1]) index++;
+  const width = (penetration
     ? 48
     : grenade
       ? Math.max(52, Math.min(76, b.radius * 1.8))
@@ -396,8 +404,7 @@ export function drawBlast(
             ? Math.max(210, Math.min(290, b.radius * 4.8))
             : b.kind === 'artillery'
               ? Math.max(210, Math.min(320, b.radius * 6))
-              : Math.max(90, Math.min(250, b.radius * 5));
-  const height = (width * sprite.height) / sprite.width;
+              : Math.max(90, Math.min(250, b.radius * 5))) * scaleJ;
   const anchor = penetration
     ? 268 / 300
     : air
@@ -405,20 +412,39 @@ export function drawBlast(
       : generated
         ? 0.975
         : 261 / 300;
+  // Cross-fade between adjacent frames so the blast has twice as many
+  // visible steps instead of popping from one sprite to the next.
+  let frac = 0;
+  if (index < frames.length - 1 && phases[index + 1] > phases[index])
+    frac = Math.min(
+      1,
+      Math.max(0, (age - phases[index]) / (phases[index + 1] - phases[index])),
+    );
+  const baseAlpha = Math.min(
+    1,
+    Math.max(0, (duration - age) / (duration * 0.16)),
+  );
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.globalAlpha = Math.min(
-    1,
-    Math.max(0, (duration - b.age) / (duration * 0.16)),
-  );
+  if (tint === 1) ctx.filter = 'brightness(1.18) saturate(0.75)';
+  else if (tint === 2)
+    ctx.filter = 'saturate(1.45) hue-rotate(-12deg) brightness(0.95)';
   ctx.translate(Math.round(b.x), Math.round(b.y));
   if (b.seed % 2) ctx.scale(-1, 1);
-  ctx.drawImage(
-    sprite,
-    Math.round(-width / 2),
-    Math.round(-height * anchor),
-    Math.round(width),
-    Math.round(height),
-  );
+  const draw = (i: number, alpha: number) => {
+    if (alpha <= 0.01) return;
+    const sprite = frames[Math.min(i, frames.length - 1)];
+    const height = (width * sprite.height) / sprite.width;
+    ctx.globalAlpha = alpha * baseAlpha;
+    ctx.drawImage(
+      sprite,
+      Math.round(-width / 2),
+      Math.round(-height * anchor),
+      Math.round(width),
+      Math.round(height),
+    );
+  };
+  draw(index, 1 - frac);
+  draw(index + 1, frac);
   ctx.restore();
 }

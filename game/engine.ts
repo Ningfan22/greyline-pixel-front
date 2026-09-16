@@ -1644,6 +1644,9 @@ export const OVERHEAT_CRIT = 7;
 const OVERHEAT_LOCK = 2.5;
 const OVERHEAT_VENT = 4.5;
 export function canOverheat(u: Unit): boolean {
+  // Aircraft autocannons are slipstream-cooled; the infantry barrel-change
+  // heat model does not apply to them (was locking strike jets mid-strafe).
+  if (CARDS[u.id].air) return false;
   const a = ammunition(u.id, u.member);
   return a === 'machinegun' || a === 'autocannon';
 }
@@ -1750,18 +1753,24 @@ function bulletImpact(
       life: 0.48,
       maxLife: 0.48,
       color: '#b3a07a',
-      size: 26,
+      // v106: autocannon and tank rounds punch the earth — a 30mm hit is
+      // not the same puff of dust as a rifle bullet.
+      size: ammo === 'cannon' ? 46 : ammo === 'autocannon' ? 34 : 26,
       variant: y < ground(s, x) - 5 ? 1 : 0,
     });
-  const count = material === 'soil' ? 5 : 3;
+  const heavy = ammo === 'cannon' || ammo === 'autocannon';
+  const count = material === 'soil' ? (ammo === 'cannon' ? 9 : heavy ? 7 : 5) : 3;
   for (let i = 0; i < count; i++) {
     const life = 0.1 + fxRnd(s) * 0.16;
     emitParticle(s, {
       kind: material === 'armor' ? 'spark' : 'chip',
       x,
       y,
-      vx: direction * (10 + fxRnd(s) * 38) + (fxRnd(s) - 0.5) * 20,
-      vy: -8 - fxRnd(s) * 45,
+      vx:
+        direction *
+          ((heavy ? 18 : 10) + fxRnd(s) * (heavy ? 60 : 38)) +
+        (fxRnd(s) - 0.5) * 20,
+      vy: -(heavy ? 14 : 8) - fxRnd(s) * (heavy ? 70 : 45),
       life,
       maxLife: life,
       color:
@@ -1778,18 +1787,38 @@ function bulletImpact(
     });
   }
   if (material === 'soil')
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < (ammo === 'cannon' ? 7 : heavy ? 5 : 3); i++) {
       const life = 0.2 + fxRnd(s) * 0.18;
       emitParticle(s, {
         kind: 'dust',
         x: x + (fxRnd(s) - 0.5) * 4,
         y: y - 2,
         vx: (fxRnd(s) - 0.5) * 16,
-        vy: -8 - fxRnd(s) * 11,
+        vy: -(heavy ? 13 : 8) - fxRnd(s) * (heavy ? 18 : 11),
         life,
         maxLife: life,
         color: '#94876b',
-        size: 5 + fxRnd(s) * 4,
+        size:
+          (ammo === 'cannon' ? 9 : heavy ? 7 : 5) +
+          fxRnd(s) * (ammo === 'cannon' ? 7 : heavy ? 5 : 4),
+      });
+    }
+  // v106: heavy rounds leave a lingering smoke column over the impact point
+  // so a strafing run reads as a line of bursting dirt, not rifle puffs.
+  if (material === 'soil' && heavy)
+    for (let i = 0; i < (ammo === 'cannon' ? 3 : 2); i++) {
+      const life = 0.7 + fxRnd(s) * 0.6;
+      emitParticle(s, {
+        kind: 'smoke',
+        x: x + (fxRnd(s) - 0.5) * 8,
+        y: y - 3,
+        vx: (fxRnd(s) - 0.5) * 10,
+        vy: -14 - fxRnd(s) * 12,
+        life,
+        maxLife: life,
+        color: '#8f8b7d',
+        size:
+          (ammo === 'cannon' ? 10 : 7) + fxRnd(s) * (ammo === 'cannon' ? 7 : 5),
       });
     }
 }
@@ -1844,6 +1873,8 @@ function hitUnit(
   cover = 0,
   source: 'bullet' | 'blast' | 'gas' = 'bullet',
   attackerUid?: number,
+  blastX?: number,
+  blastY?: number,
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
@@ -1898,7 +1929,7 @@ function hitUnit(
       const a = s.units.find((q) => q.uid === attackerUid);
       if (a && a.side !== u.side && a.uid !== u.uid) creditKill(s, a);
     }
-    finishDeath(s, u, side);
+    finishDeath(s, u, side, source, blastX, blastY);
     return;
   }
   if (
@@ -1933,7 +1964,14 @@ function hitUnit(
     }
   }
 }
-function finishDeath(s: GameState, u: Unit, side: Side) {
+function finishDeath(
+  s: GameState,
+  u: Unit,
+  side: Side,
+  source: 'bullet' | 'blast' | 'gas' = 'bullet',
+  blastX?: number,
+  blastY?: number,
+) {
   if (u.destroyed) return;
   u.destroyed = true;
   // Sever any buddy-drag bond so the survivor returns to combat.
@@ -1973,6 +2011,23 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
       friend.decisionIn = 0;
     }
   const c = CARDS[u.id];
+  // v106: infantry caught inside a blast are thrown clear — the body flies,
+  // tumbles on a spin axis and crumples where it lands, instead of dropping
+  // in place like a bullet casualty. Power falls off with distance from the
+  // burst so a near miss tosses a man across the lane while a grazing kill
+  // only kicks him a step.
+  const ragdoll =
+    !!c.members &&
+    source === 'blast' &&
+    blastX !== undefined &&
+    blastY !== undefined;
+  const blastDist = ragdoll
+    ? Math.hypot(u.x - blastX, u.y - 20 - blastY)
+    : 0;
+  const blastPower = ragdoll ? Math.max(0.25, 1 - blastDist / 110) : 0;
+  const throwDir = ragdoll
+    ? Math.sign(u.x - (blastX as number)) || u.facing || 1
+    : 0;
   s.wrecks.push({
     id: u.uid,
     cardId: u.id,
@@ -1984,9 +2039,14 @@ function finishDeath(s: GameState, u: Unit, side: Side) {
     y: u.y,
     angle: u.hullAngle,
     age: 0,
-    falling: !!c.air,
-    vx: c.air ? u.facing * 70 : 0,
-    vy: 0,
+    falling: !!c.air || ragdoll,
+    vx: c.air
+      ? u.facing * 70
+      : ragdoll
+        ? throwDir * (70 + blastPower * 170)
+        : 0,
+    vy: ragdoll ? -(50 + blastPower * 130) : 0,
+    ...(ragdoll ? { spin: throwDir * (3 + blastPower * 7) } : {}),
     // v83: a fallen rifleman keeps his remaining ammunition on the body
     // so a dry squadmate can pull a magazine off the same weapon.
     ...(magazine(u.id, u.member)
@@ -2178,6 +2238,8 @@ export function explode(
         sheltered.get(u.uid) ?? 0,
         'blast',
         sourceUid,
+        x,
+        y,
       );
   }
   // Near misses landing just outside the kill radius still make infantry
@@ -8585,6 +8647,9 @@ export function tick(s: GameState, dt: number) {
         mine.side,
         0,
         'blast',
+        undefined,
+        mine.x,
+        ground(s, mine.x) - 4,
       );
       burst(
         s,
@@ -8605,20 +8670,29 @@ export function tick(s: GameState, dt: number) {
     }
   for (const w of s.wrecks) {
     w.age += dt;
-    const contact = CARDS[w.cardId].members
+    const isInfantry = !!CARDS[w.cardId].members;
+    const contact = isInfantry
       ? null
       : wreckContact((x) => ground(s, x), w);
     if (w.falling) {
       w.x = Math.max(20, Math.min(W - 20, w.x + w.vx * dt));
+      if (isInfantry) w.vx *= Math.max(0, 1 - 0.55 * dt);
       w.vy += 250 * dt;
       w.y += w.vy * dt;
-      w.angle += dt * 0.7 * Math.sign(w.vx || 1);
-      if (w.y >= contact!.y) {
+      w.angle += dt * (w.spin ?? 0.7 * Math.sign(w.vx || 1));
+      const floorY = isInfantry ? ground(s, w.x) : contact!.y;
+      if (w.y >= floorY) {
         w.falling = false;
-        Object.assign(
-          w,
-          wreckContact((x) => ground(s, x), w),
-        );
+        if (isInfantry) {
+          // Ragdoll landing: pin to the dirt, kill the momentum and let the
+          // body settle into a sprawled angle carried out of the tumble.
+          w.y = floorY;
+          w.vx = 0;
+          w.vy = 0;
+          w.angle = Math.max(-0.35, Math.min(0.35, w.angle));
+        } else {
+          Object.assign(w, wreckContact((x) => ground(s, x), w));
+        }
         burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         s.visionIn = 0;
       }
