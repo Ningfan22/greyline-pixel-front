@@ -1349,45 +1349,67 @@ export function playCard(
   notify(s, message, side === 0 ? 'good' : 'warn', [side]);
   return { ok: true, message };
 }
+// Prepared trench profiles depend only on the entrenchment layout and each
+// trench's progress; cache one pair of Float64Arrays per game state so a
+// barrage of impacts reuses it instead of allocating ~60KB per crater. The
+// signature rounds progress to 4 decimals, so an actively dug trench rebuilds
+// at most every few ticks (a sub-pixel staleness that the next impact heals).
+const trenchProfiles = new WeakMap<
+  GameState,
+  { sig: string; depth: Float64Array; slope: Float64Array }
+>();
+// Games whose terrain has already had one full-width settle pass. The first
+// crater of a game sweeps the whole map (trimming the integer-rounding steps
+// in authored terrain); every later crater only settles its blast window.
+const settledGames = new WeakSet<GameState>();
+function trenchProfile(s: GameState) {
+  if (!s.entrenchments?.length) return undefined;
+  let sig = `${s.entrenchments.length}`;
+  for (const t of s.entrenchments)
+    sig += `|${t.x},${t.radius},${t.innerRadius},${t.floorY},${Math.round(
+      t.progress * 10000,
+    )}`;
+  let entry = trenchProfiles.get(s);
+  if (!entry || entry.sig !== sig) {
+    const depth = new Float64Array(W);
+    for (const trench of s.entrenchments) {
+      const left = Math.max(126, Math.floor(trench.x - trench.radius));
+      const right = Math.min(W - 127, Math.ceil(trench.x + trench.radius));
+      for (let i = left; i <= right; i++)
+        depth[i] = Math.max(
+          depth[i],
+          trenchCutDepth(s, trench, i) * trench.progress,
+        );
+    }
+    const slope = new Float64Array(W);
+    slope.fill(0.8);
+    for (let i = 1; i < W; i++) {
+      const a = depth[i - 1],
+        b = depth[i];
+      if (a !== 0 || b !== 0)
+        slope[i] = Math.max(
+          0.8,
+          Math.abs(s.original[i - 1] + a - s.original[i] - b) + 1e-6,
+        );
+    }
+    entry = { sig, depth, slope };
+    trenchProfiles.set(s, entry);
+  }
+  return entry;
+}
 export function crater(
   s: GameState,
   x: number,
   radius: number,
   depth = radius * 0.5,
 ) {
-  // This crater call sees one immutable prepared profile. Build it once over
-  // the small authored trench footprints, then reuse it for all six settle sweeps.
-  let preparedDepth: Float64Array | undefined;
-  let preparedSlope: Float64Array | undefined;
-  if (s.entrenchments?.length) {
-    preparedDepth = new Float64Array(W);
-    for (const trench of s.entrenchments) {
-      const left = Math.max(126, Math.floor(trench.x - trench.radius));
-      const right = Math.min(W - 127, Math.ceil(trench.x + trench.radius));
-      for (let i = left; i <= right; i++)
-        preparedDepth[i] = Math.max(
-          preparedDepth[i],
-          trenchCutDepth(s, trench, i) * trench.progress,
-        );
-    }
-    preparedSlope = new Float64Array(W);
-    preparedSlope.fill(0.8);
-    for (let i = 1; i < W; i++) {
-      const a = preparedDepth[i - 1],
-        b = preparedDepth[i];
-      if (a !== 0 || b !== 0)
-        preparedSlope[i] = Math.max(
-          0.8,
-          Math.abs(s.original[i - 1] + a - s.original[i] - b) + 1e-6,
-        );
-    }
-  }
+  const profile = trenchProfile(s);
+  const preparedDepth = profile?.depth;
+  const preparedSlope = profile?.slope;
   const centerY = ground(s, x);
-  for (
-    let i = Math.max(125, Math.floor(x - radius));
-    i < Math.min(W - 125, x + radius);
-    i++
-  ) {
+  const leftEdge = Math.max(125, Math.floor(x - radius));
+  const rightEdge = Math.min(W - 125, x + radius);
+  for (let i = leftEdge; i < rightEdge; i++) {
     const a = (i - x) / radius,
       dy = Math.sqrt(Math.max(0, 1 - a * a)) * depth;
     s.terrain[i] = Math.min(
@@ -1395,14 +1417,28 @@ export function crater(
       Math.max(s.terrain[i], centerY + dy),
     );
   }
-  // Loose crater banks settle into walkable slopes, including after overlapping impacts.
+  // Settle only the disturbed window. Three passes propagate slope
+  // constraints at most three columns beyond the blast, so the four-column
+  // margin covers it exactly; re-settling already-settled terrain is an exact
+  // no-op (min/max selection, no arithmetic on the selected value).
+  // Authored terrain carries sub-pixel steps (integer-rounded landforms), so
+  // the first impact of each game still sweeps the full width exactly as
+  // before; afterwards the slope invariant holds and later impacts only
+  // settle their own window. The backward sweep is the forward window shifted
+  // one column left, matching the original [126,W-126]/[125,W-127] stagger.
+  const fullWidth = !settledGames.has(s);
+  if (fullWidth) settledGames.add(s);
+  const settleLoF = fullWidth ? 126 : Math.max(126, leftEdge - 4);
+  const settleHiF = fullWidth ? W - 126 : Math.min(W - 126, rightEdge + 4);
+  const settleLoB = settleLoF - 1;
+  const settleHiB = settleHiF - 1;
   for (let pass = 0; pass < 3; pass++) {
-    for (let i = 126; i < W - 125; i++)
+    for (let i = settleLoF; i <= settleHiF; i++)
       s.terrain[i] = Math.max(
         s.original[i],
         Math.min(s.terrain[i], s.terrain[i - 1] + (preparedSlope?.[i] ?? 0.8)),
       );
-    for (let i = W - 127; i >= 125; i--)
+    for (let i = settleHiB; i >= settleLoB; i--)
       s.terrain[i] = Math.max(
         s.original[i],
         Math.min(
@@ -5848,11 +5884,12 @@ export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
   dt = Math.min(0.05, Math.max(0, dt));
   if (!dt) return;
-  const airPositions = new Map(
-    s.units
-      .filter((u) => CARDS[u.id].air)
-      .map((u) => [u.uid, { x: u.x, y: u.y }]),
-  );
+  // Only aircraft need velocity bookkeeping; skip the allocation entirely
+  // when the battle has no air units (the common case).
+  let airPositions: Map<number, { x: number; y: number }> | undefined;
+  for (const u of s.units)
+    if (CARDS[u.id].air)
+      (airPositions ??= new Map()).set(u.uid, { x: u.x, y: u.y });
   s.time = Math.min(s.campaign?.duration ?? DURATION, s.time + dt);
   updateComeback(s, { damage: hitUnit, spawn: spawnUnit, draw });
   s.shake = Math.max(0, s.shake - dt * 24);
@@ -7972,13 +8009,14 @@ export function tick(s: GameState, dt: number) {
     } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
   }
-  for (const u of s.units) {
-    const previous = airPositions.get(u.uid);
-    if (previous) {
-      u.vx = (u.x - previous.x) / dt;
-      u.vy = (u.y - previous.y) / dt;
+  if (airPositions)
+    for (const u of s.units) {
+      const previous = airPositions.get(u.uid);
+      if (previous) {
+        u.vx = (u.x - previous.x) / dt;
+        u.vy = (u.y - previous.y) / dt;
+      }
     }
-  }
   for (const p of s.projectiles) {
     const oldX = p.x,
       oldY = p.y;

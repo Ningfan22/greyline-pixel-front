@@ -453,6 +453,20 @@ export function clearSight(
     return false;
   return true;
 }
+// Scratch storage for observationPenalty's per-obstruction max-loss dedup.
+// Prop keys are positive (id + 1), wreck keys negative (-(id + 1)), so the two
+// namespaces never collide.
+const penaltyKeys: number[] = [];
+const penaltyLoss: number[] = [];
+function penaltyAdd(key: number, loss: number) {
+  for (let i = 0; i < penaltyKeys.length; i++)
+    if (penaltyKeys[i] === key) {
+      if (loss > penaltyLoss[i]) penaltyLoss[i] = loss;
+      return;
+    }
+  penaltyKeys.push(key);
+  penaltyLoss.push(loss);
+}
 export function observationPenalty(
   s: GameState,
   sx: number,
@@ -462,13 +476,19 @@ export function observationPenalty(
   range: number,
 ) {
   // One house/tree is one obstruction even when its ray crosses several parts.
-  const obstacles = new Map<string, number>();
+  // Scratch dedup: this runs thousands of times per vision refresh, so reuse
+  // module-level arrays instead of allocating a Map with string keys per call.
+  // Not reentrant — it is only invoked synchronously from pointVisible.
+  penaltyKeys.length = 0;
+  penaltyLoss.length = 0;
   for (const box of nearbyObstacles(s, sx, tx)) {
     if (segmentBox(sx, sy, tx, ty, box) === null) continue;
-    const key = box.prop ? `prop:${box.prop.id}` : `wreck:${box.wreck!.id}`;
+    const key = box.prop ? box.prop.id + 1 : -(box.wreck!.id + 1);
     const loss = box.rubble ? 8 : box.prop?.kind === 'house' ? 60 : 25;
-    obstacles.set(key, Math.max(obstacles.get(key) ?? 0, loss));
+    penaltyAdd(key, loss);
   }
+  let sum = 0;
+  for (let i = 0; i < penaltyKeys.length; i++) sum += penaltyLoss[i];
   for (const wall of s.walls) {
     if (wall.hp <= 0) continue;
     const box = {
@@ -477,13 +497,9 @@ export function observationPenalty(
       w: 40,
       h: wall.height,
     };
-    if (segmentBox(sx, sy, tx, ty, box) !== null)
-      obstacles.set(`wall:${wall.uid}`, 8);
+    if (segmentBox(sx, sy, tx, ty, box) !== null) sum += 8;
   }
-  return Math.min(
-    range * 0.25,
-    [...obstacles.values()].reduce((sum, loss) => sum + loss, 0),
-  );
+  return Math.min(range * 0.25, sum);
 }
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
@@ -515,7 +531,13 @@ export function observerUnits(s: GameState, side: Side) {
   }
   return index.sides[side];
 }
-export function pointVisible(s: GameState, side: Side, x: number, y: number) {
+export function pointVisibleWith(
+  s: GameState,
+  side: Side,
+  x: number,
+  y: number,
+  candidates?: Unit[],
+) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
     return true;
   if (
@@ -525,7 +547,8 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
     )
   )
     return true;
-  return s.units.some((u) => {
+  const pool = candidates ?? s.units;
+  return pool.some((u) => {
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
       return false;
     const range =
@@ -565,6 +588,9 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
           )),
     );
   });
+}
+export function pointVisible(s: GameState, side: Side, x: number, y: number) {
+  return pointVisibleWith(s, side, x, y);
 }
 const visibleLookup = new WeakMap<
   number[],
