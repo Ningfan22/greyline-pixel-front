@@ -474,6 +474,8 @@ export interface Projectile {
   armorMultiplier?: number;
   missed?: boolean;
   smallArmsAir?: boolean;
+  /** v108: fired by an aircraft — strafing runs ignore wall cover, only the ground stops them. */
+  fromAir?: boolean;
 }
 export interface Particle {
   kind?:
@@ -506,7 +508,14 @@ export interface Marker {
   timer: number;
   side: Side;
   wave: number;
-  kind?: 'artillery' | 'precision' | 'barrage';
+  kind?:
+    | 'artillery'
+    | 'precision'
+    | 'barrage'
+    | 'naval'
+    | 'cluster'
+    | 'thermobaric'
+    | 'rocket';
   impacts?: number[];
 }
 export interface Blast {
@@ -615,6 +624,18 @@ export interface Player extends EconomyPlayer {
   recon: number;
   kills: number;
   played: number;
+  /** Comm blackout: no energy recharge while active (v108). */
+  blackoutUntil?: number;
+  /** Supply interdiction: next N cards played cost +2 (v108). */
+  taxCards?: number;
+  /** Spoof: enemy infantry briefly face the wrong way (v108). */
+  spoofUntil?: number;
+  /** Radar jam: enemy air & guided weapon accuracy reduced (v108). */
+  radarJamUntil?: number;
+  /** Blitz doctrine: own infantry speed boost while active (v108). */
+  blitzUntil?: number;
+  /** Entrench: own infantry forced prone with damage reduction (v108). */
+  entrenchUntil?: number;
 }
 export interface GameState {
   campaign?: CampaignState;
@@ -753,6 +774,12 @@ export function createGame(
     recon: 0,
     kills: 0,
     played: 0,
+    blackoutUntil: 0,
+    taxCards: 0,
+    spoofUntil: 0,
+    radarJamUntil: 0,
+    blitzUntil: 0,
+    entrenchUntil: 0,
   });
   const s: GameState = {
     mapId: layout.id,
@@ -1083,6 +1110,46 @@ export const ARTILLERY = {
     scatter: 8,
     baseScale: 0.2,
   },
+  naval: {
+    delay: 3.4,
+    count: 1,
+    interval: 0,
+    damage: 120,
+    radius: 72,
+    spacing: 0,
+    scatter: 18,
+    baseScale: 0.28,
+  },
+  cluster: {
+    delay: 3.0,
+    count: 8,
+    interval: 0.32,
+    damage: 14,
+    radius: 30,
+    spacing: 42,
+    scatter: 30,
+    baseScale: 0.12,
+  },
+  thermobaric: {
+    delay: 2.8,
+    count: 1,
+    interval: 0,
+    damage: 55,
+    radius: 58,
+    spacing: 0,
+    scatter: 12,
+    baseScale: 0.24,
+  },
+  rocket: {
+    delay: 2.2,
+    count: 1,
+    interval: 0,
+    damage: 90,
+    radius: 22,
+    spacing: 0,
+    scatter: 4,
+    baseScale: 0.18,
+  },
 };
 function callArtillery(
   s: GameState,
@@ -1224,7 +1291,7 @@ export function playCard(
   if (index < 0) return { ok: false, message: '这张卡牌已不在手牌中' };
   const token = p.hand[index],
     c = CARDS[token.id],
-    cost = cardCost(token);
+    cost = cardCost(token) + ((p.taxCards ?? 0) > 0 ? 2 : 0);
   if (cardReadyIn(s, token) > 0)
     return {
       ok: false,
@@ -1270,6 +1337,7 @@ export function playCard(
   )
     return { ok: false, message: '请提前布雷，需离敌方装甲至少 80 距离' };
   p.energy = Math.max(0, p.energy - cost);
+  if ((p.taxCards ?? 0) > 0) p.taxCards = (p.taxCards ?? 0) - 1;
   p.hand.splice(index, 1);
   if (!c.sortie) p.discard.push(token);
   p.played++;
@@ -1369,10 +1437,26 @@ export function playCard(
       foe.energy = Math.max(0, foe.energy - 3);
       foe.suppressedUntil = s.time + 6;
     }
+    if (c.effect === 'forage') draw(s, side, 2);
+    if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
+    if (c.effect === 'blackout') foe.blackoutUntil = s.time + 8;
+    if (c.effect === 'interdict')
+      foe.taxCards = (foe.taxCards ?? 0) + 3;
+    if (c.effect === 'spoof') foe.spoofUntil = s.time + 3;
+    if (c.effect === 'radar_jam') foe.radarJamUntil = s.time + 8;
+    if (c.effect === 'entrench') {
+      p.entrenchUntil = s.time + 8;
+      for (const u of own) {
+        u.pose = 'prone';
+        u.personalMorale = Math.min(100, u.personalMorale + 5);
+      }
+    }
   } else if (c.id === 'artillery') {
     callArtillery(s, side, x!, 'artillery');
   } else if (c.id === 'precision') {
     callArtillery(s, side, x!, 'precision');
+  } else if (c.artilleryKind) {
+    callArtillery(s, side, x!, c.artilleryKind as keyof typeof ARTILLERY);
   } else if (c.id === 'smoke') {
     s.smokes.push({ x: x!, life: 10, side });
   } else if (c.id === 'flare') {
@@ -1583,7 +1667,7 @@ function burst(
   if (blastVisible(s, 0, blast)) s.shake = Math.min(12, radius / 7);
   // Lingering dust clouds rise and drift after the blast sprite fades.
   if (kind !== 'air' && kind !== 'penetration') {
-    const cloudCount = Math.min(12, Math.round(radius / 10));
+    const cloudCount = Math.min(16, Math.max(5, Math.round(radius / 5)));
     for (let i = 0; i < cloudCount; i++) {
       const a = fxRnd(s) * Math.PI * 2;
       const d = fxRnd(s) * radius * 0.65;
@@ -1597,8 +1681,26 @@ function burst(
         life,
         maxLife: life,
         color: '#6e6358',
-        size: radius * (0.3 + fxRnd(s) * 0.35),
+        size: radius * (0.35 + fxRnd(s) * 0.4),
       });
+    }
+    // v109: heavy blasts leave a standing smoke column — a bomb or tank
+    // kill marks the sky for seconds instead of fading with the flash.
+    if (soil && radius >= 20) {
+      for (let i = 0; i < 12; i++) {
+        const life = 3 + fxRnd(s) * 2.5;
+        emitParticle(s, {
+          kind: 'cloud',
+          x: x + (fxRnd(s) - 0.5) * radius * 0.5,
+          y: y - fxRnd(s) * 10,
+          vx: (fxRnd(s) - 0.5) * 10,
+          vy: -24 - fxRnd(s) * 26,
+          life,
+          maxLife: life,
+          color: fxRnd(s) < 0.5 ? '#5c5347' : '#6e6358',
+          size: radius * (0.5 + fxRnd(s) * 0.45),
+        });
+      }
     }
   }
   // Persistent scorch marks accumulate so the field shows its battle history.
@@ -1678,6 +1780,41 @@ function muzzleParticles(
     color: '#a7aa98',
     size: heavy ? 8 : 3,
   });
+  // v109: a cannon shot belches a rolling smoke jet and a star of hot
+  // sparks from the muzzle — the blast reads as an event, not a puff.
+  if (heavy) {
+    const dir = u.side === 0 ? 1 : -1;
+    for (let i = 0; i < 5; i++) {
+      const life = 0.5 + fxRnd(s) * 0.5;
+      emitParticle(s, {
+        kind: 'smoke',
+        x: sx + dir * (4 + fxRnd(s) * 6),
+        y: sy - fxRnd(s) * 4,
+        vx: dir * (14 + fxRnd(s) * 22),
+        vy: -6 - fxRnd(s) * 12,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.5 ? '#b8b3a2' : '#8f8c7c',
+        size: 6 + fxRnd(s) * 7,
+      });
+    }
+    for (let i = 0; i < 7; i++) {
+      const ang = (i / 7) * Math.PI * 2 + (fxRnd(s) - 0.5) * 0.5;
+      const sp = 60 + fxRnd(s) * 90;
+      const life = 0.1 + fxRnd(s) * 0.12;
+      emitParticle(s, {
+        kind: 'spark',
+        x: sx,
+        y: sy,
+        vx: Math.cos(ang) * sp,
+        vy: Math.sin(ang) * sp,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.5 ? '#ffd27a' : '#ffb347',
+        size: 1,
+      });
+    }
+  }
   // Sustained fire builds gunsmoke that lingers over the firing position.
   const heatGain =
     kind === 'cannon' || kind === 'ap'
@@ -1807,20 +1944,20 @@ function bulletImpact(
   // throws a dirt-and-smoke pillar that lingers, so a strafing run reads
   // as a line of bursting explosions, not rifle puffs.
   if (material === 'soil' && heavy)
-    for (let i = 0; i < (ammo === 'cannon' ? 3 : ammo === 'autocannon' ? 6 : 2); i++) {
-      const life = ammo === 'autocannon' ? 1.2 + fxRnd(s) * 0.9 : 0.7 + fxRnd(s) * 0.6;
+    for (let i = 0; i < (ammo === 'cannon' ? 4 : ammo === 'autocannon' ? 10 : 2); i++) {
+      const life = ammo === 'autocannon' ? 1.6 + fxRnd(s) * 1.2 : 0.7 + fxRnd(s) * 0.6;
       emitParticle(s, {
         kind: 'smoke',
-        x: x + (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 14 : 8),
-        y: y - (ammo === 'autocannon' ? 6 : 3),
-        vx: (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 16 : 10),
-        vy: -(ammo === 'autocannon' ? 24 : 14) - fxRnd(s) * (ammo === 'autocannon' ? 20 : 12),
+        x: x + (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 18 : 8),
+        y: y - (ammo === 'autocannon' ? 8 : 3),
+        vx: (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 20 : 10),
+        vy: -(ammo === 'autocannon' ? 30 : 14) - fxRnd(s) * (ammo === 'autocannon' ? 26 : 12),
         life,
         maxLife: life,
         color: '#8f8b7d',
         size:
-          (ammo === 'cannon' ? 10 : ammo === 'autocannon' ? 14 : 7) +
-          fxRnd(s) * (ammo === 'cannon' ? 7 : ammo === 'autocannon' ? 10 : 5),
+          (ammo === 'cannon' ? 10 : ammo === 'autocannon' ? 18 : 7) +
+          fxRnd(s) * (ammo === 'cannon' ? 7 : ammo === 'autocannon' ? 14 : 5),
       });
     }
   // v107: autocannon soil hits also kick up a brief flash of loose dirt
@@ -1912,8 +2049,43 @@ function hitUnit(
         protection *
         (1 - cover) *
         (c.trait === 'armor_vest' ? 0.88 : 1) *
-        (c.members && !u.moving && s.players[u.side].fortify > 0 ? 0.7 : 1);
+        (c.members && !u.moving && s.players[u.side].fortify > 0 ? 0.7 : 1) *
+        (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time
+          ? 0.7
+          : 1);
   u.hp -= actual;
+  // v109: blast hits that chunk a squad spray blood and equipment
+  // fragments off the impact point — bullets poke, blasts shred.
+  if (c.members && source === 'blast' && actual > u.maxHp * 0.08) {
+    for (let i = 0; i < 6; i++) {
+      const life = 0.5 + fxRnd(s) * 0.6;
+      emitParticle(s, {
+        kind: 'blood',
+        x: u.x + (fxRnd(s) - 0.5) * 8,
+        y: u.y - 14 - fxRnd(s) * 8,
+        vx: (fxRnd(s) - 0.5) * 180,
+        vy: -60 - fxRnd(s) * 90,
+        life,
+        maxLife: life,
+        color: '#7a2420',
+        size: 1.5 + fxRnd(s) * 2,
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      const life = 0.7 + fxRnd(s) * 0.7;
+      emitParticle(s, {
+        kind: 'chip',
+        x: u.x + (fxRnd(s) - 0.5) * 8,
+        y: u.y - 12 - fxRnd(s) * 6,
+        vx: (fxRnd(s) - 0.5) * 240,
+        vy: -80 - fxRnd(s) * 110,
+        life,
+        maxLife: life,
+        color: fxRnd(s) < 0.5 ? '#3d3a30' : '#5a5142',
+        size: 1 + fxRnd(s) * 1.5,
+      });
+    }
+  }
   if (c.members && source !== 'gas') {
     const supported =
       c.infantryAbility === 'cohesion' &&
@@ -2062,16 +2234,35 @@ function finishDeath(
     vx: c.air
       ? u.facing * 70
       : ragdoll
-        ? throwDir * (190 + blastPower * 210)
+        ? throwDir * (260 + blastPower * 320)
         : 0,
-    vy: ragdoll ? -(130 + blastPower * 150) : 0,
-    ...(ragdoll ? { spin: throwDir * (8 + blastPower * 9) } : {}),
+    vy: ragdoll ? -(180 + blastPower * 220) : 0,
+    ...(ragdoll ? { spin: throwDir * (12 + blastPower * 14) } : {}),
+    cause: source === 'gas' ? 'burn' : source,
     // v83: a fallen rifleman keeps his remaining ammunition on the body
     // so a dry squadmate can pull a magazine off the same weapon.
     ...(magazine(u.id, u.member)
       ? { member: u.member, ammo: u.ammo, ammoReserve: u.ammoReserve ?? 0 }
       : {}),
   });
+  // v109: a ragdolling body leaves a short blood arc behind it so the throw
+  // reads as violent rather than a statue sliding across the ground.
+  if (ragdoll) {
+    for (let i = 0; i < 8; i++) {
+      const life = 0.4 + fxRnd(s) * 0.5;
+      emitParticle(s, {
+        kind: 'blood',
+        x: u.x + (fxRnd(s) - 0.5) * 6,
+        y: u.y - 12 - fxRnd(s) * 10,
+        vx: -throwDir * (30 + fxRnd(s) * 60),
+        vy: -40 - fxRnd(s) * 70,
+        life,
+        maxLife: life,
+        color: '#7a2420',
+        size: 1.5 + fxRnd(s) * 2,
+      });
+    }
+  }
   if (!c.members && !c.air)
     burst(s, u.x, u.y - 20, c.armored ? 60 : 42, 'wreck');
   else if (c.air) burst(s, u.x, u.y - 20, c.oneWay ? 12 : 24, 'air');
@@ -2365,6 +2556,10 @@ export function projectileIntercept(
     return terrainIntercept(s, sx, sy, tx, ty, true, true);
   if (indirectShell)
     return terrainIntercept(s, sx, sy, tx, ty, false, false, true);
+  // v108: aircraft strafing runs come from above — walls and rubble don't
+  // block 30mm rounds plunging from the sky. Only the ground stops them.
+  if (p.fromAir)
+    return terrainIntercept(s, sx, sy, tx, ty, false, true);
   if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
     return terrainIntercept(s, sx, sy, tx, ty);
   const hardHit = terrainIntercept(s, sx, sy, tx, ty, true);
@@ -5342,13 +5537,13 @@ function updateAI(s: GameState) {
         if (cardCost(h) >= 4) score -= 4;
       } else if (phase === 'mid') {
         if ((c.armored || c.vehicle) && screens >= 2) score += 4;
-        if (c.antiAir && s.aiProfile.air >= 2) score += 5;
+        if (c.antiAir && (s.aiProfile?.air ?? 0) >= 2) score += 5;
         if (
           (c.armorMultiplier ?? 1) >= 1.5 ||
           (!!c.penetration && !c.airOnly)
         )
-          score += s.aiProfile.armor >= 2 ? 5 : 0;
-        if ((c.indirect || c.vehicleSupport) && s.aiProfile.turtle >= 3)
+          score += (s.aiProfile?.armor ?? 0) >= 2 ? 5 : 0;
+        if ((c.indirect || c.vehicleSupport) && (s.aiProfile?.turtle ?? 0) >= 3)
           score += 5;
       } else if (phase === 'late') {
         if (c.economy) score -= 10;
@@ -5909,7 +6104,10 @@ function fireBombRun(s: GameState, u: Unit) {
     return;
   const sx = u.x,
     sy = u.y + 10;
-  const tx = sx + dir * 160;
+  // v108 radar jam: bomb drift widens sharply when the attacker's seeker
+  // is being spoofed.
+  const jammed = (s.players[u.side].radarJamUntil ?? 0) > s.time;
+  const tx = sx + dir * 160 + (jammed ? (rnd(s) - 0.5) * 130 : 0);
   const ty = ground(s, tx) - 8;
   const total = Math.max(0.5, Math.sqrt(Math.max(0, (2 * (ty - sy)) / 800)));
   u.bombsLeft--;
@@ -6051,6 +6249,7 @@ function detonateFpv(s: GameState, u: Unit, x: number, y: number) {
     falling: y < ground(s, x) - 35,
     vx: u.facing * 12,
     vy: 0,
+    cause: 'blast',
   };
   if (!wreck.falling)
     Object.assign(
@@ -6280,7 +6479,8 @@ export function tick(s: GameState, dt: number) {
   }
   for (const side of [0, 1] as Side[]) {
     const p = s.players[side];
-    updateEconomy(s, side, dt);
+    if (!(p.blackoutUntil && p.blackoutUntil > s.time))
+      updateEconomy(s, side, dt);
     p.morale = Math.max(0, p.morale - dt);
     p.recon = Math.max(0, p.recon - dt);
     p.fortify = Math.max(0, p.fortify - dt);
@@ -6476,7 +6676,8 @@ export function tick(s: GameState, dt: number) {
       }
     }
     const c = weaponCard(u),
-      dir = u.side === 0 ? 1 : -1,
+      dir = ((u.side === 0 ? 1 : -1) *
+        ((s.players[u.side].spoofUntil ?? 0) > s.time ? -1 : 1)) as 1 | -1,
       enemySide: Side = u.side === 0 ? 1 : 0,
       baseX = enemySide === 0 ? 70 : W - 70;
     if (u.parachuting) {
@@ -7369,21 +7570,23 @@ export function tick(s: GameState, dt: number) {
       const threatAir = CARDS[threat.id].air;
       const threatArmored = CARDS[threat.id].armored;
       const coverCheck = (v: Unit): boolean =>
-        v !== u &&
-        v.side === u.side &&
-        isCombatant(v) &&
-        (!threatAir || weaponCard(v).antiAir) &&
-        (!threatArmored ||
-          weaponCard(v).penetration ||
-          (weaponCard(v).armorMultiplier ?? 1) > 1.2) &&
-        (CARDS[v.id].members || threatAir) &&
-        Math.abs(v.x - threat.x) <= unitRange(s, v) &&
-        firingHeight(
-          s,
-          v,
-          threat.x,
-          threat.y - bodyHeight(threat),
-        ) !== null;
+        !!(
+          v !== u &&
+          v.side === u.side &&
+          isCombatant(v) &&
+          (!threatAir || weaponCard(v).antiAir) &&
+          (!threatArmored ||
+            weaponCard(v).penetration ||
+            (weaponCard(v).armorMultiplier ?? 1) > 1.2) &&
+          (CARDS[v.id].members || threatAir) &&
+          Math.abs(v.x - threat.x) <= unitRange(s, v) &&
+          firingHeight(
+            s,
+            v,
+            threat.x,
+            threat.y - bodyHeight(threat),
+          ) !== null
+        );
       const mates = squadMates(s, u.side, u.squad);
       for (let i = 0; i < mates.length; i++) {
         if (coverCheck(mates[i])) {
@@ -7536,7 +7739,7 @@ export function tick(s: GameState, dt: number) {
     // Combat engineers push to a breachable wall instead of stopping to trade
     // rifle shots — their job is demolition, and the breach only triggers from
     // moveSoldier, so they must keep moving the last stretch under fire.
-    const breachRun =
+    const breachRun = !!(
       c.members &&
       CARDS[u.id].trait === 'engineer' &&
       order !== 'hold' &&
@@ -7546,7 +7749,8 @@ export function tick(s: GameState, dt: number) {
           w.hp > 0 &&
           (w.x - u.x) * dir >= w.width / 2 + 5 &&
           Math.abs(w.x - u.x) < w.width / 2 + 40,
-      );
+      )
+    );
     if (
       (u.dispersionUntil ?? 0) <= s.time ||
       (u.dispersionGoal !== undefined && Math.abs(u.dispersionGoal - u.x) <= 1)
@@ -7866,6 +8070,21 @@ export function tick(s: GameState, dt: number) {
         tx += target.vx * travel;
         ty += target.vy * travel;
       }
+      // v109: air-to-ground strafers lead running infantry — a jet on a
+      // 560 px/s attack run otherwise hoses empty dirt behind a sprinting
+      // squad, which made the strike jet feel like it couldn't hit anything.
+      if (target && c.air && !CARDS[target.id].air && !c.indirect) {
+        const speed = FLIGHT[ammunition(u.id, u.member)].speed;
+        const travel = Math.min(1, Math.hypot(tx - u.x, ty - u.y) / speed);
+        tx += target.vx * travel;
+        ty += target.vy * travel;
+      }
+      // v108 radar jam: air units fighting through spoofed sensors scatter
+      // their fire around the intended aim point.
+      if (c.air && (s.players[u.side].radarJamUntil ?? 0) > s.time) {
+        tx += (rnd(s) - 0.5) * 90;
+        ty += (rnd(s) - 0.5) * 44;
+      }
       if (coverShot) {
         u.pose = 'idle';
         u.exposedUntil = s.time + 2.5;
@@ -8150,6 +8369,7 @@ export function tick(s: GameState, dt: number) {
             total,
             startX: sx,
             startY: sy,
+            fromAir: !!c.air,
           });
           // Recon-by-fire rounds need explicit lanes so suppressNearMiss can
           // project their pressure through depth (aimProjectileDepth only
@@ -8209,6 +8429,8 @@ export function tick(s: GameState, dt: number) {
                     : u.tactic === 'crouch' || u.tactic === 'cover'
                       ? 'crouch'
                       : 'walk';
+      if (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time)
+        u.pose = 'prone';
       const orderSpeed = c.members
         ? u.pose === 'run'
           ? 1.7
@@ -8230,7 +8452,8 @@ export function tick(s: GameState, dt: number) {
           : 1) *
         (morale ? 1.2 : 1) *
         (u.slowedUntil > s.time ? 0.5 : 1) *
-        ((u.forceMarchUntil ?? 0) > s.time ? 1.35 : 1);
+        ((u.forceMarchUntil ?? 0) > s.time ? 1.35 : 1) *
+        ((s.players[u.side].blitzUntil ?? 0) > s.time ? 1.45 : 1);
       const moveDir = withdrawing
         ? Math.sign(u.withdrawGoal! - u.x)
         : reversing
@@ -8404,8 +8627,12 @@ export function tick(s: GameState, dt: number) {
         (u) => u.uid === p.targetUid && canTakeDamage(u),
       );
       if (tracked && visibleToSide(s, p.side, tracked)) {
-        p.tx = tracked.x;
-        p.ty = tracked.y - bodyHeight(tracked);
+        // v108 radar jam: the seeker hunts a corrupted track, wandering
+        // around the real target instead of locking it cleanly.
+        const jammed = (s.players[p.side].radarJamUntil ?? 0) > s.time;
+        p.tx = tracked.x + (jammed ? (rnd(s) - 0.5) * 70 : 0);
+        p.ty =
+          tracked.y - bodyHeight(tracked) + (jammed ? (rnd(s) - 0.5) * 36 : 0);
       }
       const climbing = p.topAttack && !p.lofted;
       const goalX = climbing ? p.loftX! : p.tx,
@@ -8577,6 +8804,7 @@ export function tick(s: GameState, dt: number) {
                   : 1),
             p.side,
             cover,
+            'bullet',
             p.sourceUid,
           );
           if (p.ammunition === 'ap')

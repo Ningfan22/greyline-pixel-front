@@ -9,7 +9,9 @@ export type EconomyEffect =
   | 'logistics'
   | 'capacity'
   | 'bonds'
-  | 'overdraft';
+  | 'overdraft'
+  | 'production'
+  | 'forward_hq';
 export const DEFAULT_DIFFICULTY: Difficulty = 'veteran';
 export const DIFFICULTY_RATE: Record<Difficulty, number> = {
   standard: 1,
@@ -31,6 +33,11 @@ export const ECONOMY_RULES = {
   overdraftPenalty: 1.5,
   overdraftPayout: 5,
   suppressPenalty: 2,
+  productionDuration: 15,
+  productionBoost: 0.62,
+  productionPayout: 2,
+  forwardHqInterval: 0.5,
+  forwardHqCapPenalty: 2,
 } as const;
 export interface EconomyPlayer {
   energy: number;
@@ -43,6 +50,10 @@ export interface EconomyPlayer {
   overdraftUntil: number | null;
   /** Enemy electronic suppression: recharge interval multiplied while active. */
   suppressedUntil: number | null;
+  /** War production surge: recharge interval shortened while active. */
+  productionUntil?: number | null;
+  /** Forward HQ: permanent faster recharge but lower cap. */
+  forwardHq?: boolean;
 }
 type EconomyMatch = { time: number; players: EconomyPlayer[] };
 export function initialEconomy(
@@ -86,6 +97,13 @@ export function energyInterval(s: EconomyMatch, side: 0 | 1): number {
     interval *= ECONOMY_RULES.overdraftPenalty;
   if (p.suppressedUntil != null && p.suppressedUntil > s.time)
     interval *= ECONOMY_RULES.suppressPenalty;
+  if (p.productionUntil != null && p.productionUntil > s.time)
+    interval = Math.max(1.2, interval - ECONOMY_RULES.productionBoost);
+  if (p.forwardHq)
+    interval = Math.max(
+      1.2,
+      interval - ECONOMY_RULES.forwardHqInterval,
+    );
   return interval;
 }
 export function economyBlock(
@@ -111,6 +129,8 @@ export function economyBlock(
     p.overdraftUntil > time
   )
     return '透支补给尚未结清';
+  if (effect === 'forward_hq' && p.forwardHq)
+    return '前沿指挥部已建立';
   return null;
 }
 /** Called only after playCard validates and pays its normal card cost. */
@@ -128,6 +148,17 @@ export function applyEconomy(
   } else {
     p.overdraftUntil = time + ECONOMY_RULES.overdraftDuration;
     p.energy = p.energy + ECONOMY_RULES.overdraftPayout;
+  }
+  if (effect === 'production') {
+    p.productionUntil = time + ECONOMY_RULES.productionDuration;
+    p.energy = p.energy + ECONOMY_RULES.productionPayout;
+  }
+  if (effect === 'forward_hq') {
+    p.forwardHq = true;
+    p.energyCap = Math.max(
+      6,
+      energyLimit(p) - ECONOMY_RULES.forwardHqCapPenalty,
+    );
   }
 }
 export function updateEconomy(s: EconomyMatch, side: 0 | 1, dt: number): void {

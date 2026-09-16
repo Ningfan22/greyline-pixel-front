@@ -269,7 +269,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // While changing a cooked barrel the gunner drops to one knee and works the
   // weapon, alternating with a low crouch so the pause reads as urgent labour.
   if ((u.overheatedUntil ?? 0) > time && !u.moving)
-    return action(Math.floor((u.overheatedUntil - time) * 2.2) % 2 ? 13 : 1);
+    return action(Math.floor(((u.overheatedUntil ?? 0) - time) * 2.2) % 2 ? 13 : 1);
   if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
   if (u.motion === 'land')
     return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);
@@ -284,7 +284,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // chain of command reads on the field. The arm-over-head frame alternates
   // with the alert stand so it waves instead of freezing like a statue.
   if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0)
-    return action(Math.floor((u.signalUntil - time) * 6) % 2 ? 8 : 0);
+    return action(Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2 ? 8 : 0);
   // Squad mates answer a fresh hand signal with a quick return pump of the
   // arm. Only upright members answer — crouched and prone defenders stay low
   // instead of popping up out of a trench to wave back.
@@ -296,7 +296,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.reloadingUntil ?? 0) <= time &&
     (u.pose === 'idle' || u.pose === 'walk')
   )
-    return action(Math.floor((u.ackUntil - time) * 7) % 2 ? 8 : 0);
+    return action(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 8 : 0);
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)
@@ -320,7 +320,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.reloadingUntil ?? 0) <= time &&
     (u.pose === 'idle' || u.pose === 'walk')
   ) {
-    const t = u.ammoSignalUntil - time;
+    const t = (u.ammoSignalUntil ?? 0) - time;
     return Math.floor((1.4 - t) * 2.2) % 2 ? action(8) : action(13);
   }
   const reloading = (u.reloadingUntil ?? 0) > time;

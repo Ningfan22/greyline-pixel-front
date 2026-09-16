@@ -1,4 +1,5 @@
-import type { GameState, MapId } from './engine';
+import type { GameState } from './engine';
+import type { MapId } from './maps';
 
 /**
  * Battlefield weather (v62). Each map owns one signature weather that cycles

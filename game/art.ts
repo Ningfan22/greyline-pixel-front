@@ -44,7 +44,10 @@ export interface Art {
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
   wrecks: Record<WreckKind, HTMLCanvasElement>;
-  wreckVariants: Record<WreckKind, HTMLCanvasElement[]>;
+  wreckVariants: Record<
+    WreckKind,
+    Record<'blast' | 'bullet' | 'burn', HTMLCanvasElement[]>
+  >;
   parachute: HTMLCanvasElement[];
 }
 let cached: Promise<Art> | null = null;

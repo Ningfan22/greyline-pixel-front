@@ -76,7 +76,27 @@ export type CardId =
   | 'airborne_insertion'
   | 'signal_jam'
   | 'forced_march'
-  | 'cyber_suppression';
+  | 'cyber_suppression'
+  | 'war_production'
+  | 'foraged_supplies'
+  | 'blitz_doctrine'
+  | 'forward_hq'
+  | 'comm_blackout'
+  | 'supply_interdiction'
+  | 'spoof_attack'
+  | 'radar_jam'
+  | 'glider_assault'
+  | 'pathfinders'
+  | 'ambush_squad'
+  | 'sniper_team'
+  | 'naval_gunfire'
+  | 'cluster_munitions'
+  | 'thermobaric'
+  | 'precision_rocket'
+  | 'veteran_squad'
+  | 'medic_team'
+  | 'combat_engineers'
+  | 'entrench';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -152,6 +172,8 @@ export interface Card {
   /** Crew members who bail out on foot when the vehicle is destroyed. */
   crew?: number;
   targetGround?: boolean;
+  /** Selects a non-default artillery profile (naval/cluster/thermobaric/rocket) for strike cards. */
+  artilleryKind?: string;
   model?: BaseCardId;
   doctrine?: Doctrine;
   discipline?: number;
@@ -178,7 +200,14 @@ export interface Card {
     | 'sabotage'
     | 'signal_jam'
     | 'forced_march'
-    | 'cyber_suppression';
+    | 'cyber_suppression'
+    | 'forage'
+    | 'blitz'
+    | 'blackout'
+    | 'interdict'
+    | 'spoof'
+    | 'radar_jam'
+    | 'entrench';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
   infantry: {
@@ -974,12 +1003,13 @@ export const CARDS: Record<CardId, Card> = {
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
-      infantryMultiplier: 5.0,
+      infantryMultiplier: 12,
       armorMultiplier: 0.35,
       baseMultiplier: 0.15,
+      radius: 30,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×5.0，一发即可撕碎一名步兵，弹着点掀起爆炸级烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×12，一发即可撕碎一整个步兵班，弹着点掀起爆炸级烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(
@@ -1466,6 +1496,332 @@ export const CARDS: Record<CardId, Card> = {
     '打乱敌方射击节奏，主武器和同轴机枪当前剩余装填延后 1.8 秒。',
     { effect: 'sabotage', tag: '调度 · 压制火力' },
   ),
+  // ── v108 快攻经济流派 ─────────────────────────────────────────────
+  war_production: variant(
+    'supply',
+    'war_production',
+    '战争生产',
+    2,
+    '立即获得 2 点指挥点，15 秒内回点速度提升 40%',
+    {
+      en: 'WAR PRODUCTION',
+      economy: 'production',
+      tag: '发展 · 爆发回点',
+      detail:
+        '支付2点，立即获得2点指挥点（可超过上限），并在15秒内指挥点回复间隔缩短40%。快攻流派的中期爆发牌：用它把一波铺场的费用提前打出来。',
+    },
+  ),
+  foraged_supplies: variant(
+    'supply',
+    'foraged_supplies',
+    '就地补给',
+    1,
+    '立即抽 2 张牌',
+    {
+      en: 'FORAGED SUPPLIES',
+      effect: 'forage',
+      tag: '调度 · 低费过牌',
+      detail:
+        '支付1点，立即抽2张牌。比战地补给更便宜的过牌手段，快攻牌组用它快速找到关键组件；牌库抽空后用过的牌会洗回。',
+    },
+  ),
+  blitz_doctrine: variant(
+    'supply',
+    'blitz_doctrine',
+    '闪电战',
+    3,
+    '己方全体步兵移速提升 45%，10 秒',
+    {
+      en: 'BLITZ DOCTRINE',
+      effect: 'blitz',
+      tag: '机动 · 全军突进',
+      detail:
+        '10秒内己方所有步兵移动速度提升45%。比强行军更贵但提速更猛，配合空降和透支指挥能在对手站稳脚跟前把战线推到脸上。',
+    },
+  ),
+  forward_hq: variant(
+    'supply',
+    'forward_hq',
+    '前沿指挥部',
+    3,
+    '永久缩短回点间隔 0.5 秒，指挥上限 -2',
+    {
+      en: 'FORWARD HQ',
+      economy: 'forward_hq',
+      tag: '发展 · 以量换速',
+      detail:
+        '支付3点，指挥点回复间隔永久缩短0.5秒，但指挥点上限永久降低2。牺牲后期储备换取全程回点速度，快攻和压制流派的核心经济牌。',
+    },
+  ),
+  // ── v108 干扰封锁流派 ─────────────────────────────────────────────
+  comm_blackout: variant(
+    'jam',
+    'comm_blackout',
+    '通讯中断',
+    3,
+    '敌方 8 秒内无法获得指挥点',
+    {
+      en: 'COMM BLACKOUT',
+      effect: 'blackout',
+      tag: '干扰 · 经济封锁',
+      detail:
+        '释放强电磁干扰，敌方8秒内指挥点完全停止回复。在对手攒费准备大招时打出，能直接掐断对方的连招节奏。',
+    },
+  ),
+  supply_interdiction: variant(
+    'jam',
+    'supply_interdiction',
+    '补给拦截',
+    2,
+    '敌方下 3 张牌费用 +2',
+    {
+      en: 'SUPPLY INTERDICTION',
+      effect: 'interdict',
+      tag: '干扰 · 加价封锁',
+      detail:
+        '拦截敌方补给线，敌方接下来打出的3张牌每张费用额外+2。持续施压型封锁，让对手每一张关键牌都来得更慢。',
+    },
+  ),
+  spoof_attack: variant(
+    'jam',
+    'spoof_attack',
+    '佯攻',
+    1,
+    '敌方步兵转向 3 秒',
+    {
+      en: 'SPOOF ATTACK',
+      effect: 'spoof',
+      tag: '干扰 · 阵型扰乱',
+      detail:
+        '制造假情报，敌方所有步兵朝向翻转3秒。期间他们会朝错误方向移动和开火，为己方突进或撤退争取窗口。',
+    },
+  ),
+  radar_jam: variant(
+    'jam',
+    'radar_jam',
+    '雷达干扰',
+    2,
+    '敌方空军与导弹精度下降，8 秒',
+    {
+      en: 'RADAR JAM',
+      effect: 'radar_jam',
+      tag: '干扰 · 反空反导',
+      detail:
+        '干扰敌方雷达制导，8秒内敌方攻击机、直升机和导弹的散布大幅增加。在对手呼叫空中支援前打出，能让大半炸弹偏离目标。',
+    },
+  ),
+  // ── v108 空降与特种步兵 ───────────────────────────────────────────
+  glider_assault: variant(
+    'infantry',
+    'glider_assault',
+    '滑翔机突击',
+    4,
+    '4 名精英步兵静默滑翔空降，落地即伏击',
+    {
+      members: 4,
+      hp: 240,
+      damage: 34,
+      range: 420,
+      speed: 84,
+      doctrine: 'assault',
+      discipline: 95,
+      uniform: 'assault',
+      infantryAbility: 'elite',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 精英纵深',
+      detail:
+        '4人精英突击班搭乘滑翔机静默降落到战场任意位置。精英训练让他们1秒即可进入伏击状态，落地就能打出伏击加成；没有运输机临空的噪音，对手更难预判落点。',
+    },
+  ),
+  pathfinders: variant(
+    'infantry',
+    'pathfinders',
+    '先导小组',
+    3,
+    '2 名侦察兵空降，超远视野，落地伏击',
+    {
+      members: 2,
+      hp: 120,
+      damage: 26,
+      range: 460,
+      speed: 88,
+      doctrine: 'recon',
+      discipline: 90,
+      uniform: 'recon',
+      trait: 'scout',
+      infantryAbility: 'ambush',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 侦察引导',
+      detail:
+        '2人先导侦察小组空降到战场任意位置。侦察兵拥有超远视野，能提前点亮敌方纵深部署；落地后进入伏击状态，第一波齐射带伏击加成。适合为后续主力空降标记安全落点。',
+    },
+  ),
+  ambush_squad: variant(
+    'infantry',
+    'ambush_squad',
+    '伏击小组',
+    3,
+    '3 名伏击兵，静止 2 秒后首波齐射伤害翻倍',
+    {
+      members: 3,
+      hp: 165,
+      damage: 30,
+      range: 440,
+      speed: 70,
+      doctrine: 'defensive',
+      discipline: 88,
+      infantryAbility: 'ambush',
+      tag: '守备 · 以静制动',
+      detail:
+        '3人伏击小组，静止2秒后进入伏击状态，开火首波齐射造成双倍伤害。蹲在掩体或草丛里等对手撞上来，是防守反击流派的核心单位。',
+    },
+  ),
+  sniper_team: variant(
+    'sniper',
+    'sniper_team',
+    '狙击小组',
+    4,
+    '2 名狙击手，880 超远射程，优先点杀步兵',
+    {
+      members: 2,
+      hp: 110,
+      damage: 52,
+      rate: 2.6,
+      range: 880,
+      speed: 50,
+      tag: '远距 · 精确点杀',
+      detail:
+        '2人狙击小组，射程880，优先攻击步兵。比基础狙击小组伤害更高、射程更远，能在对手视野外逐一点杀敌方步兵和班组武器。',
+    },
+  ),
+  veteran_squad: variant(
+    'infantry',
+    'veteran_squad',
+    '老兵班组',
+    4,
+    '6 名老兵，高士气高纪律，压制下仍能作战',
+    {
+      members: 6,
+      hp: 260,
+      damage: 28,
+      range: 400,
+      speed: 70,
+      doctrine: 'assault',
+      discipline: 96,
+      infantryAbility: 'elite',
+      tag: '前线 · 精锐主力',
+      detail:
+        '6名久经沙场的老兵。96点纪律让他们在炮火压制下仍能保持射击，精英训练让他们快速进入伏击状态。比基础步兵班贵一倍，但战线稳定性完全不是一个级别。',
+    },
+  ),
+  medic_team: variant(
+    'medic',
+    'medic_team',
+    '医疗小组',
+    3,
+    '3 名军医，治疗光环强化，持续救治周围步兵',
+    {
+      members: 3,
+      hp: 150,
+      damage: 8,
+      rate: 1.2,
+      range: 260,
+      speed: 66,
+      heal: 6,
+      tag: '救治 · 持续恢复',
+      detail:
+        '3人医疗小组，每人每0.8秒治疗附近步兵6点生命。比基础医疗组治疗量高50%，站在主力班组身后能让整条战线的续航大幅提升。',
+    },
+  ),
+  combat_engineers: variant(
+    'infantry',
+    'combat_engineers',
+    '战斗工兵',
+    3,
+    '4 名工兵，可爆破矮墙、清除地雷',
+    {
+      members: 4,
+      hp: 200,
+      damage: 26,
+      range: 360,
+      speed: 66,
+      doctrine: 'assault',
+      discipline: 85,
+      trait: 'engineer',
+      tag: '攻坚 · 破障排雷',
+      detail:
+        '4人战斗工兵班，能对矮墙造成大量爆破伤害（破墙时附近突击步兵会趁机涌入缺口），并自动清除行进路线上的敌方地雷。攻坚流派打开正面缺口的关键单位。',
+    },
+  ),
+  // ── v108 炮火支援流派 ─────────────────────────────────────────────
+  naval_gunfire: variant(
+    'artillery',
+    'naval_gunfire',
+    '舰炮支援',
+    5,
+    '3.4 秒后一发 120 伤害舰炮，大范围重创',
+    {
+      artilleryKind: 'naval',
+      tag: '支援 · 重型舰炮',
+      detail:
+        '呼叫近海舰艇主炮支援，3.4秒后一发120伤害、半径72的重型炮弹砸向目标区域。单发伤害最高的炮火，适合清除密集步兵群或重创基地。',
+    },
+  ),
+  cluster_munitions: variant(
+    'artillery',
+    'cluster_munitions',
+    '集束弹药',
+    4,
+    '3 秒后 8 发子弹药连续覆盖一片区域',
+    {
+      artilleryKind: 'cluster',
+      tag: '支援 · 区域覆盖',
+      detail:
+        '发射集束弹药，3秒后8发子弹药以0.32秒间隔连续砸向目标区域，每发14伤害、半径30。对散布在开阔地的步兵群有毁灭性的覆盖效果。',
+    },
+  ),
+  thermobaric: variant(
+    'artillery',
+    'thermobaric',
+    '温压弹',
+    4,
+    '2.8 秒后一发 55 伤害温压弹，大范围灼烧',
+    {
+      artilleryKind: 'thermobaric',
+      tag: '支援 · 温压灼烧',
+      detail:
+        '投掷温压弹，2.8秒后一发55伤害、半径58的燃料空气爆炸。冲击波和高温在大范围内造成稳定伤害，对付掩体后的步兵尤其有效。',
+    },
+  ),
+  precision_rocket: variant(
+    'artillery',
+    'precision_rocket',
+    '精确火箭',
+    3,
+    '2.2 秒后一发 90 伤害精确火箭，小范围点杀',
+    {
+      artilleryKind: 'rocket',
+      tag: '支援 · 精确打击',
+      detail:
+        '发射精确制导火箭，2.2秒后一发90伤害、半径22的火箭精准命中目标。落点散布极小，适合点杀高价值目标或清除掩体后的班组武器。',
+    },
+  ),
+  // ── v108 防御增益 ─────────────────────────────────────────────────
+  entrench: variant(
+    'morale',
+    'entrench',
+    '掘壕固守',
+    2,
+    '己方全体步兵卧倒并减伤 30%，8 秒',
+    {
+      effect: 'entrench',
+      tag: '守备 · 卧倒减伤',
+      detail:
+        '命令全体己方步兵立即卧倒并挖掘简易掩体，8秒内受到的伤害降低30%。在敌方炮火或空袭来临前打出，能让整条战线硬吃一轮打击。',
+    },
+  ),
 };
 export function modelOf(id: CardId): BaseCardId {
   return CARDS[id].model ?? (id as BaseCardId);
@@ -1684,7 +2040,17 @@ export function copyLimit(id: CardId) {
   if (id === 'toxic_cloud') return 1;
   if (id === 'militia') return 6;
   if (id === 'infantry' || id === 'pickup') return 4;
-  if (['heavy_tank', 'rocket_heli', 'barrage', 'bomber'].includes(id)) return 1;
+  if (
+    [
+      'heavy_tank',
+      'rocket_heli',
+      'barrage',
+      'bomber',
+      'forward_hq',
+      'naval_gunfire',
+    ].includes(id)
+  )
+    return 1;
   if (
     [
       'machinegun',
@@ -1709,6 +2075,13 @@ export function copyLimit(id: CardId) {
       'loiter_drone',
       'fpv_drone',
       'antitank_mine',
+      'foraged_supplies',
+      'spoof_attack',
+      'ambush_squad',
+      'medic_team',
+      'combat_engineers',
+      'entrench',
+      'precision_rocket',
     ].includes(id)
   )
     return 3;

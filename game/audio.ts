@@ -147,7 +147,7 @@ export class BattleAudio {
   async unlock() {
     if (!this.settings.enabled) return;
     if (!this.ensureContext()) return;
-    const ctx = this.context;
+    const ctx = this.context!;
     try {
       await ctx.resume();
     } catch {

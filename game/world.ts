@@ -67,6 +67,12 @@ export interface Wreck {
    * ragdoll tumbles through the air on this spin, then settles on landing.
    */
   spin?: number;
+  /**
+   * v109: how the hulk died. Picks the authored wreck-state family:
+   * blast kills tear the hull apart, bullet kills puncture and riddle it,
+   * burns leave a gutted shell. Old serialized wrecks can omit this.
+   */
+  cause?: 'blast' | 'bullet' | 'burn';
 }
 export interface Mine {
   kind?: 'antipersonnel';

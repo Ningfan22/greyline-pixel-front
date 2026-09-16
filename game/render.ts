@@ -422,12 +422,14 @@ export function render(
         // scorch mark baked into the ground under the hulk.
         const wsd = w.id >>> 0;
         const condition = wsd % 3;
-        // v107: pick one of eight authored structural states (as-is, torn
-        // apart, breached, gutted, burned out, split hull, turret blast,
-        // scorched) per wreck id, then layer the burn condition on top —
-        // same-card wrecks now differ structurally.
+        // v109: pick the structural-state family by what killed the
+        // vehicle — blast kills blow apart, bullet kills riddle and
+        // breach, burn kills gut the interior — then layer the burn
+        // condition on top. Same-card wrecks now differ structurally.
+        const cause = w.cause ?? 'bullet';
+        const family = art.wreckVariants[wreckKind(w.cardId)][cause];
         const frame = filteredSprite(
-          art.wreckVariants[wreckKind(w.cardId)][wsd % 8],
+          family[wsd % family.length],
           condition === 0
             ? 'grayscale(1) brightness(.72)'
             : condition === 1
@@ -884,7 +886,7 @@ export function render(
     if ((c.armored || c.emplacement) && u.fire > 0 && u.motion === 'ground') {
       const k = u.fire / 0.25;
       if (barrelBand) {
-        barrelRecoil = (barrelBand[2] - barrelBand[0]) * 0.6 * k * k;
+        barrelRecoil = (barrelBand[2] - barrelBand[0]) * 0.8 * k * k;
       } else {
         const recoil = 3 * k * k;
         recoilX = -u.facing * recoil;

@@ -597,16 +597,129 @@ function scorched(
   return c;
 }
 
+/** V8: an ammunition cook-off blows the upper hull open from the inside —
+ *  multiple blast holes through the roof structure and a heavy char wash. */
+function ammoCookOff(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const region = spec.collapse ?? [0.1, 0.05, 0.8, 0.35];
+  const [rx, ry, rw, rh] = region;
+  const cx = (rx + rw / 2) * W;
+  const cy = (ry + rh / 2) * H;
+  const holes = 4 + Math.floor(rand() * 3);
+  for (let i = 0; i < holes; i++) {
+    const px = cx + (rand() - 0.5) * rw * W * 0.8;
+    const py = cy + (rand() - 0.5) * rh * H * 0.8;
+    punchHole(ctx, px, py, W * (0.04 + rand() * 0.04), rand);
+  }
+  punchHole(ctx, cx, cy, W * 0.11, rand);
+  ctx.globalCompositeOperation = 'source-atop';
+  const washH = Math.round(H * 0.6);
+  const grad = ctx.createLinearGradient(0, 0, 0, washH);
+  grad.addColorStop(0, 'rgba(0,0,0,0.6)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.1)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, washH);
+  ctx.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+/** V9: the vehicle was shot to pieces by autocannon and small-arms fire —
+ *  dozens of small-calibre holes with soot halos, plus a few larger breaches. */
+function riddled(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const holes = 14 + Math.floor(rand() * 9);
+  for (let i = 0; i < holes; i++) {
+    const px = W * (0.08 + rand() * 0.84);
+    const py = H * (0.2 + rand() * 0.6);
+    const r = W * (0.012 + rand() * 0.015);
+    ctx.fillStyle = 'rgba(8,7,6,0.4)';
+    ctx.beginPath();
+    ctx.arc(px, py, r * 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#050404';
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const big = 2 + Math.floor(rand() * 2);
+  for (let i = 0; i < big; i++) {
+    const px = W * (0.15 + rand() * 0.7);
+    const py = H * (0.3 + rand() * 0.5);
+    punchHole(ctx, px, py, W * (0.04 + rand() * 0.03), rand);
+  }
+  return c;
+}
+
+/** V10: a mobility kill — the tracks and running gear are destroyed, the
+ *  hull sits intact but crippled on its belly with road wheels blown off. */
+function mobilityKill(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const bandY = Math.round(H * 0.78);
+  ctx.fillStyle = '#070605';
+  for (let x = 0; x < W; x += 4) {
+    const h = 2 + Math.round(rand() * (H - bandY));
+    ctx.fillRect(x, bandY + (H - bandY - h), 4, h);
+  }
+  for (let i = 0; i < 4; i++) {
+    const wx = W * (0.12 + i * 0.25);
+    const wy = H * 0.82;
+    const wr = W * 0.045;
+    ctx.fillStyle = '#1a1612';
+    ctx.beginPath();
+    ctx.arc(wx, wy, wr * 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#050404';
+    ctx.beginPath();
+    ctx.arc(wx, wy, wr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 8; i++) {
+    const dx = rand() * W;
+    const dy = H * (0.88 + rand() * 0.1);
+    const s = 2 + rand() * 4;
+    ctx.save();
+    ctx.translate(dx, dy);
+    ctx.rotate(rand() * Math.PI * 2);
+    ctx.fillStyle = rand() < 0.5 ? '#2a241e' : '#3a332a';
+    ctx.fillRect(-s / 2, -s / 2, s, s * 0.6);
+    ctx.restore();
+  }
+  return c;
+}
+
 /**
- * Eight structural damage states per wreck kind, baked once at load:
- * [0] as-is, [1] major assembly torn off, [2] hull breached, [3] crushed & gutted,
- * [4] burned out, [5] hull split in two, [6] turret blown off, [7] surface scorched.
- * Renderers pick a stable variant per wreck id, so same-card wrecks no
- * longer look identical — and the difference is structural, not a filter.
+ * Structural damage states per wreck kind, baked once at load and grouped
+ * by what killed the vehicle:
+ *   blast  — as-is, assembly torn off, hull split, turret blown off, ammo cook-off
+ *   bullet — as-is, hull breached, riddled with holes, mobility kill, surface scorched
+ *   burn   — as-is, burned out, crushed & gutted
+ * Renderers pick a stable variant per wreck id within the cause family, so
+ * same-card wrecks differ structurally and the damage matches the kill.
  */
 export function wreckVariants(
   frames: Record<WreckKind, HTMLCanvasElement>,
-): Record<WreckKind, HTMLCanvasElement[]> {
+): Record<
+  WreckKind,
+  Record<'blast' | 'bullet' | 'burn', HTMLCanvasElement[]>
+> {
   return Object.fromEntries(
     (Object.keys(WRECKS) as WreckKind[]).map((kind) => {
       const frame = frames[kind];
@@ -614,17 +727,31 @@ export function wreckVariants(
       const seed = hash(kind);
       return [
         kind,
-        [
-          frame,
-          blownApart(frame, spec, rng(seed ^ 0x9e3779b9)),
-          breached(frame, spec, rng(seed ^ 0x85ebca6b)),
-          gutted(frame, spec, rng(seed ^ 0xc2b2ae35)),
-          burnedOut(frame, spec, rng(seed ^ 0x27d4eb2f)),
-          splitHull(frame, spec, rng(seed ^ 0x165667b1)),
-          turretBlast(frame, spec, rng(seed ^ 0x8a7cd194)),
-          scorched(frame, spec, rng(seed ^ 0x3e268931)),
-        ],
+        {
+          blast: [
+            frame,
+            blownApart(frame, spec, rng(seed ^ 0x9e3779b9)),
+            splitHull(frame, spec, rng(seed ^ 0x165667b1)),
+            turretBlast(frame, spec, rng(seed ^ 0x8a7cd194)),
+            ammoCookOff(frame, spec, rng(seed ^ 0xd1b54a32)),
+          ],
+          bullet: [
+            frame,
+            breached(frame, spec, rng(seed ^ 0x85ebca6b)),
+            riddled(frame, spec, rng(seed ^ 0x5851f42d)),
+            mobilityKill(frame, spec, rng(seed ^ 0x41c6ce57)),
+            scorched(frame, spec, rng(seed ^ 0x3e268931)),
+          ],
+          burn: [
+            frame,
+            burnedOut(frame, spec, rng(seed ^ 0x27d4eb2f)),
+            gutted(frame, spec, rng(seed ^ 0xc2b2ae35)),
+          ],
+        },
       ];
     }),
-  ) as Record<WreckKind, HTMLCanvasElement[]>;
+  ) as Record<
+    WreckKind,
+    Record<'blast' | 'bullet' | 'burn', HTMLCanvasElement[]>
+  >;
 }
