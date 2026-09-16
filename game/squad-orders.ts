@@ -559,6 +559,7 @@ export function updateSquadOrders(s: GameState, dt: number) {
         s.original[x] + cut * trench.progress,
       );
     }
+    s.terrainVersion++;
     for (const u of s.units)
       if (
         living(u) &&

@@ -632,6 +632,8 @@ export interface GameState {
   time: number;
   players: [Player, Player];
   terrain: number[];
+  /** Bumped on every terrain write; invalidates derived terrain caches (v100). */
+  terrainVersion: number;
   original: number[];
   walls: Wall[];
   units: Unit[];
@@ -765,6 +767,7 @@ export function createGame(
     time: 0,
     players: [p(0, playerDeck), p(1, aiDeck)],
     terrain: [...original],
+    terrainVersion: 0,
     original,
     walls: layout.wallSites.map((wall, i) => ({
       uid: i + 1,
@@ -1491,6 +1494,7 @@ export function crater(
         ),
       );
   }
+  s.terrainVersion++;
 }
 // Footsteps and vehicle tracks kick up small soil puffs so movement reads on the field.
 function footPuff(s: GameState, u: Unit, heavy = false) {
@@ -3097,21 +3101,32 @@ function moveSoldier(
       neighborOutScratch.push(v);
   }
   const neighbors = neighborOutScratch;
-  const nearestBlocker = () =>
-    neighbors
-      .filter(
-        (v) =>
-          (v.withdrawHeavyUid !== undefined
-            ? Math.sign(v.x - (v.withdrawHeavyX ?? v.x))
-            : v.escortGoal !== undefined && Math.abs(v.escortGoal - v.x) > 0.5
-              ? Math.sign(v.escortGoal - v.x)
-              : v.backpedaling
-                ? -v.facing
-                : v.facing) === dir &&
-          Math.abs(v.lane - u.lane) < 4 &&
-          (v.x - u.x) * dir > 0,
-      )
-      .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
+  // Single linear scan with no allocation (v100: was filter+sort per call,
+  // and the closure was invoked twice per soldier with identical inputs).
+  const nearestBlocker = () => {
+    let best: Unit | undefined;
+    let bestDist = Infinity;
+    for (let i = 0; i < neighbors.length; i++) {
+      const v = neighbors[i];
+      const vDir =
+        v.withdrawHeavyUid !== undefined
+          ? Math.sign(v.x - (v.withdrawHeavyX ?? v.x))
+          : v.escortGoal !== undefined && Math.abs(v.escortGoal - v.x) > 0.5
+            ? Math.sign(v.escortGoal - v.x)
+            : v.backpedaling
+              ? -v.facing
+              : v.facing;
+      if (vDir !== dir) continue;
+      if (Math.abs(v.lane - u.lane) >= 4) continue;
+      if ((v.x - u.x) * dir <= 0) continue;
+      const d = Math.abs(v.x - u.x);
+      if (d < bestDist) {
+        bestDist = d;
+        best = v;
+      }
+    }
+    return best;
+  };
   const flow = (v: Unit | undefined) => {
     if (!v) return 1;
     const compact =
@@ -3148,11 +3163,18 @@ function moveSoldier(
     u.passingLane = lanes.find(laneFree);
     // A dense front rank is not a solid wall: use a neighboring depth passage.
     if (u.trafficWait > 0.75 && u.passingLane === undefined) {
-      u.passingLane = lanes.sort(
-        (a, b) =>
-          neighbors.filter((v) => Math.abs(v.lane - a) < 4).length -
-          neighbors.filter((v) => Math.abs(v.lane - b) < 4).length,
-      )[0];
+      let bestLane = lanes[0];
+      let bestCount = Infinity;
+      for (const lane of lanes) {
+        let count = 0;
+        for (const v of neighbors)
+          if (Math.abs(v.lane - lane) < 4) count++;
+        if (count < bestCount) {
+          bestCount = count;
+          bestLane = lane;
+        }
+      }
+      u.passingLane = bestLane;
     }
   }
   const beforeLane = u.lane;
@@ -3174,7 +3196,9 @@ function moveSoldier(
     }
   }
   if ((u.trafficWait ?? 0) > 0.75) u.trafficYieldUntil = s.time + 1.8;
-  const following = nearestBlocker();
+  // Same query as `blocker` above: u.x is unchanged and the lane shifted by
+  // at most 12*dt, far inside the 4-lane acceptance window (v100).
+  const following = blocker;
   const coordinated =
     following &&
     ((u.withdrawHeavyUid !== undefined &&
@@ -6906,7 +6930,9 @@ export function tick(s: GameState, dt: number) {
     for (const v of candNearScratch) {
       if (
         v.side !== u.side &&
-        isCombatant(v) &&
+        v.hp > 0 &&
+        !v.surrendered &&
+        !v.wounded &&
         visibleToSide(s, u.side, v) &&
         (!CARDS[v.id].air || c.antiAir || rifleRotorTarget(u, v)) &&
         (!c.airOnly || CARDS[v.id].air) &&

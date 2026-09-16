@@ -15,13 +15,21 @@ const focusNearScratch: Unit[] = [];
 /** Per-game cache: `${side}:${squad}` -> the designated target uid and when it was chosen. */
 const focusCache = new WeakMap<
   GameState,
-  Map<string, { uid: number; at: number }>
+  Map<string, { uid: number | undefined; at: number; tick: number }>
 >();
 
 /** Per-game cache for the support team's secondary suppression target. */
 const suppCache = new WeakMap<
   GameState,
-  Map<string, { uid: number; at: number }>
+  Map<
+    string,
+    {
+      uid: number | undefined;
+      at: number;
+      tick: number;
+      focusUid: number | undefined;
+    }
+  >
 >();
 
 /**
@@ -61,17 +69,22 @@ export function squadFocus(
     focusCache.set(s, cache);
   }
   const cached = cache.get(key);
-  if (cached && now - cached.at < FOCUS_TTL) {
-    const target = unitByUid(s, cached.uid);
-    if (
-      target &&
-      target.hp > 0 &&
-      !target.surrendered &&
-      !target.wounded &&
-      !CARDS[target.id].air &&
-      visibleToSide(s, side, target)
-    ) {
-      return cached.uid;
+  if (cached) {
+    // Every living infantry member calls this once per tick with identical
+    // inputs; the first call's result holds for the whole tick (v100).
+    if (cached.tick === s.time) return cached.uid;
+    if (cached.uid !== undefined && now - cached.at < FOCUS_TTL) {
+      const target = unitByUid(s, cached.uid);
+      if (
+        target &&
+        target.hp > 0 &&
+        !target.surrendered &&
+        !target.wounded &&
+        !CARDS[target.id].air &&
+        visibleToSide(s, side, target)
+      ) {
+        return cached.uid;
+      }
     }
   }
 
@@ -94,7 +107,7 @@ export function squadFocus(
     }
   }
   if (!centerCount) {
-    cache.delete(key);
+    cache.set(key, { uid: undefined, at: now, tick: s.time });
     return undefined;
   }
   const center = centerSum / centerCount;
@@ -123,10 +136,10 @@ export function squadFocus(
   }
 
   if (!best) {
-    cache.delete(key);
+    cache.set(key, { uid: undefined, at: now, tick: s.time });
     return undefined;
   }
-  cache.set(key, { uid: best.uid, at: now });
+  cache.set(key, { uid: best.uid, at: now, tick: s.time });
   return best.uid;
 }
 
@@ -157,18 +170,28 @@ export function squadSuppressionTarget(
     suppCache.set(s, cache);
   }
   const cached = cache.get(key);
-  if (cached && now - cached.at < FOCUS_TTL) {
-    const target = unitByUid(s, cached.uid);
-    if (
-      target &&
-      target.hp > 0 &&
-      !target.surrendered &&
-      !target.wounded &&
-      !CARDS[target.id].air &&
-      target.uid !== focusUid &&
-      visibleToSide(s, side, target)
-    ) {
+  if (cached) {
+    // Same per-tick memo as squadFocus; focusUid is itself memoized per tick,
+    // so it is constant across a squad's calls within one tick (v100).
+    if (cached.tick === s.time && cached.focusUid === focusUid)
       return cached.uid;
+    if (
+      cached.uid !== undefined &&
+      cached.focusUid === focusUid &&
+      now - cached.at < FOCUS_TTL
+    ) {
+      const target = unitByUid(s, cached.uid);
+      if (
+        target &&
+        target.hp > 0 &&
+        !target.surrendered &&
+        !target.wounded &&
+        !CARDS[target.id].air &&
+        target.uid !== focusUid &&
+        visibleToSide(s, side, target)
+      ) {
+        return cached.uid;
+      }
     }
   }
 
@@ -190,7 +213,7 @@ export function squadSuppressionTarget(
     }
   }
   if (centerCount < SUPPRESSION_MIN_SQUAD) {
-    cache.delete(key);
+    cache.set(key, { uid: undefined, at: now, tick: s.time, focusUid });
     return undefined;
   }
   const center = centerSum / centerCount;
@@ -214,9 +237,9 @@ export function squadSuppressionTarget(
   }
 
   if (!best) {
-    cache.delete(key);
+    cache.set(key, { uid: undefined, at: now, tick: s.time, focusUid });
     return undefined;
   }
-  cache.set(key, { uid: best.uid, at: now });
+  cache.set(key, { uid: best.uid, at: now, tick: s.time, focusUid });
   return best.uid;
 }
