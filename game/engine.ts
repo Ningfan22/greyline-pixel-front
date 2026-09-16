@@ -294,6 +294,8 @@ export interface Unit {
   withdrawUntil?: number;
   withdrawGoal?: number;
   withdrawNextAt?: number;
+  /** When set, infantry hold position: friendly AT is engaging an armoured threat ahead. */
+  atHoldUntil?: number;
   withdrawGroup?: number;
   withdrawAssessAt?: number;
   withdrawPressureSince?: number;
@@ -3468,6 +3470,17 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
       !friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
   );
+  // When friendly AT/AA is effectively countering a visible heavy threat,
+  // infantry hold at standoff instead of charging into its kill zone — the
+  // support weapon does the killing, the riflemen keep their skins.
+  const coveredArmor = pressures.some(
+    ({ foe }) =>
+      (CARDS[foe.id].armored || sustainedAirThreat(foe)) &&
+      squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
+      friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
+  );
+  for (const mate of squad)
+    mate.atHoldUntil = coveredArmor ? s.time + 1.5 : 0;
   if (!unsupportedHeavy && squad.some((v) => s.time < (v.withdrawNextAt ?? 0)))
     return;
   const friendlyPower = friends.reduce((n, friend) => {
@@ -6784,6 +6797,11 @@ export function tick(s: GameState, dt: number) {
       v.sortKey =
         (v.uid === focusUid ? 0 : 1_000_000) +
         rank * 10_000 +
+        // AT teams concentrate on the most damaged armoured vehicle: a
+        // crippled tank still shoots, so finishing it beats splitting fire.
+        (sortMode === 'armor' && CARDS[v.id].armored
+          ? Math.floor((v.hp / v.maxHp) * 8) * 300
+          : 0) +
         Math.abs(v.x - u.x);
     }
     const candidates = candOutScratch.sort((a, b) => a.sortKey! - b.sortKey!);
@@ -7836,6 +7854,7 @@ export function tick(s: GameState, dt: number) {
           (!target || breachRun) &&
           !baseInRange &&
           !blockedContact &&
+          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
         (!c.members || order !== 'hold')))
     ) {
       if (c.members)
