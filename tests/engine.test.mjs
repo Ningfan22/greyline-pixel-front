@@ -3706,12 +3706,16 @@ check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪'
   }
   u.pose = 'idle';
   u.moving = false;
+  // v110: a crouch-walking squad that halts plays the stand-up transition
+  // first; let the window elapse before asserting the settled idle frame.
+  adultFrameChoice(u, 10);
   for (const fire of [0, 0.05, 0.2]) {
     u.fire = fire;
-    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 0 });
+    assert.deepEqual(adultFrameChoice(u, 11), { group: 'actions20', index: 0 });
   }
   u.pose = 'prone';
-  assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 2 });
+  adultFrameChoice(u, 12);
+  assert.deepEqual(adultFrameChoice(u, 13), { group: 'actions20', index: 2 });
 });
 check('成人四套服装的跳落、攀爬与终态不会退回旧图册', () => {
   for (const [id, identity] of [

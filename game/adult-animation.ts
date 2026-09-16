@@ -228,6 +228,74 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   );
 }
 
+/**
+ * v110: authored pose transitions. When a soldier's height class changes
+ * (stand ↔ crouch ↔ prone), the renderer plays a short chain of existing
+ * hand-drawn frames instead of snapping straight to the new pose. The
+ * animator tracks the last height class it drew on the unit itself, so no
+ * engine instrumentation is needed — the first draw after a pose change
+ * starts the transition.
+ *
+ * Frame vocabulary (actions20): 0 = standing alert, 1 = knee kneel (the
+ * crouch idle), 2 = prone, 6 = landing crouch (drop-in beat), 7 = landing
+ * stable (half-rise beat). The chains read as: drop into a crouch, settle
+ * onto a knee, then lie flat — and the reverse on the way up.
+ *
+ * Transitions only play for stationary soldiers: the walk / crouch-walk /
+ * crawl cycles already carry a moving pose change, and sliding knee-frames
+ * look worse than a clean snap. A fresh reload or hit flinch also takes
+ * precedence for its beat; the time-based window simply resumes afterwards.
+ */
+const POSE_CHAINS: Record<
+  'stand' | 'crouch' | 'prone',
+  Partial<Record<'stand' | 'crouch' | 'prone', number[]>>
+> = {
+  stand: { crouch: [0, 6, 1], prone: [0, 6, 1, 2] },
+  crouch: { stand: [1, 7, 0], prone: [1, 2] },
+  prone: { stand: [2, 1, 7, 0], crouch: [2, 1] },
+};
+const POSE_FRAME_S = 0.15;
+
+function poseHeightClass(
+  pose: Unit['pose'],
+): 'stand' | 'crouch' | 'prone' {
+  if (pose === 'prone') return 'prone';
+  if (pose === 'crouch' || pose === 'hunker') return 'crouch';
+  // 'jump', 'land' and 'climb' are transient motion states with their own
+  // animation branches; counting them as stand avoids a spurious knee-drop
+  // after every landing.
+  return 'stand';
+}
+
+export function poseTransitionChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  const cls = poseHeightClass(u.pose);
+  if (u.poseAnimSeen === undefined) {
+    u.poseAnimSeen = cls;
+    return null;
+  }
+  if (u.poseAnimSeen !== cls) {
+    u.poseAnimFrom = u.poseAnimSeen;
+    u.poseAnimAt = time;
+    u.poseAnimSeen = cls;
+  }
+  const from = u.poseAnimFrom;
+  if (from === undefined || from === cls) return null;
+  const chain = POSE_CHAINS[from]?.[cls];
+  if (!chain) return null;
+  const window = chain.length * POSE_FRAME_S;
+  const elapsed = time - (u.poseAnimAt ?? time);
+  if (elapsed >= window) {
+    u.poseAnimFrom = undefined;
+    return null;
+  }
+  if (u.moving || (u.reloadingUntil ?? 0) > time || u.flash > 0.13) return null;
+  const idx = Math.min(chain.length - 1, Math.floor(elapsed / POSE_FRAME_S));
+  return action(chain[idx]);
+}
+
 /** Every living, casualty and surrender state uses the same adult anatomy. */
 export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Reverse the existing raised-rifle gait while the body keeps facing contact.
@@ -323,6 +391,12 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     const t = (u.ammoSignalUntil ?? 0) - time;
     return Math.floor((1.4 - t) * 2.2) % 2 ? action(8) : action(13);
   }
+  // v110: stand↔crouch↔prone transitions. Placed after every action branch
+  // (throws, treatment, signals, reload drills) so a real action always
+  // interrupts the posture change, and before the pose branches below so the
+  // chain plays instead of snapping to the new idle frame.
+  const poseTransition = poseTransitionChoice(u, time);
+  if (poseTransition) return poseTransition;
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);

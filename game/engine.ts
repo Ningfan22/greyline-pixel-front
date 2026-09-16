@@ -385,6 +385,17 @@ export interface Unit {
     | 'prone'
     | 'jump'
     | 'land';
+  /**
+   * v110: pose-transition bookkeeping for the animator. The renderer records
+   * the last height class (stand/crouch/prone) it drew for this unit and the
+   * moment it changed, so stand↔crouch↔prone changes play a short authored
+   * frame chain instead of snapping. Animation-only; the engine never reads
+   * these. `poseAnimSeen` starts undefined so a unit's first draw never
+   * triggers a spurious transition.
+   */
+  poseAnimSeen?: 'stand' | 'crouch' | 'prone';
+  poseAnimFrom?: 'stand' | 'crouch' | 'prone';
+  poseAnimAt?: number;
   motion: 'ground' | 'jump' | 'land' | 'bank';
   motionTime: number;
   motionDuration: number;
