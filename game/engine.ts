@@ -296,6 +296,12 @@ export interface Unit {
   withdrawNextAt?: number;
   /** When set, infantry hold position: friendly AT is engaging an armoured threat ahead. */
   atHoldUntil?: number;
+  /** v91: damaged armored vehicle reverses to this x behind its infantry screen. */
+  vehicleReverseUntil?: number;
+  vehicleReverseGoal?: number;
+  vehicleReverseAssessAt?: number;
+  /** v91.1: a mauled vehicle that has made its fallback bound and is holding the line. */
+  vehicleReverseHeld?: boolean;
   withdrawGroup?: number;
   withdrawAssessAt?: number;
   withdrawPressureSince?: number;
@@ -3404,6 +3410,95 @@ function infantrySpace(
   }
   return best;
 }
+/**
+ * v91: a badly wounded armoured vehicle under anti-tank threat reverses back
+ * behind its infantry screen instead of fighting to the death. The hull keeps
+ * its face toward the enemy so the turret stays on target while the tracks
+ * carry it out of the kill zone.
+ */
+function planVehicleReverse(s: GameState, u: Unit) {
+  const c = CARDS[u.id];
+  if (!c.armored || c.air || c.static || c.vehicleSupport) return;
+  if (u.hp <= 0 || u.surrendered) return;
+  const reversing = (u.vehicleReverseUntil ?? 0) > s.time;
+  // A vehicle that has reached its fallback goal or been repaired above the
+  // threshold stops reversing.
+  if (reversing) {
+    const goal = u.vehicleReverseGoal ?? u.x;
+    const arrived =
+      Math.abs(u.x - goal) < 8 ||
+      (u.side === 0 ? u.x <= goal : u.x >= goal);
+    if (arrived || u.hp >= u.maxHp * 0.55) {
+      u.vehicleReverseUntil = 0;
+      u.vehicleReverseGoal = undefined;
+      // Reaching the fallback goal while still mauled: plant on this line and
+      // hold it instead of planning another bound backward.
+      if (arrived && u.hp < u.maxHp * 0.35) u.vehicleReverseHeld = true;
+    }
+    return;
+  }
+  // Only assess on a staggered clock so a whole troop doesn't snap into reverse
+  // on the same frame.
+  if (s.time < (u.vehicleReverseAssessAt ?? 0)) return;
+  u.vehicleReverseAssessAt = s.time + 0.8 + (u.uid % 5) * 0.15;
+  // A healthy vehicle fights; only a badly mauled one disengages.
+  if (u.hp >= u.maxHp * 0.35) {
+    u.vehicleReverseHeld = false;
+    return;
+  }
+  // Find the nearest visible enemy that can punch through this vehicle's
+  // armour, and how close it is.
+  let threatDist = Infinity;
+  for (const v of s.units) {
+    if (v.side === u.side || !isCombatant(v) || CARDS[v.id].air) continue;
+    if (!visibleToSide(s, u.side, v)) continue;
+    const d = Math.abs(v.x - u.x);
+    if (d > 700) continue;
+    const w = weaponCard(v);
+    if (
+      ((w.penetration ?? 0) > 0 ||
+        (w.armorMultiplier ?? 1) >= 1.5 ||
+        (CARDS[v.id].armored && (w.damage ?? 0) >= 40)) &&
+      d < threatDist
+    )
+      threatDist = d;
+  }
+  if (!isFinite(threatDist)) {
+    // The anti-tank threat is gone — a vehicle holding a fallback line
+    // rejoins the fight.
+    u.vehicleReverseHeld = false;
+    return;
+  }
+  // A vehicle that has already made its fallback bound holds this line and
+  // only disengages again if the enemy actually overruns it.
+  if (u.vehicleReverseHeld && threatDist > 380) return;
+  u.vehicleReverseHeld = false;
+  // Fall back to the nearest friendly infantry screen behind the vehicle.
+  const dir = u.side === 0 ? 1 : -1;
+  let bestX: number | undefined;
+  let bestDist = Infinity;
+  for (const v of s.units) {
+    if (
+      v.side !== u.side ||
+      !isCombatant(v) ||
+      !CARDS[v.id].members ||
+      v.tactic === 'retreat' ||
+      v.hp <= 0
+    )
+      continue;
+    const behind = (u.x - v.x) * dir > 30;
+    if (!behind) continue;
+    const d = Math.abs(v.x - u.x);
+    if (d < bestDist) {
+      bestDist = d;
+      bestX = v.x;
+    }
+  }
+  // No infantry screen? Fall back a fixed distance toward the baseline.
+  const goal = bestX ?? u.x - dir * 220;
+  u.vehicleReverseGoal = goal;
+  u.vehicleReverseUntil = s.time + 6;
+}
 function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const order = infantryOrder(s, u);
   if (
@@ -6477,6 +6572,10 @@ export function tick(s: GameState, dt: number) {
           ? 'hold'
           : 'advance'
         : s.players[u.side].order;
+    // v91: a badly mauled armoured vehicle under anti-tank threat plans a
+    // reverse behind its infantry screen. The flag it sets is consumed by
+    // the movement block below.
+    if (c.armored && !c.air) planVehicleReverse(s, u);
     if (c.airlift) {
       if (!controlledNavigation) flyTransport(s, u, dt);
       rotorWash(s, u, dt);
@@ -7503,6 +7602,11 @@ export function tick(s: GameState, dt: number) {
       }
     } else u.boundStartedAt = undefined;
     const retreating = c.members && u.tactic === 'retreat';
+    // v91: an armoured vehicle that has decided to reverse out of a kill zone.
+    // While reversing it forgoes firing — the crew is focused on backing out
+    // — but the hull keeps its face toward the enemy.
+    const reversing =
+      !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
     if (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly)
       fireCoax(s, u);
     if (
@@ -7516,6 +7620,7 @@ export function tick(s: GameState, dt: number) {
       (!bounding || contactFire) &&
       !withdrawalStep &&
       !retreating &&
+      !reversing &&
       !breachRun &&
       u.ammo !== 0
     ) {
@@ -7844,6 +7949,7 @@ export function tick(s: GameState, dt: number) {
         bounding ||
         retreating ||
         displacing ||
+        reversing ||
         (!!closeThreat &&
           (!c.members ||
             (u.squadOrder !== 'hold' && u.squadOrder !== 'watch'))) ||
@@ -7855,7 +7961,8 @@ export function tick(s: GameState, dt: number) {
           !baseInRange &&
           !blockedContact &&
           (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
-        (!c.members || order !== 'hold')))
+        (!c.members || order !== 'hold') &&
+        !u.vehicleReverseHeld))
     ) {
       if (c.members)
         u.pose =
@@ -7900,6 +8007,8 @@ export function tick(s: GameState, dt: number) {
         (u.slowedUntil > s.time ? 0.5 : 1);
       const moveDir = withdrawing
         ? Math.sign(u.withdrawGoal! - u.x)
+        : reversing
+          ? -dir
         : retreating
           ? -dir
           : closeThreat
@@ -7963,12 +8072,14 @@ export function tick(s: GameState, dt: number) {
         !controlledNavigation &&
         !c.sortie &&
         !c.static &&
-        (!c.vehicle || order !== 'hold')
+        (!c.vehicle || order !== 'hold' || reversing)
       ) {
         const before = u.x;
         u.x = Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt));
         u.moving = Math.abs(u.x - before) > 0.001;
-        if (u.moving) u.facing = moveDir;
+        // A reversing vehicle keeps its hull aimed at the threat it is
+        // backing away from — only the tracks carry it out of the kill zone.
+        if (u.moving) u.facing = reversing ? dir : moveDir;
         if (u.moving && (c.armored || c.vehicle)) {
           u.stepDust = (u.stepDust ?? 0) + Math.abs(u.x - before);
           if (u.stepDust >= 12) {

@@ -68,6 +68,7 @@ export function weaponScenario(
       u.squadOrderX = u.x;
     }
   });
+  const foeStart = new Map(foes.map((u) => [u.uid, u.x]));
   refreshVision(s);
   const initialShots = foes.reduce((n, u) => n + u.shots + u.secondaryShots, 0);
   const initialEnemyHP = foes.reduce((n, u) => n + u.hp, 0);
@@ -160,6 +161,12 @@ export function weaponScenario(
     ownShots: own.reduce((n, u) => n + u.shots - u.member, 0),
     supportShots: supportUnits.reduce((n, u) => n + u.shots - u.member, 0),
     enemyAlive: foes.filter(isCombatant).length,
+    enemyRetreated: foes.filter(
+      (u) =>
+        isCombatant(u) &&
+        u.hp < CARDS[u.id].hp * 0.5 &&
+        (u.x - (foeStart.get(u.uid) ?? u.x)) * dir > 120,
+    ).length,
     enemyDamage:
       initialEnemyHP - foes.reduce((n, u) => n + Math.max(0, u.hp), 0),
     alive: own.filter((u) => u.hp > 0).length,
@@ -350,9 +357,10 @@ for (const side of [0, 1]) {
         assert(
           pairs.every(
             ([, supported]) =>
-              supported.enemyAlive === 0 && supported.alive >= 4,
+              supported.enemyAlive - supported.enemyRetreated === 0 &&
+              supported.alive >= 4,
           ),
-          'anti-tank support must actually defeat both tanks and retain a living advancing force',
+          'anti-tank support must destroy or drive off both tanks and retain a living advancing force',
         );
       else
         assert(
