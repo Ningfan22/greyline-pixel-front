@@ -169,7 +169,7 @@ export class BattleAudio {
                 }),
               ]);
               this.buffers.set(file, buffer);
-              this.startMusic();
+              this.startMusic(true);
             } finally {
               clearTimeout(timer);
             }
@@ -187,7 +187,7 @@ export class BattleAudio {
           });
     }
     await this.loading;
-    this.startMusic();
+    this.startMusic(true);
   }
   private applyVolumes() {
     if (!this.context) return;
@@ -214,7 +214,7 @@ export class BattleAudio {
       this.stopMusic();
     }
   }
-  private startMusic() {
+  private startMusic(ignoreActive = false) {
     const buffer = this.buffers.get('searching.mp3'),
       ctx = this.context;
     if (
@@ -222,7 +222,7 @@ export class BattleAudio {
       !buffer ||
       !this.musicGain ||
       this.musicSource ||
-      !this.active ||
+      (!this.active && !ignoreActive) ||
       !this.settings.enabled
     )
       return;
