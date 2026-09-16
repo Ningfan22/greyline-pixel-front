@@ -2,6 +2,7 @@ import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import { treeBoxesV17 } from './tree-state-v17';
+import { STRIDE, terrainMinima } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
 import { weatherVisibility } from './weather';
 export interface SceneryPart {
@@ -435,10 +436,42 @@ export function clearSight(
   ty: number,
   throughSmoke = false,
 ) {
-  const steps = Math.ceil(Math.abs(tx - sx) / 12);
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps;
-    if (sy + (ty - sy) * t >= floorAt(s, sx + (tx - sx) * t) - 2) return false;
+  const dx = tx - sx,
+    dy = ty - sy,
+    steps = Math.ceil(Math.abs(dx) / 12);
+  // Same 12px samples as before, but walked in blocks of 32: a block whose
+  // ray stays strictly below the terrain minimum (minus the same 2px margin)
+  // can be skipped wholesale. On flat ground every block skips, turning an
+  // O(distance) march into O(distance / 2048) bin lookups.
+  if (steps > 1) {
+    const minima = terrainMinima(s),
+      maxX = s.terrain.length - 1,
+      binCount = minima.length;
+    for (let i = 1; i < steps; ) {
+      const end = Math.min(steps - 1, i + 31);
+      const x0 = sx + (dx * i) / steps,
+        x1 = sx + (dx * end) / steps;
+      const lo = Math.floor(
+          (Math.max(0, Math.min(maxX, Math.min(x0, x1)))) / STRIDE,
+        ),
+        hi = Math.floor(
+          (Math.max(0, Math.min(maxX, Math.max(x0, x1)))) / STRIDE,
+        );
+      let minimum = Infinity;
+      for (let b = lo; b <= hi && b < binCount; b++)
+        if (minima[b] < minimum) minimum = minima[b];
+      if (
+        Math.max(sy + (dy * i) / steps, sy + (dy * end) / steps) <
+        minimum - 2
+      ) {
+        i = end + 1;
+        continue;
+      }
+      for (; i <= end; i++) {
+        const t = i / steps;
+        if (sy + dy * t >= floorAt(s, sx + dx * t) - 2) return false;
+      }
+    }
   }
   if (
     !throughSmoke &&

@@ -1,6 +1,6 @@
 import type { GameState } from './engine';
 
-const STRIDE = 64;
+export const STRIDE = 64;
 const cache = new WeakMap<
   GameState,
   {
@@ -9,7 +9,7 @@ const cache = new WeakMap<
     minima: Float64Array;
   }
 >();
-function terrainMinima(s: GameState) {
+export function terrainMinima(s: GameState) {
   const terrain = s.terrain,
     old = cache.get(s);
   // Terrain only changes through crater(), trench construction and squad
