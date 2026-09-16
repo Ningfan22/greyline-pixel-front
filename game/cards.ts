@@ -962,7 +962,7 @@ export const CARDS: Record<CardId, Card> = {
     '快速通场连续扫射，每架次最多 24 发，返航后低费再次派遣。',
     {
       hp: 170,
-      damage: 18,
+      damage: 38,
       rate: 0.08,
       range: 630,
       speed: 560,
@@ -974,12 +974,12 @@ export const CARDS: Record<CardId, Card> = {
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
-      infantryMultiplier: 2.2,
+      infantryMultiplier: 5.0,
       armorMultiplier: 0.35,
       baseMultiplier: 0.15,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，优先扫射步兵；每 0.08 秒发射 18 伤机炮弹，对步兵 ×2.2，两发即可撂倒一名步兵，弹着点掀起明显烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×5.0，一发即可撕碎一名步兵，弹着点掀起爆炸级烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(

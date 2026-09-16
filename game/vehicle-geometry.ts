@@ -41,6 +41,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 127.29,
     coaxX: 53.7,
     coaxY: 106.74,
+    barrelBand: [-30, -135, 45, -100],
   },
   mortar_carrier: {
     size: [210, 127],
@@ -141,6 +142,12 @@ for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
     'coaxY',
   ] as const)
     if (g[key] !== undefined) g[key] = g[key]! * scale;
+  if (g.barrelBand) g.barrelBand = g.barrelBand.map((v) => v * scale) as [
+    number,
+    number,
+    number,
+    number,
+  ];
 }
 export function tankGeometry(id: CardId): TankGeometry | null {
   return TANKS[id] ?? (modelOf(id) === 'tank' ? TANKS.tank : null);

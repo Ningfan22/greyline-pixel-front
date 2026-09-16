@@ -1753,9 +1753,9 @@ function bulletImpact(
       life: 0.48,
       maxLife: 0.48,
       color: '#b3a07a',
-      // v106: autocannon and tank rounds punch the earth — a 30mm hit is
-      // not the same puff of dust as a rifle bullet.
-      size: ammo === 'cannon' ? 46 : ammo === 'autocannon' ? 34 : 26,
+      // v107: autocannon hits burst like small explosions — a 30mm round
+      // throws a dirt column, not a rifle puff.
+      size: ammo === 'cannon' ? 46 : ammo === 'autocannon' ? 52 : 26,
       variant: y < ground(s, x) - 5 ? 1 : 0,
     });
   const heavy = ammo === 'cannon' || ammo === 'autocannon';
@@ -1787,38 +1787,57 @@ function bulletImpact(
     });
   }
   if (material === 'soil')
-    for (let i = 0; i < (ammo === 'cannon' ? 7 : heavy ? 5 : 3); i++) {
+    for (let i = 0; i < (ammo === 'cannon' ? 7 : ammo === 'autocannon' ? 10 : 3); i++) {
       const life = 0.2 + fxRnd(s) * 0.18;
       emitParticle(s, {
         kind: 'dust',
         x: x + (fxRnd(s) - 0.5) * 4,
         y: y - 2,
         vx: (fxRnd(s) - 0.5) * 16,
-        vy: -(heavy ? 13 : 8) - fxRnd(s) * (heavy ? 18 : 11),
+        vy: -(ammo === 'autocannon' ? 22 : heavy ? 13 : 8) - fxRnd(s) * (ammo === 'autocannon' ? 28 : heavy ? 18 : 11),
         life,
         maxLife: life,
         color: '#94876b',
         size:
-          (ammo === 'cannon' ? 9 : heavy ? 7 : 5) +
-          fxRnd(s) * (ammo === 'cannon' ? 7 : heavy ? 5 : 4),
+          (ammo === 'cannon' ? 9 : ammo === 'autocannon' ? 12 : 5) +
+          fxRnd(s) * (ammo === 'cannon' ? 7 : ammo === 'autocannon' ? 9 : 4),
       });
     }
-  // v106: heavy rounds leave a lingering smoke column over the impact point
-  // so a strafing run reads as a line of bursting dirt, not rifle puffs.
+  // v107: autocannon strafes leave a tall smoke column — each 30mm hit
+  // throws a dirt-and-smoke pillar that lingers, so a strafing run reads
+  // as a line of bursting explosions, not rifle puffs.
   if (material === 'soil' && heavy)
-    for (let i = 0; i < (ammo === 'cannon' ? 3 : 2); i++) {
-      const life = 0.7 + fxRnd(s) * 0.6;
+    for (let i = 0; i < (ammo === 'cannon' ? 3 : ammo === 'autocannon' ? 6 : 2); i++) {
+      const life = ammo === 'autocannon' ? 1.2 + fxRnd(s) * 0.9 : 0.7 + fxRnd(s) * 0.6;
       emitParticle(s, {
         kind: 'smoke',
-        x: x + (fxRnd(s) - 0.5) * 8,
-        y: y - 3,
-        vx: (fxRnd(s) - 0.5) * 10,
-        vy: -14 - fxRnd(s) * 12,
+        x: x + (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 14 : 8),
+        y: y - (ammo === 'autocannon' ? 6 : 3),
+        vx: (fxRnd(s) - 0.5) * (ammo === 'autocannon' ? 16 : 10),
+        vy: -(ammo === 'autocannon' ? 24 : 14) - fxRnd(s) * (ammo === 'autocannon' ? 20 : 12),
         life,
         maxLife: life,
         color: '#8f8b7d',
         size:
-          (ammo === 'cannon' ? 10 : 7) + fxRnd(s) * (ammo === 'cannon' ? 7 : 5),
+          (ammo === 'cannon' ? 10 : ammo === 'autocannon' ? 14 : 7) +
+          fxRnd(s) * (ammo === 'cannon' ? 7 : ammo === 'autocannon' ? 10 : 5),
+      });
+    }
+  // v107: autocannon soil hits also kick up a brief flash of loose dirt
+  // clods that arc outward and fall, selling the explosion scale.
+  if (material === 'soil' && ammo === 'autocannon')
+    for (let i = 0; i < 5; i++) {
+      const life = 0.35 + fxRnd(s) * 0.3;
+      emitParticle(s, {
+        kind: 'chip',
+        x: x + (fxRnd(s) - 0.5) * 6,
+        y: y - 2,
+        vx: direction * (30 + fxRnd(s) * 70) + (fxRnd(s) - 0.5) * 40,
+        vy: -(40 + fxRnd(s) * 80),
+        life,
+        maxLife: life,
+        color: i % 2 ? '#71624b' : '#a79571',
+        size: 1.5 + fxRnd(s) * 1.5,
       });
     }
 }
@@ -2043,10 +2062,10 @@ function finishDeath(
     vx: c.air
       ? u.facing * 70
       : ragdoll
-        ? throwDir * (70 + blastPower * 170)
+        ? throwDir * (190 + blastPower * 210)
         : 0,
-    vy: ragdoll ? -(50 + blastPower * 130) : 0,
-    ...(ragdoll ? { spin: throwDir * (3 + blastPower * 7) } : {}),
+    vy: ragdoll ? -(130 + blastPower * 150) : 0,
+    ...(ragdoll ? { spin: throwDir * (8 + blastPower * 9) } : {}),
     // v83: a fallen rifleman keeps his remaining ammunition on the body
     // so a dry squadmate can pull a magazine off the same weapon.
     ...(magazine(u.id, u.member)

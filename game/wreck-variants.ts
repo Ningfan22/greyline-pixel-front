@@ -370,9 +370,237 @@ function gutted(
   return c;
 }
 
+/** V4: the hulk burned for minutes after the kill — paint gone, glass blacked,
+ *  soot streaks down the flanks, embers still glowing in the gut. */
+function burnedOut(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  ctx.globalCompositeOperation = 'source-atop';
+  // heavy char wash over the whole hulk
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(6,5,4,0.92)');
+  grad.addColorStop(0.45, 'rgba(16,13,10,0.78)');
+  grad.addColorStop(1, 'rgba(10,8,6,0.6)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+  // soot streaks running down from the roofline
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  for (let i = 0; i < 16; i++) {
+    const x = rand() * W;
+    const w = 1 + Math.round(rand() * 4);
+    const y0 = rand() * H * 0.2;
+    const len = H * (0.3 + rand() * 0.6);
+    ctx.fillRect(x, y0, w, len);
+  }
+  // burnt-paint chips where the underlayer shows through
+  for (let i = 0; i < 22; i++) {
+    const x = rand() * W;
+    const y = H * 0.15 + rand() * H * 0.75;
+    const s = 1 + rand() * 3;
+    ctx.fillStyle = rand() < 0.5 ? '#4a3f30' : '#332a20';
+    ctx.fillRect(x, y, s, s);
+  }
+  // ember glow in the gut
+  for (let i = 0; i < 5; i++) {
+    const x = W * (0.15 + rand() * 0.7);
+    const y = H * (0.35 + rand() * 0.4);
+    const r = 2 + rand() * 5;
+    const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g2.addColorStop(0, 'rgba(255,130,40,0.6)');
+    g2.addColorStop(1, 'rgba(255,60,10,0)');
+    ctx.fillStyle = g2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+/** V5: a catastrophic kill splits the hull down the middle — the two halves
+ *  are torn apart and lie separated with a scorched gap between them. */
+function splitHull(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const midX = W / 2;
+  const gap = Math.round(W * 0.1);
+  // extract left and right halves
+  const left = document.createElement('canvas');
+  left.width = Math.ceil(midX);
+  left.height = H;
+  const lctx = left.getContext('2d')!;
+  lctx.imageSmoothingEnabled = false;
+  lctx.drawImage(frame, 0, 0);
+  const right = document.createElement('canvas');
+  right.width = W - Math.floor(midX);
+  right.height = H;
+  const rctx = right.getContext('2d')!;
+  rctx.imageSmoothingEnabled = false;
+  rctx.drawImage(frame, -Math.floor(midX), 0);
+  // clear the clone and redraw halves pulled apart
+  ctx.clearRect(0, 0, W, H);
+  const shift = Math.round(gap / 2);
+  ctx.drawImage(left, -shift, 0);
+  ctx.drawImage(right, midX + shift, 0);
+  // jagged black tear along the gap
+  ctx.fillStyle = '#080605';
+  for (let i = 0; i < 8; i++) {
+    const x = midX - shift + rand() * gap;
+    const y = rand() * H;
+    const r = 2 + rand() * 5;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // debris chunks scattered in the gap
+  ctx.fillStyle = '#2a241e';
+  for (let i = 0; i < 10; i++) {
+    const x = midX - shift + rand() * gap;
+    const y = H * 0.5 + rand() * H * 0.45;
+    const s = 1 + rand() * 3;
+    ctx.fillRect(x, y, s, s);
+  }
+  return c;
+}
+
+/** V6: an ammunition-detonation kill blows the turret clean off the hull —
+ *  it tumbles to rest several body-lengths away, leaving a ragged hole. */
+function turretBlast(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  const region = spec.collapse ?? [0.15, 0.02, 0.7, 0.4];
+  const [rx, ry, rw, rh] = region;
+  const sx = Math.round(rx * W);
+  const sy = Math.round(ry * H);
+  const sw = Math.max(4, Math.round(rw * W));
+  const sh = Math.max(4, Math.round(rh * H));
+  // extract the turret / roof assembly
+  const part = document.createElement('canvas');
+  part.width = sw;
+  part.height = sh;
+  const pctx = part.getContext('2d')!;
+  pctx.imageSmoothingEnabled = false;
+  pctx.drawImage(frame, sx, sy, sw, sh, 0, 0, sw, sh);
+  // ragged hole where the turret was
+  jaggedBlob(ctx, sx + sw / 2, sy + sh / 2, Math.max(sw, sh) * 0.7, rand, 14);
+  ctx.fillStyle = '#080605';
+  ctx.fill();
+  // torn-metal chunks around the rim
+  ctx.fillStyle = '#2a241e';
+  for (let i = 0; i < 14; i++) {
+    const a = rand() * Math.PI * 2;
+    const r0 = Math.max(sw, sh) * 0.6;
+    ctx.beginPath();
+    ctx.arc(
+      sx + sw / 2 + Math.cos(a) * r0,
+      sy + sh / 2 + Math.sin(a) * r0,
+      1 + rand() * 3,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  // scorch crater at the landing site (beyond the hull)
+  const landX = 0.88 + rand() * 0.1;
+  const landY = 0.82 + rand() * 0.1;
+  ctx.fillStyle = 'rgba(8,6,4,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(
+    landX * W,
+    landY * H,
+    sw * 0.5,
+    Math.max(3, sh * 0.12),
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+  // drop the turret tumbled upside-down, far away
+  const angle = Math.PI + (rand() - 0.5) * 1.2;
+  const scale = 0.78 + rand() * 0.14;
+  ctx.save();
+  ctx.translate(landX * W, landY * H - sh * 0.2);
+  ctx.rotate(angle);
+  ctx.scale(scale, scale);
+  ctx.drawImage(part, -sw / 2, -sh / 2);
+  ctx.restore();
+  return c;
+}
+
+/** V7: an incendiary kill scorches the paint and blisters the surface,
+ *  but the hulk stays structurally intact. */
+function scorched(
+  frame: HTMLCanvasElement,
+  spec: KindSpec,
+  rand: () => number,
+): HTMLCanvasElement {
+  const { c, ctx } = clone(frame);
+  const W = frame.width;
+  const H = frame.height;
+  ctx.globalCompositeOperation = 'source-atop';
+  // patchy burn discoloration
+  for (let i = 0; i < 12; i++) {
+    const cx = rand() * W;
+    const cy = H * 0.15 + rand() * H * 0.7;
+    const r = W * (0.04 + rand() * 0.1);
+    const shade = rand() < 0.5 ? '20,16,12' : '35,28,20';
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, `rgba(${shade},0.7)`);
+    g.addColorStop(1, `rgba(${shade},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // soot streaks
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  for (let i = 0; i < 8; i++) {
+    const x = rand() * W;
+    const w = 1 + Math.round(rand() * 3);
+    const y0 = rand() * H * 0.3;
+    const len = H * (0.2 + rand() * 0.4);
+    ctx.fillRect(x, y0, w, len);
+  }
+  // peeling paint chips
+  for (let i = 0; i < 16; i++) {
+    const x = rand() * W;
+    const y = H * 0.2 + rand() * H * 0.65;
+    const s = 1 + rand() * 2.5;
+    ctx.fillStyle = rand() < 0.5 ? '#5a4d3a' : '#4a3f30';
+    ctx.fillRect(x, y, s, s);
+  }
+  // blistered paint dots
+  ctx.fillStyle = 'rgba(60,50,38,0.5)';
+  for (let i = 0; i < 20; i++) {
+    const x = rand() * W;
+    const y = H * 0.2 + rand() * H * 0.6;
+    ctx.beginPath();
+    ctx.arc(x, y, 1 + rand() * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  return c;
+}
+
 /**
- * Four structural damage states per wreck kind, baked once at load:
- * [0] as-is, [1] major assembly torn off, [2] hull breached, [3] crushed & gutted.
+ * Eight structural damage states per wreck kind, baked once at load:
+ * [0] as-is, [1] major assembly torn off, [2] hull breached, [3] crushed & gutted,
+ * [4] burned out, [5] hull split in two, [6] turret blown off, [7] surface scorched.
  * Renderers pick a stable variant per wreck id, so same-card wrecks no
  * longer look identical — and the difference is structural, not a filter.
  */
@@ -391,6 +619,10 @@ export function wreckVariants(
           blownApart(frame, spec, rng(seed ^ 0x9e3779b9)),
           breached(frame, spec, rng(seed ^ 0x85ebca6b)),
           gutted(frame, spec, rng(seed ^ 0xc2b2ae35)),
+          burnedOut(frame, spec, rng(seed ^ 0x27d4eb2f)),
+          splitHull(frame, spec, rng(seed ^ 0x165667b1)),
+          turretBlast(frame, spec, rng(seed ^ 0x8a7cd194)),
+          scorched(frame, spec, rng(seed ^ 0x3e268931)),
         ],
       ];
     }),
