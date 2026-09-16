@@ -663,6 +663,9 @@ export interface GameState {
     at: number;
   };
   aiPushUntil?: number;
+  /** v88: smoke-assault follow-through window + corridor x. */
+  aiSmokeAssaultUntil?: number;
+  aiSmokeAssaultX?: number;
   shake: number;
   uid: number;
   seed: number;
@@ -4481,6 +4484,10 @@ function updateAI(s: GameState) {
   if (!s.aiArchetype) s.aiArchetype = inferArchetype(s);
   const archetype = s.aiArchetype;
   const pushing = s.time < (s.aiPushUntil ?? 0);
+  // v88: smoke-assault follow-through window. After screening the contact
+  // line, the AI reserves energy for assault reinforcements and fire support
+  // until the shock troops have crossed the blinded gap.
+  const smokeAssault = s.time < (s.aiSmokeAssaultUntil ?? 0);
   // Match tempo shifts: build economy and a screen early, combine arms against
   // the player's visible force mix mid-game, then spend out in the endgame.
   const phase: 'early' | 'mid' | 'late' =
@@ -4743,6 +4750,9 @@ function updateAI(s: GameState) {
           );
           // Evaluate the position a guarded gun can actually reach on foot.
           if (!valid) score = -100;
+          // v88: during a smoke assault, heavy howitzers shell the blinded
+          // line so shock troops close the gap against a suppressed enemy.
+          if (valid && smokeAssault && c.id === 'barrage') score += 14;
         }
         // Expensive support cannot substitute for the infantry that must protect it.
         // Heavy anti-tank ammunition has no useful target in an infantry-only contact.
@@ -4870,17 +4880,6 @@ function updateAI(s: GameState) {
           p.fortify <= 0
         )
           score = 20;
-      } else if (c.effect === 'barrage') {
-        const cluster = groundFoes
-          .map((v) => ({
-            x: v.x,
-            n: groundFoes.filter((a) => Math.abs(a.x - v.x) < 120).length,
-          }))
-          .sort((a, b) => b.n - a.n)[0];
-        if (cluster && cluster.n >= 3) {
-          x = cluster.x;
-          score = 13;
-        }
       } else if (c.id === 'artillery' || c.id === 'precision') {
         // Counter-battery is these cards' natural job: a fresh sound-ranging
         // fix on an enemy gun is the highest-value target on the map.
@@ -4943,6 +4942,13 @@ function updateAI(s: GameState) {
       } else if (archetype === 'counterattack') {
         if (c.comeback) score += 4;
       }
+      // v88: smoke-assault follow-through — while the screen blinds the enemy
+      // line, assault troops are the highest-value reinforcement on the map.
+      if (
+        smokeAssault &&
+        (c.trait === 'close_assault' || c.infantryAbility === 'smoke_assault')
+      )
+        score += 14;
       // Phase tempo: hard vetoes (-100) stay negative after a nudge, so this
       // never revives a card the situation forbids.
       // Opening tempo only steers quiet build-out; once a real clash is on,
@@ -5217,6 +5223,8 @@ function updateAI(s: GameState) {
     ) {
       if (playCard(s, 1, readySmoke.uid, smokeX).ok) {
         s.aiPushUntil = s.time + 9;
+        s.aiSmokeAssaultUntil = s.time + 12;
+        s.aiSmokeAssaultX = smokeX;
         return;
       }
     }
@@ -5258,7 +5266,9 @@ function updateAI(s: GameState) {
 
   // The endgame is all-in: banked energy buys nothing after the timer expires.
   const reserve =
-    phase !== 'late' && !emergency && !battle && !screenNeed ? 2 : 0;
+    (phase !== 'late' && !emergency && !battle && !screenNeed ? 2 : 0) +
+    // v88: bank CP for assault reinforcements while the smoke screen is up.
+    (smokeAssault ? 3 : 0);
   const usefulSupply = options.find(
     (o) =>
       (CARDS[o.h.id].id === 'supply' || CARDS[o.h.id].effect === 'ammo') &&
