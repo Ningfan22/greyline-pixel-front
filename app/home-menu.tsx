@@ -201,6 +201,27 @@ export default function HomeMenu({
   useEffect(() => {
     stage.current?.scrollTo(0, 0);
   }, [page]);
+  useEffect(() => {
+    const mixer = getBattleAudio();
+    // 回到主菜单时立即恢复背景音乐（音频已解锁的情况下）。
+    mixer.setActive(true);
+    const unlock = () => {
+      void mixer.unlock();
+      mixer.setActive(true);
+    };
+    const onVisibility = () => {
+      if (document.hidden) mixer.setActive(false);
+      else mixer.setActive(true);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
   return (
     <main className={styles.menu} aria-label="灰线主菜单">
       <style>{`@font-face{font-family:'Greyline Menu Pixel';src:url('${assetUrl('/fonts/fusion-pixel-12px-monospaced-zh_hans.otf.woff2')}') format('woff2');font-weight:400;font-style:normal;font-display:swap;}`}</style>

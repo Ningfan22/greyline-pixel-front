@@ -10,6 +10,10 @@ const audioSrc = fs.readFileSync(
   path.join(here, '../game/audio.ts'),
   'utf8',
 );
+const homeMenuSrc = fs.readFileSync(
+  path.join(here, '../app/home-menu.tsx'),
+  'utf8',
+);
 
 const results = [],
   failures = [];
@@ -66,6 +70,28 @@ check('audio.unlock starts music immediately via startMusic(true)', () => {
     `unlock() must call startMusic(true) on buffer load and on settle, found ${eagerCalls}`,
   );
   return { eagerCalls };
+});
+
+// --- menu screen keeps the music audible -------------------------------------
+// The mixer starts with active=false, so music unlocked on the menu would be
+// silent until the battle screen flips the gate. The home menu must activate
+// the mixer on mount and unlock on the first visitor gesture.
+
+check('home menu activates the mixer and unlocks on first gesture', () => {
+  assert.ok(
+    homeMenuSrc.includes('mixer.setActive(true)'),
+    'home menu must call setActive(true) so unlocked music is audible',
+  );
+  assert.ok(
+    homeMenuSrc.includes("void mixer.unlock()"),
+    'home menu must unlock the audio context from a user gesture',
+  );
+  assert.ok(
+    homeMenuSrc.includes("addEventListener('pointerdown'") &&
+      homeMenuSrc.includes("addEventListener('keydown'"),
+    'home menu must listen for pointer and keyboard gestures',
+  );
+  return { gestures: ['pointerdown', 'keydown'] };
 });
 
 // --- summary ------------------------------------------------------------------
