@@ -5,6 +5,7 @@ import { pointVisible } from './world';
 import { H, type Blast, type GameState } from './engine';
 import { CrackTracker } from './bullet-crack';
 import type { Ricochet } from './ricochet';
+import { listenerDistance, soundDelay } from './acoustics';
 
 export interface AudioSettings {
   enabled: boolean;
@@ -241,7 +242,8 @@ export class BattleAudio {
       this.settings.effects === 0
     )
       return;
-    if (ctx.currentTime - (this.playedAt.get(file) ?? -Infinity) < interval)
+    const now = ctx.currentTime;
+    if (now - (this.playedAt.get(file) ?? -Infinity) < interval)
       return;
     const edgeDistance = Math.max(
       this.camera - x,
@@ -249,7 +251,7 @@ export class BattleAudio {
       0,
     );
     if (edgeDistance > 700) return;
-    this.playedAt.set(file, ctx.currentTime);
+    this.playedAt.set(file, now);
     if (this.voices.size >= 22) {
       const oldest = this.voices.values().next().value;
       oldest?.stop();
@@ -281,7 +283,10 @@ export class BattleAudio {
       gain.disconnect();
       pan.disconnect();
     };
-    source.start();
+    // Speed of sound: distant shots lag behind their muzzle flashes.
+    source.start(
+      now + soundDelay(listenerDistance(x, this.camera, this.width)),
+    );
   }
   /**
    * Low thunder for the horizon flashes. Unlike `sample` this ignores the
@@ -578,6 +583,8 @@ export class BattleAudio {
     const dist = Math.abs(x - listenerX);
     const closeness = Math.max(0, 1 - dist / 600);
     if (closeness <= 0) return;
+    // The whine travels with the same speed-of-sound lag as gunfire.
+    const t = now + soundDelay(dist);
     const pan = Math.max(-1, Math.min(1, (x - listenerX) / (this.width * 0.65)));
     const osc = ctx.createOscillator(),
       noise = ctx.createBufferSource(),
@@ -587,24 +594,24 @@ export class BattleAudio {
       noiseFilter = ctx.createBiquadFilter();
     osc.type = 'sawtooth';
     const startFreq = 4000 + seed * 120;
-    osc.frequency.setValueAtTime(startFreq, now);
-    osc.frequency.exponentialRampToValueAtTime(580 + seed * 30, now + 0.16);
+    osc.frequency.setValueAtTime(startFreq, t);
+    osc.frequency.exponentialRampToValueAtTime(580 + seed * 30, t + 0.16);
     noise.buffer = this.crackNoise;
     noise.playbackRate.value = 1.05 + seed * 0.03;
     noiseFilter.type = 'bandpass';
     noiseFilter.Q.value = 1.4;
-    noiseFilter.frequency.setValueAtTime(3100 + seed * 160, now);
+    noiseFilter.frequency.setValueAtTime(3100 + seed * 160, t);
     noiseFilter.frequency.exponentialRampToValueAtTime(
       900 + seed * 60,
-      now + 0.16,
+      t + 0.16,
     );
     const level = 0.05 + closeness * 0.16;
-    oscGain.gain.setValueAtTime(0, now);
-    oscGain.gain.linearRampToValueAtTime(level, now + 0.003);
-    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-    noiseGain.gain.setValueAtTime(0, now);
-    noiseGain.gain.linearRampToValueAtTime(level * 0.5, now + 0.003);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    oscGain.gain.setValueAtTime(0, t);
+    oscGain.gain.linearRampToValueAtTime(level, t + 0.003);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    noiseGain.gain.setValueAtTime(0, t);
+    noiseGain.gain.linearRampToValueAtTime(level * 0.5, t + 0.003);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     panNode.pan.value = pan;
     osc.connect(oscGain);
     noise.connect(noiseFilter);
@@ -626,10 +633,10 @@ export class BattleAudio {
     };
     osc.onended = done;
     noise.onended = done;
-    osc.start();
-    noise.start();
-    osc.stop(now + 0.22);
-    noise.stop(now + 0.22);
+    osc.start(t);
+    noise.start(t);
+    osc.stop(t + 0.22);
+    noise.stop(t + 0.22);
   }
 }
 let instance: BattleAudio | null = null;
