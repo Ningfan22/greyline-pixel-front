@@ -86,14 +86,20 @@ test('escort order points at the armour with no global flip', () => {
 test('hold order keeps the arm raised overhead', () => {
   const u = stubUnit({ signalUntil: 1.0, squadOrder: 'hold', side: 0 });
   const c = adultFrameChoice(u, 0.1);
-  assert.equal(c.index, 8, 'arm over head, not pointing');
+  assert.equal(c.index, 9, 'gesture beat pumps the arm');
+  assert.equal(
+    c.dir,
+    undefined,
+    'hold never points at a bearing — no flip, the arm stays overhead',
+  );
 });
 
-test('the gesture alternates with the alert stand so it waves', () => {
+test('the gesture alternates with the return pump so it waves', () => {
   const u = stubUnit({ signalUntil: 1.0, squadOrder: 'attack', side: 0 });
-  // time=0 → wave = floor(6)%2 = 0 → alert-stand beat
+  // time=0 → wave = floor(6)%2 = 0 → overhead-pump beat
   const c = adultFrameChoice(u, 0);
-  assert.equal(c.index, 0, 'alert stand between gesture pumps');
+  assert.equal(c.index, 8, 'overhead pump between gesture points');
+  assert.equal(c.dir, 1, 'pointing beat keeps its facing on the pump beat');
 });
 
 // --- Death variants ---

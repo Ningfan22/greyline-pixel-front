@@ -614,9 +614,19 @@ export function render(
       body && choice
         ? specialistSprite(body, choice, u, art.adultSpecialists)
         : null;
+    // v117: the patrol overlay only covers "plain" frames — the walk cycle
+    // and the standing-alert frame. Every authored action frame (leader
+    // gestures, hit flinches, contact callouts, secondary-weapon shots) now
+    // shows through instead of being silently swallowed by the static patrol
+    // idle, which used to hide whole animation branches on upright soldiers.
+    const patrolPlain =
+      choice !== null &&
+      (choice.group === 'walk8' ||
+        (choice.group === 'actions20' && choice.index === 0));
     const patrol =
       body &&
       !specialist &&
+      patrolPlain &&
       c.members &&
       !isDead &&
       !u.wounded &&
@@ -738,7 +748,9 @@ export function render(
     let showProp = false;
     if (c.members && !isDead) {
       seenInfantry.add(u.uid);
-      const poseFlip = (microDir ?? u.facing) < 0;
+      // v117: honour the frame choice's own facing (signal points, contact
+      // callouts) before falling back to the unit's real facing.
+      const poseFlip = (microDir ?? choice?.dir ?? u.facing) < 0;
       const tracked = poseTracker.get(u.uid);
       if (!tracked) {
         poseTracker.set(u.uid, {
@@ -936,7 +948,9 @@ export function render(
         drawY,
         c.members ? img.width : w,
         c.members ? img.height : h,
-        c.members || c.air ? (microDir ?? u.facing) < 0 : u.side === 1,
+        c.members || c.air
+          ? (microDir ?? choice?.dir ?? u.facing) < 0
+          : u.side === 1,
         alpha * poseAlpha,
         c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
       );

@@ -227,13 +227,79 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   // A fresh hand-signal acknowledgment outranks routine scans and fidgets.
   if ((u.ackUntil ?? 0) > time) return null;
   return (
+    contactCalloutChoice(u, time) ??
+    heardContactGlanceChoice(u, time) ??
     blastGlanceChoice(u, time) ??
     dugInBlastGlanceChoice(u, time) ??
     traceGlanceChoice(u, time) ??
     dugInTraceGlanceChoice(u, time) ??
+    boundingRestChoice(u, time) ??
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );
+}
+
+/**
+ * Contact callout: the beat after a soldier spots the enemy, they shout the
+ * contact to their squad — arm up and pointing at the threat, alternating
+ * with the alert stand so the shout reads as a wave, not a statue.
+ * Animation-only, exactly like the glance layers: the returned `dir` points
+ * the shout at the contact without touching the unit's real facing. Only
+ * upright, unengaged soldiers call out — a man already firing, aiming or
+ * reloading keeps the weapon on the threat instead of waving.
+ */
+export function contactCalloutChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.calloutUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.aimUntil ?? 0) > time) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+  if (u.pose !== 'idle' && u.pose !== 'walk') return null;
+  const dir = u.calloutDir ?? 1;
+  const wave = Math.floor(((u.calloutUntil ?? 0) - time) * 6) % 2;
+  return wave ? { ...action(9), dir } : { ...action(0), dir };
+}
+
+/**
+ * Heard-contact glance: a squad mate's shout travels faster than the threat.
+ * For a beat after `heardContactAt`, a soldier who hasn't spotted the enemy
+ * themselves snaps to the alert stand and looks toward the shouted bearing,
+ * so a platoon reacts as one when contact is called. Animation-only: the
+ * `dir` flip never changes the unit's real facing or what the omni-sight
+ * system can see. Suppressed once the soldier has made their own contact —
+ * a man in the fight has no attention left for second-hand shouts.
+ */
+export function heardContactGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.heardContactAt === undefined) return null;
+  if (time - u.heardContactAt >= 0.7) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+  if (u.pose !== 'idle') return null;
+  if ((u.contactUntil ?? 0) > time) return null;
+  return { ...action(0), dir: u.heardContactDir ?? 1 };
+}
+
+/**
+ * Bounding rest: after a fireteam finishes a bound, the lead element drops to
+ * a knee for a beat to catch its breath while the overwatch element moves.
+ * The engine sets `boundRestUntil` at the end of a bound; the soldier holds
+ * the single-knee frame until it expires, so the fireteam-manoeuvre rhythm
+ * reads on the field instead of every man standing tall the whole time.
+ */
+export function boundingRestChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.boundRestUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+  if (u.pose !== 'idle') return null;
+  return action(1);
 }
 
 /**
@@ -387,21 +453,23 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // points back toward friendly lines, an escort order points toward the
   // armour, and hold/watch keeps the arm raised overhead — so a veteran can
   // read the order off the leader's hand without opening the order UI. The
-  // gesture frame alternates with the alert stand so it waves instead of
-  // freezing like a statue.
+  // gesture frame alternates with the overhead pump frame so it waves instead
+  // of freezing like a statue. v117: both beats are non-plain frames (8/9),
+  // so the renderer's patrol layer never covers the gesture the way it used
+  // to swallow the action(0) beat.
   if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0) {
     const wave = Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2;
     const order = u.squadOrder;
     if (order === 'attack') {
       const dir = (u.side === 0 ? 1 : -1) as 1 | -1;
-      return wave ? { ...action(9), dir } : { ...action(0), dir };
+      return wave ? { ...action(9), dir } : { ...action(8), dir };
     }
     if (order === 'retreat') {
       const dir = (u.side === 0 ? -1 : 1) as 1 | -1;
-      return wave ? { ...action(9), dir } : { ...action(0), dir };
+      return wave ? { ...action(9), dir } : { ...action(8), dir };
     }
-    if (order === 'escort') return wave ? action(9) : action(0);
-    return action(wave ? 8 : 0);
+    if (order === 'escort') return wave ? action(9) : action(8);
+    return action(wave ? 9 : 8);
   }
   // Squad mates answer a fresh hand signal with a quick return pump of the
   // arm. Only upright members answer — crouched and prone defenders stay low
@@ -414,7 +482,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.reloadingUntil ?? 0) <= time &&
     (u.pose === 'idle' || u.pose === 'walk')
   )
-    return action(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 8 : 0);
+    return action(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 8 : 9);
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)
@@ -456,6 +524,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       if (radioT < 1.2) return action(13);
     }
     if (reloading) return reloadBeat(u, time);
+    // v117: firing from the deck — alternate the lie with the prone-reload
+    // frame so a burst reads as the weapon working instead of a frozen
+    // corpse. Covers both the primary and the underslung secondary.
+    if (u.fire > 0 || u.secondaryFire > 0)
+      return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 3 : 2);
     return action(2);
   }
   if (u.pose === 'crouch') {
@@ -466,6 +539,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       return { group: 'crouch8', index: cycle(gait, 8) };
     }
     if (reloading) return reloadBeat(u, time);
+    // v117: firing from a knee — alternate the kneel with the hunched brace
+    // so the burst has a recoil cadence instead of one static pose.
+    if (u.fire > 0 || u.secondaryFire > 0)
+      return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 13 : 1);
     return action(1);
   }
   if (u.pose === 'hunker') {
@@ -499,6 +576,16 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // every man. v116 widened the spread from two to three variants.
   if (u.flash > 0.13) return reaction(4 + (u.uid % 3));
   if (reloading) return reloadBeat(u, time);
+  // v117: underslung / personal secondary discharge — the arm-forward frame
+  // for the 0.09s window so a GL or pistol shot reads as its own beat
+  // instead of vanishing under the patrol idle. Non-plain on purpose: it
+  // makes the patrol layer yield so the frame actually shows.
+  if (
+    u.secondaryFire > 0 &&
+    !u.moving &&
+    (u.pose === 'idle' || u.pose === 'walk')
+  )
+    return action(9);
   return action(0);
 }
 export function adultWreckChoice(

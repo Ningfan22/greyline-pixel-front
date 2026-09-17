@@ -137,12 +137,14 @@ test('repeating the same order does not re-signal or re-ack', () => {
 
 // --- Animation: the ack window drives a return arm pump ---
 
-test('the ack window alternates the arm-over-head frame with the alert stand', () => {
-  // remaining 0.50s: floor(0.50*7)=3 -> arm pump; 0.36s: floor(2.52)=2 -> alert.
+test('the ack window alternates the arm-over-head frame with the return pump', () => {
+  // remaining 0.50s: floor(0.50*7)=3 -> arm pump; 0.36s: floor(2.52)=2 ->
+  // return pump. v117: the settle beat is the arm-forward frame (9), not the
+  // alert stand (0) — a plain frame would be swallowed by the patrol overlay.
   const pump = adultFrameChoice(stubUnit({ ackUntil: 1.0 }), 0.5);
   assert.deepEqual(pump, { group: 'actions20', index: 8 });
   const settle = adultFrameChoice(stubUnit({ ackUntil: 1.0 }), 0.64);
-  assert.deepEqual(settle, { group: 'actions20', index: 0 });
+  assert.deepEqual(settle, { group: 'actions20', index: 9 });
 });
 
 test('after the ack window the soldier returns to the default idle frame', () => {
