@@ -161,8 +161,9 @@ test('idlePoseChoice prefers the sector scan over idle micro-motion', () => {
 });
 
 test('idlePoseChoice falls back to idle micro-motion between scans', () => {
-  // uid=1, t=15.0: scan resting; idleMicro alert window active (phase 0.31).
-  const choice = idlePoseChoice(stubUnit({ uid: 1 }), 15.0);
+  // uid=1, t=3.0: scan resting (phase 8.77 of 24.7); idleMicro four-beat
+  // cycle in its alert window (phase 0.01 of 10.3).
+  const choice = idlePoseChoice(stubUnit({ uid: 1 }), 3.0);
   assert.deepEqual(choice, { group: 'actions20', index: 0 });
   assert.equal(choice.dir, undefined);
 });

@@ -223,6 +223,8 @@ export interface Unit {
   reloadingUntil?: number;
   /** v113: when the current reload began, so the animation can track progress. */
   reloadingStartAt?: number;
+  /** v114: top-up reload of a half-spent mag during a lull (not a dry swap). */
+  tacticalReload?: boolean;
   /** Rounds left in the current magazine. 0 = dry, -1 = no magazine management. */
   ammo?: number;
   ammoReserve?: number;
@@ -7156,15 +7158,24 @@ export function tick(s: GameState, dt: number) {
       u.ammo = spec ? spec.mag : -1;
       u.ammoReserve = spec ? spec.reserve : 0;
     } else if (
-      u.ammo === 0 &&
+      (u.ammo === 0 || u.tacticalReload) &&
       (u.reloadingUntil ?? 0) > 0 &&
       s.time >= u.reloadingUntil!
     ) {
       const spec = magazine(u.id, u.member);
       if (spec) {
-        const take = Math.min(spec.mag, u.ammoReserve ?? 0);
-        u.ammo = take;
-        u.ammoReserve = Math.max(0, (u.ammoReserve ?? 0) - take);
+        if (u.tacticalReload) {
+          // v114: top-up — the rounds still in the mag are kept, only the
+          // missing ones come up from reserve.
+          const take = Math.min(spec.mag - u.ammo, u.ammoReserve ?? 0);
+          u.ammo += take;
+          u.ammoReserve = Math.max(0, (u.ammoReserve ?? 0) - take);
+          u.tacticalReload = false;
+        } else {
+          const take = Math.min(spec.mag, u.ammoReserve ?? 0);
+          u.ammo = take;
+          u.ammoReserve = Math.max(0, (u.ammoReserve ?? 0) - take);
+        }
       }
       u.reloadingUntil = 0;
     }
@@ -8214,6 +8225,44 @@ export function tick(s: GameState, dt: number) {
               ? 'hunker'
               : 'crouch';
     }
+    // v114: a soldier caught mid-reload while in contact stops advancing and
+    // drops to a knee — or hunkers if pinned — so the mag swap reads as a
+    // deliberate, vulnerable drill. Moving soldiers never reached the
+    // animation's reload branch, which is why reloads used to be invisible
+    // on the advance. Dry swaps and tactical top-ups both count; the
+    // decorative bolt-cycle after a shot does not.
+    const reloadingUnderContact =
+      c.members &&
+      (u.ammo === 0 || u.tacticalReload) &&
+      (u.reloadingUntil ?? 0) > s.time &&
+      (u.contactUntil ?? 0) > s.time &&
+      order !== 'rush' &&
+      (u.assaultSurgeUntil ?? 0) <= s.time &&
+      !withdrawing &&
+      u.tactic !== 'retreat' &&
+      !withdrawalStep;
+    if (reloadingUnderContact)
+      u.pose = u.suppression > 55 ? 'hunker' : 'crouch';
+    // v114: tactical reload — a soldier with a near-empty mag and cover to
+    // hide behind tops up during a lull, so he doesn't meet the next contact
+    // with three rounds left. Only when genuinely safe: under cover, not
+    // pinned, with enough reserve to fill the mag.
+    if (
+      c.members &&
+      u.ammo > 0 &&
+      !u.tacticalReload &&
+      (u.reloadingUntil ?? 0) <= s.time &&
+      u.cover > 0.2 &&
+      u.suppression < 40 &&
+      (u.ammoReserve ?? 0) > 0
+    ) {
+      const spec = magazine(u.id, u.member);
+      if (spec && u.ammo < spec.mag * 0.35 && u.ammoReserve >= spec.mag) {
+        u.reloadingUntil = s.time + spec.reload * 0.75;
+        u.reloadingStartAt = s.time;
+        u.tacticalReload = true;
+      }
+    }
     if (airContact && !c.antiAir && !seeking && order !== 'rush')
       u.pose = 'prone';
     let bounding =
@@ -8262,6 +8311,12 @@ export function tick(s: GameState, dt: number) {
       !breachRun &&
       u.ammo !== 0
     ) {
+      // v114: a tactical top-up is dropped the instant the soldier commits
+      // to a shot — contact trumps housekeeping.
+      if (u.tacticalReload) {
+        u.tacticalReload = false;
+        u.reloadingUntil = 0;
+      }
       let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : reconFire ? reconFire.x : baseX;
       let ty = target
         ? target.y - bodyHeight(target)
@@ -8603,6 +8658,7 @@ export function tick(s: GameState, dt: number) {
       }
     } else if (
       !treating &&
+      !reloadingUnderContact &&
       (withdrawalStep ||
         seeking ||
         bounding ||

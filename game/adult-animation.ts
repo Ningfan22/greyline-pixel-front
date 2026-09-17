@@ -57,12 +57,20 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
     if (phase < 2.0) return action(1);
     return null;
   }
-  // Alert stance: rifle across chest, ~1.6 s every 11 s.
-  const alertPhase = (time + u.uid * 7.31) % 11;
-  if (alertPhase < 1.6) return action(0);
-  // Crouch glance: take a knee to scan, ~2.2 s every 27 s.
-  const crouchPhase = (time + u.uid * 13.7) % 27;
-  if (crouchPhase < 2.2) return action(1);
+  // v114: a four-beat fidget cycle so holding position reads as living
+  // vigilance — alert stance, take a knee, lean forward to scan the sector,
+  // rise and glance over the shoulder — instead of two isolated poses. The
+  // period stretches with uid so neighbours drift out of phase over time.
+  const period = 9 + (u.uid % 5) * 1.3;
+  const phase = (time + u.uid * 7.31) % period;
+  if (phase < 1.4) return action(0); // alert stance, rifle across chest
+  if (phase < 2.6) return action(1); // take a knee
+  if (phase < 3.3) return action(13); // lean forward to scan
+  if (phase < 3.9) {
+    // rise and glance over the shoulder toward the covered flank
+    const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
+    return { ...action(0), dir: (front * -1) as 1 | -1 };
+  }
   return null;
 }
 

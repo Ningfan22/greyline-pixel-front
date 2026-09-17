@@ -1125,7 +1125,7 @@ export const CARDS: Record<CardId, Card> = {
       damage: 21,
       range: 300,
       doctrine: 'irregular',
-      discipline: 48,
+      discipline: 60,
       tag: '低费 · 士气脆弱',
     },
   ),
