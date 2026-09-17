@@ -289,6 +289,8 @@ export interface Unit {
   ackUntil?: number;
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
   vacuum?: boolean;
+  /** v120, animation-only: this unit is its squad's current leader. */
+  leader?: boolean;
   dispersionGoal?: number;
   dispersionUntil?: number;
   trafficYieldUntil?: number;
@@ -667,6 +669,18 @@ export interface Player extends EconomyPlayer {
   blitzUntil?: number;
   /** Entrench: own infantry forced prone with damage reduction (v108). */
   entrenchUntil?: number;
+  /** Command lockdown: cannot play cards while active (v120). */
+  lockoutUntil?: number;
+  /** Shock action: enemy infantry cannot move while active (v120). */
+  shockUntil?: number;
+  /** Sensor blind: enemy vision reduced while active (v120). */
+  sensorBlindUntil?: number;
+  /** Frequency hopping: immune to enemy disruption while active (v120). */
+  freqHopUntil?: number;
+  /** EW suppression: enemy recharge interval multiplied while active (v120). */
+  ewarfareUntil?: number;
+  /** Tactical fallback: own infantry speed boost while active (v120). */
+  fallbackUntil?: number;
 }
 export interface GameState {
   campaign?: CampaignState;
@@ -1184,6 +1198,26 @@ export const ARTILLERY = {
     scatter: 4,
     baseScale: 0.18,
   },
+  creeping: {
+    delay: 2.4,
+    count: 6,
+    interval: 0.5,
+    damage: 22,
+    radius: 38,
+    spacing: 80,
+    scatter: 20,
+    baseScale: 0.15,
+  },
+  heavy: {
+    delay: 3.0,
+    count: 4,
+    interval: 0.9,
+    damage: 60,
+    radius: 50,
+    spacing: 70,
+    scatter: 22,
+    baseScale: 0.22,
+  },
 };
 function callArtillery(
   s: GameState,
@@ -1265,13 +1299,13 @@ function safeLanding(s: GameState, requested: number) {
   }
   return center;
 }
-export function launchFlare(s: GameState, side: Side, x: number) {
+export function launchFlare(s: GameState, side: Side, x: number, life = 10) {
   const tx = Math.max(40, Math.min(W - 40, x));
   s.flares.push({
     x: tx,
     y: ground(s, tx) - 250,
-    life: 10,
-    maxLife: 10,
+    life,
+    maxLife: life,
     side,
     seed: Math.floor(rnd(s) * 1e9),
   });
@@ -1336,6 +1370,8 @@ export function playCard(
       ok: false,
       message: `还需要 ${Math.ceil(cost - p.energy)} 点指挥点`,
     };
+  if ((p.lockoutUntil ?? 0) > s.time)
+    return { ok: false, message: '指挥链路被切断，无法出牌' };
   const blocked = c.comeback && comebackBlock(s, side, c.comeback);
   if (blocked) return { ok: false, message: blocked };
   const economyBlocked = c.economy && economyBlock(p, c.economy, s.time);
@@ -1407,6 +1443,8 @@ export function playCard(
       (u) => u.side === side && isCombatant(u) && CARDS[u.id].members,
     );
     const foe = s.players[side === 0 ? 1 : 0];
+    // v120: frequency hopping shrugs off every enemy disruption effect.
+    const hopImmune = (foe.freqHopUntil ?? 0) > s.time;
     if (c.effect === 'rally')
       for (const u of own) {
         u.personalMorale = Math.min(100, u.personalMorale + 40);
@@ -1415,7 +1453,7 @@ export function playCard(
         u.retreatUntil = 0;
       }
     if (c.effect === 'ammo') draw(s, side, 3);
-    if (c.effect === 'emp') {
+    if (c.effect === 'emp' && !hopImmune) {
       foe.jam = Math.max(foe.jam, 14);
       foe.recon = 0;
       for (const u of s.units)
@@ -1464,26 +1502,74 @@ export function playCard(
           u.cooldown = Math.max(u.cooldown, 3);
           u.secondaryCooldown = Math.max(u.secondaryCooldown, 3);
         }
-    if (c.effect === 'signal_jam') foe.jam = Math.max(foe.jam, 4);
+    if (c.effect === 'signal_jam' && !hopImmune)
+      foe.jam = Math.max(foe.jam, 4);
     if (c.effect === 'forced_march')
       for (const u of own) u.forceMarchUntil = s.time + 12;
-    if (c.effect === 'cyber_suppression') {
+    if (c.effect === 'cyber_suppression' && !hopImmune) {
       foe.energy = Math.max(0, foe.energy - 3);
       foe.suppressedUntil = s.time + 6;
     }
     if (c.effect === 'forage') draw(s, side, 2);
     if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
-    if (c.effect === 'blackout') foe.blackoutUntil = s.time + 8;
-    if (c.effect === 'interdict')
+    if (c.effect === 'blackout' && !hopImmune) foe.blackoutUntil = s.time + 8;
+    if (c.effect === 'interdict' && !hopImmune)
       foe.taxCards = (foe.taxCards ?? 0) + 3;
-    if (c.effect === 'spoof') foe.spoofUntil = s.time + 3;
-    if (c.effect === 'radar_jam') foe.radarJamUntil = s.time + 8;
+    if (c.effect === 'spoof' && !hopImmune) foe.spoofUntil = s.time + 3;
+    if (c.effect === 'radar_jam' && !hopImmune) foe.radarJamUntil = s.time + 8;
     if (c.effect === 'entrench') {
       p.entrenchUntil = s.time + 8;
       for (const u of own) {
         u.pose = 'prone';
         u.personalMorale = Math.min(100, u.personalMorale + 5);
       }
+    }
+    // ── v120 new effects ─────────────────────────────────────────────
+    if (c.effect === 'lockout' && !hopImmune) foe.lockoutUntil = s.time + 3;
+    if (c.effect === 'salvage') {
+      const pool = p.discard.filter((t) => {
+        const cd = CARDS[t.id];
+        return cd.type === 'unit' && cardCost(t) <= 3;
+      });
+      if (pool.length) {
+        const t = pool[Math.floor(rnd(s) * pool.length)];
+        p.discard.splice(p.discard.indexOf(t), 1);
+        p.hand.push(t);
+      }
+    }
+    if (c.effect === 'shock' && !hopImmune) {
+      for (const u of s.units)
+        if (u.side !== side && isCombatant(u) && CARDS[u.id].members)
+          u.suppression = Math.min(100, u.suppression + 35);
+      foe.shockUntil = s.time + 1.8;
+    }
+    if (c.effect === 'sensor_blind' && !hopImmune)
+      foe.sensorBlindUntil = s.time + 6;
+    if (c.effect === 'logistics_strike' && !hopImmune)
+      foe.energy = Math.max(0, foe.energy - 3);
+    if (c.effect === 'freq_hop') p.freqHopUntil = s.time + 8;
+    if (c.effect === 'ewarfare' && !hopImmune) foe.ewarfareUntil = s.time + 5;
+    if (c.effect === 'smoke_screen')
+      for (const dx of [-100, 0, 100])
+        s.smokes.push({
+          x: Math.max(20, Math.min(W - 20, x! + dx)),
+          life: 10,
+          side,
+        });
+    if (c.effect === 'illumination') launchFlare(s, side, x!, 14);
+    if (c.effect === 'minefield')
+      for (const dx of [-60, 0, 60])
+        s.mines.push({
+          uid: ++s.uid,
+          side,
+          x: Math.max(20, Math.min(W - 20, x! + dx)),
+          armAt: s.time + 2,
+        });
+    if (c.effect === 'fallback') {
+      const dir = side === 0 ? -280 : 280;
+      for (const u of own)
+        u.x = Math.max(40, Math.min(W - 40, u.x + dir));
+      p.fallbackUntil = s.time + 2;
     }
   } else if (c.id === 'artillery') {
     callArtillery(s, side, x!, 'artillery');
@@ -1525,7 +1611,7 @@ export function playCard(
     draw(s, side, 2);
   } else if (c.id === 'jam') {
     const foe = s.players[side === 0 ? 1 : 0];
-    foe.jam = Math.max(foe.jam, 9);
+    if ((foe.freqHopUntil ?? 0) <= s.time) foe.jam = Math.max(foe.jam, 9);
   }
   const message =
     side === 0
@@ -2921,7 +3007,11 @@ function scoutSpotter(
     if (vc.trait !== 'scout' && !vc.observer) continue;
     if (Math.abs(v.x - tx) > 760) continue;
     const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
-    if (Math.hypot(tx - v.x, (ty - eye) * 0.65) > sightRange(v) * 1.1) continue;
+    // v120: a sensor-blinded spotter sees less than half as far, so its
+    // spotting contribution degrades exactly like its direct vision.
+    const blind = (s.players[side].sensorBlindUntil ?? 0) > s.time ? 0.45 : 1;
+    if (Math.hypot(tx - v.x, (ty - eye) * 0.65) > sightRange(v) * 1.1 * blind)
+      continue;
     if (clearSight(s, v.x, eye, tx, ty)) return true;
   }
   return false;
@@ -2942,9 +3032,12 @@ function scoutDesignates(
     if (vc.trait !== 'scout' && !vc.observer) continue;
     if (Math.abs(v.x - target.x) > 700) continue;
     const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
+    // v120: sensor blind degrades target designation the same way it degrades
+    // direct sight — a blinded scout cannot mark targets for the marksmen.
+    const blind = (s.players[side].sensorBlindUntil ?? 0) > s.time ? 0.45 : 1;
     if (
       Math.hypot(target.x - v.x, (target.y - eye) * 0.65) >
-      sightRange(v) * 1.1
+      sightRange(v) * 1.1 * blind
     )
       continue;
     if (clearSight(s, v.x, eye, target.x, target.y - bodyHeight(target)))
@@ -5096,6 +5189,25 @@ function inferArchetype(s: GameState): string {
   const has = (id: CardId) => count(id) > 0;
   const countAny = (list: CardId[]) =>
     list.reduce((n, id) => n + count(id), 0);
+  // v120: 干扰封锁流 — 3 张以上干扰/电子战牌即判定为 lockdown
+  if (
+    countAny([
+      'signal_jam',
+      'cyber_suppression',
+      'jam',
+      'sensor_blind',
+      'logistics_strike',
+      'ewarfare',
+      'freq_hop',
+    ]) >= 3
+  )
+    return 'lockdown';
+  // v120: 透支快攻流 — 透支/强行军/紧急征发等爆发经济牌 ≥2
+  if (
+    countAny(['overdraft', 'forced_march', 'emergency_levy', 'command_lockdown']) >=
+    2
+  )
+    return 'blitz';
   if (
     (has('artillery') || has('mortar_carrier')) &&
     (has('scouts') || has('recon'))
@@ -5525,6 +5637,12 @@ function updateAI(s: GameState) {
           x = safeLanding(s, enemyFront - 140);
           score = cohorts >= 2 && groundFoes.length ? 17 : -2;
         }
+        // v120: airborne AT hunts armour from the drop zone; rapid insertion
+        // plugs a collapsing sector; recon jump fills a missing spotter.
+        if (c.id === 'airborne_at' && armor.length) score += 8;
+        if (c.id === 'rapid_insertion' && emergency) score += 6;
+        if (c.id === 'recon_jump' && !own.some((u) => observerCard(u.id)))
+          score += 5;
         if (c.air && !c.observer && !c.airOnly) {
           const enemyAA = groups(foes.filter((u) => weaponCard(u).antiAir));
           score +=
@@ -5621,6 +5739,15 @@ function updateAI(s: GameState) {
             // economyBlock already guarantees p.forwardHq is unset.
             score = s.time < 120 ? 18 : s.time < 300 ? 14 : 8;
         }
+        // v120: emergency levy is a battle-tempo card, not a peace-time
+        // investment — it pays out immediately so the AI can chain a second
+        // unit into a live contact.
+        if (
+          c.economy === 'levy' &&
+          (battle || pushing) &&
+          (p.levyUntil ?? 0) < s.time
+        )
+          score = archetype === 'assault' ? 18 : 12;
       } else if (c.id === 'antitank_mine') {
         x = armor
           .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
@@ -5788,20 +5915,169 @@ function updateAI(s: GameState) {
         )
           score = emergency || armedAir.length ? 18 : 9;
       }
+      // v120: new-school cards. Each branch mirrors the closest existing
+      // pattern and checks the matching state field so the same effect is
+      // not re-cast while still active.
+      else if (c.id === 'creeping_barrage' || c.id === 'heavy_barrage') {
+        // Counter-battery first, then a visible infantry cluster. The creeping
+        // barrage walks its shells forward so it values a deeper blob; the
+        // heavy barrage hits harder so it wants a tighter pack.
+        const fix = s.batteryReports
+          .filter((r) => r.side === 1 && r.life > 3)
+          .sort((a, b) => b.hits - a.hits || b.life - a.life)[0];
+        if (fix) {
+          x = fix.x;
+          score = fix.hits >= 3 ? 24 : 18;
+        } else {
+          const blob = groundFoes
+            .map((v) => ({
+              x: v.x,
+              n: groundFoes.filter((a) => Math.abs(a.x - v.x) < 140).length,
+            }))
+            .sort((a, b) => b.n - a.n)[0];
+          if (blob && blob.n >= 4) {
+            x = blob.x;
+            score = c.id === 'heavy_barrage' ? 16 : 13;
+          }
+        }
+      } else if (c.effect === 'lockout') {
+        if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) < s.time)
+          score = 12;
+      } else if (c.effect === 'salvage') {
+        if (
+          p.hand.length <= MAX_HAND - 1 &&
+          p.discard.some(
+            (t) => CARDS[t.id].type === 'unit' && cardCost(t) <= 3,
+          )
+        )
+          score = 22;
+      } else if (c.effect === 'shock') {
+        if (
+          battle &&
+          foot.length >= 3 &&
+          (s.players[0].shockUntil ?? 0) < s.time
+        )
+          score = 14;
+      } else if (c.effect === 'sensor_blind') {
+        if (battle && (s.players[0].sensorBlindUntil ?? 0) < s.time)
+          score = 10;
+      } else if (c.effect === 'logistics_strike') {
+        if (battle && s.players[0].energy >= 4) score = 14;
+      } else if (c.effect === 'freq_hop') {
+        if (battle && (p.freqHopUntil ?? 0) < s.time) score = 11;
+      } else if (c.effect === 'ewarfare') {
+        if (battle && (s.players[0].ewarfareUntil ?? 0) < s.time) score = 13;
+      } else if (c.effect === 'smoke_screen') {
+        const needsCover = own.some(
+          (u) =>
+            CARDS[u.id].members &&
+            (u.tactic === 'retreat' || u.hp < u.maxHp * 0.5),
+        );
+        const assault = fighters.find(
+          (u) =>
+            CARDS[u.id].members &&
+            CARDS[u.id].trait === 'close_assault' &&
+            groundFoes.some((v) => Math.abs(v.x - u.x) < 500),
+        );
+        if (battle && needsCover) {
+          x = Math.max(100, Math.min(W - 100, front - 90));
+          score = 22;
+        } else if (battle && assault) {
+          x = Math.max(100, assault.x - 110);
+          score = 19;
+        } else if (enemyTrace) {
+          x = Math.max(100, Math.min(W - 100, enemyTrace.x + 140));
+          score = battle ? 16 : 12;
+        }
+        if (
+          x !== undefined &&
+          s.smokes.some(
+            (m) => m.side === 1 && m.life > 2 && Math.abs(m.x - x!) < 200,
+          )
+        )
+          score = -100;
+      } else if (c.effect === 'illumination') {
+        if (s.night && cohorts) score = 10;
+      } else if (c.effect === 'minefield') {
+        x = armor
+          .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
+          .filter((a) => a >= 100 && a <= W - 120)
+          .find(
+            (a) =>
+              armor.every((v) => Math.abs(v.x - a) >= 85) &&
+              !s.mines.some((m) => m.side === 1 && Math.abs(m.x - a) < 90),
+          );
+        score = x === undefined ? -100 : urgentArmor ? 18 : 7;
+      } else if (c.effect === 'fallback') {
+        if (
+          (emergency ||
+            (pushing &&
+              own.some(
+                (u) =>
+                  CARDS[u.id].members &&
+                  (u.hp < u.maxHp * 0.4 || u.tactic === 'retreat'),
+              ))) &&
+          (p.fallbackUntil ?? 0) < s.time
+        )
+          score = 16;
+      }
       // Archetype flavour: nudge the generic scoring toward the deck's plan.
       // Hard vetoes (-100) stay negative after a nudge, so this never revives
       // a card the situation forbids.
       if (archetype === 'assault') {
         if (c.trait === 'close_assault' || c.infantryAbility === 'smoke_assault')
           score += 4;
+        // v120: 烟幕突击的新尖刀——掷弹兵、震慑、紧急征发、指挥静默
+        if (
+          c.id === 'assault_grenadiers' ||
+          c.id === 'shock_action' ||
+          c.id === 'emergency_levy' ||
+          c.id === 'command_lockdown'
+        )
+          score += 4;
       } else if (archetype === 'fire_support') {
         if (observerCard(c.id)) score += 4;
         if (c.id === 'artillery' || c.id === 'precision') score += 6;
         if (c.id === 'fortify') score += 3;
+        // v120: 炮兵流派的新弹药——徐进/重型弹幕是主力，照明与烟幕是辅助
+        if (c.id === 'creeping_barrage' || c.id === 'heavy_barrage')
+          score += 6;
+        if (c.id === 'illumination_round' || c.id === 'smoke_cover')
+          score += 4;
       } else if (archetype === 'air_mobile') {
         if (c.air && !c.observer) score += 3;
+        // v120: 空降三件套——反甲、穿插、跳降侦察
+        if (
+          c.id === 'airborne_at' ||
+          c.id === 'rapid_insertion' ||
+          c.id === 'recon_jump'
+        )
+          score += 3;
       } else if (archetype === 'counterattack') {
         if (c.comeback) score += 4;
+        // v120: 纵深反击的守备工具——雷场、医院、后撤
+        if (c.id === 'minefield' || c.id === 'field_hospital' || c.id === 'fallback')
+          score += 4;
+      } else if (archetype === 'lockdown') {
+        // v120: 电磁封锁——干扰即输出，跳频是内战保险
+        if (
+          c.id === 'sensor_blind' ||
+          c.id === 'logistics_strike' ||
+          c.id === 'ewarfare' ||
+          c.id === 'command_lockdown'
+        )
+          score += 5;
+        if (c.id === 'freq_hop') score += 3;
+      } else if (archetype === 'blitz') {
+        // v120: 透支快攻——爆发经济与封锁牌优先，廉价班组填线
+        if (
+          c.id === 'emergency_levy' ||
+          c.id === 'command_lockdown' ||
+          c.id === 'shock_action'
+        )
+          score += 5;
+        if (c.id === 'fire_team' || c.id === 'battlefield_salvage')
+          score += 4;
       }
       // v88: smoke-assault follow-through — while the screen blinds the enemy
       // line, assault troops are the highest-value reinforcement on the map.
@@ -6828,6 +7104,11 @@ export function tick(s: GameState, dt: number) {
     u.backpedaling = false;
     u.vacuum = CARDS[u.id].members
       ? squadInVacuum(s, u.side, u.squad)
+      : false;
+    // v120, animation-only: mark the squad's current leader so the
+    // animation layer can give him radio/hand-signal idle beats.
+    u.leader = CARDS[u.id].members
+      ? s.squadCommand?.[u.side * 1048576 + u.squad]?.leaderUid === u.uid
       : false;
     if (u.hp <= 0) {
       u.deadFor -= dt;
@@ -8362,6 +8643,8 @@ export function tick(s: GameState, dt: number) {
       }
     } else u.boundStartedAt = undefined;
     const retreating = c.members && u.tactic === 'retreat';
+    // v120: shock_action — a shaken squad freezes for the duration.
+    const shocked = c.members && (s.players[u.side].shockUntil ?? 0) > s.time;
     // v91: an armoured vehicle that has decided to reverse out of a kill zone.
     // While reversing it forgoes firing — the crew is focused on backing out
     // — but the hull keeps its face toward the enemy.
@@ -8732,6 +9015,7 @@ export function tick(s: GameState, dt: number) {
     } else if (
       !treating &&
       !reloadingUnderContact &&
+      !shocked &&
       (withdrawalStep ||
         seeking ||
         bounding ||
@@ -8796,7 +9080,8 @@ export function tick(s: GameState, dt: number) {
         (morale ? 1.2 : 1) *
         (u.slowedUntil > s.time ? 0.5 : 1) *
         ((u.forceMarchUntil ?? 0) > s.time ? 1.35 : 1) *
-        ((s.players[u.side].blitzUntil ?? 0) > s.time ? 1.45 : 1);
+        ((s.players[u.side].blitzUntil ?? 0) > s.time ? 1.45 : 1) *
+        ((s.players[u.side].fallbackUntil ?? 0) > s.time ? 1.6 : 1);
       const moveDir = withdrawing
         ? Math.sign(u.withdrawGoal! - u.x)
         : reversing

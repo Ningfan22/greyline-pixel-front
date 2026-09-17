@@ -671,8 +671,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('94种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 94);
+check('116种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 116);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(

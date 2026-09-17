@@ -96,7 +96,30 @@ export type CardId =
   | 'veteran_squad'
   | 'medic_team'
   | 'combat_engineers'
-  | 'entrench';
+  | 'entrench'
+  // ── v120 流派扩充 ─────────────────────────────────────────────
+  | 'command_lockdown'
+  | 'emergency_levy'
+  | 'battlefield_salvage'
+  | 'shock_action'
+  | 'sensor_blind'
+  | 'logistics_strike'
+  | 'freq_hop'
+  | 'ewarfare'
+  | 'airborne_at'
+  | 'rapid_insertion'
+  | 'sapper_assault'
+  | 'recon_jump'
+  | 'creeping_barrage'
+  | 'smoke_cover'
+  | 'heavy_barrage'
+  | 'illumination_round'
+  | 'minefield'
+  | 'field_hospital'
+  | 'fallback'
+  | 'fire_team'
+  | 'assault_grenadiers'
+  | 'lmg_team';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -207,7 +230,19 @@ export interface Card {
     | 'interdict'
     | 'spoof'
     | 'radar_jam'
-    | 'entrench';
+    | 'entrench'
+    // ── v120 流派扩充 ─────────────────────────────────────────
+    | 'lockout'
+    | 'salvage'
+    | 'shock'
+    | 'sensor_blind'
+    | 'logistics_strike'
+    | 'freq_hop'
+    | 'ewarfare'
+    | 'smoke_screen'
+    | 'illumination'
+    | 'minefield'
+    | 'fallback';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
   infantry: {
@@ -1820,6 +1855,375 @@ export const CARDS: Record<CardId, Card> = {
       tag: '守备 · 卧倒减伤',
       detail:
         '命令全体己方步兵立即卧倒并挖掘简易掩体，8秒内受到的伤害降低30%。在敌方炮火或空袭来临前打出，能让整条战线硬吃一轮打击。',
+    },
+  ),
+  // ── v120 快攻经济流派 ─────────────────────────────────────────────
+  command_lockdown: variant(
+    'jam',
+    'command_lockdown',
+    '指挥静默',
+    1,
+    '敌方 3 秒内无法打出任何卡牌',
+    {
+      en: 'COMMAND LOCKDOWN',
+      effect: 'lockout',
+      tag: '快攻 · 出牌封锁',
+      detail:
+        '发射定向干扰脉冲切断敌方指挥链路，3秒内敌方无法打出任何卡牌。快攻流派在铺场高潮前打出，能让对手眼睁睁看着你的部队冲过开阔地。',
+    },
+  ),
+  emergency_levy: variant(
+    'supply',
+    'emergency_levy',
+    '紧急征发',
+    1,
+    '立即获得 3 点指挥点，12 秒内回点放缓',
+    {
+      en: 'EMERGENCY LEVY',
+      economy: 'levy',
+      tag: '快攻 · 即时爆发',
+      detail:
+        '立即获得3点指挥点（可超过上限），代价是12秒内指挥点回复间隔延长35%。比透支指挥更轻量的爆发牌，适合中期抢节奏。',
+    },
+  ),
+  battlefield_salvage: variant(
+    'supply',
+    'battlefield_salvage',
+    '战场回收',
+    1,
+    '从弃牌堆抽回 1 张费用不超过 3 的单位牌',
+    {
+      en: 'BATTLEFIELD SALVAGE',
+      effect: 'salvage',
+      tag: '快攻 · 资源循环',
+      detail:
+        '回收战场上被击毁装备的可用部件，从弃牌堆中随机抽回1张费用不超过3的单位牌到手牌。快攻卡组的续航引擎，让便宜班组源源不断地填线。',
+    },
+  ),
+  shock_action: variant(
+    'jam',
+    'shock_action',
+    '震慑行动',
+    2,
+    '敌方全体步兵压制 +35，1.8 秒内无法移动',
+    {
+      en: 'SHOCK ACTION',
+      effect: 'shock',
+      tag: '快攻 · 步兵压制',
+      detail:
+        '集中电子干扰与火力示威，敌方全体步兵压制值+35且1.8秒内无法移动。在冲锋前打出，让敌方步兵钉在原地挨打。',
+    },
+  ),
+  // ── v120 干扰封锁流派 ─────────────────────────────────────────────
+  sensor_blind: variant(
+    'jam',
+    'sensor_blind',
+    '传感器致盲',
+    1,
+    '敌方视野 -55%，6 秒',
+    {
+      en: 'SENSOR BLIND',
+      effect: 'sensor_blind',
+      tag: '干扰 · 视野压制',
+      detail:
+        '干扰敌方观瞄系统，6秒内敌方所有单位视野降低55%。敌方狙击手和侦察单位在致盲期间几乎无法开火，是掩护机动的廉价手段。',
+    },
+  ),
+  logistics_strike: variant(
+    'jam',
+    'logistics_strike',
+    '后勤斩首',
+    2,
+    '敌方立即失去 3 点指挥点',
+    {
+      en: 'LOGISTICS STRIKE',
+      effect: 'logistics_strike',
+      tag: '干扰 · 资源打击',
+      detail:
+        '打击敌方后勤节点，敌方立即失去3点指挥点。在对手攒费准备打出关键牌时使用，直接打断其节奏。',
+    },
+  ),
+  freq_hop: variant(
+    'jam',
+    'freq_hop',
+    '跳频通讯',
+    2,
+    '己方 8 秒内免疫所有干扰效果',
+    {
+      en: 'FREQUENCY HOPPING',
+      effect: 'freq_hop',
+      tag: '干扰 · 反制',
+      detail:
+        '全军切换跳频通讯模式，8秒内免疫所有敌方干扰效果（电磁干扰、传感器致盲、电子压制等）。面对干扰流派时的硬 counter。',
+    },
+  ),
+  ewarfare: variant(
+    'jam',
+    'ewarfare',
+    '电子压制',
+    3,
+    '敌方 5 秒内回点间隔 ×1.6',
+    {
+      en: 'EW SUPPRESSION',
+      effect: 'ewarfare',
+      tag: '干扰 · 回点压制',
+      detail:
+        '全面电子压制敌方指挥网络，5秒内敌方指挥点回复间隔延长60%。比后勤斩首更持久的经济打击，适合封锁流磨死对手。',
+    },
+  ),
+  // ── v120 空降特种流派 ─────────────────────────────────────────────
+  airborne_at: variant(
+    'infantry',
+    'airborne_at',
+    '空降反甲组',
+    5,
+    '4 人空降反甲班，高穿甲，直接伞降目标区域',
+    {
+      members: 4,
+      hp: 220,
+      damage: 30,
+      range: 400,
+      speed: 66,
+      armorMultiplier: 1.7,
+      airdrop: true,
+      targetGround: true,
+      doctrine: 'assault',
+      discipline: 92,
+      uniform: 'marine',
+      tag: '空降 · 装甲猎杀',
+      detail:
+        '4人空降反甲班组直接伞降至目标区域，每人配备反坦克武器，对装甲伤害×1.7。可空降至敌方装甲侧后实施猎杀。',
+    },
+  ),
+  rapid_insertion: variant(
+    'infantry',
+    'rapid_insertion',
+    '快速穿插',
+    3,
+    '3 人高速空降班，落地后极速穿插',
+    {
+      members: 3,
+      hp: 150,
+      damage: 24,
+      range: 380,
+      speed: 92,
+      airdrop: true,
+      targetGround: true,
+      infantryAbility: 'rapid',
+      doctrine: 'recon',
+      discipline: 90,
+      uniform: 'recon',
+      tag: '空降 · 高速穿插',
+      detail:
+        '3人轻装空降班，落地后以92移速高速穿插敌方防线。适合抢占要点、绕后骚扰或快速增援危急地段。',
+    },
+  ),
+  sapper_assault: variant(
+    'infantry',
+    'sapper_assault',
+    '突击工兵',
+    3,
+    '4 人工兵班，可排雷破障，减伤 50%',
+    {
+      members: 4,
+      hp: 200,
+      damage: 28,
+      range: 380,
+      speed: 64,
+      trait: 'engineer',
+      armorMultiplier: 1.5,
+      doctrine: 'assault',
+      discipline: 88,
+      tag: '步兵 · 破障突击',
+      detail:
+        '4人突击工兵班，自带减伤50%，可排除敌方地雷并破坏障碍物。攻坚必备，在雷场和工事前无人能替代。',
+    },
+  ),
+  recon_jump: variant(
+    'scouts',
+    'recon_jump',
+    '侦察跳降',
+    2,
+    '2 人空降侦察组，超远视野，快速部署',
+    {
+      members: 2,
+      hp: 100,
+      damage: 24,
+      range: 700,
+      rate: 1.6,
+      speed: 88,
+      airdrop: true,
+      targetGround: true,
+      trait: 'scout',
+      uniform: 'recon',
+      tag: '空降 · 前沿侦察',
+      detail:
+        '2人空降侦察组直接跳降至前沿，700射程点射+超远视野。最便宜的空降单位，用于快速建立视野网或猎杀敌方侦察。',
+    },
+  ),
+  // ── v120 炮火支援流派 ─────────────────────────────────────────────
+  creeping_barrage: variant(
+    'artillery',
+    'creeping_barrage',
+    '徐进弹幕',
+    4,
+    '6 发炮弹沿轴线递进覆盖，逐步延伸',
+    {
+      en: 'CREEPING BARRAGE',
+      artilleryKind: 'creeping',
+      tag: '支援 · 徐进弹幕',
+      detail:
+        '6发炮弹以0.5秒间隔沿x轴递进覆盖，每发22伤害、半径38。弹幕从目标点向敌方方向逐步延伸，逼迫敌方步兵后撤或被弹幕吞噬。',
+    },
+  ),
+  smoke_cover: variant(
+    'smoke',
+    'smoke_cover',
+    '烟幕急袭',
+    2,
+    '在目标区域释放 3 道烟幕，宽幅遮蔽',
+    {
+      en: 'SMOKE COVER',
+      effect: 'smoke_screen',
+      tag: '支援 · 宽幅烟幕',
+      detail:
+        '在目标区域及两侧各100距离释放3道烟幕，持续10秒。比基础烟幕宽三倍的遮蔽带，适合掩护大部队通过开阔地。',
+    },
+  ),
+  heavy_barrage: variant(
+    'artillery',
+    'heavy_barrage',
+    '重型弹幕',
+    5,
+    '4 发重型炮弹，大范围高伤害',
+    {
+      en: 'HEAVY BARRAGE',
+      artilleryKind: 'heavy',
+      tag: '支援 · 重型打击',
+      detail:
+        '4发重型炮弹以0.9秒间隔落下，每发60伤害、半径50。适合打击密集步兵群或坚固工事，一发就能让一个班组失去战斗力。',
+    },
+  ),
+  illumination_round: variant(
+    'flare',
+    'illumination_round',
+    '照明弹',
+    1,
+    '目标区域照明 14 秒，比基础照明更持久',
+    {
+      en: 'ILLUMINATION ROUND',
+      effect: 'illumination',
+      tag: '支援 · 持久照明',
+      detail:
+        '发射一发照明弹，目标区域持续14秒照亮（比基础照明弹多4秒）。夜间作战或烟幕环境下的必备侦察手段。',
+    },
+  ),
+  // ── v120 防御守备流派 ─────────────────────────────────────────────
+  minefield: variant(
+    'antitank_mine',
+    'minefield',
+    '混合雷场',
+    3,
+    '一次布置 3 颗反坦克雷，覆盖 120 距离',
+    {
+      en: 'MINEFIELD',
+      effect: 'minefield',
+      tag: '守备 · 区域封锁',
+      detail:
+        '在目标区域及两侧各60距离布置3颗反坦克地雷，2秒后启用。比单颗布雷宽三倍的封锁带，适合扼守通道或保护侧翼。',
+    },
+  ),
+  field_hospital: variant(
+    'medic',
+    'field_hospital',
+    '野战医院',
+    3,
+    '3 名军医，治疗量 +75%，自带减伤',
+    {
+      members: 3,
+      hp: 160,
+      damage: 9,
+      rate: 1.2,
+      range: 300,
+      speed: 60,
+      heal: 7,
+      armorMultiplier: 1.3,
+      tag: '守备 · 持续治疗',
+      detail:
+        '3名军医组成的野战医院，每人每0.8秒治疗附近步兵7生命（比基础医疗组+75%），自带减伤30%。防线的持续作战保障。',
+    },
+  ),
+  fallback: variant(
+    'fortify',
+    'fallback',
+    '战术后撤',
+    2,
+    '己方全体步兵后撤 280 距离，2 秒内移速 +60%',
+    {
+      en: 'TACTICAL FALLBACK',
+      effect: 'fallback',
+      tag: '守备 · 战术撤退',
+      detail:
+        '命令全体己方步兵立即后撤280距离，2秒内移速+60%。在敌方炮火或冲锋来临前拉出距离，保存有生力量。',
+    },
+  ),
+  // ── v120 步兵协同流派 ─────────────────────────────────────────────
+  fire_team: variant(
+    'infantry',
+    'fire_team',
+    '火力小组',
+    1,
+    '2 人轻装班，便宜填线',
+    {
+      members: 2,
+      hp: 90,
+      damage: 18,
+      range: 360,
+      speed: 72,
+      discipline: 82,
+      tag: '步兵 · 廉价填线',
+      detail:
+        '2人轻装火力小组，最便宜的步兵单位。适合快速填线、吸引火力或配合战场回收形成源源不断的兵海。',
+    },
+  ),
+  assault_grenadiers: variant(
+    'infantry',
+    'assault_grenadiers',
+    '突击掷弹兵',
+    3,
+    '4 人掷弹班，每人 3 颗手雷，近战专精',
+    {
+      members: 4,
+      hp: 200,
+      damage: 26,
+      range: 380,
+      speed: 70,
+      frags: 3,
+      trait: 'close_assault',
+      doctrine: 'assault',
+      discipline: 88,
+      tag: '步兵 · 手雷突击',
+      detail:
+        '4人突击掷弹班，每人携带3颗手雷，近距离作战专精。手雷对集群步兵和掩体后目标效果极佳，是攻坚的尖刀。',
+    },
+  ),
+  lmg_team: variant(
+    'machinegun',
+    'lmg_team',
+    '轻机枪组',
+    3,
+    '2 人机枪组，高机动压制火力',
+    {
+      members: 2,
+      hp: 140,
+      damage: 4,
+      rate: 0.28,
+      range: 460,
+      speed: 60,
+      antiAir: true,
+      tag: '步兵 · 机动压制',
+      detail:
+        '2人轻机枪组，比基础机枪班人少但保持机动性。高射速压制火力，可对空，适合伴随步兵推进。',
     },
   ),
 };

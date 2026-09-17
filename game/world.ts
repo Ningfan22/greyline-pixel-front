@@ -598,6 +598,7 @@ export function pointVisibleWith(
     const range =
       sightRange(u) *
       (s.players[side].recon > 0 ? 1.15 : 1) *
+      ((s.players[side].sensorBlindUntil ?? 0) > s.time ? 0.45 : 1) *
       (s.night ? 0.45 : 1) *
       weatherVisibility(s);
     const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);

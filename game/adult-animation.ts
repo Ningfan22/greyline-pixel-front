@@ -286,8 +286,11 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
     traceGlanceChoice(u, time) ??
     dugInTraceGlanceChoice(u, time) ??
     boundingRestChoice(u, time) ??
+    leaderRadioChoice(u, time) ??
     crouchFidgetChoice(u, time) ??
     proneFidgetChoice(u, time) ??
+    magCheckChoice(u, time) ??
+    engineerFussChoice(u, time) ??
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );
@@ -376,6 +379,85 @@ export function boundingRestChoice(
   if ((u.reloadingUntil ?? 0) > time) return null;
   if (u.pose !== 'idle') return null;
   return action(1);
+}
+
+/**
+ * v120: leader radio beat — a squad leader holding position out of contact
+ * periodically raises a hand to his ear as if working the radio, alternating
+ * with the alert stance so the beat reads as a live comms check instead of a
+ * statue. Animation-only, like the other idle layers. Only fires out of
+ * contact — a leader in a fight has the point-out and callout layers above.
+ */
+export function leaderRadioChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (!u.leader) return null;
+  if ((u.contactUntil ?? 0) > time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  const period = 13 + (u.uid % 4) * 1.1;
+  const phase = (time + u.uid * 4.57) % period;
+  if (phase >= 2.4) return null;
+  return Math.floor((2.4 - phase) * 2.6) % 2 ? action(8) : action(0);
+}
+
+/**
+ * v120: magazine check — a rifleman holding position periodically hunches
+ * over the mag well and seats/checks the magazine, so a held line reads as
+ * professionals maintaining their kit instead of statues. Animation-only.
+ * Only for units with magazine-managed ammo (ammo >= 0); crews and energy
+ * weapons have no mag to check.
+ */
+export function magCheckChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.ammo === undefined || u.ammo < 0) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  const period = 21 + (u.uid % 5) * 1.3;
+  const phase = (time + u.uid * 6.83) % period;
+  if (phase >= 2.6) return null;
+  if (phase < 0.9) return action(13); // hunch over the mag well
+  if (phase < 1.7) return action(9); // arm forward, seat/check the mag
+  return action(13); // back to the hunch
+}
+
+/**
+ * v120: engineer fuss — a sapper holding position periodically drops to a
+ * knee and fusses with his kit (detonator, charges, tools), so the squad's
+ * technical specialist reads as a man with a job to do even when idle.
+ * Animation-only. Only for engineer-trait cards.
+ */
+export function engineerFussChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (CARDS[u.id].trait !== 'engineer') return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  const period = 16 + (u.uid % 4) * 1.2;
+  const phase = (time + u.uid * 5.29) % period;
+  if (phase >= 2.8) return null;
+  if (phase < 1.2) return action(11); // kneeling, working the kit
+  if (phase < 2.0) return action(13); // hunch over the task
+  return action(11); // back to the kneeling work
 }
 
 /**
@@ -501,9 +583,17 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // the animation, so the arm comes forward early and settles into a follow-through.
   if ((u.fragThrow ?? 0) > 0) {
     const t = u.fragThrow ?? 0;
-    if (t > 0.33) return action(8); // wind-up (arm back)
-    if (t > 0.17) return action(9); // release (arm forward)
-    return action(10); // follow-through
+    // v120: pose-specific throw chains so a crouching grenadier stays on a
+    // knee and a prone one stays on the deck instead of popping to standing.
+    const chain =
+      u.pose === 'prone'
+        ? [3, 9, 2]
+        : u.pose === 'crouch'
+          ? [11, 9, 10]
+          : [8, 9, 10];
+    if (t > 0.33) return action(chain[0]); // wind-up
+    if (t > 0.17) return action(chain[1]); // release
+    return action(chain[2]); // follow-through
   }
   // Medics alternate between a kneeling pose and a low crouch while treating,
   // never the hit-reaction fall frames.
@@ -674,8 +764,14 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // v105: hit flinches — a tall stagger, a knee-buck and a deep cower-flinch
   // — so a burst walking across a squad doesn't pop the identical frame on
   // every man. v116 widened the spread from two to three variants, v118 to
-  // four — the deep curl joins the rotation.
-  if (u.flash > 0.13) return reaction(4 + (u.uid % 4));
+  // four — the deep curl joins the rotation. v120: the flinch now cycles
+  // across the full 0.16s hit window instead of flashing for 0.03s, so a
+  // burst reads as a live reaction chain — stagger, knee-soft, curl, squat —
+  // rather than a single popped frame.
+  if (u.flash > 0) {
+    const beat = Math.max(0, Math.floor((0.16 - u.flash) * 25));
+    return reaction(4 + ((u.uid + beat) % 4));
+  }
   // A stationary rifleman keeps the aimed stance (action 0) while firing —
   // the renderer's patrol layer overlays the dedicated aimed-rifle pose
   // (raise3[2]) for the whole burst, so the weapon reads as shouldered and
@@ -703,8 +799,10 @@ export function adultWreckChoice(
   // play the same stagger in unison. v116 widened the spread from three to
   // six variants — classic stagger, knee crumple, clean drop, forward pitch,
   // slow sink and a spin — so a platoon's worth of wrecks rarely repeats.
+  // v120 widened to eight — a double-take stagger and a slow fold join the
+  // rotation.
   // The seed is the casualty's uid, stable for the wreck's whole lifetime.
-  const variant = seed % 6;
+  const variant = seed % 8;
   if (variant === 2) return action(15); // clean drop: killed mid-stride
   if (pose === 'crouch' || pose === 'hunker' || pose === 'land')
     return age < 0.45
@@ -732,6 +830,16 @@ export function adultWreckChoice(
           Math.min(2, Math.floor(age * 5))
         ]
       : action(15);
+  if (variant === 6)
+    // v120: double-take stagger — flinch, curl, deep squat before dropping.
+    return age < 0.55
+      ? [reaction(4), reaction(6), reaction(7)][
+          Math.min(2, Math.floor(age * 5))
+        ]
+      : action(15);
+  if (variant === 7)
+    // v120: slow fold — curl, knee-soft, then down.
+    return age < 0.7 ? (age < 0.35 ? reaction(6) : reaction(5)) : action(15);
   // Classic: hit stagger, stumble, drop.
   return age < 0.6
     ? reaction(4 + Math.min(3, Math.floor(age * 6)))

@@ -17,7 +17,8 @@ export type EconomyEffect =
   | 'bonds'
   | 'overdraft'
   | 'production'
-  | 'forward_hq';
+  | 'forward_hq'
+  | 'levy';
 export const DEFAULT_DIFFICULTY: Difficulty = 'veteran';
 export const DIFFICULTY_RATE: Record<Difficulty, number> = {
   standard: 1,
@@ -44,6 +45,10 @@ export const ECONOMY_RULES = {
   productionPayout: 2,
   forwardHqInterval: 0.5,
   forwardHqCapPenalty: 2,
+  levyDuration: 12,
+  levyPenalty: 1.35,
+  levyPayout: 3,
+  ewarfarePenalty: 1.6,
 } as const;
 export interface EconomyPlayer {
   energy: number;
@@ -60,6 +65,10 @@ export interface EconomyPlayer {
   productionUntil?: number | null;
   /** Forward HQ: permanent faster recharge but lower cap. */
   forwardHq?: boolean;
+  /** Emergency levy: immediate payout, slower recharge while active (v120). */
+  levyUntil?: number | null;
+  /** Enemy EW suppression: recharge interval multiplied while active (v120). */
+  ewarfareUntil?: number | null;
 }
 type EconomyMatch = { time: number; players: EconomyPlayer[] };
 export function initialEconomy(
@@ -110,6 +119,10 @@ export function energyInterval(s: EconomyMatch, side: 0 | 1): number {
       1.2,
       interval - ECONOMY_RULES.forwardHqInterval,
     );
+  if (p.levyUntil != null && p.levyUntil > s.time)
+    interval *= ECONOMY_RULES.levyPenalty;
+  if (p.ewarfareUntil != null && p.ewarfareUntil > s.time)
+    interval *= ECONOMY_RULES.ewarfarePenalty;
   return interval;
 }
 export function economyBlock(
@@ -165,6 +178,10 @@ export function applyEconomy(
       6,
       energyLimit(p) - ECONOMY_RULES.forwardHqCapPenalty,
     );
+  }
+  if (effect === 'levy') {
+    p.levyUntil = time + ECONOMY_RULES.levyDuration;
+    p.energy = p.energy + ECONOMY_RULES.levyPayout;
   }
 }
 export function updateEconomy(s: EconomyMatch, side: 0 | 1, dt: number): void {
