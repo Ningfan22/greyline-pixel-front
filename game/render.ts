@@ -637,6 +637,9 @@ export function render(
       !u.climbing &&
       ['idle', 'walk'].includes(u.pose) &&
       (u.reloadingUntil ?? 0) <= s.time &&
+      // Yield only while firing on the move; a stationary burst keeps the
+      // patrol layer active so its dedicated aimed-rifle pose (raise3[2])
+      // holds the weapon on target for the whole burst.
       (u.fire <= 0 || !u.moving)
         ? patrolFrameV17(
             art.patrol,

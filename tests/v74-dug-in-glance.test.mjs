@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   blastGlanceChoice,
+  crouchFidgetChoice,
   dugInBlastGlanceChoice,
   idlePoseChoice,
   idleMicroChoice,
@@ -286,19 +287,22 @@ test('idlePoseChoice falls through to null for a crouching soldier after the gla
   assert.equal(choice, null, 'no pose layer fires after the glance expires');
 });
 
-test('the dug-in glance outranks the idle micro-motion', () => {
-  // uid=1, t=3.69: idleMicroChoice would return the alert stance (action 0),
-  // but the active dug-in glance must win with the knee pose toward the blast.
+test('the dug-in glance outranks the crouch fidget', () => {
+  // v118 moved the ambient crouch layer off idleMicroChoice (which used to
+  // pop a crouching soldier up to the standing alert frame) onto the
+  // dedicated crouchFidgetChoice. uid=1, t=5: the fidget's weight-shift beat
+  // would fire (phase (5 + 6.13) % 10.9 = 0.23 < 1.4), but the active dug-in
+  // glance must still win with the knee pose toward the blast.
   const u = stubUnit({
     uid: 1,
     pose: 'crouch',
     facing: 1,
-    blastGlanceUntil: 5,
+    blastGlanceUntil: 6,
     blastGlanceDir: -1,
   });
-  const micro = idleMicroChoice(u, 3.69);
-  assert.ok(micro && micro.index === 0, 'the idle micro-motion would fire');
-  const choice = idlePoseChoice(u, 3.69);
+  const fidget = crouchFidgetChoice(u, 5);
+  assert.ok(fidget && fidget.index === 17, 'the crouch fidget would fire');
+  const choice = idlePoseChoice(u, 5);
   assert.deepEqual(choice, { group: 'actions20', index: 1, dir: -1 });
 });
 

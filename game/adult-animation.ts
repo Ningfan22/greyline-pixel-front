@@ -48,6 +48,10 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
   if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
   if (u.suppression > 0.4) return null;
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  // v118: standing-only. A crouched or prone soldier who popped back to the
+  // standing alert frame every few seconds read as a jack-in-the-box; the
+  // low poses have their own fidget layers below.
+  if (u.pose !== 'idle') return null;
   // Command vacuum: leaderless soldiers glance around nervously, cycling
   // between alert stance and a knee-scan on a short, irregular cadence so
   // the disorganisation reads visually without any UI hint.
@@ -71,6 +75,53 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
     const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
     return { ...action(0), dir: (front * -1) as 1 | -1 };
   }
+  return null;
+}
+
+/**
+ * v118: crouch idle fidget — a soldier holding a knee periodically shifts
+ * into a low crouch or leans forward to work the sector, so a dug-in line
+ * doesn't freeze into identical statues. Returns null most of the time; the
+ * caller falls back to the static kneel. Animation-only, like the other
+ * idle layers. The period drifts with uid so neighbours desynchronise.
+ */
+export function crouchFidgetChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.pose !== 'crouch') return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  const period = 10 + (u.uid % 4) * 0.9;
+  const phase = (time + u.uid * 6.13) % period;
+  if (phase < 1.4) return action(17); // low crouch, weight shifted off the knee
+  if (phase < 2.4) return action(13); // lean forward to scan the sector
+  return null;
+}
+
+/**
+ * v118: prone idle fidget — the deck-level counterpart of
+ * {@link crouchFidgetChoice}. A prone defender stirs between working the
+ * ground and a low crawl posture so a held line reads as living vigilance
+ * instead of a row of corpses. Same busy-gates as the crouch fidget.
+ */
+export function proneFidgetChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.pose !== 'prone') return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  const period = 11 + (u.uid % 4) * 1.1;
+  const phase = (time + u.uid * 5.47) % period;
+  if (phase < 1.5) return action(3); // prone, working the weapon/ground
+  if (phase < 2.6) return action(12); // low crawl posture, shifting position
   return null;
 }
 
@@ -229,11 +280,14 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   return (
     contactCalloutChoice(u, time) ??
     heardContactGlanceChoice(u, time) ??
+    leaderPointChoice(u, time) ??
     blastGlanceChoice(u, time) ??
     dugInBlastGlanceChoice(u, time) ??
     traceGlanceChoice(u, time) ??
     dugInTraceGlanceChoice(u, time) ??
     boundingRestChoice(u, time) ??
+    crouchFidgetChoice(u, time) ??
+    proneFidgetChoice(u, time) ??
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );
@@ -260,6 +314,28 @@ export function contactCalloutChoice(
   const dir = u.calloutDir ?? 1;
   const wave = Math.floor(((u.calloutUntil ?? 0) - time) * 6) % 2;
   return wave ? { ...action(9), dir } : { ...action(0), dir };
+}
+
+/**
+ * v118: leader point-out — while in contact, a squad leader periodically
+ * points an arm at the threat so the squad orients on the right target.
+ * Animation-only, exactly like the callout: the returned `dir` points the
+ * gesture without touching the unit's real facing. Only upright, unengaged
+ * leaders point — a man already firing, aiming or reloading keeps the
+ * weapon on the threat instead of waving.
+ */
+export function leaderPointChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.pointUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.pose !== 'idle' && u.pose !== 'walk') return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  return { ...action(9), dir: u.pointDir ?? 1 };
 }
 
 /**
@@ -573,8 +649,13 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       : { group: 'walk8', index: cycle(step, 8) };
   // v105: hit flinches — a tall stagger, a knee-buck and a deep cower-flinch
   // — so a burst walking across a squad doesn't pop the identical frame on
-  // every man. v116 widened the spread from two to three variants.
-  if (u.flash > 0.13) return reaction(4 + (u.uid % 3));
+  // every man. v116 widened the spread from two to three variants, v118 to
+  // four — the deep curl joins the rotation.
+  if (u.flash > 0.13) return reaction(4 + (u.uid % 4));
+  // A stationary rifleman keeps the aimed stance (action 0) while firing —
+  // the renderer's patrol layer overlays the dedicated aimed-rifle pose
+  // (raise3[2]) for the whole burst, so the weapon reads as shouldered and
+  // on target between shots instead of rocking through gait frames.
   if (reloading) return reloadBeat(u, time);
   // v117: underslung / personal secondary discharge — the arm-forward frame
   // for the 0.09s window so a GL or pistol shot reads as its own beat

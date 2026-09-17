@@ -258,6 +258,12 @@ export interface Unit {
   calloutUntil?: number;
   /** v87: direction the callout points toward the threat. */
   calloutDir?: 1 | -1;
+  /** v118: squad leader is pointing an arm at the threat until this time. */
+  pointUntil?: number;
+  /** v118: direction the leader's point gesture faces. */
+  pointDir?: 1 | -1;
+  /** v118: throttle for the leader's next point-out while in contact. */
+  pointNextAt?: number;
   /** v87: when a squadmate heard a callout and should orient toward the reported threat. */
   heardContactAt?: number;
   /** v87: direction of the heard callout's threat. */
@@ -4413,6 +4419,20 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
         }
       }
     }
+  }
+  // v118: squad leaders point out the threat while in contact — an arm-out
+  // beat between fire orders so the chain of command reads on the field.
+  // Throttled per leader so it punctuates the fight instead of chanting.
+  const leaderUid = s.squadCommand?.[u.side * 1048576 + u.squad]?.leaderUid;
+  if (
+    leaderUid === u.uid &&
+    inContact &&
+    !u.moving &&
+    (u.pointNextAt ?? 0) <= s.time
+  ) {
+    u.pointUntil = s.time + 1.2;
+    u.pointDir = (threat.x > u.x ? 1 : -1) as 1 | -1;
+    u.pointNextAt = s.time + 6.5 + (u.uid % 3) * 0.7;
   }
   const reactNow = newContact && u.tactic === 'advance';
   if (!reactNow && u.decisionIn > 0) return;
