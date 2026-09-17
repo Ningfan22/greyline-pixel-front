@@ -382,10 +382,27 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return action(8 + Math.min(3, Math.max(0, Math.floor(progress * 4))));
   }
   // Squad leaders pump a hand signal for a beat after an order changes, so the
-  // chain of command reads on the field. The arm-over-head frame alternates
-  // with the alert stand so it waves instead of freezing like a statue.
-  if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0)
-    return action(Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2 ? 8 : 0);
+  // chain of command reads on the field. v116: the gesture varies with the
+  // order — an attack order points the arm toward the advance, a retreat
+  // points back toward friendly lines, an escort order points toward the
+  // armour, and hold/watch keeps the arm raised overhead — so a veteran can
+  // read the order off the leader's hand without opening the order UI. The
+  // gesture frame alternates with the alert stand so it waves instead of
+  // freezing like a statue.
+  if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0) {
+    const wave = Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2;
+    const order = u.squadOrder;
+    if (order === 'attack') {
+      const dir = (u.side === 0 ? 1 : -1) as 1 | -1;
+      return wave ? { ...action(9), dir } : { ...action(0), dir };
+    }
+    if (order === 'retreat') {
+      const dir = (u.side === 0 ? -1 : 1) as 1 | -1;
+      return wave ? { ...action(9), dir } : { ...action(0), dir };
+    }
+    if (order === 'escort') return wave ? action(9) : action(0);
+    return action(wave ? 8 : 0);
+  }
   // Squad mates answer a fresh hand signal with a quick return pump of the
   // arm. Only upright members answer — crouched and prone defenders stay low
   // instead of popping up out of a trench to wave back.
@@ -477,9 +494,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return u.pose === 'run' || u.tactic === 'retreat'
       ? action(16 + cycle(u.walk / 2, 4))
       : { group: 'walk8', index: cycle(step, 8) };
-  // v105: two hit flinches — a tall stagger and a knee-buck — so a burst
-  // walking across a squad doesn't pop the identical frame on every man.
-  if (u.flash > 0.13) return reaction(4 + (u.uid % 2));
+  // v105: hit flinches — a tall stagger, a knee-buck and a deep cower-flinch
+  // — so a burst walking across a squad doesn't pop the identical frame on
+  // every man. v116 widened the spread from two to three variants.
+  if (u.flash > 0.13) return reaction(4 + (u.uid % 3));
   if (reloading) return reloadBeat(u, time);
   return action(0);
 }
@@ -489,10 +507,12 @@ export function adultWreckChoice(
   seed = 0,
 ): AdultFrameChoice {
   if (pose === 'prone') return action(15);
-  // v105: three visibly different death throes so a field of casualties
-  // doesn't play the same stagger in unison. The seed is the casualty's uid,
-  // stable for the wreck's whole lifetime.
-  const variant = seed % 3;
+  // v105: visibly different death throes so a field of casualties doesn't
+  // play the same stagger in unison. v116 widened the spread from three to
+  // six variants — classic stagger, knee crumple, clean drop, forward pitch,
+  // slow sink and a spin — so a platoon's worth of wrecks rarely repeats.
+  // The seed is the casualty's uid, stable for the wreck's whole lifetime.
+  const variant = seed % 6;
   if (variant === 2) return action(15); // clean drop: killed mid-stride
   if (pose === 'crouch' || pose === 'hunker' || pose === 'land')
     return age < 0.45
@@ -502,6 +522,23 @@ export function adultWreckChoice(
     // Crumple: buckle at the knees first, then go down.
     return age < 0.5
       ? reaction(5 + Math.min(1, Math.floor(age * 4)))
+      : action(15);
+  if (variant === 3)
+    // Forward pitch: flinch, then pitch onto the face.
+    return age < 0.55
+      ? age < 0.25
+        ? reaction(4)
+        : reaction(7)
+      : action(15);
+  if (variant === 4)
+    // Slow sink: knees give out slowly, then the body folds.
+    return age < 0.7 ? (age < 0.4 ? reaction(5) : reaction(7)) : action(15);
+  if (variant === 5)
+    // Spin: twist under the impact, stagger, then drop.
+    return age < 0.6
+      ? [reaction(6), reaction(4), reaction(7)][
+          Math.min(2, Math.floor(age * 5))
+        ]
       : action(15);
   // Classic: hit stagger, stumble, drop.
   return age < 0.6

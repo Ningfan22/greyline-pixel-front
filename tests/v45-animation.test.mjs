@@ -101,9 +101,10 @@ test('idleMicroChoice returns alert stance at the start of the alert window', ()
 
 test('idleMicroChoice returns crouch glance inside the crouch window', () => {
   const u = stubUnit({ uid: 2 });
-  // crouchPhase = (time + uid * 13.7) % 27; uid=2 → offset 27.4 % 27 = 0.4
-  // At time 0.5: (0.5 + 0.4) % 27 = 0.9 → inside the 2.2 s crouch window
-  const choice = idleMicroChoice(u, 0.5);
+  // v114 four-beat cycle: period = 9 + (uid % 5) * 1.3; uid=2 → 11.6 s,
+  // offset = uid * 7.31 = 14.62. At time 10.58: (10.58 + 14.62) % 11.6 = 2.0
+  // → inside the take-a-knee beat [1.4, 2.6).
+  const choice = idleMicroChoice(u, 10.58);
   assert.ok(choice, 'expected a crouch micro-motion frame');
   assert.equal(choice.group, 'actions20');
   assert.equal(choice.index, 1);
