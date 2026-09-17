@@ -4,6 +4,12 @@ export interface MatchOptions {
   night?: boolean;
   /** Weather cycles (v62). Defaults to on; pass false to keep a clear sky. */
   weather?: boolean;
+  /**
+   * v113: override the terrain-generation seed. By default the match seed
+   * drives the map, so every match looks different. Pass the map's
+   * layoutSeed to reproduce the classic fixed terrain (tests, replays).
+   */
+  mapSeed?: number;
 }
 export type EconomyEffect =
   | 'logistics'

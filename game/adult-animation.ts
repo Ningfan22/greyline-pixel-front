@@ -256,6 +256,31 @@ const POSE_CHAINS: Record<
 };
 const POSE_FRAME_S = 0.15;
 
+/**
+ * v113: reloads read as a four-beat drill instead of a static hunch. The
+ * engine stamps `reloadingStartAt` when the dry receiver locks back, so the
+ * animation tracks progress through the reload window — drop the spent mag,
+ * grab a fresh one, seat it, rack the charging handle — rather than freezing
+ * on one frame for the whole duration. Prone soldiers stay on the deck and
+ * alternate the lie with the prone-reload frame so the mag swap still reads
+ * as active work at ground level.
+ */
+function reloadBeat(u: Unit, time: number): AdultFrameChoice {
+  const until = u.reloadingUntil ?? 0;
+  const startedAt = u.reloadingStartAt ?? until - 1.4;
+  const duration = Math.max(0.001, until - startedAt);
+  const elapsed = Math.min(duration, Math.max(0, time - startedAt));
+  if (u.pose === 'prone')
+    return action(Math.floor(elapsed * 3) % 2 ? 3 : 2);
+  const beat = Math.min(3, Math.floor((elapsed / duration) * 4));
+  // Crouched: hunch over the mag well, drop to a knee, hunch again, arm
+  // forward to seat the fresh mag.
+  if (u.pose === 'crouch') return action([13, 1, 13, 9][beat]);
+  // Standing / hunkered: hunch, arm forward to the chest rig, hunch to seat
+  // the mag, arm overhead to rack the charging handle.
+  return action([13, 9, 13, 8][beat]);
+}
+
 function poseHeightClass(
   pose: Unit['pose'],
 ): 'stand' | 'crouch' | 'prone' {
@@ -405,7 +430,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       const radioT = (time + u.uid * 1.37) % 4.4;
       if (radioT < 1.2) return action(13);
     }
-    if (reloading) return action(Math.floor(time * 3) % 2 ? 2 : 3);
+    if (reloading) return reloadBeat(u, time);
     return action(2);
   }
   if (u.pose === 'crouch') {
@@ -415,12 +440,12 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       const gait = u.draggingUid !== undefined ? u.walk / 2 : step;
       return { group: 'crouch8', index: cycle(gait, 8) };
     }
-    if (reloading) return action(13);
+    if (reloading) return reloadBeat(u, time);
     return action(1);
   }
   if (u.pose === 'hunker') {
     if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
-    if (reloading) return action(13);
+    if (reloading) return reloadBeat(u, time);
     // Heavy suppression: the soldier drops fully to the deck, too pinned to
     // kneel or steal a glance. They lie on their side hugging the earth,
     // stirring between a propped-on-elbow lie and a full curl so the pin
@@ -447,7 +472,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // v105: two hit flinches — a tall stagger and a knee-buck — so a burst
   // walking across a squad doesn't pop the identical frame on every man.
   if (u.flash > 0.13) return reaction(4 + (u.uid % 2));
-  if (reloading) return action(13);
+  if (reloading) return reloadBeat(u, time);
   return action(0);
 }
 export function adultWreckChoice(

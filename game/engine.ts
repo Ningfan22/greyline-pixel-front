@@ -209,6 +209,8 @@ export interface Unit {
   kills?: number;
   /** v92: timestamp of the most recent field promotion (drives the pip flash). */
   veteranAt?: number;
+  /** v113: timestamp of the unit's most recent kill (morale anchor). */
+  lastKillAt?: number;
   lastAmmo?: Ammunition;
   lastThreat?: { x: number; y: number; until: number };
   /**
@@ -219,6 +221,8 @@ export interface Unit {
   reconMemory?: { x: number; y: number; until: number };
   aimUntil?: number;
   reloadingUntil?: number;
+  /** v113: when the current reload began, so the animation can track progress. */
+  reloadingStartAt?: number;
   /** Rounds left in the current magazine. 0 = dry, -1 = no magazine management. */
   ammo?: number;
   ammoReserve?: number;
@@ -362,6 +366,13 @@ export interface Unit {
   /** Recon-by-fire throttle: next time this soldier may probe a last-known contact. */
   reconFireNextAt?: number;
   decisionIn: number;
+  /**
+   * Independent cadence for the morale block. decideTactic's body can run
+   * ~10x/sec for advancing units in contact (quickContact bypass), but the
+   * morale constants were tuned for a ~1.1s tick; without this gate an
+   * engaged man's nerve drained ~10x too fast and militia broke on contact.
+   */
+  moraleIn?: number;
   tactic:
     | 'advance'
     | 'prone'
@@ -767,7 +778,10 @@ export function createGame(
 ): GameState {
   if (!validDeck(playerDeck) || !validDeck(aiDeck))
     throw new Error('双方卡组必须各有20张有效卡牌，且不超过各卡数量上限');
-  const layout = createMapLayout(mapId, W),
+  // v113: the game seed drives map generation, so every match with a
+  // unique seed gets a unique battlefield. Fixed seeds (tests, replays)
+  // still produce the same layout every time.
+  const layout = createMapLayout(mapId, W, options.mapSeed ?? seed),
     original = layout.terrain;
   const p = (side: Side, loadout: CardId[]): Player => ({
     loadout: [...loadout],
@@ -2103,6 +2117,7 @@ export function veteranReadiness(u: Unit): number {
 function creditKill(s: GameState, a: Unit) {
   const before = veteranTier(a);
   a.kills = (a.kills ?? 0) + 1;
+  a.lastKillAt = s.time;
   const after = veteranTier(a);
   if (after > before) {
     a.veteranAt = s.time;
@@ -2204,7 +2219,11 @@ function hitUnit(
     u.personalMorale = Math.max(
       0,
       u.personalMorale -
-        (actual / u.maxHp) * (135 - (c.discipline ?? 80) * 0.65) * resolve,
+        // v113: being shot at mainly builds suppression; direct morale
+        // damage is a small fraction of the hit so a single burst doesn't
+        // break a man. Morale erosion now comes from the local force ratio
+        // and mounting casualties (see decideTactic / finishDeath).
+        (actual / u.maxHp) * (30 - (c.discipline ?? 80) * 0.12) * resolve,
     );
     if (u.personalMorale < 35) u.decisionIn = 0;
   }
@@ -2287,11 +2306,22 @@ function finishDeath(
   u.fire = 0;
   u.secondaryFire = 0;
   if (side !== u.side) s.players[side].kills++;
-  for (const friend of s.units)
-    if (friend !== u && friend.squad === u.squad && isCombatant(friend)) {
+  // v113: the first casualty stings but doesn't break a squad; morale damage
+  // scales with how much of the squad has already been lost, so a unit being
+  // carved up alone collapses while a fresh squad shrugs off one man down.
+  const squadInitial = CARDS[u.id].members ?? 1;
+  const squadAlive = squadMates(s, u.side, u.squad).filter(isCombatant)
+    .length;
+  const lostRatio = Math.max(
+    0,
+    Math.min(1, 1 - squadAlive / Math.max(1, squadInitial)),
+  );
+  for (const friend of squadMates(s, u.side, u.squad))
+    if (friend !== u && isCombatant(friend)) {
       friend.personalMorale = Math.max(
         0,
-        friend.personalMorale - 9 * veteranSuppression(friend),
+        friend.personalMorale -
+          7 * (1 + lostRatio * 2.2) * veteranSuppression(friend),
       );
       friend.decisionIn = 0;
     }
@@ -4317,6 +4347,9 @@ const OVERWATCH_NERVE = 14;
 const OVERWATCH_MORALE_NERVE = 7;
 function decideTactic(s: GameState, u: Unit, dt: number) {
   u.decisionIn -= dt;
+  u.moraleIn = Math.max(0, (u.moraleIn ?? 0) - dt);
+  const moraleDue = u.moraleIn <= 0;
+  if (moraleDue) u.moraleIn = 1.1 + (u.member % 4) * 0.18;
   // Overwatch nerve: infantry covered by a halted sniper team keep their
   // nerve under fire and only pin at a higher suppression level, so an
   // overwatched advance keeps bounding through fire that would flatten an
@@ -4455,9 +4488,86 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.firingGoal = null;
     u.lastThreat = undefined;
     u.tactic = u.suppression > 68 + nerve ? 'prone' : 'advance';
-    if (u.personalMorale < (c.discipline ?? 80))
+    if (moraleDue && u.personalMorale < (c.discipline ?? 80))
       u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 1.5);
     return;
+  }
+  // v113: morale under fire is driven by the local force ratio, not by every
+  // graze. A man who sees his side badly outmatched loses nerve steadily;
+  // one who is winning, fighting beside armour, led by a live leader, or who
+  // just dropped an enemy, steadies. Green troops fold faster than veterans.
+  // Gated by moraleIn so the per-tick constants hold no matter how often the
+  // quickContact bypass re-enters this function.
+  if (moraleDue) {
+    let ownPower = 0;
+    let foePower = 0;
+    for (const v of tacticNearScratch) {
+      if (!isCombatant(v)) continue;
+      const vc = CARDS[v.id];
+      // Support vehicles (command, repair, mine-clear) are not fighting
+      // strength: their aura helps nearby men, but their presence 500px
+      // away must not tilt the local force ratio.
+      if (vc.vehicleSupport) continue;
+      const power =
+        (v.hp / v.maxHp) * (vc.armored ? 2.6 : vc.air ? 1.6 : 1);
+      if (v.side === u.side) {
+        if (Math.abs(v.x - u.x) <= 520) ownPower += power;
+      } else if (
+        visibleToSide(s, u.side, v) &&
+        Math.abs(v.x - u.x) <= 640
+      ) {
+        foePower += power;
+      }
+    }
+    const ratio = foePower > 0.01 ? ownPower / foePower : 4;
+    const discipline = c.discipline ?? 80;
+    const greenFactor = 0.55 + (100 - discipline) / 95;
+    if (ratio < 0.6) {
+      // A bounded fighting withdrawal is the morale safety valve: men giving
+      // ground in good order (overwatch behind them) lose nerve far slower
+      // than men pinned in place under the same bad odds.
+      const orderlyFallBack =
+        (u.withdrawUntil ?? 0) > s.time && u.tactic !== 'retreat';
+      u.personalMorale = Math.max(
+        0,
+        u.personalMorale -
+          (0.6 - ratio) * 13 * greenFactor * (orderlyFallBack ? 0.4 : 1),
+      );
+    } else if (ratio > 1.5) {
+      if (u.personalMorale < discipline)
+        u.personalMorale = Math.min(
+          discipline,
+          u.personalMorale + (ratio - 1.5) * 3.5,
+        );
+    }
+    const leaderUid = s.squadCommand?.[u.side * 1048576 + u.squad]?.leaderUid;
+    if (
+      leaderUid !== undefined &&
+      leaderUid !== u.uid &&
+      Math.abs(
+        (s.units.find((v) => v.uid === leaderUid)?.x ?? u.x) - u.x,
+      ) <= 300
+    ) {
+      if (u.personalMorale < discipline)
+        u.personalMorale = Math.min(discipline, u.personalMorale + 2.5);
+    }
+    if (
+      s.units.some(
+        (v) =>
+          v.side === u.side &&
+          isCombatant(v) &&
+          CARDS[v.id].armored &&
+          !CARDS[v.id].air &&
+        Math.abs(v.x - u.x) <= 360,
+    )
+    ) {
+      if (u.personalMorale < discipline)
+        u.personalMorale = Math.min(discipline, u.personalMorale + 2);
+    }
+    if ((u.lastKillAt ?? -99) > s.time - 6) {
+      if (u.personalMorale < discipline)
+        u.personalMorale = Math.min(discipline, u.personalMorale + 1.5);
+    }
   }
   if (u.personalMorale < 35 - moraleNerve && !orderedWithdrawal(s, u)) {
     u.originalSquad = u.squad;
@@ -7959,6 +8069,7 @@ export function tick(s: GameState, dt: number) {
             buddy.ammoReserve = (buddy.ammoReserve ?? 0) - share;
             u.ammoReserve = (u.ammoReserve ?? 0) + share;
             u.reloadingUntil = s.time + magSpec.reload;
+            u.reloadingStartAt = s.time;
             u.ammoShareUntil = s.time + 1.0;
             buddy.ammoShareUntil = s.time + 1.0;
             u.ammoBuddyUid = undefined;
@@ -8010,6 +8121,7 @@ export function tick(s: GameState, dt: number) {
               wreck.ammo = (wreck.ammo ?? 0) - (take - fromReserve);
               u.ammoReserve = (u.ammoReserve ?? 0) + take;
               u.reloadingUntil = s.time + magSpec.reload;
+              u.reloadingStartAt = s.time;
               u.scavengeWreckId = undefined;
               u.scavengeUntil = 0;
             }
@@ -8274,7 +8386,10 @@ export function tick(s: GameState, dt: number) {
           // Slow-firing infantry (snipers, AT, riflemen) visibly work the
           // bolt/magazine through the first part of their cooldown.
           if (c.members && u.cooldown >= 0.7 && u.cooldown < 4)
+          {
             u.reloadingUntil = s.time + u.cooldown * 0.55;
+            u.reloadingStartAt = s.time;
+          }
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
@@ -8298,6 +8413,7 @@ export function tick(s: GameState, dt: number) {
               if (spec) {
                 const rt = spec.reload * (u.suppression > 50 ? 1.5 : 1);
                 u.reloadingUntil = s.time + rt;
+                u.reloadingStartAt = s.time;
               }
             }
           }

@@ -28,6 +28,7 @@ import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
 import assert from 'node:assert/strict';
 import { economyBlock } from '../game/economy.ts';
+import { GREYLINE_LAYOUT_SEED } from '../game/maps.ts';
 import {
   createGame,
   startGame,
@@ -76,7 +77,9 @@ const hand = (s, id) => {
   return c;
 };
 const fresh = () => {
-  const s = createGame(37);
+  const s = createGame(37, undefined, undefined, undefined, {
+    mapSeed: GREYLINE_LAYOUT_SEED,
+  });
   startGame(s);
   // These staged physics scenarios retain their original test budget.
   s.players.forEach((p) => {
@@ -3053,6 +3056,9 @@ check('三条友军队列同时停火时，后排两侧均可绕行进入射程'
     const target = v13MovementSolo(s, 1 - side, 'infantry', x(1450));
     target.cooldown = 100;
     target.hp = target.maxHp = 1000;
+    // This is a pathing test, not a morale test: a lone 'advance' dummy 1v6
+    // drains nerve and retreats off its marker. Hold order keeps it planted.
+    target.tactic = 'hold';
     advance(s, 12);
     for (const u of rifles) {
       assert(u.shots >= 3, `side ${side}: blocked rifle did not engage`);
@@ -3379,7 +3385,9 @@ check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
 });
 check('v13交战：探身开火后装填期间不立即趴回地面', () => {
   const s = v13EngageFresh();
-  s.terrain = createGame(37).terrain;
+  s.terrain = createGame(37, undefined, undefined, undefined, {
+    mapSeed: GREYLINE_LAYOUT_SEED,
+  }).terrain;
   s.original = [...s.terrain];
   const u = v13EngageSingle(s, 0, 'sniper', 590);
   v13EngageEnemy(s, 1360);
@@ -3944,6 +3952,10 @@ const v14GunScene = (side, id) => {
     u.cooldown = u.secondaryCooldown = 100000;
     u.pace = 0;
     u.decisionIn = 100000;
+    // decisionIn alone does not stop the quickContact bypass for 'advance'
+    // units; a lone infantry dummy 1v1 vs a tank still drains nerve and
+    // retreats, which yanks the howitzer's escort baseline back to base.
+    u.tactic = 'hold';
     return u;
   };
   const gun = solo(side, id, 700);
