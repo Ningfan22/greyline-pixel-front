@@ -151,7 +151,7 @@ export function applyEconomy(
   else if (effect === 'bonds') {
     p.bondUses = (p.bondUses ?? 0) + 1;
     p.bondDueAt = time + ECONOMY_RULES.bondDelay;
-  } else {
+  } else if (effect === 'overdraft') {
     p.overdraftUntil = time + ECONOMY_RULES.overdraftDuration;
     p.energy = p.energy + ECONOMY_RULES.overdraftPayout;
   }

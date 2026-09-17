@@ -5608,6 +5608,18 @@ function updateAI(s: GameState) {
             p.hand.length >= 2
           )
             score = archetype === 'assault' ? 20 : 13;
+          if (
+            c.economy === 'production' &&
+            s.time < DURATION - 120 &&
+            p.energy >= cardCost(h)
+          )
+            // The surge pays for itself only with runway left; holding a
+            // high-cost card makes the immediate payout more valuable.
+            score = p.hand.some((h2) => cardCost(h2) >= 4) ? 19 : 15;
+          if (c.economy === 'forward_hq' && s.time < DURATION - 180)
+            // Permanent recharge upgrade — strictly better the earlier it lands.
+            // economyBlock already guarantees p.forwardHq is unset.
+            score = s.time < 120 ? 18 : s.time < 300 ? 14 : 8;
         }
       } else if (c.id === 'antitank_mine') {
         x = armor
@@ -5734,6 +5746,47 @@ function updateAI(s: GameState) {
           score = groundFoes.length ? 15 : 8;
       } else if (c.effect === 'cyber_suppression') {
         if (battle && s.players[0].energy >= 4) score = 16;
+      }
+      // v119: the v108 effect/economy cards had no scoring branches, so the
+      // director never played them. Each branch mirrors the closest existing
+      // pattern and checks the matching state field so the same buff is not
+      // re-cast while still active.
+      else if (c.effect === 'forage') {
+        if (p.hand.length <= MAX_HAND - 1) score = 25;
+      } else if (c.effect === 'blitz') {
+        if (
+          (p.blitzUntil ?? 0) < s.time &&
+          own.some((u) => CARDS[u.id].members)
+        ) {
+          if (battle || pushing) score = archetype === 'assault' ? 19 : 14;
+          else if (!emergency && cohorts >= 2) score = 8;
+        }
+      } else if (c.effect === 'blackout') {
+        if (
+          battle &&
+          s.players[0].energy >= 4 &&
+          (s.players[0].blackoutUntil ?? 0) < s.time
+        )
+          score = 15;
+      } else if (c.effect === 'interdict') {
+        if (battle && s.players[0].energy >= 3 && (s.players[0].taxCards ?? 0) <= 0)
+          score = 14;
+      } else if (c.effect === 'spoof') {
+        // Spoof is a cheap battle trick: worth it whenever enemy infantry is
+        // in contact, not only against massed charges. The active-window
+        // check below prevents re-casting the same debuff back-to-back.
+        if (battle && foot.length >= 1 && (s.players[0].spoofUntil ?? 0) < s.time)
+          score = 10;
+      } else if (c.effect === 'radar_jam') {
+        if ((armedAir.length || memAir >= 0.6) && (s.players[0].radarJamUntil ?? 0) < s.time)
+          score = armedAir.length ? 18 : 10;
+      } else if (c.effect === 'entrench') {
+        if (
+          battle &&
+          own.filter((u) => CARDS[u.id].members).length >= 3 &&
+          (p.entrenchUntil ?? 0) < s.time
+        )
+          score = emergency || armedAir.length ? 18 : 9;
       }
       // Archetype flavour: nudge the generic scoring toward the deck's plan.
       // Hard vetoes (-100) stay negative after a nudge, so this never revives

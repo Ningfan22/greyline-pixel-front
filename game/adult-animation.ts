@@ -585,6 +585,18 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     const t = (u.ammoSignalUntil ?? 0) - time;
     return Math.floor((1.4 - t) * 2.2) % 2 ? action(8) : action(13);
   }
+  // v119: weapon crews work the gun while emplacing. MG / AT gun / mortar
+  // setup is 1.2s of labour — the crew alternates the bent-work beat with
+  // the kneel so they read as hauling the weapon into position instead of
+  // standing frozen beside it. Prone/hunker crews stay low (they're pinned,
+  // not emplacing), and moving crews are handled by the gait branches below.
+  if (
+    (u.emplacementSetupUntil ?? 0) > time &&
+    !u.moving &&
+    u.pose !== 'prone' &&
+    u.pose !== 'hunker'
+  )
+    return Math.floor(time * 3 + u.uid) % 2 ? action(13) : action(1);
   // v110: stand↔crouch↔prone transitions. Placed after every action branch
   // (throws, treatment, signals, reload drills) so a real action always
   // interrupts the posture change, and before the pose branches below so the
@@ -605,6 +617,13 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // corpse. Covers both the primary and the underslung secondary.
     if (u.fire > 0 || u.secondaryFire > 0)
       return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 3 : 2);
+    // v119: in contact (aimUntil is refreshed on every engagement) a prone
+    // soldier keeps working the weapon between bursts — the lie alternates
+    // with the prone-work frame so the held line looks alive instead of a
+    // row of corpses. The phase is offset by uid so a squad doesn't sway in
+    // sync. idleMicro yields whenever aimUntil is active, so this shows.
+    if ((u.aimUntil ?? 0) > time)
+      return Math.floor(time * 2.2 + u.uid * 1.7) % 2 ? action(3) : action(2);
     return action(2);
   }
   if (u.pose === 'crouch') {
@@ -619,6 +638,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // so the burst has a recoil cadence instead of one static pose.
     if (u.fire > 0 || u.secondaryFire > 0)
       return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 13 : 1);
+    // v119: a crouched soldier in contact keeps the gun shouldered between
+    // bursts, shifting from the kneel to the hunched brace so the held
+    // position reads as aimed overwatch, not a man resting on one knee.
+    if ((u.aimUntil ?? 0) > time)
+      return Math.floor(time * 2.2 + u.uid * 1.7) % 2 ? action(13) : action(1);
     return action(1);
   }
   if (u.pose === 'hunker') {
