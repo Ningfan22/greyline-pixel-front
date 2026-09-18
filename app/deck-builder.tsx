@@ -154,10 +154,6 @@ export default function DeckBuilder({
     setPending(null);
   };
   const pick = (id: CardId) => {
-    if (collection && ownedCount(collection, id) === 0) {
-      setMessage(`「${CARDS[id].name}」未拥有，去商店开卡包解锁`);
-      return;
-    }
     if (countOf(id) >= limitOf(id)) {
       setMessage(
         `${CARDS[id].name}最多编入 ${limitOf(id)} 张（已拥有 ${ownedOf(id)}）`,
@@ -643,10 +639,10 @@ export default function DeckBuilder({
                         press.current?.id === c.id && press.current.consumed;
                       press.current = null;
                       if (event.detail > 0 && consumed) return;
-                      pick(c.id);
+                      setDetail(c.id);
                     }}
                     aria-pressed={picked}
-                    aria-label={`${draft.length === 20 ? '替换为' : '增加一张'}${c.name}，${c.cost} 点，${c.description}`}
+                    aria-label={`放大查看${c.name}，${c.cost} 点，${c.description}`}
                   >
                     <CardFace id={c.id} />
                     {locked && (
@@ -768,17 +764,20 @@ export default function DeckBuilder({
       >
         <DialogContent className="card-detail-dialog">
           {selectedCard && (
-            <>
+            <div className="detail-layout">
+              <div className="detail-card-col">
+                <CardFace
+                  id={selectedCard.id}
+                  className="detail-card-face"
+                  eager
+                />
+              </div>
+              <div className="detail-info-col">
               <DialogTitle>
                 {selectedCard.name}
                 <small>{selectedCard.cost} 指挥点</small>
               </DialogTitle>
               <DialogDescription>{selectedCard.tag}</DialogDescription>
-              <CardFace
-                id={selectedCard.id}
-                className="detail-card-face"
-                eager
-              />
               <p>{selectedCard.detail}</p>
               <blockquote className="card-flavor-quote">
                 {CARD_COPY[selectedCard.id].flavor}
@@ -821,7 +820,8 @@ export default function DeckBuilder({
                     : '增加一张'}
                 <ArrowRight size={16} />
               </button>
-            </>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

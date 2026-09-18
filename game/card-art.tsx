@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
+import { rarityOf } from './collection';
 
 const ADDITIONAL_CARD_ART = new Set([
   'pickup',
@@ -89,6 +90,15 @@ export function CardFace({
     value = cost ?? c.cost;
   const stats = cardStats(id, value);
   const [pictureFailed, setPictureFailed] = useState(false);
+  const rarity = rarityOf(id);
+  const frameSrc =
+    rarity === 'common'
+      ? assetUrl('/art/cards-v10/frame.webp')
+      : assetUrl(`/art/cards-v10/frame-${rarity}.webp`);
+  const nameLen = c.name.length;
+  const enLen = copy.en.length;
+  const ruleLen = copy.rule.length;
+  const flavorLen = copy.flavor.length;
   return (
     <figure
       className={`printed-card ${className}`}
@@ -98,7 +108,7 @@ export function CardFace({
         width={1024}
         height={1536}
         className="printed-card-frame"
-        src={assetUrl('/art/cards-v10/frame.webp')}
+        src={frameSrc}
         alt=""
         aria-hidden="true"
         decoding="async"
@@ -119,11 +129,18 @@ export function CardFace({
       />
       <span className="printed-card-cost" aria-hidden="true">
         <span>{value}</span>
-        <span>指挥</span>
       </span>
       <span className="printed-card-heading" aria-hidden="true">
-        <span className="printed-card-name">{c.name}</span>
-        <span className="printed-card-english">{copy.en}</span>
+        <span
+          className={`printed-card-name${nameLen >= 7 ? ' long-name' : ''}`}
+        >
+          {c.name}
+        </span>
+        <span
+          className={`printed-card-english${enLen >= 22 ? ' long-english' : ''}`}
+        >
+          {copy.en}
+        </span>
       </span>
       <span className="printed-card-type" aria-hidden="true">
         {copy.typeLabel}
@@ -139,10 +156,16 @@ export function CardFace({
       <span className="printed-card-ability" aria-hidden="true">
         {copy.ability}
       </span>
-      <span className="printed-card-rule" aria-hidden="true">
+      <span
+        className={`printed-card-rule${ruleLen >= 13 ? ' long-rule' : ''}`}
+        aria-hidden="true"
+      >
         {copy.rule}
       </span>
-      <span className="printed-card-flavor" aria-hidden="true">
+      <span
+        className={`printed-card-flavor${flavorLen >= 13 ? ' long-flavor' : ''}`}
+        aria-hidden="true"
+      >
         {copy.flavor}
       </span>
     </figure>

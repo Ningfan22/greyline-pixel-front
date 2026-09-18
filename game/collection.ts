@@ -12,9 +12,21 @@ export const RARITY_LABEL: Record<Rarity, string> = {
 
 export const PACK_COST = 100;
 export const PACK_SIZE = 5;
-export const AD_REWARD = 50;
+export const TEN_PACK_COST = 1000;
+export const TEN_PACK_SIZE = 50;
+export const AD_REWARD = 100;
 export const AD_COOLDOWN_MS = 15_000;
 export const STARTER_GOLD = 100;
+/** 测试期一次性发放的金币，方便联调商店与抽卡。 */
+export const TEST_GOLD_GRANT = 10000;
+
+/** 抽到已达携带上限的卡时，按稀有度转化为金币。 */
+export const RARITY_COMPENSATION: Record<Rarity, number> = {
+  common: 5,
+  rare: 10,
+  epic: 20,
+  legendary: 50,
+};
 
 export const COLLECTION_STORAGE = 'greyline-collection-v1';
 export const LEGACY_DECK_STORAGE = 'greyline-deck-v6';
@@ -24,6 +36,8 @@ export interface CollectionState {
   owned: Partial<Record<CardId, number>>;
   packsOpened: number;
   adsWatched: number;
+  /** 测试金币是否已发放，保证只发一次。 */
+  testGoldGranted?: boolean;
 }
 
 /** 初始牌库：30 种、共 45 张，覆盖默认「机步协同」编队。 */
@@ -163,6 +177,7 @@ function starterState(): CollectionState {
     owned: { ...STARTER_COLLECTION },
     packsOpened: 0,
     adsWatched: 0,
+    testGoldGranted: false,
   };
 }
 
@@ -182,6 +197,7 @@ export function loadCollection(): CollectionState {
           owned: { ...parsed.owned } as Partial<Record<CardId, number>>,
           packsOpened: parsed.packsOpened ?? 0,
           adsWatched: parsed.adsWatched ?? 0,
+          testGoldGranted: parsed.testGoldGranted ?? false,
         };
       }
     }
@@ -209,6 +225,11 @@ export function loadCollection(): CollectionState {
     }
     saveCollection(state);
   }
+  if (!state.testGoldGranted) {
+    state.gold += TEST_GOLD_GRANT;
+    state.testGoldGranted = true;
+    saveCollection(state);
+  }
   return state;
 }
 
@@ -220,26 +241,105 @@ export function saveCollection(state: CollectionState) {
   }
 }
 
-/** 开一包卡：随机 5 张（可重复），按稀有度加权。 */
+/** 一次开包的逐张结果：抽到的卡、是否转化、转化金币。 */
+export interface PackDraw {
+  id: CardId;
+  rarity: Rarity;
+  converted: boolean;
+  gold: number;
+}
+
+export interface PackResult {
+  state: CollectionState;
+  drawn: PackDraw[];
+  /** 本次转化获得的金币总数。 */
+  goldGained: number;
+  /** 十连保底是否触发（把一张常规替换成了王牌）。 */
+  pity: boolean;
+}
+
+/** 抽一张并结算：已达携带上限则转化为金币，否则入收藏。 */
+function settleDraw(
+  id: CardId,
+  owned: Partial<Record<CardId, number>>,
+): PackDraw {
+  const rarity = rarityOf(id);
+  const have = owned[id] ?? 0;
+  if (have >= copyLimit(id)) {
+    return { id, rarity, converted: true, gold: RARITY_COMPENSATION[rarity] };
+  }
+  owned[id] = have + 1;
+  return { id, rarity, converted: false, gold: 0 };
+}
+
+/** 开一包卡：随机 5 张（可重复），按稀有度加权；溢出转金币。 */
 export function openPack(
   state: CollectionState,
   rng: () => number = Math.random,
-): { state: CollectionState; drawn: CardId[] } {
-  const drawn: CardId[] = [];
+): PackResult {
   const owned = { ...state.owned };
+  const drawn: PackDraw[] = [];
+  let goldGained = 0;
   for (let i = 0; i < PACK_SIZE; i += 1) {
-    const id = rollCard(rollRarity(rng), rng);
-    drawn.push(id);
-    owned[id] = (owned[id] ?? 0) + 1;
+    const draw = settleDraw(rollCard(rollRarity(rng), rng), owned);
+    drawn.push(draw);
+    goldGained += draw.gold;
   }
   const next: CollectionState = {
     ...state,
-    gold: state.gold - PACK_COST,
+    gold: state.gold - PACK_COST + goldGained,
     owned,
     packsOpened: state.packsOpened + 1,
   };
   saveCollection(next);
-  return { state: next, drawn };
+  return { state: next, drawn, goldGained, pity: false };
+}
+
+/** 连开十包：50 张，至少保底一张王牌（epic）；溢出转金币。 */
+export function openTenPacks(
+  state: CollectionState,
+  rng: () => number = Math.random,
+): PackResult {
+  const owned = { ...state.owned };
+  const drawn: PackDraw[] = [];
+  let goldGained = 0;
+  let pity = false;
+  for (let i = 0; i < TEN_PACK_SIZE; i += 1) {
+    const id = rollCard(rollRarity(rng), rng);
+    drawn.push({ id, rarity: rarityOf(id), converted: false, gold: 0 });
+  }
+  // 保底：没有王牌及以上稀有度时，把第一张常规替换为王牌。
+  if (!drawn.some((d) => d.rarity === 'epic' || d.rarity === 'legendary')) {
+    const idx = drawn.findIndex((d) => d.rarity === 'common');
+    if (idx >= 0) {
+      // 尽量挑一张还没到携带上限的王牌，避免保底被转化成金币。
+      let pityId = rollCard('epic', rng);
+      for (let tries = 0; tries < 8 && (owned[pityId] ?? 0) >= copyLimit(pityId); tries += 1) {
+        pityId = rollCard('epic', rng);
+      }
+      drawn[idx] = {
+        id: pityId,
+        rarity: 'epic',
+        converted: false,
+        gold: 0,
+      };
+      pity = true;
+    }
+  }
+  for (const draw of drawn) {
+    const settled = settleDraw(draw.id, owned);
+    draw.converted = settled.converted;
+    draw.gold = settled.gold;
+    goldGained += settled.gold;
+  }
+  const next: CollectionState = {
+    ...state,
+    gold: state.gold - TEN_PACK_COST + goldGained,
+    owned,
+    packsOpened: state.packsOpened + 10,
+  };
+  saveCollection(next);
+  return { state: next, drawn, goldGained, pity };
 }
 
 export function grantAdReward(state: CollectionState): CollectionState {

@@ -4266,12 +4266,32 @@ footer button {
   display: none;
 }
 .card-detail-dialog {
-  max-width: 480px !important;
+  max-width: min(900px, calc(100vw - 24px)) !important;
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   background: #2b3d2e;
   border: 1px solid #a6ac82;
   padding: 28px;
+}
+.detail-layout {
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+}
+.detail-card-col {
+  flex: 0 0 auto;
+}
+.detail-info-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  padding-right: 8px;
+}
+.detail-info-col > p {
+  font-size: 14px;
+  line-height: 1.85;
+  color: #c9d0b5;
 }
 .card-detail-dialog h2 {
   display: flex;
@@ -4623,6 +4643,20 @@ footer button {
   .casualty-readout {
     font-size: 9px;
   }
+  .detail-layout {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card-detail-dialog .detail-card-col .detail-card-face {
+    height: auto;
+    width: min(100%, 280px);
+    margin: 0 auto;
+  }
+  .detail-info-col {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
 }
 
 /* Generated military print frame and promotional art, shared by the entire set. */
@@ -4691,15 +4725,9 @@ footer button {
 .printed-card-cost > span:first-child {
   display: block;
   font:
-    900 13cqw / 0.95 Impact,
+    900 15cqw / 0.95 Impact,
     'Arial Narrow',
     sans-serif;
-}
-.printed-card-cost > span:last-child {
-  display: block;
-  font-size: 3.2cqw;
-  font-weight: 800;
-  margin-top: 0.2cqw;
 }
 .printed-card .printed-card-heading {
   left: 23%;
@@ -4714,6 +4742,13 @@ footer button {
   font-weight: 900;
   line-height: 1.25;
   letter-spacing: -0.15cqw;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.printed-card .printed-card-name.long-name {
+  font-size: 6.15cqw;
+  letter-spacing: -0.2cqw;
 }
 .printed-card .printed-card-english {
   display: block;
@@ -4723,6 +4758,13 @@ footer button {
     Arial,
     sans-serif;
   letter-spacing: 0.3cqw;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.printed-card .printed-card-english.long-english {
+  font-size: 1.85cqw;
+  letter-spacing: 0.2cqw;
 }
 .printed-card .printed-card-type {
   right: 4.5%;
@@ -4763,6 +4805,9 @@ footer button {
   font-size: 5cqw;
   line-height: 1.1;
   font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .printed-card .printed-card-rule {
   left: 6.4%;
@@ -4772,6 +4817,11 @@ footer button {
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.printed-card .printed-card-rule.long-rule {
+  font-size: 3.3cqw;
 }
 .printed-card .printed-card-flavor {
   left: 6.4%;
@@ -4781,6 +4831,11 @@ footer button {
   font-size: 3.4cqw;
   line-height: 1.25;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.printed-card .printed-card-flavor.long-flavor {
+  font-size: 3.05cqw;
 }
 .armory .armory-card {
   background: #20261f;
@@ -4819,6 +4874,11 @@ footer button {
 .card-detail-dialog .detail-card-face {
   width: min(100%, 380px);
   margin: 4px auto 14px;
+}
+.card-detail-dialog .detail-card-col .detail-card-face {
+  width: auto;
+  height: min(640px, calc(100dvh - 140px));
+  margin: 0;
 }
 .card-detail-dialog > p {
   font-size: 14px;
@@ -5951,6 +6011,73 @@ body:has(.game-shell.touch-battle) {
   font-size: 10px;
   color: #8f9c7e;
 }
+.shop-buy-ten {
+  border-color: #c9a24a;
+  background: #4a3a1c;
+  color: #f5dfa0;
+  box-shadow: 3px 3px 0 #2a2010;
+}
+.shop-buy-ten:hover:not(:disabled) {
+  background: #5d4a24;
+}
+.shop-buy-ten:disabled {
+  opacity: 0.55;
+}
+.shop-ten-wrap {
+  max-height: 62vh;
+  overflow-y: auto;
+  cursor: pointer;
+  padding: 4px 16px 12px;
+}
+.shop-ten-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+  justify-content: center;
+  padding: 8px 4px;
+}
+.shop-flip.shop-ten-card {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: 100%;
+  box-shadow: 2px 2px 0 #101a14;
+  transform: none;
+}
+.shop-flip.shop-ten-card:hover {
+  filter: brightness(1.12);
+  transform: none;
+  z-index: 5;
+}
+.shop-reveal-summary {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #93a183;
+}
+.shop-reveal-summary b {
+  color: #ede0b8;
+}
+.shop-conversion {
+  color: #e0a93f;
+}
+.shop-pity {
+  color: #c98fe0;
+  font-weight: 700;
+}
+@media (max-width: 640px) {
+  .shop-ten-grid {
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 7px;
+  }
+  .shop-reveal-summary {
+    gap: 12px;
+    font-size: 10px;
+  }
+}
 .shop-progress {
   display: flex;
   gap: 26px;
@@ -5981,9 +6108,15 @@ body:has(.game-shell.touch-battle) {
   overflow-y: auto;
   padding: 4px 6px 12px 2px;
   scrollbar-color: #82916a #26362b;
+  min-width: 0;
 }
 .shop-owned-card {
   position: relative;
+  width: 100%;
+  min-width: 0;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  container-type: inline-size;
   border: 2px solid #6b7a55;
   box-shadow: 3px 3px 0 #101a14;
 }
@@ -6009,6 +6142,7 @@ body:has(.game-shell.touch-battle) {
 }
 .shop-owned-face {
   width: 100%;
+  height: 100%;
   display: block;
 }
 .shop-owned-count {

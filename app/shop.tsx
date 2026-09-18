@@ -17,12 +17,15 @@ import {
   AD_REWARD,
   PACK_COST,
   RARITY_LABEL,
+  TEN_PACK_COST,
   collectionProgress,
   grantAdReward,
   openPack,
+  openTenPacks,
   ownedCount,
   rarityOf,
   type CollectionState,
+  type PackDraw,
   type Rarity,
 } from '@/game/collection';
 
@@ -36,6 +39,13 @@ const RARITY_COLOR: Record<Rarity, string> = {
 const AD_COOLDOWN_STORAGE = 'greyline-ad-cooldown';
 
 type Phase = 'idle' | 'tearing' | 'fanned';
+
+interface RevealResult {
+  draws: PackDraw[];
+  ten: boolean;
+  goldGained: number;
+  pity: boolean;
+}
 
 function readAdCooldown(): number {
   try {
@@ -53,7 +63,7 @@ export default function Shop({
   onChange: (state: CollectionState) => void;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
-  const [drawn, setDrawn] = useState<CardId[] | null>(null);
+  const [result, setResult] = useState<RevealResult | null>(null);
   const [prevOwned, setPrevOwned] = useState<
     Partial<Record<CardId, number>>
   >({});
@@ -99,16 +109,22 @@ export default function Shop({
     [collection],
   );
 
-  const buyPack = () => {
-    if (collection.gold < PACK_COST) {
-      setMessage(`金币不足：一包需要 ${PACK_COST} 金币`);
+  const startReveal = (ten: boolean) => {
+    const cost = ten ? TEN_PACK_COST : PACK_COST;
+    if (collection.gold < cost) {
+      setMessage(`金币不足：${ten ? '十连' : '一包'}需要 ${cost} 金币`);
       return;
     }
-    const { state, drawn: cards } = openPack(collection);
+    const r = ten ? openTenPacks(collection) : openPack(collection);
     setPrevOwned(collection.owned);
-    onChange(state);
-    setDrawn(cards);
-    setFlipped(cards.map(() => false));
+    onChange(r.state);
+    setResult({
+      draws: r.drawn,
+      ten,
+      goldGained: r.goldGained,
+      pity: r.pity,
+    });
+    setFlipped(r.drawn.map(() => false));
     setMessage('');
     setPhase('tearing');
   };
@@ -137,26 +153,30 @@ export default function Shop({
   };
 
   const flipAll = () => {
-    if (!drawn) return;
+    if (!result) return;
     for (const timer of flipTimers.current) clearTimeout(timer);
     flipTimers.current = [];
     let delay = 0;
-    drawn.forEach((_, i) => {
+    result.draws.forEach((_, i) => {
       if (!flipped[i]) {
         const idx = i;
         flipTimers.current.push(setTimeout(() => flipOne(idx), delay));
-        delay += 120;
+        delay += result.ten ? 28 : 120;
       }
     });
   };
 
   const resetCounter = () => {
     setPhase('idle');
-    setDrawn(null);
+    setResult(null);
     setFlipped([]);
   };
 
-  const allFlipped = drawn !== null && flipped.every(Boolean);
+  const allFlipped = result !== null && flipped.every(Boolean);
+  const newCardCount =
+    result?.draws.filter(
+      (d) => !d.converted && (prevOwned[d.id] ?? 0) === 0,
+    ).length ?? 0;
 
   const adSecondsLeft = adReadyAt
     ? Math.max(0, Math.ceil((adReadyAt - Date.now()) / 1000))
@@ -187,7 +207,7 @@ export default function Shop({
             />
             <figcaption>
               <b>前线卡包</b>
-              <small>每包 5 张 · 可重复 · 按稀有度加权</small>
+              <small>每包 5 张 · 十连必出王牌 · 溢出转金币</small>
             </figcaption>
           </figure>
           <div className="shop-actions">
@@ -195,9 +215,17 @@ export default function Shop({
               type="button"
               className="primary-button shop-buy"
               disabled={collection.gold < PACK_COST}
-              onClick={buyPack}
+              onClick={() => startReveal(false)}
             >
               <Package size={16} /> 开一包 · {PACK_COST} 金币
+            </button>
+            <button
+              type="button"
+              className="primary-button shop-buy shop-buy-ten"
+              disabled={collection.gold < TEN_PACK_COST}
+              onClick={() => startReveal(true)}
+            >
+              <Package size={16} /> 连开十包 · {TEN_PACK_COST} 金币
             </button>
             <button
               type="button"
@@ -212,6 +240,8 @@ export default function Shop({
             </button>
             <p className="shop-rates">
               出率：常规 60% · 精锐 28% · 王牌 10% · 传奇 2%
+              <br />
+              溢出转化：常规 +5 · 精锐 +10 · 王牌 +20 · 传奇 +50 金币
             </p>
             {message && <p className="shop-message">{message}</p>}
           </div>
@@ -224,53 +254,120 @@ export default function Shop({
           <p className="shop-hint">点击跳过动画</p>
         </section>
       ) : (
-        drawn && (
+        result && (
         <section className="shop-reveal" aria-label="开包结果">
-          <div className="shop-fan" onClick={flipAll}>
-            {drawn.map((id, i) => {
-              const rarity = rarityOf(id);
-              const isNew = (prevOwned[id] ?? 0) === 0;
-              const style = {
-                '--fan-x': `${(i - 2) * 62}px`,
-                '--fan-r': `${(i - 2) * 11}deg`,
-                '--fan-y': `${Math.abs(i - 2) * 12}px`,
-                zIndex: 10 - Math.abs(i - 2),
-              } as CSSProperties;
-              return (
-                <button
-                  type="button"
-                  key={`${id}-${i}`}
-                  style={style}
-                  className={`shop-flip shop-fan-card ${flipped[i] ? 'open' : ''} rarity-${rarity}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    flipOne(i);
-                  }}
-                  aria-label={flipped[i] ? `${CARDS[id].name}，${RARITY_LABEL[rarity]}` : '未翻开的卡'}
-                >
-                  <span className="shop-flip-inner">
-                    <img
-                      className="shop-flip-back"
-                      src={assetUrl('/art/card-back-v1.webp')}
-                      alt=""
-                      width={200}
-                      height={300}
-                      draggable={false}
-                    />
-                    <span className="shop-flip-front">
-                      <CardFace id={id} className="shop-card-face" />
-                      <span
-                        className="shop-card-rarity"
-                        style={{ color: RARITY_COLOR[rarity] }}
-                      >
-                        {RARITY_LABEL[rarity]}
-                        {isNew ? ' · 新卡' : ''}
+          {result.ten ? (
+            <div className="shop-ten-wrap" onClick={flipAll}>
+              <div className="shop-ten-grid">
+                {result.draws.map((d, i) => {
+                  const isNew =
+                    !d.converted && (prevOwned[d.id] ?? 0) === 0;
+                  return (
+                    <button
+                      type="button"
+                      key={`${d.id}-${i}`}
+                      className={`shop-flip shop-ten-card ${flipped[i] ? 'open' : ''} rarity-${d.rarity}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        flipOne(i);
+                      }}
+                      aria-label={
+                        flipped[i]
+                          ? `${CARDS[d.id].name}，${RARITY_LABEL[d.rarity]}`
+                          : '未翻开的卡'
+                      }
+                    >
+                      <span className="shop-flip-inner">
+                        <img
+                          className="shop-flip-back"
+                          src={assetUrl('/art/card-back-v1.webp')}
+                          alt=""
+                          width={200}
+                          height={300}
+                          draggable={false}
+                        />
+                        <span className="shop-flip-front">
+                          <CardFace id={d.id} className="shop-card-face" />
+                          <span
+                            className="shop-card-rarity"
+                            style={{ color: RARITY_COLOR[d.rarity] }}
+                          >
+                            {RARITY_LABEL[d.rarity]}
+                            {isNew ? ' · 新卡' : ''}
+                            {d.converted
+                              ? ` · 转化 +${d.gold}金`
+                              : ''}
+                          </span>
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="shop-fan" onClick={flipAll}>
+              {result.draws.map((d, i) => {
+                const isNew =
+                  !d.converted && (prevOwned[d.id] ?? 0) === 0;
+                const style = {
+                  '--fan-x': `${(i - 2) * 62}px`,
+                  '--fan-r': `${(i - 2) * 11}deg`,
+                  '--fan-y': `${Math.abs(i - 2) * 12}px`,
+                  zIndex: 10 - Math.abs(i - 2),
+                } as CSSProperties;
+                return (
+                  <button
+                    type="button"
+                    key={`${d.id}-${i}`}
+                    style={style}
+                    className={`shop-flip shop-fan-card ${flipped[i] ? 'open' : ''} rarity-${d.rarity}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      flipOne(i);
+                    }}
+                    aria-label={
+                      flipped[i]
+                        ? `${CARDS[d.id].name}，${RARITY_LABEL[d.rarity]}`
+                        : '未翻开的卡'
+                    }
+                  >
+                    <span className="shop-flip-inner">
+                      <img
+                        className="shop-flip-back"
+                        src={assetUrl('/art/card-back-v1.webp')}
+                        alt=""
+                        width={200}
+                        height={300}
+                        draggable={false}
+                      />
+                      <span className="shop-flip-front">
+                        <CardFace id={d.id} className="shop-card-face" />
+                        <span
+                          className="shop-card-rarity"
+                          style={{ color: RARITY_COLOR[d.rarity] }}
+                        >
+                          {RARITY_LABEL[d.rarity]}
+                          {isNew ? ' · 新卡' : ''}
+                          {d.converted ? ` · 转化 +${d.gold}金` : ''}
+                        </span>
                       </span>
                     </span>
-                  </span>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="shop-reveal-summary">
+            <span>
+              新卡 <b>{newCardCount}</b> 张
+            </span>
+            {result.goldGained > 0 && (
+              <span className="shop-conversion">
+                溢出转化 <b>+{result.goldGained}</b> 金币
+              </span>
+            )}
+            {result.pity && <span className="shop-pity">保底王牌已触发</span>}
           </div>
           <div className="shop-reveal-actions">
             <button
@@ -285,9 +382,17 @@ export default function Shop({
               type="button"
               className="primary-button"
               disabled={collection.gold < PACK_COST}
-              onClick={buyPack}
+              onClick={() => startReveal(false)}
             >
               <RotateCcw size={15} /> 再开一包
+            </button>
+            <button
+              type="button"
+              className="primary-button shop-buy-ten"
+              disabled={collection.gold < TEN_PACK_COST}
+              onClick={() => startReveal(true)}
+            >
+              <RotateCcw size={15} /> 再开十包
             </button>
           </div>
           {!allFlipped && <p className="shop-hint">点击卡片翻一张 · 点击桌面全翻</p>}
