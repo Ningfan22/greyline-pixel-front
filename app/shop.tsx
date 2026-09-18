@@ -1,10 +1,17 @@
 'use client';
 /* oxlint-disable next/no-img-element -- 静态托管下直接使用生成的 WebP 素材。 */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { Coins, Package, Play, RotateCcw, X } from 'lucide-react';
 import { CARDS, type CardId } from '@/game/cards';
 import { CardFace } from '@/game/card-art';
 import { assetUrl } from '@/game/asset-url';
+import TearCanvas from './tear-canvas';
 import {
   AD_COOLDOWN_MS,
   AD_REWARD,
@@ -21,12 +28,14 @@ import {
 
 const RARITY_COLOR: Record<Rarity, string> = {
   common: '#8b9578',
-  rare: '#5b8dd9',
-  epic: '#a06fd0',
-  legendary: '#e0a93f',
+  rare: '#c0c8d0',
+  epic: '#e8c25a',
+  legendary: '#b06fd0',
 };
 
 const AD_COOLDOWN_STORAGE = 'greyline-ad-cooldown';
+
+type Phase = 'idle' | 'tearing' | 'fanned';
 
 function readAdCooldown(): number {
   try {
@@ -43,26 +52,23 @@ export default function Shop({
   collection: CollectionState;
   onChange: (state: CollectionState) => void;
 }) {
+  const [phase, setPhase] = useState<Phase>('idle');
   const [drawn, setDrawn] = useState<CardId[] | null>(null);
   const [prevOwned, setPrevOwned] = useState<
     Partial<Record<CardId, number>>
   >({});
-  const [revealed, setRevealed] = useState(0);
+  const [flipped, setFlipped] = useState<boolean[]>([]);
   const [message, setMessage] = useState('');
   const [adReadyAt, setAdReadyAt] = useState(readAdCooldown);
   const [, forceTick] = useState(0);
-  const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const flipTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
-    if (!drawn) return;
-    revealTimers.current = drawn.map((_, i) =>
-      setTimeout(() => setRevealed((n) => Math.max(n, i + 1)), 350 * (i + 1)),
-    );
     return () => {
-      for (const timer of revealTimers.current) clearTimeout(timer);
-      revealTimers.current = [];
+      for (const timer of flipTimers.current) clearTimeout(timer);
+      flipTimers.current = [];
     };
-  }, [drawn]);
+  }, []);
 
   useEffect(() => {
     if (!adReadyAt) return;
@@ -102,8 +108,9 @@ export default function Shop({
     setPrevOwned(collection.owned);
     onChange(state);
     setDrawn(cards);
-    setRevealed(0);
+    setFlipped(cards.map(() => false));
     setMessage('');
+    setPhase('tearing');
   };
 
   const watchAd = () => {
@@ -119,6 +126,37 @@ export default function Shop({
     }
     setMessage(`广告播放完毕，获得 ${AD_REWARD} 金币（模拟）`);
   };
+
+  const flipOne = (i: number) => {
+    setFlipped((prev) => {
+      if (prev[i]) return prev;
+      const next = [...prev];
+      next[i] = true;
+      return next;
+    });
+  };
+
+  const flipAll = () => {
+    if (!drawn) return;
+    for (const timer of flipTimers.current) clearTimeout(timer);
+    flipTimers.current = [];
+    let delay = 0;
+    drawn.forEach((_, i) => {
+      if (!flipped[i]) {
+        const idx = i;
+        flipTimers.current.push(setTimeout(() => flipOne(idx), delay));
+        delay += 120;
+      }
+    });
+  };
+
+  const resetCounter = () => {
+    setPhase('idle');
+    setDrawn(null);
+    setFlipped([]);
+  };
+
+  const allFlipped = drawn !== null && flipped.every(Boolean);
 
   const adSecondsLeft = adReadyAt
     ? Math.max(0, Math.ceil((adReadyAt - Date.now()) / 1000))
@@ -137,7 +175,7 @@ export default function Shop({
         </div>
       </header>
 
-      {!drawn ? (
+      {phase === 'idle' ? (
         <section className="shop-counter">
           <figure className="shop-pack">
             <img
@@ -178,20 +216,37 @@ export default function Shop({
             {message && <p className="shop-message">{message}</p>}
           </div>
         </section>
+      ) : phase === 'tearing' ? (
+        <section className="shop-reveal" aria-label="开包动画">
+          <div className="shop-tear-wrap">
+            <TearCanvas onDone={() => setPhase('fanned')} />
+          </div>
+          <p className="shop-hint">点击跳过动画</p>
+        </section>
       ) : (
+        drawn && (
         <section className="shop-reveal" aria-label="开包结果">
-          <div className="shop-cards">
+          <div className="shop-fan" onClick={flipAll}>
             {drawn.map((id, i) => {
               const rarity = rarityOf(id);
-              const isOpen = i < revealed;
               const isNew = (prevOwned[id] ?? 0) === 0;
+              const style = {
+                '--fan-x': `${(i - 2) * 62}px`,
+                '--fan-r': `${(i - 2) * 11}deg`,
+                '--fan-y': `${Math.abs(i - 2) * 12}px`,
+                zIndex: 10 - Math.abs(i - 2),
+              } as CSSProperties;
               return (
                 <button
                   type="button"
                   key={`${id}-${i}`}
-                  className={`shop-flip ${isOpen ? 'open' : ''} rarity-${rarity}`}
-                  onClick={() => setRevealed((n) => Math.max(n, i + 1))}
-                  aria-label={isOpen ? `${CARDS[id].name}，${RARITY_LABEL[rarity]}` : '未翻开的卡'}
+                  style={style}
+                  className={`shop-flip shop-fan-card ${flipped[i] ? 'open' : ''} rarity-${rarity}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    flipOne(i);
+                  }}
+                  aria-label={flipped[i] ? `${CARDS[id].name}，${RARITY_LABEL[rarity]}` : '未翻开的卡'}
                 >
                   <span className="shop-flip-inner">
                     <img
@@ -221,11 +276,8 @@ export default function Shop({
             <button
               type="button"
               className="secondary-button"
-              disabled={revealed < drawn.length}
-              onClick={() => {
-                setDrawn(null);
-                setRevealed(0);
-              }}
+              disabled={!allFlipped}
+              onClick={resetCounter}
             >
               <X size={15} /> 收下
             </button>
@@ -238,10 +290,9 @@ export default function Shop({
               <RotateCcw size={15} /> 再开一包
             </button>
           </div>
-          {revealed < drawn.length && (
-            <p className="shop-hint">点击卡面可立即翻开</p>
-          )}
+          {!allFlipped && <p className="shop-hint">点击卡片翻一张 · 点击桌面全翻</p>}
         </section>
+        )
       )}
 
       <section className="shop-progress">

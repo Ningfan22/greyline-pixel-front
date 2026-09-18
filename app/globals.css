@@ -5788,12 +5788,47 @@ body:has(.game-shell.touch-battle) {
 }
 .shop-reveal {
   padding: 28px 0 8px;
+  border: 2px solid #4a3a28;
+  background:
+    repeating-linear-gradient(90deg, #2b2218 0 64px, #241c13 64px 66px),
+    linear-gradient(180deg, #342a1d, #221a11);
+  box-shadow:
+    inset 0 12px 26px rgba(0, 0, 0, 0.55),
+    inset 0 -10px 20px rgba(0, 0, 0, 0.45);
 }
-.shop-cards {
+.shop-tear-wrap {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
   justify-content: center;
+  padding: 12px 0 4px;
+}
+.tear-canvas {
+  width: 300px;
+  height: auto;
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+.shop-fan {
+  position: relative;
+  height: 360px;
+  cursor: pointer;
+}
+.shop-flip.shop-fan-card {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  width: 132px;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5);
+  transform: translateX(calc(-50% + var(--fan-x, 0px)))
+    rotate(var(--fan-r, 0deg)) translateY(var(--fan-y, 0px));
+  transform-origin: 50% 110%;
+  transition: transform 0.18s ease;
+}
+.shop-flip.shop-fan-card:hover {
+  z-index: 50 !important;
+  filter: brightness(1.12);
+  transform: translateX(calc(-50% + var(--fan-x, 0px)))
+    rotate(var(--fan-r, 0deg))
+    translateY(calc(var(--fan-y, 0px) - 16px));
 }
 .shop-flip {
   position: relative;
@@ -5828,21 +5863,62 @@ body:has(.game-shell.touch-battle) {
   object-fit: cover;
 }
 .shop-flip-front {
+  overflow: hidden;
   transform: rotateY(180deg);
   display: flex;
   flex-direction: column;
 }
 .shop-flip.rarity-rare {
-  border-color: #5b8dd9;
-  box-shadow: 4px 4px 0 #101a14, 0 0 14px #5b8dd966;
+  border-color: #c0c8d0;
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.5),
+    0 0 14px rgba(192, 200, 208, 0.5);
 }
 .shop-flip.rarity-epic {
-  border-color: #a06fd0;
-  box-shadow: 4px 4px 0 #101a14, 0 0 16px #a06fd077;
+  border-color: #e8c25a;
+  border-width: 3px;
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.5),
+    0 0 18px rgba(232, 194, 90, 0.6);
+}
+.shop-flip.rarity-epic .shop-flip-front::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 240, 190, 0.35) 48%,
+    rgba(255, 250, 220, 0.5) 50%,
+    rgba(255, 240, 190, 0.35) 52%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  animation: rarity-shine 2.4s ease-in-out infinite;
+  pointer-events: none;
 }
 .shop-flip.rarity-legendary {
-  border-color: #e0a93f;
-  box-shadow: 4px 4px 0 #101a14, 0 0 20px #e0a93f99;
+  border-color: #b06fd0;
+  border-width: 4px;
+  animation: rarity-pulse 1.8s ease-in-out infinite;
+}
+@keyframes rarity-shine {
+  0% {
+    transform: translateX(-120%);
+  }
+  55%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+@keyframes rarity-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(176, 111, 208, 0.55));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(176, 111, 208, 0.9));
+  }
 }
 .shop-card-face {
   width: 100%;
@@ -5908,6 +5984,28 @@ body:has(.game-shell.touch-battle) {
 }
 .shop-owned-card {
   position: relative;
+  border: 2px solid #6b7a55;
+  box-shadow: 3px 3px 0 #101a14;
+}
+.shop-owned-card.rarity-rare {
+  border-color: #c0c8d0;
+  box-shadow:
+    3px 3px 0 #101a14,
+    0 0 12px rgba(192, 200, 208, 0.45);
+}
+.shop-owned-card.rarity-epic {
+  border-color: #e8c25a;
+  border-width: 3px;
+  box-shadow:
+    3px 3px 0 #101a14,
+    0 0 14px rgba(232, 194, 90, 0.55);
+}
+.shop-owned-card.rarity-legendary {
+  border-color: #b06fd0;
+  border-width: 4px;
+  box-shadow:
+    3px 3px 0 #101a14,
+    0 0 16px rgba(176, 111, 208, 0.7);
 }
 .shop-owned-face {
   width: 100%;
