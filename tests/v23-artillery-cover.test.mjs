@@ -13,8 +13,11 @@ function until(s,predicate,seconds=12){for(let t=0;t<seconds&&!predicate();t+=DT
 function templates(){
  const all={};
  for(const id of ['tank','helicopter']){
-  const s=arena();spawnUnit(s,1,id,1800);const u=s.units[0];explode(s,u.x,u.y-20,160,10000,0,1,1,id==='helicopter'?'air':'he');
-  assert.ok(u.destroyed,'wreck fixture must come from actual death');assert.equal(s.wrecks.length,1);
+ const s=arena();spawnUnit(s,1,id,1800);const u=s.units[0];explode(s,u.x,u.y-20,160,10000,0,1,1,id==='helicopter'?'air':'he');
+ assert.ok(u.destroyed,'wreck fixture must come from actual death');
+ // Vehicle crew may bail out and perish in the same blast; their bodies are not the fixture under test.
+ s.wrecks=s.wrecks.filter(w=>w.cardId===id);s.units=s.units.filter(v=>v.id===id);
+ assert.equal(s.wrecks.length,1);
   s.terrain.fill(374);s.original.fill(374);until(s,()=>!s.wrecks[0].falling,5);tick(s,DT);
   all[id]=structuredClone(s.wrecks[0]);assert.ok(obstacleBoxes(s).some(b=>b.wreck?.id===u.uid),'death must produce solid authored wreck geometry');
  }

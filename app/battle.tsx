@@ -114,6 +114,7 @@ export default function Battle({
   seed,
   mapId = DEFAULT_MAP,
   difficulty = DEFAULT_DIFFICULTY,
+  night = false,
   missionId,
   onMissionComplete,
   onNextMission,
@@ -124,6 +125,7 @@ export default function Battle({
   seed: number;
   mapId?: MapId;
   difficulty?: Difficulty;
+  night?: boolean;
   missionId?: MissionId;
   onMissionComplete?: (id: MissionId) => void;
   onNextMission?: () => void;
@@ -132,7 +134,7 @@ export default function Battle({
   const [initialGame] = useState(() =>
     missionId
       ? createCampaignGame(seed, playerDeck, missionId, difficulty)
-      : createGame(seed, playerDeck, aiDeck, mapId, { difficulty }),
+      : createGame(seed, playerDeck, aiDeck, mapId, { difficulty, night }),
   );
   const game = useRef<GameState>(initialGame);
   const [view, setView] = useState(() => snapshot(initialGame));
@@ -216,6 +218,12 @@ export default function Battle({
   useEffect(() => {
     const mixer = getBattleAudio();
     audio.current = mixer;
+    // 进入战斗立即激活音乐（菜单已解锁时无缝延续，未解锁时在首次手势后播放）。
+    mixer.setActive(true);
+    void mixer.unlock();
+    // 轻量双保险：进战斗即推音乐，300ms 后再试一次覆盖异步解锁的空窗。
+    mixer.kick();
+    const kickTimer = setTimeout(() => mixer.kick(), 300);
     let mounted = true;
     queueMicrotask(() => {
       if (mounted) setAudioSettings({ ...mixer.settings });
@@ -227,6 +235,7 @@ export default function Battle({
     window.addEventListener('keydown', unlock);
     return () => {
       mounted = false;
+      clearTimeout(kickTimer);
       window.removeEventListener('pointerdown', unlock);
       window.removeEventListener('keydown', unlock);
       mixer.setActive(false);
@@ -297,6 +306,7 @@ export default function Battle({
       ? createCampaignGame(nextSeed, playerDeck, missionId, difficulty)
       : createGame(nextSeed, playerDeck, chooseAiDeck(nextSeed), mapId, {
           difficulty,
+          night,
         });
     startGame(game.current);
     if (missionId) {
@@ -317,6 +327,7 @@ export default function Battle({
     playerDeck,
     mapId,
     difficulty,
+    night,
     missionId,
     interruptCardHold,
     selectSquad,
@@ -500,7 +511,11 @@ export default function Battle({
         s,
         camera.current,
         viewport.current,
-        !document.hidden && !portraitGate.current && s.status === 'playing',
+        // v99: music starts the moment the battle screen appears (status
+        // 'ready'), not only after the first card is deployed.
+        !document.hidden &&
+          !portraitGate.current &&
+          (s.status === 'playing' || s.status === 'ready'),
       );
       if (now - lastView > 90) {
         setView(snapshot(s));
@@ -816,6 +831,12 @@ export default function Battle({
             +1 / {p.energyInterval.toFixed(1)}秒
             {p.bondDueAt !== null
               ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
+              : ''}
+            {p.overdraftUntil !== null && p.overdraftUntil > view.time
+              ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
+              : ''}
+            {p.suppressedUntil !== null && p.suppressedUntil > view.time
+              ? ` · 遭压制 ${Math.max(0, Math.ceil(p.suppressedUntil - view.time))}秒`
               : ''}
           </small>
         </div>
@@ -1475,6 +1496,17 @@ export default function Battle({
                 }}
               />
             ))}
+          {view.batteryReports?.map((r) => (
+            <i
+              key={r.uid}
+              className="map-battery"
+              style={{
+                left: `${(r.x / W) * 100}%`,
+                opacity: Math.min(1, r.life / (r.maxLife * 0.5)),
+              }}
+              title={`敌方炮位 ${Math.ceil(r.life)}s`}
+            />
+          ))}
           <span
             className="map-window"
             style={{
@@ -1584,6 +1616,12 @@ export default function Battle({
               {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
               {p.bondDueAt !== null
                 ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒后结算`
+                : ''}
+              {p.overdraftUntil !== null && p.overdraftUntil > view.time
+                ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
+                : ''}
+              {p.suppressedUntil !== null && p.suppressedUntil > view.time
+                ? ` · 遭压制 ${Math.max(0, Math.ceil(p.suppressedUntil - view.time))}秒`
                 : ''}
             </span>
             <span>

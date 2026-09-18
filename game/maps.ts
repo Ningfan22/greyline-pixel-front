@@ -50,6 +50,12 @@ export const MAP_IDS: readonly MapId[] = [
   'desert',
 ];
 export const DEFAULT_MAP: MapId = 'greyline';
+/**
+ * v113: the classic fixed terrain seed for greyline. Tests and replays pass
+ * this as MatchOptions.mapSeed to reproduce the original battlefield instead
+ * of the seed-driven procedural layout.
+ */
+export const GREYLINE_LAYOUT_SEED = 119;
 export const MAPS: Record<MapId, MapDefinition> = {
   greyline: {
     id: 'greyline',
@@ -167,16 +173,110 @@ export function mapDefinition(value: unknown): MapDefinition {
   return MAPS[isMapId(value) ? value : DEFAULT_MAP];
 }
 const WIDTH = 3840;
+
+/**
+ * v113: deterministic PRNG for seeded map generation. The same seed always
+ * produces the same battlefield, so replays and multiplayer lobbies can
+ * share a layout by sharing a seed. mulberry32 is small, fast, and has
+ * enough period for terrain + scenery jitter.
+ */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Seeded terrain for non-greyline maps. Jitters each wave's amplitude,
+ * wavelength and phase, and adds one extra small wave for surface texture.
+ * The jitter ranges are conservative enough to preserve the walkability
+ * guarantees the engine relies on: adjacent px step ≤ 1, 36 px span ≤ 9,
+ * and every elevation inside [310, 430]. Mirror symmetry and edge
+ * flattening are inherited from the same formula the default terrain uses.
+ */
+function seededTerrain(
+  definition: MapDefinition,
+  width: number,
+  rand: () => number,
+): number[] {
+  // Jitter ranges are tight enough to preserve every walkability guarantee
+  // the engine relies on, even for the steepest profile (mountains):
+  // adjacent px step ≤ 1, 36 px span ≤ 9, elevation inside [310, 430].
+  // Worst case (all peaks aligned): 36 px span ≈ 8.5, range ≈ ±54.
+  const waves = definition.terrainProfile.map((w) => ({
+    amplitude: w.amplitude * (0.88 + rand() * 0.24),
+    wavelength: w.wavelength * (0.94 + rand() * 0.12),
+    phase: w.phase + rand() * Math.PI * 2,
+  }));
+  // One extra low-amplitude wave breaks up the repeating rhythm so two
+  // seeded maps don't feel like the same hills shifted sideways.
+  waves.push({
+    amplitude: 1.5 + rand() * 2,
+    wavelength: 750 + rand() * 450,
+    phase: rand() * Math.PI * 2,
+  });
+  return Array.from({ length: width }, (_, x) => {
+    const edge = Math.min(x, width - 1 - x);
+    // Seeded terrain uses a wider blend ramp (450 px vs the authored 300)
+    // so a jittered wave peak landing on the flank never pushes the 36 px
+    // walkability span past 9.
+    const blend = smooth(Math.max(0, Math.min(1, (edge - 220) / 450)));
+    const distance = ((x - (width - 1) / 2) * WIDTH) / width;
+    const elevation = waves.reduce(
+      (height, wave) =>
+        height +
+        wave.amplitude *
+          Math.cos(
+            (Math.abs(distance) * Math.PI * 2) / wave.wavelength + wave.phase,
+          ),
+      0,
+    );
+    return 374 + Math.round(elevation * blend);
+  });
+}
+
+/**
+ * Seeded terrain for the greyline village map. Jitters the two sine
+ * frequencies, amplitudes and phases while keeping the 125 px flat
+ * apron on both flanks. The village sits on open ground, so there is no
+ * mirror-symmetry requirement here — the sin waves already read as
+ * natural rolling terrain.
+ */
+function seededVillageTerrain(width: number, rand: () => number): number[] {
+  const f1 = 0.004 * (0.85 + rand() * 0.3);
+  const f2 = 0.013 * (0.85 + rand() * 0.3);
+  const a1 = 13 * (0.8 + rand() * 0.4);
+  const a2 = 5 * (0.8 + rand() * 0.4);
+  const p1 = rand() * Math.PI * 2;
+  const p2 = rand() * Math.PI * 2;
+  return Array.from({ length: width }, (_, x) => {
+    if (x < 125 || x > width - 125) return 374;
+    return 374 + Math.round(Math.sin(x * f1 + p1) * a1 + Math.sin(x * f2 + p2) * a2);
+  });
+}
+
 const VILLAGE_ANCHORS = [
   620, 820, 1040, 1250, 1450, 1680, 1910, 2140, 2370, 2570, 2790, 3000, 3220,
 ];
 /** Default sites reproduce the existing village, including paired trees and visual seeds. */
-export function villageScenerySites(width = WIDTH): MapScenerySite[] {
+export function villageScenerySites(
+  width = WIDTH,
+  rand?: () => number,
+): MapScenerySite[] {
   return VILLAGE_ANCHORS.flatMap((x, i) => {
     const house = i % 3 === 0;
+    // Seeded layouts nudge each anchor ±35 px. Anchors are ≥200 px apart, so
+    // neighbours never collide; paired trees keep their 72 px gap because
+    // both members of a pair share the same jitter.
+    const jx = x + (rand ? Math.round((rand() * 2 - 1) * 35) : 0);
     const site: MapScenerySite = {
       id: i * 2,
-      x: Math.round((x * width) / WIDTH),
+      x: Math.round((jx * width) / WIDTH),
       kind: house ? 'house' : 'tree',
       seed: 119 + i * 47,
       building: house ? Math.floor(i / 3) % 3 : undefined,
@@ -188,15 +288,28 @@ export function villageScenerySites(width = WIDTH): MapScenerySite[] {
           {
             ...site,
             id: i * 2 + 1,
-            x: Math.round(((x + 72) * width) / WIDTH),
+            x: Math.round(((jx + 72) * width) / WIDTH),
             seed: site.seed + 7,
           },
         ];
   });
 }
 const smooth = (t: number) => t * t * (3 - 2 * t);
-export function mapTerrain(id: MapId = DEFAULT_MAP, width = WIDTH): number[] {
+export function mapTerrain(
+  id: MapId = DEFAULT_MAP,
+  width = WIDTH,
+  seed?: number,
+): number[] {
   const definition = mapDefinition(id);
+  // A seed that differs from the layout seed switches to procedural
+  // generation. Omitting the seed (or passing the layout seed) reproduces
+  // the authored terrain pixel-for-pixel.
+  if (seed !== undefined && seed !== definition.layoutSeed) {
+    const rand = mulberry32(seed);
+    return definition.id === 'greyline'
+      ? seededVillageTerrain(width, rand)
+      : seededTerrain(definition, width, rand);
+  }
   return Array.from({ length: width }, (_, x) => {
     if (definition.id === 'greyline')
       return x < 125 || x > width - 125
@@ -218,7 +331,11 @@ export function mapTerrain(id: MapId = DEFAULT_MAP, width = WIDTH): number[] {
     return 374 + Math.round(elevation * blend);
   });
 }
-function mirroredSites(id: MapId, width: number): MapScenerySite[] {
+function mirroredSites(
+  id: MapId,
+  width: number,
+  rand?: () => number,
+): MapScenerySite[] {
   const definition = MAPS[id];
   const trees =
     id === 'jungle'
@@ -239,7 +356,18 @@ function mirroredSites(id: MapId, width: number): MapScenerySite[] {
       building: (i + (id === 'desert' ? 2 : 0)) % 3,
     })),
   ].sort((a, b) => a.x - b.x);
-  return entries
+  // Seeded layouts jitter each site ±30 px, then enforce a minimum gap so
+  // the dense jungle tree line (some anchors only 65 px apart) never
+  // overlaps. Clamping preserves anchor order, so seeds stay stable.
+  const MIN_GAP = 55;
+  let prev = -Infinity;
+  const positioned = entries.map((site) => {
+    const jx = rand ? site.x + Math.round((rand() * 2 - 1) * 30) : site.x;
+    const clamped = Math.max(jx, prev + MIN_GAP);
+    prev = clamped;
+    return { ...site, x: clamped };
+  });
+  return positioned
     .flatMap((site, i) => {
       const x = Math.round((site.x * width) / WIDTH),
         seed = (definition.layoutSeed + i * 47) >>> 0;
@@ -260,30 +388,28 @@ export interface MapLayout {
 export function createMapLayout(
   id: MapId = DEFAULT_MAP,
   width = WIDTH,
+  seed?: number,
 ): MapLayout {
   const definition = mapDefinition(id),
     mapId = definition.id;
-  const walls =
-    mapId === 'greyline'
-      ? [510, 1150, 1920, 2690, WIDTH - 510]
-      : mapId === 'jungle'
-        ? [590, WIDTH - 1 - 590]
-        : mapId === 'mountains'
-          ? [1270, WIDTH - 1 - 1270]
-          : [1270, WIDTH - 1 - 1270];
+  const actualSeed = seed ?? definition.layoutSeed;
+  // Scenery jitter draws from an independent stream so terrain and scenery
+  // randomness never correlate.
+  const sceneryRand =
+    actualSeed === definition.layoutSeed
+      ? undefined
+      : mulberry32(actualSeed ^ 0x9e3779b9);
   return {
     id: mapId,
-    seed: definition.layoutSeed,
-    terrain: mapTerrain(mapId, width),
+    seed: actualSeed,
+    terrain: mapTerrain(mapId, width, actualSeed),
     scenerySites:
       mapId === 'greyline'
-        ? villageScenerySites(width)
-        : mirroredSites(mapId, width),
-    wallSites: walls.map((x) => ({
-      x: Math.round((x * width) / WIDTH),
-      width: 34,
-      height: 32,
-      hp: 140,
-    })),
+        ? villageScenerySites(width, sceneryRand)
+        : mirroredSites(mapId, width, sceneryRand),
+    // v99: low walls removed from all maps — the battlefield is now open
+    // ground. The Wall type and vault/destruction mechanics remain in the
+    // engine for scripted scenarios and future map designs.
+    wallSites: [],
   };
 }

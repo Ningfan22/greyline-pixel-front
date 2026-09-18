@@ -172,6 +172,8 @@ export default function HomeMenu({
   deckCount,
   mapId,
   onMapChange,
+  night,
+  onNightChange,
   onNavigate,
   onStart,
   difficulty,
@@ -185,6 +187,8 @@ export default function HomeMenu({
   deckCount: number;
   mapId: MapId;
   onMapChange: (id: MapId) => void;
+  night: boolean;
+  onNightChange: (value: boolean) => void;
   onNavigate: (page: LobbyPage) => void;
   onStart: () => void;
   difficulty: Difficulty;
@@ -197,6 +201,29 @@ export default function HomeMenu({
   useEffect(() => {
     stage.current?.scrollTo(0, 0);
   }, [page]);
+  useEffect(() => {
+    const mixer = getBattleAudio();
+    // 页面加载后立即预取音频，首次点击时音乐即刻播放，无需等待下载。
+    mixer.prefetch();
+    // 回到主菜单时立即恢复背景音乐（音频已解锁的情况下）。
+    mixer.setActive(true);
+    const unlock = () => {
+      void mixer.unlock();
+      mixer.setActive(true);
+    };
+    const onVisibility = () => {
+      if (document.hidden) mixer.setActive(false);
+      else mixer.setActive(true);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, []);
   return (
     <main className={styles.menu} aria-label="灰线主菜单">
       <style>{`@font-face{font-family:'Greyline Menu Pixel';src:url('${assetUrl('/fonts/fusion-pixel-12px-monospaced-zh_hans.otf.woff2')}') format('woff2');font-weight:400;font-style:normal;font-display:swap;}`}</style>
@@ -228,6 +255,21 @@ export default function HomeMenu({
         </nav>
         {page !== 'campaign' && (
           <MapSelector value={mapId} onChange={onMapChange} disabled={!ready} />
+        )}
+        {page !== 'campaign' && (
+          <button
+            type="button"
+            className={styles.difficultyLink}
+            disabled={!ready}
+            aria-pressed={night}
+            onClick={() => onNightChange(!night)}
+            title="夜间战场：视野大幅缩减，开火会暴露枪口焰"
+          >
+            时段 · {night ? '夜间' : '昼间'}
+            <small>
+              {night ? '黑暗中只有火光与照明弹能揭示敌人' : '切换到夜战'}
+            </small>
+          </button>
         )}
         <button
           type="button"

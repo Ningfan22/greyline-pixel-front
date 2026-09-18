@@ -1,6 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas } from './adult-atlas';
+import { adultAtlas, signalFrames } from './adult-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import {
   adultIdentity,
@@ -11,6 +11,7 @@ import { assetUrl } from './asset-url';
 import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
+import { wreckVariants } from './wreck-variants';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
@@ -42,7 +43,13 @@ export interface Art {
   armor: Record<string, HTMLCanvasElement[]>;
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
+  combatExplosionsV13: HTMLCanvasElement[][];
   wrecks: Record<WreckKind, HTMLCanvasElement>;
+  wreckVariants: Record<
+    WreckKind,
+    Record<'blast' | 'bullet' | 'burn', HTMLCanvasElement[]>
+  >;
+  parachute: HTMLCanvasElement[];
 }
 let cached: Promise<Art> | null = null;
 function loadImage(src: string) {
@@ -481,17 +488,23 @@ export function loadArt() {
       loadImage('/art/rotorcraft-v12.png'),
       loadImage('/art/tanks-v12.png'),
       loadImage('/art/explosions-v12.png'),
+      loadImage('/art/explosions-v13.png'),
       loadImage('/art/buildings-v13.png'),
       loadImage('/art/building-collapse-v13.png'),
       loadImage('/art/adult-infantry-v13.png'),
       loadImage('/art/adult-marines-v13.png'),
       loadImage('/art/adult-police-v13.png'),
       loadImage('/art/adult-militia-v13.png'),
+      loadImage('/art/adult-signals-infantry.webp'),
+      loadImage('/art/adult-signals-marines.webp'),
+      loadImage('/art/adult-signals-police.webp'),
+      loadImage('/art/adult-signals-militia.webp'),
       loadImage('/art/adult-specialists-v13.png'),
       loadImage('/art/ground-wrecks-v14.png'),
       loadImage('/art/air-wrecks-v14.png'),
       loadImage('/art/mobile-vehicles-v14.png'),
       loadImage('/art/support-vehicles-v14.png'),
+      loadImage('/art/parachute-v1.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -514,17 +527,23 @@ export function loadArt() {
         rotorcraft,
         tanks,
         combatExplosions,
+        combatExplosionsV13,
         buildings,
         collapse,
         adultInfantry,
         adultMarines,
         adultPolice,
         adultMilitia,
+        signalInfantry,
+        signalMarines,
+        signalPolice,
+        signalMilitia,
         specialists,
         groundWrecks,
         airWrecks,
         mobileVehicles,
         supportVehicles,
+        parachuteSheet,
       ],
       extra,
       trees,
@@ -564,31 +583,36 @@ export function loadArt() {
         true,
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
+      const fx13 = atlasFrames(transparentSheet(combatExplosionsV13), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const adults = {
-        infantry: adultAtlas(adultInfantry),
-        marines: adultAtlas(adultMarines),
-        police: adultAtlas(adultPolice),
-        militia: adultAtlas(adultMilitia),
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry) },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines) },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice) },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia) },
       };
+      const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.
       for (const id of Object.keys(adults) as AdultIdentity[])
         patrol[id].raise3[2] = adults[id].actions20[0];
+      const wreckFramesMap = wreckFrames(
+        groundWrecks,
+        airWrecks,
+        mobileVehicles,
+        supportVehicles,
+        extra.fpvSheet,
+      );
       return {
         comeback,
         digging,
         mines,
         trees,
         patrol,
+        parachute,
         adults,
         adultSpecialists: specialistAtlas(specialists),
-        wrecks: wreckFrames(
-          groundWrecks,
-          airWrecks,
-          mobileVehicles,
-          supportVehicles,
-          extra.fpvSheet,
-        ),
+        wrecks: wreckFramesMap,
+        wreckVariants: wreckVariants(wreckFramesMap),
         mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),
         background,
         mapBackgrounds: extra.mapBackgrounds,
@@ -632,6 +656,19 @@ export function loadArt() {
           ),
           fx[4].concat(fx[5]),
         ],
+        // v13 authored families: A fuel-air vehicle blast, B vertical artillery
+        // column, C sharp grenade flash — each 16 frames over two atlas rows.
+        combatExplosionsV13: [
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[Math.floor(i / 8)][i % 8],
+          ),
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[2 + Math.floor(i / 8)][i % 8],
+          ),
+          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
+            (i) => fx13[4 + Math.floor(i / 8)][i % 8],
+          ),
+        ],
       };
     },
   );
@@ -659,6 +696,54 @@ export function drawSprite(
   if (rotation) ctx.rotate(rotation);
   if (flip) ctx.scale(-1, 1);
   ctx.drawImage(frame, -Math.round(w / 2), -h, w, h);
+  ctx.restore();
+}
+/**
+ * Draw a tank whose barrel recoils independently of the hull. The sprite is
+ * painted in two passes through evenodd clips: first the hull with the thin
+ * muzzle band cut out, then just the muzzle band shifted back by `recoil`
+ * pixels. The thick barrel root stays with the hull, so the muzzle reads as
+ * sliding back into the mantlet instead of the whole vehicle rocking.
+ *
+ * `band` is [x0, y0, x1, y1] in frame-local space (origin at bottom-centre,
+ * y up), the same space drawSprite draws into.
+ */
+export function drawTankSprite(
+  ctx: CanvasRenderingContext2D,
+  frame: HTMLCanvasElement | undefined,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  flip: boolean,
+  alpha: number,
+  rotation: number,
+  band: [number, number, number, number],
+  recoil: number,
+) {
+  if (!frame) return;
+  const hw = Math.round(w / 2);
+  const bx = Math.min(band[0], band[2]);
+  const by = Math.min(band[1], band[3]);
+  const bw = Math.abs(band[2] - band[0]);
+  const bh = Math.abs(band[3] - band[1]);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = alpha;
+  ctx.translate(Math.round(x), Math.round(y));
+  if (rotation) ctx.rotate(rotation);
+  if (flip) ctx.scale(-1, 1);
+  // Pass 1: hull with the muzzle band cut out.
+  ctx.beginPath();
+  ctx.rect(-hw, -h, w, h);
+  ctx.rect(bx, by, bw, bh);
+  ctx.clip('evenodd');
+  ctx.drawImage(frame, -hw, -h, w, h);
+  // Pass 2: the muzzle band alone, pulled back toward the hull.
+  ctx.beginPath();
+  ctx.rect(bx, by, bw, bh);
+  ctx.clip();
+  ctx.drawImage(frame, -hw - recoil, -h, w, h);
   ctx.restore();
 }
 export function cardFrame(art: Art, index: number) {

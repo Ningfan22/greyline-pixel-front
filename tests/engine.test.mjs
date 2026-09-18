@@ -28,6 +28,7 @@ import { ammunition, FLIGHT, isTracer } from '../game/ballistics.ts';
 import { weaponCard, weaponModel, copyLimit } from '../game/cards.ts';
 import assert from 'node:assert/strict';
 import { economyBlock } from '../game/economy.ts';
+import { GREYLINE_LAYOUT_SEED } from '../game/maps.ts';
 import {
   createGame,
   startGame,
@@ -76,7 +77,9 @@ const hand = (s, id) => {
   return c;
 };
 const fresh = () => {
-  const s = createGame(37);
+  const s = createGame(37, undefined, undefined, undefined, {
+    mapSeed: GREYLINE_LAYOUT_SEED,
+  });
   startGame(s);
   // These staged physics scenarios retain their original test budget.
   s.players.forEach((p) => {
@@ -275,6 +278,9 @@ check('驻守、推进、奔跑、蹲行、卧倒分别驱动独立姿态', () =
 });
 check('士兵逐个攀越矮墙，结束后正确回到地面', () => {
   const s = fresh();
+  // v99: maps no longer ship with walls; stage one explicitly so the
+  // vault mechanic stays covered.
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
   s.units = [];
   spawnUnit(s, 0, 'infantry', 477);
   const first = s.units[0];
@@ -293,6 +299,7 @@ check('士兵逐个攀越矮墙，结束后正确回到地面', () => {
 });
 check('被炸毁的墙不再触发攀越', () => {
   const s = fresh();
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
   explode(s, 510, ground(s, 510) - 10, 80, 200, 0);
   assert.equal(s.walls[0].hp, 0);
   s.units = [];
@@ -664,8 +671,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   assert(u.fire > 0);
   assert.equal(u.pose, 'idle');
 });
-check('68种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.keys(CARDS).length, 68);
+check('116种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
+  assert.equal(Object.keys(CARDS).length, 116);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
@@ -976,6 +983,7 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
       const h = p.hand.find(
         (h) =>
           cardReadyIn(s, h) <= 0 &&
+          !comebackBlock(s, side, CARDS[h.id].comeback) &&
           (!CARDS[h.id].economy || !economyBlock(p, CARDS[h.id].economy)),
       );
       if (h)
@@ -988,19 +996,16 @@ check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
           ).ok,
         );
       draw(s, side, 1);
-      assert.deepEqual(
-        [
+      const __now = [
           ...p.hand,
           ...p.deck,
           ...p.discard,
           ...s.units
             .filter((u) => u.side === side && u.sortieCard)
             .map((u) => u.sortieCard),
-        ]
-          .map((h) => h.id)
-          .sort(),
-        originals[side],
-      );
+        ].map((h) => h.id).sort();
+      const __orig = originals[side];
+      assert.deepEqual(__now, __orig);
     }
 });
 check('枪弹、炮弹和火箭使用各自速度与弹道，曳光按射击次数间隔显示', () => {
@@ -1129,6 +1134,80 @@ check('AI 空手及低价值技能手牌都能付费补牌并重新部署', () =
     assert(p.energy < 10);
     assert(p.drawIn > 0 || p.played > 0);
   }
+});
+check('AI 记住敌军空中倾向：直升机脱离视野后仍保留防空记忆', () => {
+  const s = arena(),
+    p = s.players[1];
+  // 一个无敌观察兵提供视野，一架敌方直升机进入视野 6 秒
+  spawnUnit(s, 1, 'infantry', 3300);
+  for (const u of s.units.filter((u) => u.side === 1)) {
+    u.hp = u.maxHp = 10000;
+    u.squadOrder = 'hold';
+  }
+  spawnUnit(s, 0, 'helicopter', 2900);
+  const heli = s.units.find((u) => u.side === 0);
+  p.hand = [];
+  p.deck = [];
+  p.discard = [];
+  p.energy = 0;
+  s.aiIn = 0;
+  advance(s, 6);
+  assert(s.aiEnemyProfile, 'memory initialized');
+  assert(s.aiEnemyProfile.air > 0.7, `memAir ${s.aiEnemyProfile.air}`);
+  // 直升机被击落后，15 秒目击窗口过期，但记忆保留
+  heli.hp = 0;
+  advance(s, 18);
+  assert(s.aiAirSeenUntil < s.time, 'seen window expired');
+  assert(s.aiEnemyProfile.air > 0.5, `memAir after gap ${s.aiEnemyProfile.air}`);
+  // 长期无空中目标，记忆缓慢消退
+  advance(s, 90);
+  assert(s.aiEnemyProfile.air < 0.3, `memAir faded ${s.aiEnemyProfile.air}`);
+});
+check('AI 凭敌军记忆提前部署防空，未见敌机时不浪费防空组', () => {
+  // 记忆组：目击直升机 6 秒、击落、18 秒空窗后，AI 仍应提前部署便携防空
+  const s = arena(),
+    p = s.players[1];
+  spawnUnit(s, 1, 'infantry', 3300);
+  for (const u of s.units.filter((u) => u.side === 1)) {
+    u.hp = u.maxHp = 10000;
+    u.squadOrder = 'hold';
+  }
+  spawnUnit(s, 0, 'helicopter', 2900);
+  const heli = s.units.find((u) => u.side === 0);
+  p.hand = [];
+  p.deck = [];
+  p.discard = [];
+  p.energy = 0;
+  s.aiIn = 0;
+  advance(s, 6);
+  heli.hp = 0;
+  advance(s, 18);
+  p.hand = [
+    { id: 'manpads', uid: ++s.uid },
+    { id: 'supply', uid: ++s.uid },
+  ];
+  p.deck = [];
+  p.energy = 5;
+  advance(s, 8);
+  assert(
+    s.units.some((u) => u.side === 1 && u.id === 'manpads'),
+    'MANPADS deployed from memory',
+  );
+  // 对照组：从未出现过空中目标，AI 不应在无掩护时浪费专职防空组
+  const c = arena(),
+    q = c.players[1];
+  q.hand = [
+    { id: 'manpads', uid: ++c.uid },
+    { id: 'supply', uid: ++c.uid },
+  ];
+  q.deck = [];
+  q.energy = 5;
+  c.aiIn = 0;
+  advance(c, 8);
+  assert(
+    !c.units.some((u) => u.side === 1 && u.id === 'manpads'),
+    'MANPADS withheld without air memory',
+  );
 });
 check('部署在两侧边界的班组仍保持 38 像素间距，预览和实体一致', () => {
   for (const side of [0, 1])
@@ -2224,6 +2303,13 @@ check('未观察到的墙体破坏保持旧记忆，再次观察时才更新', (
   startGame(s);
   s.aiIn = 1e6;
   s.scenery = [];
+  // v99: maps no longer ship with walls; stage one explicitly so the
+  // fog-of-war wall-memory mechanic stays covered.
+  s.walls = [{ uid: 1, x: 510, width: 34, height: 32, hp: 140 }];
+  s.knownWalls = [
+    { 1: { uid: 1, x: 510, width: 34, height: 32, hp: 140 } },
+    { 1: { uid: 1, x: 510, width: 34, height: 32, hp: 140 } },
+  ];
   const w = s.walls.at(-1);
   spawnUnit(s, 1, 'tank', w.x);
   tick(s, 1 / 60);
@@ -2970,6 +3056,9 @@ check('三条友军队列同时停火时，后排两侧均可绕行进入射程'
     const target = v13MovementSolo(s, 1 - side, 'infantry', x(1450));
     target.cooldown = 100;
     target.hp = target.maxHp = 1000;
+    // This is a pathing test, not a morale test: a lone 'advance' dummy 1v6
+    // drains nerve and retreats off its marker. Hold order keeps it planted.
+    target.tactic = 'hold';
     advance(s, 12);
     for (const u of rifles) {
       assert(u.shots >= 3, `side ${side}: blocked rifle did not engage`);
@@ -3296,7 +3385,9 @@ check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
 });
 check('v13交战：探身开火后装填期间不立即趴回地面', () => {
   const s = v13EngageFresh();
-  s.terrain = createGame(37).terrain;
+  s.terrain = createGame(37, undefined, undefined, undefined, {
+    mapSeed: GREYLINE_LAYOUT_SEED,
+  }).terrain;
   s.original = [...s.terrain];
   const u = v13EngageSingle(s, 0, 'sniper', 590);
   v13EngageEnemy(s, 1360);
@@ -3623,12 +3714,16 @@ check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪'
   }
   u.pose = 'idle';
   u.moving = false;
+  // v110: a crouch-walking squad that halts plays the stand-up transition
+  // first; let the window elapse before asserting the settled idle frame.
+  adultFrameChoice(u, 10);
   for (const fire of [0, 0.05, 0.2]) {
     u.fire = fire;
-    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 0 });
+    assert.deepEqual(adultFrameChoice(u, 11), { group: 'actions20', index: 0 });
   }
   u.pose = 'prone';
-  assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 2 });
+  adultFrameChoice(u, 12);
+  assert.deepEqual(adultFrameChoice(u, 13), { group: 'actions20', index: 2 });
 });
 check('成人四套服装的跳落、攀爬与终态不会退回旧图册', () => {
   for (const [id, identity] of [
@@ -3857,6 +3952,10 @@ const v14GunScene = (side, id) => {
     u.cooldown = u.secondaryCooldown = 100000;
     u.pace = 0;
     u.decisionIn = 100000;
+    // decisionIn alone does not stop the quickContact bypass for 'advance'
+    // units; a lone infantry dummy 1v1 vs a tank still drains nerve and
+    // retreats, which yanks the howitzer's escort baseline back to base.
+    u.tactic = 'hold';
     return u;
   };
   const gun = solo(side, id, 700);
@@ -4142,6 +4241,89 @@ check(
   },
 );
 
+check('AI 按对局阶段调整节奏：前期经济、中期协同、后期全力反扑', () => {
+  const tempo = (time, setup, hand, energy) => {
+    const s = v12Arena();
+    s.time = time;
+    setup(s);
+    refreshVision(s);
+    v12AIHand(s, hand, energy);
+    s.players[1].deck = [];
+    s.players[1].discard = [];
+    s.aiIn = 0;
+    tick(s, 0.05);
+    return s.players[1].discard.map((c) => c.id);
+  };
+  // 前期：优先经济牌，跳过五费载具
+  const early = tempo(
+    30,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+    },
+    ['war_bonds', 'ifv'],
+    6,
+  );
+  assert(early.includes('war_bonds'), '前期优先战时公债');
+  assert(!early.includes('ifv'), '前期不买五费步战车');
+  // 中期：看见两架直升机立刻补防空
+  const midAir = tempo(
+    120,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+      spawnUnit(s, 0, 'helicopter', 2500);
+      spawnUnit(s, 0, 'helicopter', 2560);
+    },
+    ['aa_gun', 'infantry'],
+    4,
+  );
+  assert(midAir.includes('aa_gun'), '中期面对空情优先防空炮');
+  assert(!midAir.includes('infantry'), '防空优先于继续堆步兵');
+  // 中期：看见两辆坦克补反甲
+  const midArmor = tempo(
+    120,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+      spawnUnit(s, 1, 'infantry', 2850);
+      spawnUnit(s, 0, 'tank', 2500);
+      spawnUnit(s, 0, 'tank', 2560);
+    },
+    ['antiarmor', 'infantry'],
+    4,
+  );
+  assert(midArmor.includes('antiarmor'), '中期面对装甲优先反坦克组');
+  // 中期：面对固守步兵群用曲射
+  const midTurtle = tempo(
+    120,
+    (s) => {
+      for (let i = 0; i < 4; i++) spawnUnit(s, 1, 'infantry', 2800 - i * 24);
+      for (let i = 0; i < 3; i++) {
+        const at = s.units.length;
+        spawnUnit(s, 0, 'infantry', 2500 - i * 30);
+        for (const u of s.units.slice(at)) u.moving = false;
+      }
+    },
+    ['mortar_carrier', 'infantry'],
+    5,
+  );
+  assert(midTurtle.includes('mortar_carrier'), '中期面对固守步兵群用自行迫炮');
+  // 后期：不再买经济，全力反扑
+  const late = tempo(
+    400,
+    (s) => {
+      spawnUnit(s, 1, 'infantry', 2800);
+    },
+    ['war_bonds', 'reserve_mobilization'],
+    4,
+  );
+  assert(
+    late.includes('reserve_mobilization'),
+    '后期优先预备队动员反扑',
+  );
+  assert(!late.includes('war_bonds'), '后期不再买延迟经济');
+});
+
 check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各自战术配合', () => {
   const decks = new Map();
   for (let seed = 0; seed < 100; seed++) {
@@ -4169,8 +4351,8 @@ check('五套推荐与 AI 编队都有合法费用曲线、反甲、防空和各
     assert(deck.reduce((n, id) => n + CARDS[id].cost, 0) / 20 <= 3.2);
   }
   assert.equal(decks.size, AI_DECKS.length);
-  assert.equal(AI_DECKS.length, 5);
-  assert.equal(DECK_PRESETS.length, 5);
+  assert.equal(AI_DECKS.length, 7);
+  assert.equal(DECK_PRESETS.length, 7);
   for (const deck of AI_DECKS)
     assert(
       decks.has(deck.join(',')),

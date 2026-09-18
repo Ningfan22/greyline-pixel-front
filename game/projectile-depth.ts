@@ -3,6 +3,12 @@ import { CARDS, modelOf } from './cards';
 import { isCoverBullet } from './ballistics';
 import { sceneryIntercept, segmentBox } from './world';
 
+/** Deterministic FX randomness, mirroring engine.fxRnd without a circular import. */
+function fxRnd(s: GameState) {
+  s.fxSeed = (Math.imul(1664525, s.fxSeed) + 1013904223) >>> 0;
+  return s.fxSeed / 4294967296;
+}
+
 /** Four 12-unit depth lanes share the side-on projection. Aim is fixed at firing. */
 export function aimProjectileDepth(s: GameState, p: Projectile) {
   if (
@@ -47,6 +53,8 @@ export function depthHit(p: Projectile, u: Unit, x = u.x) {
       ? 14
       : u.pose === 'prone'
         ? 3.2
+        : u.pose === 'hunker'
+          ? 3.6
         : u.pose === 'crouch'
           ? 4
           : 5;
@@ -110,7 +118,14 @@ export function suppressNearMiss(
     )
       continue;
     const chest =
-      u.y - (u.pose === 'prone' ? 9 : u.pose === 'crouch' ? 22 : 36);
+      u.y -
+      (u.pose === 'prone'
+        ? 9
+        : u.pose === 'hunker'
+          ? 16
+          : u.pose === 'crouch'
+            ? 22
+            : 36);
     const t = Math.max(
       0,
       Math.min(1, ((u.x - sx) * dx + (chest - sy) * dy) / length2),
@@ -130,5 +145,34 @@ export function suppressNearMiss(
     );
     u.lastThreat = { x: p.startX, y: p.startY, until: s.time + 2 };
     if (u.suppression > 22) u.decisionIn = 0;
+    // Rounds cracking within arm's reach make the soldier duck instinctively.
+    // Sustained fire keeps refreshing the window — heads stay down until the
+    // fire lets up, then pop back up a third of a second later.
+    if (
+      Math.hypot(u.x - x, chest - y) < 14 &&
+      (u.pose === 'idle' ||
+        u.pose === 'walk' ||
+        u.pose === 'run' ||
+        u.pose === 'crouch')
+    )
+      u.duckUntil = s.time + 0.35;
+    // Rounds cracking overhead kick up dust where they pass, making the
+    // suppressing fire visible on the ground below the bullet's path.
+    const gx = Math.max(0, Math.min(s.terrain.length - 1, Math.floor(x)));
+    const puffs = fxRnd(s) < 0.5 ? 1 : 2;
+    for (let i = 0; i < puffs; i++) {
+      const life = 0.2 + fxRnd(s) * 0.2;
+      s.particles.push({
+        kind: 'dust',
+        x: x + (fxRnd(s) - 0.5) * 10,
+        y: s.terrain[gx] - 1,
+        vx: (fxRnd(s) - 0.5) * 14,
+        vy: -7 - fxRnd(s) * 10,
+        life,
+        maxLife: life,
+        color: '#94876b',
+        size: 4 + fxRnd(s) * 4,
+      });
+    }
   }
 }

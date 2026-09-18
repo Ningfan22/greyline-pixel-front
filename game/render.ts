@@ -21,15 +21,22 @@ import {
 import {
   adultIdentity,
   adultFrameChoice,
+  idlePoseChoice,
   adultWreckChoice,
+  ragdollChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
+import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
+import { drawWeather } from './weather';
+import { WhipStreakLayer } from './whip-streak';
+import { drawRicochets } from './ricochet';
 import { pointVisible, visibleToSide } from './world';
 import {
   ammunition,
   drawMuzzle,
+  drawMuzzleLight,
   drawProjectile,
   drawParticle,
   drawBlast,
@@ -43,9 +50,44 @@ import {
   type Projectile,
   type GameState,
   type CardId,
+  type Unit,
 } from './engine';
-import { drawSprite, unitFrame, unitSize, uniformFrame, type Art } from './art';
+import { unitByUid } from './spatial';
+import { unitSynergy, synergyProviderUid, type SynergyKind } from './synergy';
+import {
+  drawSprite,
+  drawTankSprite,
+  unitFrame,
+  unitSize,
+  uniformFrame,
+  type Art,
+} from './art';
+import {
+  coverProp,
+  peekRise,
+  transportCrewCount,
+  transportCrewSlot,
+  type Pose,
+} from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
+// Supersonic rounds that whip past the camera leave a brief white streak.
+// Render-layer only: the simulation never knows these exist.
+const whipStreaks = new WhipStreakLayer();
+let whipStatus = '';
+const poseTracker = new Map<
+  number,
+  {
+    prev: Pose;
+    pose: Pose;
+    at: number;
+    lastImg?: HTMLCanvasElement;
+    lastFlip?: boolean;
+    snap?: HTMLCanvasElement;
+    snapFlip?: boolean;
+    snapW?: number;
+    snapH?: number;
+  }
+>();
 const wreckBounds = new WeakMap<
   object,
   {
@@ -133,6 +175,126 @@ function drawMapBackground(
   }
 }
 
+// Night battles are draped in a translucent dark layer with radial holes
+// punched around every light source: flares, muzzle flashes, explosions,
+// bases and the soft glow around each friendly squad.
+const nightCanvas = document.createElement('canvas');
+const nightCtx = nightCanvas.getContext('2d')!;
+function drawNightOverlay(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  if (nightCanvas.width !== viewportWidth || nightCanvas.height !== H) {
+    nightCanvas.width = viewportWidth;
+    nightCanvas.height = H;
+  }
+  nightCtx.clearRect(0, 0, viewportWidth, H);
+  nightCtx.fillStyle = 'rgba(7, 9, 18, 0.86)';
+  nightCtx.fillRect(0, 0, viewportWidth, H);
+  nightCtx.globalCompositeOperation = 'destination-out';
+  const punch = (x: number, y: number, r: number, strength: number) => {
+    const sx = x - camera;
+    if (sx < -r || sx > viewportWidth + r) return;
+    const g = nightCtx.createRadialGradient(sx, y, 0, sx, y, r);
+    g.addColorStop(0, `rgba(0,0,0,${strength})`);
+    g.addColorStop(0.55, `rgba(0,0,0,${strength * 0.55})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    nightCtx.fillStyle = g;
+    nightCtx.beginPath();
+    nightCtx.arc(sx, y, r, 0, Math.PI * 2);
+    nightCtx.fill();
+  };
+  // Bases glow.
+  punch(70, ground(s, 70) - 40, 130, 0.9);
+  punch(W - 70, ground(s, W - 70) - 40, 130, 0.9);
+  // Flares are the primary night illuminators.
+  for (const f of s.flares) {
+    if (f.life <= 0) continue;
+    punch(f.x, f.y, 300, 0.95);
+  }
+  // Friendly squads carry a soft local light.
+  for (const u of s.units) {
+    if (u.side !== 0 || u.hp <= 0) continue;
+    punch(u.x, u.y - 24, 120, 0.55);
+  }
+  // Muzzle flashes briefly betray the shooter.
+  for (const u of s.units) {
+    if (u.hp <= 0 || (u.flashUntil ?? 0) <= s.time) continue;
+    if (u.side !== 0 && !visibleToSide(s, 0, u)) continue;
+    punch(u.muzzleX ?? u.x, (u.muzzleY ?? u.y) - 10, 80, 0.95);
+  }
+  // Explosions flash across the dark.
+  for (const b of s.blasts) {
+    if (b.age > 0.45) continue;
+    punch(b.x, b.y, 140, 0.9);
+  }
+  // Burning wrecks gutter with orange light.
+  for (const w of s.wrecks) {
+    const c = CARDS[w.cardId];
+    if (!c.armored && !c.vehicle) continue;
+    if (w.age > 40) continue;
+    punch(w.x, w.y - 14, 100, 0.8 * (1 - w.age / 40));
+  }
+  nightCtx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(nightCanvas, Math.round(camera), 0);
+}
+
+const SYNERGY_KINDS: SynergyKind[] = [
+  'armor_assault',
+  'fire_base',
+  'medevac_chain',
+  'supply_run',
+  'overwatch',
+  'recon_spot',
+];
+
+/**
+ * Draw faint dashed links between infantry and the provider powering their
+ * active synergy (v48). Links render under the units themselves so soldiers
+ * and vehicles stay readable; the pulse keeps the effect alive without
+ * turning the battlefield into a wiring diagram.
+ */
+function drawSynergyLinks(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  sorted: Unit[],
+  camera: number,
+  viewportWidth: number,
+) {
+  const now = s.time;
+  let drawn = 0;
+  const MAX_LINKS = 40;
+  for (const u of sorted) {
+    if (drawn >= MAX_LINKS) break;
+    const syn = unitSynergy(s, u, now);
+    for (const kind of SYNERGY_KINDS) {
+      if (drawn >= MAX_LINKS) break;
+      if (!syn[kind]) continue;
+      const providerUid = synergyProviderUid(s, u, kind, now);
+      if (providerUid === undefined) continue;
+      const p = unitByUid(s, providerUid);
+      if (!p) continue;
+      if (p.x < camera - 180 || p.x > camera + viewportWidth + 180) continue;
+      const pulse = 0.55 + 0.45 * Math.sin(now * 2.6 + u.uid * 1.7);
+      const alpha = (kind === 'medevac_chain' ? 0.09 : 0.07) * pulse;
+      ctx.strokeStyle =
+        u.side === 0
+          ? `rgba(126,178,255,${alpha})`
+          : `rgba(255,138,120,${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash(kind === 'medevac_chain' ? [2, 5] : [5, 7]);
+      ctx.beginPath();
+      ctx.moveTo(u.x - camera, u.y - 12);
+      ctx.lineTo(p.x - camera, p.y - 12);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      drawn++;
+    }
+  }
+}
+
 export function render(
   ctx: CanvasRenderingContext2D,
   s: GameState,
@@ -147,6 +309,10 @@ export function render(
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, viewportWidth, H);
   ctx.save();
+  if (s.status !== whipStatus) {
+    whipStatus = s.status;
+    whipStreaks.reset();
+  }
   if (s.shake > 0 && !reduced)
     ctx.translate(
       Math.sin(s.time * 134) * s.shake,
@@ -157,6 +323,9 @@ export function render(
     terrainArt = terrainTexture(art, map.id);
   drawMapBackground(ctx, art, map.id, camera, viewportWidth);
   ctx.translate(-Math.round(camera), 0);
+  // Sky ambience: birds and distant battle flashes sit behind the terrain.
+  drawBirds(ctx, s, camera, viewportWidth);
+  drawDistantFlashes(ctx, s, camera, viewportWidth);
   const visibleGround = (x: number) =>
     s.knownTerrain[0][Math.max(0, Math.min(W - 1, Math.floor(x)))];
   const left = Math.max(0, Math.floor(camera / 3) * 3),
@@ -170,6 +339,9 @@ export function render(
     left,
     right,
   );
+  drawScorches(ctx, s, camera, viewportWidth);
+  drawTreads(ctx, s, camera, viewportWidth);
+  drawDragMarks(ctx, s, camera, viewportWidth);
   const foregroundBounds: { x: number; y: number; w: number; h: number }[] = [];
   const drawCoverProps = (front: boolean) => {
     for (const wall of Object.values(s.knownWalls[0])) {
@@ -245,30 +417,70 @@ export function render(
           foregroundBounds.push(...cached.boxes);
         }
         ctx.save();
+        // v105: wrecks of the same card no longer look identical — three
+        // burn conditions plus stable per-wreck tilt/scale jitter and a
+        // scorch mark baked into the ground under the hulk.
+        const wsd = w.id >>> 0;
+        const condition = wsd % 3;
+        // v109: pick the structural-state family by what killed the
+        // vehicle — blast kills blow apart, bullet kills riddle and
+        // breach, burn kills gut the interior — then layer the burn
+        // condition on top. Same-card wrecks now differ structurally.
+        const cause = w.cause ?? 'bullet';
+        const family = art.wreckVariants[wreckKind(w.cardId)][cause];
         const frame = filteredSprite(
-          art.wrecks[wreckKind(w.cardId)],
-          'grayscale(1) brightness(.72)',
+          family[wsd % family.length],
+          condition === 0
+            ? 'grayscale(1) brightness(.72)'
+            : condition === 1
+              ? 'grayscale(1) brightness(.55) contrast(1.12)'
+              : 'grayscale(.85) brightness(.64) sepia(.25)',
         );
         const shape = wreckGeometry(w.cardId);
+        // v112: structural variants carry the visual variety now — jitter
+        // is kept subtle so same-card wrecks don't look procedurally noisy.
+        const scaleJ = 0.97 + (wsd % 4) * 0.015;
+        const tiltJ = ((wsd >>> 3) % 3 - 1) * 0.015;
+        const dx = ((wsd >>> 5) % 3 - 1);
+        const scorch = Math.max(
+          18,
+          Math.round(shape.width * (0.55 + (wsd % 4) * 0.12)),
+        );
+        ctx.fillStyle = `rgba(12,10,8,${0.22 + (wsd % 3) * 0.07})`;
+        ctx.beginPath();
+        ctx.ellipse(
+          Math.round(w.x + dx),
+          Math.round(w.y + 2),
+          scorch,
+          Math.max(4, Math.round(scorch * 0.16)),
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
         const inset = (1 - shape.support[2]) * frame.height;
         const offset =
           shape.spriteOffset * (w.facing ?? (w.side === 0 ? 1 : -1));
         drawSprite(
           ctx,
           frame,
-          w.x + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
+          w.x + dx + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
           w.y + Math.sin(w.angle) * offset + Math.cos(w.angle) * inset,
-          frame.width,
-          frame.height,
+          frame.width * scaleJ,
+          frame.height * scaleJ,
           (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
           1,
-          w.angle,
+          w.angle + tiltJ,
         );
         ctx.restore();
         continue;
       }
       const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
-      const wreckChoice = adultWreck ? adultWreckChoice(w.age, w.pose) : null;
+      const wreckChoice = adultWreck
+        ? w.falling
+          ? ragdollChoice(w.age, w.id)
+          : adultWreckChoice(w.age, w.pose, w.id)
+        : null;
       const wreckImage =
         adultWreck && wreckChoice
           ? uniformFrame(
@@ -279,16 +491,28 @@ export function render(
             )
           : unitFrame(art, w.cardId, 0);
       ctx.save();
+      const bsd = w.id >>> 0;
+      // v106: a fresh casualty keeps its colour and desaturates into the
+      // grayscale corpse over the first seconds, so a man just cut down
+      // doesn't pop in as a pre-aged statue.
+      const decay = Math.min(1, w.age / 10);
+      const shade = 0.55 + (bsd % 3) * 0.07;
       drawSprite(
         ctx,
-        filteredSprite(wreckImage, 'grayscale(1) brightness(.58)'),
-        w.x,
+        filteredSprite(
+          wreckImage,
+          `grayscale(${decay.toFixed(2)}) brightness(${(
+            shade +
+            (1 - decay) * (1 - shade)
+          ).toFixed(2)})`,
+        ),
+        w.x + ((bsd >>> 4) % 3 - 1),
         w.y + infantryDepth(w.lane) + 3,
-        wreckImage.width,
-        wreckImage.height,
+        wreckImage.width * (0.96 + (bsd % 4) * 0.03),
+        wreckImage.height * (0.96 + (bsd % 4) * 0.03),
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
         1,
-        w.angle,
+        w.falling ? w.angle : w.angle + ((bsd >>> 2) % 5 - 2) * 0.03,
       );
       ctx.restore();
     }
@@ -360,6 +584,8 @@ export function render(
     )
     .sort((a, b) => layer(a) - layer(b) || a.lane - b.lane);
   let coverDrawn = false;
+  const seenInfantry = new Set<number>();
+  drawSynergyLinks(ctx, s, sorted, camera, viewportWidth);
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
       drawCoverProps(true);
@@ -382,15 +608,25 @@ export function render(
       (art.mobileVehicles?.[u.id]?.length ?? 4);
     if (c.emplacement && u.fire > 0.1) frame = 1;
     const adult = c.members ? art.adults[adultIdentity(u.id)] : null;
-    const choice = c.members ? adultFrameChoice(u) : null;
+    const choice = c.members ? adultFrameChoice(u, s.time) : null;
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
       body && choice
         ? specialistSprite(body, choice, u, art.adultSpecialists)
         : null;
+    // v117: the patrol overlay only covers "plain" frames — the walk cycle
+    // and the standing-alert frame. Every authored action frame (leader
+    // gestures, hit flinches, contact callouts, secondary-weapon shots) now
+    // shows through instead of being silently swallowed by the static patrol
+    // idle, which used to hide whole animation branches on upright soldiers.
+    const patrolPlain =
+      choice !== null &&
+      (choice.group === 'walk8' ||
+        (choice.group === 'actions20' && choice.index === 0));
     const patrol =
       body &&
       !specialist &&
+      patrolPlain &&
       c.members &&
       !isDead &&
       !u.wounded &&
@@ -400,11 +636,21 @@ export function render(
       u.motion === 'ground' &&
       !u.climbing &&
       ['idle', 'walk'].includes(u.pose) &&
-      u.fire <= 0
+      (u.reloadingUntil ?? 0) <= s.time &&
+      // Yield only while firing on the move; a stationary burst keeps the
+      // patrol layer active so its dedicated aimed-rifle pose (raise3[2])
+      // holds the weapon on target for the whole burst.
+      (u.fire <= 0 || !u.moving)
         ? patrolFrameV17(
             art.patrol,
             adultIdentity(u.id),
-            (u.aimUntil ?? 0) > s.time ? 'raise' : u.moving ? 'walk' : 'idle',
+            u.fire > 0 && !u.moving
+              ? 'fire'
+              : (u.aimUntil ?? 0) > s.time
+                ? 'raise'
+                : u.moving
+                  ? 'walk'
+                  : 'idle',
             u.walk,
             s.time - (u.readyAt ?? -100),
           )
@@ -418,9 +664,42 @@ export function render(
             (u.uid % 8) * 0.2,
           )
         : null;
+    // Idle micro-motion: when patrol would hold the static idle frame,
+    // occasionally cut to an alert or crouch-glance pose so held positions
+    // stay alive. Only applies when the soldier is truly idle (not walking,
+    // firing, aiming, reloading, digging, or dragging).
+    let microDir: 1 | -1 | undefined;
+    // Dug-in defenders hold a crouch or prone pose (no patrol frame), but they
+    // still track distant blasts — the same glance layer, kept low to the
+    // ground. Specialist sprites, climbers, rappellers and casualties keep
+    // their own animation path.
+    const heldPose =
+      c.members &&
+      !isDead &&
+      !u.wounded &&
+      !u.surrendered &&
+      !u.rappelling &&
+      !u.backpedaling &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      !specialist &&
+      (u.reloadingUntil ?? 0) <= s.time &&
+      ['crouch', 'prone'].includes(u.pose);
+    const idleMicro =
+      (patrol || heldPose) &&
+      !u.moving &&
+      u.fire <= 0 &&
+      (u.aimUntil ?? 0) <= s.time &&
+      adult
+        ? (() => {
+            const micro = idlePoseChoice(u, s.time);
+            microDir = micro?.dir;
+            return micro ? adult[micro.group][micro.index] : null;
+          })()
+        : null;
     const img = body
       ? uniformFrame(
-          digging ?? patrol ?? specialist?.image ?? body,
+          digging ?? idleMicro ?? patrol ?? specialist?.image ?? body,
           c.uniform === 'recon' || c.uniform === 'assault'
             ? c.uniform
             : undefined,
@@ -454,6 +733,56 @@ export function render(
       ctx.save();
       ctx.filter = 'grayscale(1) brightness(.5)';
     }
+    // Idle infantry breathe: a 1px slow bob keeps held positions alive without drawing anatomy.
+    const breathe =
+      c.members &&
+      !u.moving &&
+      !isDead &&
+      !u.wounded &&
+      !u.surrendered &&
+      u.motion === 'ground' &&
+      !u.climbing &&
+      u.pose === 'idle'
+        ? Math.round(Math.sin(s.time * 2.1 + u.uid * 1.7))
+        : 0;
+    // Cover props + peek transitions: track pose changes per infantryman so
+    // rising from crouch/prone eases the sprite up instead of snapping.
+    let peekY = 0;
+    let showProp = false;
+    if (c.members && !isDead) {
+      seenInfantry.add(u.uid);
+      // v117: honour the frame choice's own facing (signal points, contact
+      // callouts) before falling back to the unit's real facing.
+      const poseFlip = (microDir ?? choice?.dir ?? u.facing) < 0;
+      const tracked = poseTracker.get(u.uid);
+      if (!tracked) {
+        poseTracker.set(u.uid, {
+          prev: u.pose,
+          pose: u.pose,
+          at: s.time,
+          lastImg: img,
+          lastFlip: poseFlip,
+        });
+      } else if (tracked.pose !== u.pose) {
+        poseTracker.set(u.uid, {
+          prev: tracked.pose,
+          pose: u.pose,
+          at: s.time,
+          lastImg: img,
+          lastFlip: poseFlip,
+          snap: tracked.lastImg,
+          snapFlip: tracked.lastFlip,
+          snapW: tracked.lastImg?.width,
+          snapH: tracked.lastImg?.height,
+        });
+      } else {
+        tracked.lastImg = img;
+        tracked.lastFlip = poseFlip;
+      }
+      const t = poseTracker.get(u.uid)!;
+      showProp = u.cover > 0.2 && !u.moving;
+      if (showProp) peekY = peekRise(t.prev, t.pose, s.time - t.at);
+    }
     if (u.rappelling) {
       const carrier = s.units.find(
         (v) =>
@@ -470,25 +799,224 @@ export function render(
         ctx.stroke();
       }
     }
-    drawSprite(
-      ctx,
-      img,
+    if (u.parachuting && art.parachute.length) {
+      const sway = Math.sin(s.time * 1.7 + u.uid * 1.3) * 3;
+      const chute =
+        art.parachute[
+          Math.floor(s.time * 7 + u.uid * 1.3) % art.parachute.length
+        ];
+      const chuteX = u.x + sway;
+      const chuteY = u.y + infantryDepth(u.lane) - 46;
+      drawSprite(ctx, chute, chuteX, chuteY, 82, 82, (microDir ?? u.facing) < 0);
+      ctx.strokeStyle = 'rgba(184,178,154,0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(chuteX - 22), Math.round(chuteY - 30));
+      ctx.lineTo(Math.round(u.x - 5), Math.round(u.y + infantryDepth(u.lane) - 20));
+      ctx.moveTo(Math.round(chuteX + 22), Math.round(chuteY - 30));
+      ctx.lineTo(Math.round(u.x + 5), Math.round(u.y + infantryDepth(u.lane) - 20));
+      ctx.stroke();
+    }
+    // Stance transitions (idle<->crouch<->prone) cross-fade: the old pose's
+    // last frame is blended out while the new pose fades in, so going prone
+    // or crouching reads as motion instead of a hard sprite swap.
+    let poseAlpha = 1;
+    let poseDy = 0;
+    let poseSnap: {
+      img: HTMLCanvasElement;
+      flip: boolean;
+      a: number;
+      dy: number;
+      w: number;
+      h: number;
+    } | null = null;
+    if (c.members && !isDead) {
+      const pt = poseTracker.get(u.uid);
+      if (pt?.snap && pt.snapW && pt.snapH) {
+        const since = s.time - pt.at;
+        const DUR = 0.26;
+        if (since < DUR) {
+          const blend = 1 - Math.pow(1 - since / DUR, 3);
+          poseAlpha = 0.2 + 0.8 * blend;
+          const rank = (p: Pose): number | null =>
+            p === 'prone'
+              ? 2
+              : p === 'crouch' || p === 'hunker'
+                ? 1
+                : p === 'idle'
+                  ? 0
+                  : null;
+          const r0 = rank(pt.prev);
+          const r1 = rank(pt.pose);
+          if (r0 !== null && r1 !== null && r0 !== r1) {
+            const settle = Math.round(4 * (1 - blend));
+            if (r1 > r0) {
+              // Going low: the old (taller) frame sinks as it fades out.
+              poseSnap = {
+                img: pt.snap,
+                flip: pt.snapFlip ?? false,
+                a: 0.85 * (1 - blend),
+                dy: settle,
+                w: pt.snapW,
+                h: pt.snapH,
+              };
+            } else {
+              // Rising: the new (taller) frame starts low and eases up.
+              poseDy = settle;
+              poseSnap = {
+                img: pt.snap,
+                flip: pt.snapFlip ?? false,
+                a: 0.85 * (1 - blend),
+                dy: 0,
+                w: pt.snapW,
+                h: pt.snapH,
+              };
+            }
+          }
+        } else {
+          pt.snap = undefined;
+        }
+      }
+    }
+    if (poseSnap) {
+      drawSprite(
+        ctx,
+        poseSnap.img,
+        u.x,
+        u.y + infantryDepth(u.lane) + 3 + peekY + breathe + poseSnap.dy,
+        poseSnap.w,
+        poseSnap.h,
+        poseSnap.flip,
+        alpha * poseSnap.a,
+        0,
+      );
+    }
+    // Armored vehicles and gun emplacements react when they fire. Real tanks
+    // soak recoil through the breech: the barrel slides back into the
+    // mantlet while the hull stays planted, so tanks with a measured barrel
+    // band recoil the muzzle only. Lighter vehicles and emplacements still
+    // rock the whole hull against the suspension.
+    let recoilX = 0;
+    let recoilY = 0;
+    let barrelRecoil = 0;
+    const barrelBand = geometry?.barrelBand;
+    if ((c.armored || c.emplacement) && u.fire > 0 && u.motion === 'ground') {
+      const k = u.fire / 0.25;
+      if (barrelBand) {
+        // v112: the old 0.8×band-width slid the barrel almost fully into
+        // the hull. Recoil scales with barrel length, capped, so the muzzle
+        // kicks back visibly without swallowing a short heavy-tank barrel.
+        const barrelLen = barrelBand[2] - barrelBand[0];
+        barrelRecoil = Math.min(15, barrelLen * 0.3) * k * k;
+      } else {
+        const recoil = 3 * k * k;
+        recoilX = -u.facing * recoil;
+        recoilY = recoil * 0.35;
+      }
+    }
+    const drawX =
       u.x +
-        tankOffset * Math.cos(u.hullAngle) -
-        groundInset * Math.sin(u.hullAngle),
+      recoilX +
+      tankOffset * Math.cos(u.hullAngle) -
+      groundInset * Math.sin(u.hullAngle);
+    const drawY =
       u.y +
-        infantryDepth(u.lane) +
-        (isTank ? 0 : 3) +
-        tankOffset * Math.sin(u.hullAngle) +
-        groundInset * Math.cos(u.hullAngle),
-      c.members ? img.width : w,
-      c.members ? img.height : h,
-      c.members || c.air ? u.facing < 0 : u.side === 1,
-      alpha,
-      c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
-    );
+      infantryDepth(u.lane) +
+      (isTank ? 0 : 3) +
+      peekY +
+      breathe +
+      poseDy +
+      recoilY +
+      tankOffset * Math.sin(u.hullAngle) +
+      groundInset * Math.cos(u.hullAngle);
+    if (barrelBand) {
+      drawTankSprite(
+        ctx,
+        img,
+        drawX,
+        drawY,
+        w,
+        h,
+        u.side === 1,
+        alpha * poseAlpha,
+        u.hullAngle,
+        barrelBand,
+        barrelRecoil,
+      );
+    } else {
+      drawSprite(
+        ctx,
+        img,
+        drawX,
+        drawY,
+        c.members ? img.width : w,
+        c.members ? img.height : h,
+        c.members || c.air
+          ? (microDir ?? choice?.dir ?? u.facing) < 0
+          : u.side === 1,
+        alpha * poseAlpha,
+        c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
+      );
+    }
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
+    // Stationary infantry in cover get a per-unit prop (sandbags for deep
+    // cover, rubble for light) drawn over their lower body, anchoring them
+    // to the ground they are hiding behind.
+    if (showProp) {
+      const anchorY = u.y + infantryDepth(u.lane) + 3;
+      for (const b of coverProp(u.uid, u.cover)) {
+        ctx.fillStyle = b.color;
+        ctx.fillRect(
+          Math.round(u.x + b.dx - b.w / 2),
+          Math.round(anchorY - b.dy - b.h),
+          b.w,
+          b.h,
+        );
+      }
+    }
+    // Transport helicopters show the helmets of troops still aboard through
+    // the open side door until they rappel out.
+    if (
+      c.airlift &&
+      u.hp > 0 &&
+      (u.airlift?.phase === 'approach' || u.airlift?.phase === 'unload')
+    ) {
+      const cargoSize = CARDS[c.airlift].members ?? 5;
+      const count = transportCrewCount(cargoSize, u.airlift.dropped);
+      const anchorY = u.y + infantryDepth(u.lane) + 3;
+      for (let i = 0; i < count; i++) {
+        const slot = transportCrewSlot(i, count, s.time, u.uid);
+        const hx = Math.round(u.x + (u.facing < 0 ? -slot.dx : slot.dx));
+        const hy = Math.round(anchorY + slot.dy);
+        ctx.fillStyle = '#4a4d3a';
+        ctx.fillRect(hx - 2, hy - 4, 5, 4);
+        ctx.fillStyle = '#6a6d52';
+        ctx.fillRect(hx - 2, hy - 4, 5, 1);
+      }
+    }
+    // Spotters broadcast while observing: faint signal arcs pulse above the
+    // kneeling radio pose, hinting at the shared-vision network.
+    if (c.members && u.id === 'scouts' && (u.observingUntil ?? 0) > s.time) {
+      const radioT = (s.time + u.uid * 1.37) % 4.4;
+      if (radioT < 1.2) {
+        const ax = u.x,
+          ay = u.y + infantryDepth(u.lane) - 52;
+        ctx.strokeStyle = 'rgba(226,214,170,0.7)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 2; i++) {
+          ctx.beginPath();
+          ctx.arc(
+            ax,
+            ay,
+            4 + i * 4 + (radioT % 0.4) * 6,
+            -Math.PI * 0.75,
+            -Math.PI * 0.25,
+          );
+          ctx.stroke();
+        }
+      }
+    }
     if (u.wounded) {
       const by = u.y - 25;
       ctx.fillStyle = '#e5d8b0';
@@ -512,6 +1040,15 @@ export function render(
       ctx.textAlign = 'center';
       ctx.fillText(u.moving ? '分散' : '避炮', u.x, u.y - 78);
     }
+    if ((u.calloutUntil ?? 0) > s.time) {
+      ctx.fillStyle = '#f0d060';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      const arrow = (u.calloutDir ?? 1) > 0 ? '▶' : '◀';
+      ctx.fillText(`${arrow}接触!`, u.x, u.y - 78);
+    }
+    // v92: veterancy pips — gold chevrons over the squad, one per tier.
+    drawVeterancyPips(ctx, u);
     if (u.secondaryFire > 0)
       drawMuzzle(
         ctx,
@@ -545,6 +1082,36 @@ export function render(
         u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
       );
+    // Heavy guns belch a smoke cloud at the muzzle that blooms and lingers
+    // after the flash dies away — cannon and AP rounds get the biggest puff.
+    if (u.fire > 0 && u.motion === 'ground' && !u.climbing) {
+      const ammo = u.lastAmmo ?? ammunition(u.id, u.member);
+      if (ammo !== 'machinegun' && ammo !== 'rifle' && ammo !== 'drone') {
+        const age = 0.25 - u.fire;
+        const heavy = ammo === 'cannon' || ammo === 'ap';
+        const smokeAge = age - (heavy ? 0.05 : 0.02);
+        if (smokeAge > 0 && smokeAge < 0.42) {
+          const mx = visualMuzzle?.x ?? u.muzzleX;
+          const my =
+            (visualMuzzle?.y ?? u.muzzleY) +
+            (c.members ? infantryDepth(u.lane) : 0);
+          const grow = smokeAge / 0.42;
+          const r = (heavy ? 11 : 7) * (0.35 + grow * 0.9);
+          ctx.save();
+          ctx.globalAlpha = (heavy ? 0.55 : 0.38) * (1 - grow * 0.7);
+          ctx.fillStyle = '#c3c2b2';
+          ctx.beginPath();
+          ctx.arc(mx + u.facing * r * 0.55, my - 2, r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = (heavy ? 0.35 : 0.22) * (1 - grow);
+          ctx.fillStyle = '#8f9085';
+          ctx.beginPath();
+          ctx.arc(mx + u.facing * r * 1.0, my - 4, r * 0.65, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
     if (u.healing > 0 || u.repairTime > 0) {
       ctx.fillStyle = '#e9e6b6';
       ctx.fillRect(u.x - 1, u.y - h - 15, 2, 8);
@@ -557,7 +1124,13 @@ export function render(
     }
     const by =
         u.y -
-        (u.pose === 'prone' ? 22 : u.pose === 'crouch' ? 47 : h) +
+        (u.pose === 'prone'
+          ? 22
+          : u.pose === 'hunker'
+            ? 34
+            : u.pose === 'crouch'
+              ? 47
+              : h) +
         infantryDepth(u.lane) -
         3,
       bw = c.members ? 18 : 42;
@@ -578,6 +1151,8 @@ export function render(
       3,
     );
   }
+  for (const uid of poseTracker.keys())
+    if (!seenInfantry.has(uid)) poseTracker.delete(uid);
   if (!coverDrawn) drawCoverProps(true);
   for (const u of sorted)
     drawUnitSelection(ctx, u, {
@@ -585,6 +1160,119 @@ export function render(
       visible: true,
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
+  // Muzzle-flash illumination: each active shooter casts a brief warm glow
+  // onto the terrain around him. Additive blending makes concurrent fire
+  // stack into the flickering ambience of a real firefight.
+  for (const u of sorted) {
+    if (u.fire <= 0 || u.hp <= 0 || u.wounded) continue;
+    if (!visibleToSide(s, 0, u)) continue;
+    if (u.x < camera - 120 || u.x > camera + viewportWidth + 120) continue;
+    const c = CARDS[u.id];
+    const mx = u.muzzleX;
+    const my = u.muzzleY + (c.members ? infantryDepth(u.lane) : 0);
+    drawMuzzleLight(
+      ctx,
+      mx,
+      my,
+      u.lastAmmo ?? ammunition(u.id, u.member),
+      Math.min(1, u.fire / 0.12),
+    );
+  }
+  // Illumination flares: a drifting candle under a small parachute, washing
+  // the ground in cold daylight that fades and flickers as it descends.
+  for (const f of s.flares) {
+    if (f.x < camera - 350 || f.x > camera + viewportWidth + 350) continue;
+    const sway = Math.sin(f.life * 2.2 + f.seed) * 6;
+    const burn = Math.min(1, f.life / 2.5);
+    const flicker =
+      0.82 + 0.18 * Math.sin(f.life * 17 + f.seed) * Math.sin(f.life * 7.3);
+    const strength = burn * flicker;
+    const gx = f.x + sway;
+    const gy = f.y + 14;
+    const pool = ctx.createRadialGradient(gx, gy, 0, gx, gy, 300);
+    pool.addColorStop(0, `rgba(255,246,214,${0.4 * strength})`);
+    pool.addColorStop(0.4, `rgba(255,238,190,${0.2 * strength})`);
+    pool.addColorStop(1, 'rgba(255,230,170,0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(gx, gy, 300, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // Parachute canopy and the candle itself.
+    ctx.save();
+    ctx.globalAlpha = 0.85 * burn;
+    ctx.strokeStyle = 'rgba(235,238,245,0.9)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(gx, f.y - 9, 7, Math.PI, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gx - 7, f.y - 9);
+    ctx.lineTo(gx, f.y - 1);
+    ctx.moveTo(gx + 7, f.y - 9);
+    ctx.lineTo(gx, f.y - 1);
+    ctx.stroke();
+    const candle = ctx.createRadialGradient(gx, f.y, 0, gx, f.y, 9);
+    candle.addColorStop(0, `rgba(255,255,235,${0.95 * flicker})`);
+    candle.addColorStop(0.4, `rgba(255,236,170,${0.7 * flicker})`);
+    candle.addColorStop(1, 'rgba(255,220,130,0)');
+    ctx.fillStyle = candle;
+    ctx.beginPath();
+    ctx.arc(gx, f.y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  // Sound-ranging fixes on enemy batteries: a dashed uncertainty circle
+  // with an expanding sonar ripple, fading as the report goes stale.
+  for (const r of s.batteryReports) {
+    if (r.side !== 0) continue;
+    if (r.x < camera - 220 || r.x > camera + viewportWidth + 220) continue;
+    const gy = ground(s, r.x) - 6;
+    const fresh = Math.min(1, r.life / (r.maxLife * 0.5));
+    const phase = (s.time * 0.9 + r.uid * 0.37) % 1;
+    ctx.save();
+    ctx.globalAlpha = 0.55 * fresh;
+    ctx.strokeStyle = '#ffb347';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    ctx.arc(r.x, gy, r.scatter, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Expanding sonar ring.
+    ctx.globalAlpha = 0.4 * fresh * (1 - phase);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(r.x, gy, r.scatter * (0.35 + phase * 0.9), 0, Math.PI * 2);
+    ctx.stroke();
+    // Crosshair tick at the estimated muzzle.
+    ctx.globalAlpha = 0.8 * fresh;
+    ctx.strokeStyle = '#ffd28a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(r.x - 9, gy);
+    ctx.lineTo(r.x - 3, gy);
+    ctx.moveTo(r.x + 3, gy);
+    ctx.lineTo(r.x + 9, gy);
+    ctx.moveTo(r.x, gy - 9);
+    ctx.lineTo(r.x, gy - 3);
+    ctx.moveTo(r.x, gy + 3);
+    ctx.lineTo(r.x, gy + 9);
+    ctx.stroke();
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffd28a';
+    ctx.fillText(
+      `敌方炮位 ${Math.ceil(r.life)}s`,
+      r.x,
+      gy - r.scatter - 10,
+    );
+    ctx.restore();
+  }
+  drawWreckSmoke(ctx, s, camera, viewportWidth);
+  drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
     if (f.x < camera - 140 || f.x > camera + viewportWidth + 140) continue;
@@ -635,10 +1323,18 @@ export function render(
       projectileOffsets.set(p, offset);
     }
     drawProjectile(ctx, projectileForRender(s, p, offset));
+    if (!reduced)
+      whipStreaks.consider(
+        p,
+        camera + viewportWidth / 2,
+        H / 2,
+        viewportWidth,
+        s.time,
+      );
   }
   for (const b of s.blasts)
     if (blastVisible(s, 0, b))
-      drawBlast(ctx, b, art.explosions, art.combatExplosions);
+      drawBlast(ctx, b, art.explosions, art.combatExplosions, art.combatExplosionsV13);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts);
   ctx.save();
@@ -700,5 +1396,9 @@ export function render(
       ctx.stroke();
     }
   }
+  if (s.night) drawNightOverlay(ctx, s, camera, viewportWidth);
+  drawWeather(ctx, s, camera, viewportWidth, H);
+  if (!reduced) whipStreaks.draw(ctx, s.time);
+  if (!reduced) drawRicochets(ctx, s.ricochets);
   ctx.restore();
 }

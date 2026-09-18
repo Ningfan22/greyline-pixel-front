@@ -18,7 +18,7 @@ export function tacticalObservation(
     isCombatant,
     W,
   } = engine;
-  const s = createGame(seed);
+  const s = createGame(seed, undefined, undefined, undefined, { weather: false });
   startGame(s);
   Object.assign(s, {
     units: [],

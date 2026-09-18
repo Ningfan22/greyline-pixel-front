@@ -16,6 +16,7 @@ export type BaseCardId =
   | 'ifv'
   | 'smoke'
   | 'recon'
+  | 'flare'
   | 'repair'
   | 'precision';
 export type CardId =
@@ -70,7 +71,55 @@ export type CardId =
   | 'barrage'
   | 'medevac'
   | 'fortify'
-  | 'sabotage';
+  | 'sabotage'
+  | 'overdraft'
+  | 'airborne_insertion'
+  | 'signal_jam'
+  | 'forced_march'
+  | 'cyber_suppression'
+  | 'war_production'
+  | 'foraged_supplies'
+  | 'blitz_doctrine'
+  | 'forward_hq'
+  | 'comm_blackout'
+  | 'supply_interdiction'
+  | 'spoof_attack'
+  | 'radar_jam'
+  | 'glider_assault'
+  | 'pathfinders'
+  | 'ambush_squad'
+  | 'sniper_team'
+  | 'naval_gunfire'
+  | 'cluster_munitions'
+  | 'thermobaric'
+  | 'precision_rocket'
+  | 'veteran_squad'
+  | 'medic_team'
+  | 'combat_engineers'
+  | 'entrench'
+  // ── v120 流派扩充 ─────────────────────────────────────────────
+  | 'command_lockdown'
+  | 'emergency_levy'
+  | 'battlefield_salvage'
+  | 'shock_action'
+  | 'sensor_blind'
+  | 'logistics_strike'
+  | 'freq_hop'
+  | 'ewarfare'
+  | 'airborne_at'
+  | 'rapid_insertion'
+  | 'sapper_assault'
+  | 'recon_jump'
+  | 'creeping_barrage'
+  | 'smoke_cover'
+  | 'heavy_barrage'
+  | 'illumination_round'
+  | 'minefield'
+  | 'field_hospital'
+  | 'fallback'
+  | 'fire_team'
+  | 'assault_grenadiers'
+  | 'lmg_team';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -129,9 +178,13 @@ export interface Card {
   observer?: boolean;
   oneWay?: boolean;
   airlift?: CardId;
+  /** Parachute insertion: spawns at the selected ground point and descends under canopy. */
+  airdrop?: boolean;
   antiAir?: boolean;
   radius?: number;
   members?: number;
+  /** Hand grenades carried by each infantry member; thrown at clustered enemies. */
+  frags?: number;
   minRange?: number;
   indirect?: boolean;
   heal?: number;
@@ -139,7 +192,11 @@ export interface Card {
   /** A ground vehicle body; armor damage resistance still requires armored. */
   vehicle?: boolean;
   vehicleSupport?: 'repair' | 'command' | 'mine_clear';
+  /** Crew members who bail out on foot when the vehicle is destroyed. */
+  crew?: number;
   targetGround?: boolean;
+  /** Selects a non-default artillery profile (naval/cluster/thermobaric/rocket) for strike cards. */
+  artilleryKind?: string;
   model?: BaseCardId;
   doctrine?: Doctrine;
   discipline?: number;
@@ -163,7 +220,29 @@ export interface Card {
     | 'barrage'
     | 'medevac'
     | 'fortify'
-    | 'sabotage';
+    | 'sabotage'
+    | 'signal_jam'
+    | 'forced_march'
+    | 'cyber_suppression'
+    | 'forage'
+    | 'blitz'
+    | 'blackout'
+    | 'interdict'
+    | 'spoof'
+    | 'radar_jam'
+    | 'entrench'
+    // ── v120 流派扩充 ─────────────────────────────────────────
+    | 'lockout'
+    | 'salvage'
+    | 'shock'
+    | 'sensor_blind'
+    | 'logistics_strike'
+    | 'freq_hop'
+    | 'ewarfare'
+    | 'smoke_screen'
+    | 'illumination'
+    | 'minefield'
+    | 'fallback';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
   infantry: {
@@ -240,6 +319,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     rate: 1.9,
     radius: 44,
     armored: true,
+    crew: 3,
   },
   helicopter: {
     id: 'helicopter',
@@ -267,7 +347,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '远距 · 点射',
     description: '超远射程，优先狙击步兵',
     detail:
-      '2 名狙击手 · 100 生命，每 2.4 秒共 42 伤害。射程 780，优先攻击步兵；对装甲伤害减半。',
+      '2 名狙击手 · 100 生命，每 2.4 秒共 42 伤害。射程 780，优先攻击步兵；对装甲伤害减半。静止架设时为 500px 内己方步兵提供 overwatch 掩护：压制衰减 +35%，且在炮火下多承受 14 点压制才会被钉住，掩护步兵持续跃进。',
     atlas: 10,
     members: 2,
     hp: 100,
@@ -304,7 +384,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '曲射 · 区域压制',
     description: '越过地形和烟幕曲射',
     detail:
-      '3 名炮手 · 150 生命，每 4.4 秒共 66 范围伤害。射程 180–820，无法对空；敌军贴近时会后撤。',
+      '3 名炮手 · 150 生命，每 4.4 秒共 66 范围伤害。射程 180–820，无法对空；敌军贴近时会后撤。被敌方声测定位两轮后自动转移阵地，规避反炮兵火力。',
     atlas: 12,
     members: 3,
     hp: 150,
@@ -334,6 +414,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     speed: 58,
     antiAir: true,
     armored: true,
+    crew: 2,
   },
   morale: {
     id: 'morale',
@@ -404,6 +485,19 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     description: '射程 +20%，看穿烟幕',
     detail:
       '全体己方部队射程提升 20%，并能看穿烟幕，持续 10 秒。适合配合狙击手和后方火力。重复使用刷新时长。',
+    atlas: 15,
+  },
+  flare: {
+    id: 'flare',
+    targetGround: true,
+    name: '照明弹',
+    en: 'ILLUMINATION FLARE',
+    cost: 2,
+    type: 'skill',
+    tag: '侦察 · 照明',
+    description: '照亮落点，显形双方部队 10 秒',
+    detail:
+      '照明弹在目标上空缓缓降落，持续 10 秒照亮半径 260 的区域：烟幕后的敌军现形，双方都能看见被照亮的部队。烟幕仍阻挡直射火力，但曲射与炮兵可以趁光打击。重复使用叠加照明。',
     atlas: 15,
   },
   repair: {
@@ -489,6 +583,63 @@ export const CARDS: Record<CardId, Card> = {
     detail:
       '支付1点，18秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
   }),
+  overdraft: variant('supply', 'overdraft', '透支指挥', 1, '立即获得5点指挥点，25秒内回点放缓', {
+    en: 'OVERDRAFT',
+    economy: 'overdraft',
+    tag: '发展 · 透支爆发',
+    detail:
+      '立即获得5点指挥点（可超过上限），代价是25秒内指挥点回复间隔延长50%。透支未结清前不能再次使用。快攻流派的起手爆发牌。',
+  }),
+  signal_jam: variant('jam', 'signal_jam', '电磁干扰', 1, '封锁敌方出牌4秒', {
+    en: 'SIGNAL JAM',
+    effect: 'signal_jam',
+    tag: '干扰 · 短时封锁',
+    detail:
+      '释放电磁干扰，敌方4秒内无法打出任何卡牌。低费快攻封锁牌，适合打断对手的关键部署或连招。',
+  }),
+  airborne_insertion: variant(
+    'infantry',
+    'airborne_insertion',
+    '敌后空降',
+    4,
+    '伞兵空降到选定位置，落地后快速推进',
+    {
+      members: 5,
+      hp: 220,
+      damage: 30,
+      range: 420,
+      speed: 82,
+      doctrine: 'assault',
+      discipline: 90,
+      uniform: 'marine',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 纵深插入',
+      detail:
+        '5人伞兵班搭乘运输机空降到战场任意选定位置，伞降约2.5秒落地，落地后8秒内快速突进。可直接插入敌方纵深、绕开正面防线。',
+    },
+  ),
+  forced_march: variant('supply', 'forced_march', '强行军', 2, '己方全体步兵移速提升35%，12秒', {
+    en: 'FORCED MARCH',
+    effect: 'forced_march',
+    tag: '机动 · 全军加速',
+    detail:
+      '12秒内己方所有步兵移动速度提升35%。配合透支指挥的快攻铺场，能在对手反应过来之前把战线推到脸上。',
+  }),
+  cyber_suppression: variant(
+    'jam',
+    'cyber_suppression',
+    '电子压制',
+    3,
+    '敌方立即损失3点指挥点，6秒内回点减半',
+    {
+      en: 'CYBER SUPPRESSION',
+      effect: 'cyber_suppression',
+      tag: '干扰 · 经济压制',
+      detail:
+        '网络攻击使敌方立即损失3点指挥点，且6秒内指挥点回复速度减半。封锁流的核心经济压制牌，拖慢对手的节奏。',
+    },
+  ),
   ...BASE_CARDS,
   toxic_cloud: {
     id: 'toxic_cloud',
@@ -583,6 +734,7 @@ export const CARDS: Record<CardId, Card> = {
   pickup: variant('ifv', 'pickup', '机枪皮卡', 2, '廉价机动机枪车，压制步兵', {
     en: 'MACHINE GUN TECHNICAL',
     vehicle: true,
+    crew: 1,
     armored: false,
     antiAir: false,
     hp: 150,
@@ -646,7 +798,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 430,
       tag: '炮兵 · 机动曲射',
       detail:
-        '270 生命。每 5.2 秒发射迫击炮弹，42 范围伤害，射程 170–780。曲射上升段越过树屋，下降段仍会被拦截；近敌进入死角时后撤，随后继续支援。',
+        '270 生命。每 5.2 秒发射迫击炮弹，42 范围伤害，射程 170–780。曲射上升段越过树屋，下降段仍会被拦截；近敌进入死角时后撤，随后继续支援。被敌方声测定位两轮后自动转移阵地，规避反炮兵火力。',
     },
   ),
   recovery_vehicle: variant(
@@ -863,7 +1015,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 620,
       tag: '指挥 · 部署抽牌',
       detail:
-        '3 人，150 生命。每次成功部署整支班组后，立即从自己的牌库抽 1 张，手牌上限仍为 6。拥有较远观察范围。',
+        '3 人，150 生命。每次成功部署整支班组后，立即从自己的牌库抽 1 张，手牌上限仍为 6。拥有较远观察范围。附近 210px 内的己方重型武器组（迫击炮、机枪、反坦克炮、防空炮、重火力支援）装填速度 +60%。',
     },
   ),
   strike_jet: variant(
@@ -874,7 +1026,7 @@ export const CARDS: Record<CardId, Card> = {
     '快速通场连续扫射，每架次最多 24 发，返航后低费再次派遣。',
     {
       hp: 170,
-      damage: 10,
+      damage: 38,
       rate: 0.08,
       range: 630,
       speed: 560,
@@ -886,12 +1038,13 @@ export const CARDS: Record<CardId, Card> = {
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
-      infantryMultiplier: 1.3,
+      infantryMultiplier: 12,
       armorMultiplier: 0.35,
       baseMultiplier: 0.15,
+      radius: 30,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，优先扫射步兵；每 0.08 秒发射 10 伤枪弹，对步兵 ×1.3，每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×12，一发即可撕碎一整个步兵班，弹着点掀起爆炸级烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(
@@ -1007,7 +1160,7 @@ export const CARDS: Record<CardId, Card> = {
       damage: 21,
       range: 300,
       doctrine: 'irregular',
-      discipline: 48,
+      discipline: 60,
       tag: '低费 · 士气脆弱',
     },
   ),
@@ -1378,6 +1531,701 @@ export const CARDS: Record<CardId, Card> = {
     '打乱敌方射击节奏，主武器和同轴机枪当前剩余装填延后 1.8 秒。',
     { effect: 'sabotage', tag: '调度 · 压制火力' },
   ),
+  // ── v108 快攻经济流派 ─────────────────────────────────────────────
+  war_production: variant(
+    'supply',
+    'war_production',
+    '战争生产',
+    2,
+    '立即获得 2 点指挥点，15 秒内回点速度提升 40%',
+    {
+      en: 'WAR PRODUCTION',
+      economy: 'production',
+      tag: '发展 · 爆发回点',
+      detail:
+        '支付2点，立即获得2点指挥点（可超过上限），并在15秒内指挥点回复间隔缩短40%。快攻流派的中期爆发牌：用它把一波铺场的费用提前打出来。',
+    },
+  ),
+  foraged_supplies: variant(
+    'supply',
+    'foraged_supplies',
+    '就地补给',
+    1,
+    '立即抽 2 张牌',
+    {
+      en: 'FORAGED SUPPLIES',
+      effect: 'forage',
+      tag: '调度 · 低费过牌',
+      detail:
+        '支付1点，立即抽2张牌。比战地补给更便宜的过牌手段，快攻牌组用它快速找到关键组件；牌库抽空后用过的牌会洗回。',
+    },
+  ),
+  blitz_doctrine: variant(
+    'supply',
+    'blitz_doctrine',
+    '闪电战',
+    3,
+    '己方全体步兵移速提升 45%，10 秒',
+    {
+      en: 'BLITZ DOCTRINE',
+      effect: 'blitz',
+      tag: '机动 · 全军突进',
+      detail:
+        '10秒内己方所有步兵移动速度提升45%。比强行军更贵但提速更猛，配合空降和透支指挥能在对手站稳脚跟前把战线推到脸上。',
+    },
+  ),
+  forward_hq: variant(
+    'supply',
+    'forward_hq',
+    '前沿指挥部',
+    3,
+    '永久缩短回点间隔 0.5 秒，指挥上限 -2',
+    {
+      en: 'FORWARD HQ',
+      economy: 'forward_hq',
+      tag: '发展 · 以量换速',
+      detail:
+        '支付3点，指挥点回复间隔永久缩短0.5秒，但指挥点上限永久降低2。牺牲后期储备换取全程回点速度，快攻和压制流派的核心经济牌。',
+    },
+  ),
+  // ── v108 干扰封锁流派 ─────────────────────────────────────────────
+  comm_blackout: variant(
+    'jam',
+    'comm_blackout',
+    '通讯中断',
+    3,
+    '敌方 8 秒内无法获得指挥点',
+    {
+      en: 'COMM BLACKOUT',
+      effect: 'blackout',
+      tag: '干扰 · 经济封锁',
+      detail:
+        '释放强电磁干扰，敌方8秒内指挥点完全停止回复。在对手攒费准备大招时打出，能直接掐断对方的连招节奏。',
+    },
+  ),
+  supply_interdiction: variant(
+    'jam',
+    'supply_interdiction',
+    '补给拦截',
+    2,
+    '敌方下 3 张牌费用 +2',
+    {
+      en: 'SUPPLY INTERDICTION',
+      effect: 'interdict',
+      tag: '干扰 · 加价封锁',
+      detail:
+        '拦截敌方补给线，敌方接下来打出的3张牌每张费用额外+2。持续施压型封锁，让对手每一张关键牌都来得更慢。',
+    },
+  ),
+  spoof_attack: variant(
+    'jam',
+    'spoof_attack',
+    '佯攻',
+    1,
+    '敌方步兵转向 3 秒',
+    {
+      en: 'SPOOF ATTACK',
+      effect: 'spoof',
+      tag: '干扰 · 阵型扰乱',
+      detail:
+        '制造假情报，敌方所有步兵朝向翻转3秒。期间他们会朝错误方向移动和开火，为己方突进或撤退争取窗口。',
+    },
+  ),
+  radar_jam: variant(
+    'jam',
+    'radar_jam',
+    '雷达干扰',
+    2,
+    '敌方空军与导弹精度下降，8 秒',
+    {
+      en: 'RADAR JAM',
+      effect: 'radar_jam',
+      tag: '干扰 · 反空反导',
+      detail:
+        '干扰敌方雷达制导，8秒内敌方攻击机、直升机和导弹的散布大幅增加。在对手呼叫空中支援前打出，能让大半炸弹偏离目标。',
+    },
+  ),
+  // ── v108 空降与特种步兵 ───────────────────────────────────────────
+  glider_assault: variant(
+    'infantry',
+    'glider_assault',
+    '滑翔机突击',
+    4,
+    '4 名精英步兵静默滑翔空降，落地即伏击',
+    {
+      members: 4,
+      hp: 240,
+      damage: 34,
+      range: 420,
+      speed: 84,
+      doctrine: 'assault',
+      discipline: 95,
+      uniform: 'assault',
+      infantryAbility: 'elite',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 精英纵深',
+      detail:
+        '4人精英突击班搭乘滑翔机静默降落到战场任意位置。精英训练让他们1秒即可进入伏击状态，落地就能打出伏击加成；没有运输机临空的噪音，对手更难预判落点。',
+    },
+  ),
+  pathfinders: variant(
+    'infantry',
+    'pathfinders',
+    '先导小组',
+    3,
+    '2 名侦察兵空降，超远视野，落地伏击',
+    {
+      members: 2,
+      hp: 120,
+      damage: 26,
+      range: 460,
+      speed: 88,
+      doctrine: 'recon',
+      discipline: 90,
+      uniform: 'recon',
+      trait: 'scout',
+      infantryAbility: 'ambush',
+      airdrop: true,
+      targetGround: true,
+      tag: '空降 · 侦察引导',
+      detail:
+        '2人先导侦察小组空降到战场任意位置。侦察兵拥有超远视野，能提前点亮敌方纵深部署；落地后进入伏击状态，第一波齐射带伏击加成。适合为后续主力空降标记安全落点。',
+    },
+  ),
+  ambush_squad: variant(
+    'infantry',
+    'ambush_squad',
+    '伏击小组',
+    3,
+    '3 名伏击兵，静止 2 秒后首波齐射伤害翻倍',
+    {
+      members: 3,
+      hp: 165,
+      damage: 30,
+      range: 440,
+      speed: 70,
+      doctrine: 'defensive',
+      discipline: 88,
+      infantryAbility: 'ambush',
+      tag: '守备 · 以静制动',
+      detail:
+        '3人伏击小组，静止2秒后进入伏击状态，开火首波齐射造成双倍伤害。蹲在掩体或草丛里等对手撞上来，是防守反击流派的核心单位。',
+    },
+  ),
+  sniper_team: variant(
+    'sniper',
+    'sniper_team',
+    '狙击小组',
+    4,
+    '2 名狙击手，880 超远射程，优先点杀步兵',
+    {
+      members: 2,
+      hp: 110,
+      damage: 52,
+      rate: 2.6,
+      range: 880,
+      speed: 50,
+      tag: '远距 · 精确点杀',
+      detail:
+        '2人狙击小组，射程880，优先攻击步兵。比基础狙击小组伤害更高、射程更远，能在对手视野外逐一点杀敌方步兵和班组武器。',
+    },
+  ),
+  veteran_squad: variant(
+    'infantry',
+    'veteran_squad',
+    '老兵班组',
+    4,
+    '6 名老兵，高士气高纪律，压制下仍能作战',
+    {
+      members: 6,
+      hp: 260,
+      damage: 28,
+      range: 400,
+      speed: 70,
+      doctrine: 'assault',
+      discipline: 96,
+      infantryAbility: 'elite',
+      tag: '前线 · 精锐主力',
+      detail:
+        '6名久经沙场的老兵。96点纪律让他们在炮火压制下仍能保持射击，精英训练让他们快速进入伏击状态。比基础步兵班贵一倍，但战线稳定性完全不是一个级别。',
+    },
+  ),
+  medic_team: variant(
+    'medic',
+    'medic_team',
+    '医疗小组',
+    3,
+    '3 名军医，治疗光环强化，持续救治周围步兵',
+    {
+      members: 3,
+      hp: 150,
+      damage: 8,
+      rate: 1.2,
+      range: 260,
+      speed: 66,
+      heal: 6,
+      tag: '救治 · 持续恢复',
+      detail:
+        '3人医疗小组，每人每0.8秒治疗附近步兵6点生命。比基础医疗组治疗量高50%，站在主力班组身后能让整条战线的续航大幅提升。',
+    },
+  ),
+  combat_engineers: variant(
+    'infantry',
+    'combat_engineers',
+    '战斗工兵',
+    3,
+    '4 名工兵，可爆破矮墙、清除地雷',
+    {
+      members: 4,
+      hp: 200,
+      damage: 26,
+      range: 360,
+      speed: 66,
+      doctrine: 'assault',
+      discipline: 85,
+      trait: 'engineer',
+      tag: '攻坚 · 破障排雷',
+      detail:
+        '4人战斗工兵班，能对矮墙造成大量爆破伤害（破墙时附近突击步兵会趁机涌入缺口），并自动清除行进路线上的敌方地雷。攻坚流派打开正面缺口的关键单位。',
+    },
+  ),
+  // ── v108 炮火支援流派 ─────────────────────────────────────────────
+  naval_gunfire: variant(
+    'artillery',
+    'naval_gunfire',
+    '舰炮支援',
+    5,
+    '3.4 秒后一发 120 伤害舰炮，大范围重创',
+    {
+      artilleryKind: 'naval',
+      tag: '支援 · 重型舰炮',
+      detail:
+        '呼叫近海舰艇主炮支援，3.4秒后一发120伤害、半径72的重型炮弹砸向目标区域。单发伤害最高的炮火，适合清除密集步兵群或重创基地。',
+    },
+  ),
+  cluster_munitions: variant(
+    'artillery',
+    'cluster_munitions',
+    '集束弹药',
+    4,
+    '3 秒后 8 发子弹药连续覆盖一片区域',
+    {
+      artilleryKind: 'cluster',
+      tag: '支援 · 区域覆盖',
+      detail:
+        '发射集束弹药，3秒后8发子弹药以0.32秒间隔连续砸向目标区域，每发14伤害、半径30。对散布在开阔地的步兵群有毁灭性的覆盖效果。',
+    },
+  ),
+  thermobaric: variant(
+    'artillery',
+    'thermobaric',
+    '温压弹',
+    4,
+    '2.8 秒后一发 55 伤害温压弹，大范围灼烧',
+    {
+      artilleryKind: 'thermobaric',
+      tag: '支援 · 温压灼烧',
+      detail:
+        '投掷温压弹，2.8秒后一发55伤害、半径58的燃料空气爆炸。冲击波和高温在大范围内造成稳定伤害，对付掩体后的步兵尤其有效。',
+    },
+  ),
+  precision_rocket: variant(
+    'artillery',
+    'precision_rocket',
+    '精确火箭',
+    3,
+    '2.2 秒后一发 90 伤害精确火箭，小范围点杀',
+    {
+      artilleryKind: 'rocket',
+      tag: '支援 · 精确打击',
+      detail:
+        '发射精确制导火箭，2.2秒后一发90伤害、半径22的火箭精准命中目标。落点散布极小，适合点杀高价值目标或清除掩体后的班组武器。',
+    },
+  ),
+  // ── v108 防御增益 ─────────────────────────────────────────────────
+  entrench: variant(
+    'morale',
+    'entrench',
+    '掘壕固守',
+    2,
+    '己方全体步兵卧倒并减伤 30%，8 秒',
+    {
+      effect: 'entrench',
+      tag: '守备 · 卧倒减伤',
+      detail:
+        '命令全体己方步兵立即卧倒并挖掘简易掩体，8秒内受到的伤害降低30%。在敌方炮火或空袭来临前打出，能让整条战线硬吃一轮打击。',
+    },
+  ),
+  // ── v120 快攻经济流派 ─────────────────────────────────────────────
+  command_lockdown: variant(
+    'jam',
+    'command_lockdown',
+    '指挥静默',
+    1,
+    '敌方 3 秒内无法打出任何卡牌',
+    {
+      en: 'COMMAND LOCKDOWN',
+      effect: 'lockout',
+      tag: '快攻 · 出牌封锁',
+      detail:
+        '发射定向干扰脉冲切断敌方指挥链路，3秒内敌方无法打出任何卡牌。快攻流派在铺场高潮前打出，能让对手眼睁睁看着你的部队冲过开阔地。',
+    },
+  ),
+  emergency_levy: variant(
+    'supply',
+    'emergency_levy',
+    '紧急征发',
+    1,
+    '立即获得 3 点指挥点，12 秒内回点放缓',
+    {
+      en: 'EMERGENCY LEVY',
+      economy: 'levy',
+      tag: '快攻 · 即时爆发',
+      detail:
+        '立即获得3点指挥点（可超过上限），代价是12秒内指挥点回复间隔延长35%。比透支指挥更轻量的爆发牌，适合中期抢节奏。',
+    },
+  ),
+  battlefield_salvage: variant(
+    'supply',
+    'battlefield_salvage',
+    '战场回收',
+    1,
+    '从弃牌堆抽回 1 张费用不超过 3 的单位牌',
+    {
+      en: 'BATTLEFIELD SALVAGE',
+      effect: 'salvage',
+      tag: '快攻 · 资源循环',
+      detail:
+        '回收战场上被击毁装备的可用部件，从弃牌堆中随机抽回1张费用不超过3的单位牌到手牌。快攻卡组的续航引擎，让便宜班组源源不断地填线。',
+    },
+  ),
+  shock_action: variant(
+    'jam',
+    'shock_action',
+    '震慑行动',
+    2,
+    '敌方全体步兵压制 +35，1.8 秒内无法移动',
+    {
+      en: 'SHOCK ACTION',
+      effect: 'shock',
+      tag: '快攻 · 步兵压制',
+      detail:
+        '集中电子干扰与火力示威，敌方全体步兵压制值+35且1.8秒内无法移动。在冲锋前打出，让敌方步兵钉在原地挨打。',
+    },
+  ),
+  // ── v120 干扰封锁流派 ─────────────────────────────────────────────
+  sensor_blind: variant(
+    'jam',
+    'sensor_blind',
+    '传感器致盲',
+    1,
+    '敌方视野 -55%，6 秒',
+    {
+      en: 'SENSOR BLIND',
+      effect: 'sensor_blind',
+      tag: '干扰 · 视野压制',
+      detail:
+        '干扰敌方观瞄系统，6秒内敌方所有单位视野降低55%。敌方狙击手和侦察单位在致盲期间几乎无法开火，是掩护机动的廉价手段。',
+    },
+  ),
+  logistics_strike: variant(
+    'jam',
+    'logistics_strike',
+    '后勤斩首',
+    2,
+    '敌方立即失去 3 点指挥点',
+    {
+      en: 'LOGISTICS STRIKE',
+      effect: 'logistics_strike',
+      tag: '干扰 · 资源打击',
+      detail:
+        '打击敌方后勤节点，敌方立即失去3点指挥点。在对手攒费准备打出关键牌时使用，直接打断其节奏。',
+    },
+  ),
+  freq_hop: variant(
+    'jam',
+    'freq_hop',
+    '跳频通讯',
+    2,
+    '己方 8 秒内免疫所有干扰效果',
+    {
+      en: 'FREQUENCY HOPPING',
+      effect: 'freq_hop',
+      tag: '干扰 · 反制',
+      detail:
+        '全军切换跳频通讯模式，8秒内免疫所有敌方干扰效果（电磁干扰、传感器致盲、电子压制等）。面对干扰流派时的硬 counter。',
+    },
+  ),
+  ewarfare: variant(
+    'jam',
+    'ewarfare',
+    '电子压制',
+    3,
+    '敌方 5 秒内回点间隔 ×1.6',
+    {
+      en: 'EW SUPPRESSION',
+      effect: 'ewarfare',
+      tag: '干扰 · 回点压制',
+      detail:
+        '全面电子压制敌方指挥网络，5秒内敌方指挥点回复间隔延长60%。比后勤斩首更持久的经济打击，适合封锁流磨死对手。',
+    },
+  ),
+  // ── v120 空降特种流派 ─────────────────────────────────────────────
+  airborne_at: variant(
+    'infantry',
+    'airborne_at',
+    '空降反甲组',
+    5,
+    '4 人空降反甲班，高穿甲，直接伞降目标区域',
+    {
+      members: 4,
+      hp: 220,
+      damage: 30,
+      range: 400,
+      speed: 66,
+      armorMultiplier: 1.7,
+      airdrop: true,
+      targetGround: true,
+      doctrine: 'assault',
+      discipline: 92,
+      uniform: 'marine',
+      tag: '空降 · 装甲猎杀',
+      detail:
+        '4人空降反甲班组直接伞降至目标区域，每人配备反坦克武器，对装甲伤害×1.7。可空降至敌方装甲侧后实施猎杀。',
+    },
+  ),
+  rapid_insertion: variant(
+    'infantry',
+    'rapid_insertion',
+    '快速穿插',
+    3,
+    '3 人高速空降班，落地后极速穿插',
+    {
+      members: 3,
+      hp: 150,
+      damage: 24,
+      range: 380,
+      speed: 92,
+      airdrop: true,
+      targetGround: true,
+      infantryAbility: 'rapid',
+      doctrine: 'recon',
+      discipline: 90,
+      uniform: 'recon',
+      tag: '空降 · 高速穿插',
+      detail:
+        '3人轻装空降班，落地后以92移速高速穿插敌方防线。适合抢占要点、绕后骚扰或快速增援危急地段。',
+    },
+  ),
+  sapper_assault: variant(
+    'infantry',
+    'sapper_assault',
+    '突击工兵',
+    3,
+    '4 人工兵班，可排雷破障，减伤 50%',
+    {
+      members: 4,
+      hp: 200,
+      damage: 28,
+      range: 380,
+      speed: 64,
+      trait: 'engineer',
+      armorMultiplier: 1.5,
+      doctrine: 'assault',
+      discipline: 88,
+      tag: '步兵 · 破障突击',
+      detail:
+        '4人突击工兵班，自带减伤50%，可排除敌方地雷并破坏障碍物。攻坚必备，在雷场和工事前无人能替代。',
+    },
+  ),
+  recon_jump: variant(
+    'scouts',
+    'recon_jump',
+    '侦察跳降',
+    2,
+    '2 人空降侦察组，超远视野，快速部署',
+    {
+      members: 2,
+      hp: 100,
+      damage: 24,
+      range: 700,
+      rate: 1.6,
+      speed: 88,
+      airdrop: true,
+      targetGround: true,
+      trait: 'scout',
+      uniform: 'recon',
+      tag: '空降 · 前沿侦察',
+      detail:
+        '2人空降侦察组直接跳降至前沿，700射程点射+超远视野。最便宜的空降单位，用于快速建立视野网或猎杀敌方侦察。',
+    },
+  ),
+  // ── v120 炮火支援流派 ─────────────────────────────────────────────
+  creeping_barrage: variant(
+    'artillery',
+    'creeping_barrage',
+    '徐进弹幕',
+    4,
+    '6 发炮弹沿轴线递进覆盖，逐步延伸',
+    {
+      en: 'CREEPING BARRAGE',
+      artilleryKind: 'creeping',
+      tag: '支援 · 徐进弹幕',
+      detail:
+        '6发炮弹以0.5秒间隔沿x轴递进覆盖，每发22伤害、半径38。弹幕从目标点向敌方方向逐步延伸，逼迫敌方步兵后撤或被弹幕吞噬。',
+    },
+  ),
+  smoke_cover: variant(
+    'smoke',
+    'smoke_cover',
+    '烟幕急袭',
+    2,
+    '在目标区域释放 3 道烟幕，宽幅遮蔽',
+    {
+      en: 'SMOKE COVER',
+      effect: 'smoke_screen',
+      tag: '支援 · 宽幅烟幕',
+      detail:
+        '在目标区域及两侧各100距离释放3道烟幕，持续10秒。比基础烟幕宽三倍的遮蔽带，适合掩护大部队通过开阔地。',
+    },
+  ),
+  heavy_barrage: variant(
+    'artillery',
+    'heavy_barrage',
+    '重型弹幕',
+    5,
+    '4 发重型炮弹，大范围高伤害',
+    {
+      en: 'HEAVY BARRAGE',
+      artilleryKind: 'heavy',
+      tag: '支援 · 重型打击',
+      detail:
+        '4发重型炮弹以0.9秒间隔落下，每发60伤害、半径50。适合打击密集步兵群或坚固工事，一发就能让一个班组失去战斗力。',
+    },
+  ),
+  illumination_round: variant(
+    'flare',
+    'illumination_round',
+    '照明弹',
+    1,
+    '目标区域照明 14 秒，比基础照明更持久',
+    {
+      en: 'ILLUMINATION ROUND',
+      effect: 'illumination',
+      tag: '支援 · 持久照明',
+      detail:
+        '发射一发照明弹，目标区域持续14秒照亮（比基础照明弹多4秒）。夜间作战或烟幕环境下的必备侦察手段。',
+    },
+  ),
+  // ── v120 防御守备流派 ─────────────────────────────────────────────
+  minefield: variant(
+    'antitank_mine',
+    'minefield',
+    '混合雷场',
+    3,
+    '一次布置 3 颗反坦克雷，覆盖 120 距离',
+    {
+      en: 'MINEFIELD',
+      effect: 'minefield',
+      tag: '守备 · 区域封锁',
+      detail:
+        '在目标区域及两侧各60距离布置3颗反坦克地雷，2秒后启用。比单颗布雷宽三倍的封锁带，适合扼守通道或保护侧翼。',
+    },
+  ),
+  field_hospital: variant(
+    'medic',
+    'field_hospital',
+    '野战医院',
+    3,
+    '3 名军医，治疗量 +75%，自带减伤',
+    {
+      members: 3,
+      hp: 160,
+      damage: 9,
+      rate: 1.2,
+      range: 300,
+      speed: 60,
+      heal: 7,
+      armorMultiplier: 1.3,
+      tag: '守备 · 持续治疗',
+      detail:
+        '3名军医组成的野战医院，每人每0.8秒治疗附近步兵7生命（比基础医疗组+75%），自带减伤30%。防线的持续作战保障。',
+    },
+  ),
+  fallback: variant(
+    'fortify',
+    'fallback',
+    '战术后撤',
+    2,
+    '己方全体步兵后撤 280 距离，2 秒内移速 +60%',
+    {
+      en: 'TACTICAL FALLBACK',
+      effect: 'fallback',
+      tag: '守备 · 战术撤退',
+      detail:
+        '命令全体己方步兵立即后撤280距离，2秒内移速+60%。在敌方炮火或冲锋来临前拉出距离，保存有生力量。',
+    },
+  ),
+  // ── v120 步兵协同流派 ─────────────────────────────────────────────
+  fire_team: variant(
+    'infantry',
+    'fire_team',
+    '火力小组',
+    1,
+    '2 人轻装班，便宜填线',
+    {
+      members: 2,
+      hp: 90,
+      damage: 18,
+      range: 360,
+      speed: 72,
+      discipline: 82,
+      tag: '步兵 · 廉价填线',
+      detail:
+        '2人轻装火力小组，最便宜的步兵单位。适合快速填线、吸引火力或配合战场回收形成源源不断的兵海。',
+    },
+  ),
+  assault_grenadiers: variant(
+    'infantry',
+    'assault_grenadiers',
+    '突击掷弹兵',
+    3,
+    '4 人掷弹班，每人 3 颗手雷，近战专精',
+    {
+      members: 4,
+      hp: 200,
+      damage: 26,
+      range: 380,
+      speed: 70,
+      frags: 3,
+      trait: 'close_assault',
+      doctrine: 'assault',
+      discipline: 88,
+      tag: '步兵 · 手雷突击',
+      detail:
+        '4人突击掷弹班，每人携带3颗手雷，近距离作战专精。手雷对集群步兵和掩体后目标效果极佳，是攻坚的尖刀。',
+    },
+  ),
+  lmg_team: variant(
+    'machinegun',
+    'lmg_team',
+    '轻机枪组',
+    3,
+    '2 人机枪组，高机动压制火力',
+    {
+      members: 2,
+      hp: 140,
+      damage: 4,
+      rate: 0.28,
+      range: 460,
+      speed: 60,
+      antiAir: true,
+      tag: '步兵 · 机动压制',
+      detail:
+        '2人轻机枪组，比基础机枪班人少但保持机动性。高射速压制火力，可对空，适合伴随步兵推进。',
+    },
+  ),
 };
 export function modelOf(id: CardId): BaseCardId {
   return CARDS[id].model ?? (id as BaseCardId);
@@ -1467,10 +2315,11 @@ Object.assign(CARDS.marines, {
 });
 Object.assign(CARDS.assault, {
   infantryAbility: 'smoke_assault',
+  frags: 2,
   tag: '突击 · 接敌烟幕',
   description: '140内发现敌军时，每班释放一次短烟并集中射击。',
   detail:
-    '3费5人260生命。140内可见地面敌军触发每班一次4秒烟幕，附近同班成员4秒内对140内目标装填缩短35%；不穿烟观察远敌。',
+    '3费5人260生命。140内可见地面敌军触发每班一次4秒烟幕，附近同班成员4秒内对140内目标装填缩短35%；不穿烟观察远敌。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.rangers, {
   hp: 180,
@@ -1478,10 +2327,11 @@ Object.assign(CARDS.rangers, {
   range: 500,
   sight: 720,
   infantryAbility: 'ambush',
+  frags: 2,
   tag: '侦察 · 伏击首枪',
   description: '停步蓄势，下一发对步兵增强；移动或射击重置。',
   detail:
-    '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。',
+    '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.paratroopers, {
   infantryAbility: 'rapid',
@@ -1505,10 +2355,11 @@ Object.assign(CARDS.commandos, {
   range: 400,
   infantryAbility: 'elite',
   neverSurrender: true,
+  frags: 2,
   tag: '精锐 · 快速伏击',
   description: '少人精锐，快速准备伏击，个人抗压且不投降。',
   detail:
-    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。',
+    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.scouts, {
   cost: 1,
@@ -1593,7 +2444,17 @@ export function copyLimit(id: CardId) {
   if (id === 'toxic_cloud') return 1;
   if (id === 'militia') return 6;
   if (id === 'infantry' || id === 'pickup') return 4;
-  if (['heavy_tank', 'rocket_heli', 'barrage', 'bomber'].includes(id)) return 1;
+  if (
+    [
+      'heavy_tank',
+      'rocket_heli',
+      'barrage',
+      'bomber',
+      'forward_hq',
+      'naval_gunfire',
+    ].includes(id)
+  )
+    return 1;
   if (
     [
       'machinegun',
@@ -1618,6 +2479,13 @@ export function copyLimit(id: CardId) {
       'loiter_drone',
       'fpv_drone',
       'antitank_mine',
+      'foraged_supplies',
+      'spoof_attack',
+      'ambush_squad',
+      'medic_team',
+      'combat_engineers',
+      'entrench',
+      'precision_rocket',
     ].includes(id)
   )
     return 3;

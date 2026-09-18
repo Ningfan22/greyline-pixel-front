@@ -1,5 +1,5 @@
 export function arena(api, side, seed = 733) {
-  const s = api.createGame(seed);
+  const s = api.createGame(seed, undefined, undefined, undefined, { weather: false });
   api.startGame(s);
   Object.assign(s, {
     units: [],

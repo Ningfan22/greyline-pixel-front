@@ -179,4 +179,66 @@ check('步兵双向经过整段山地起伏保持地面移动，不反复攀爬�
     assert(Math.abs(u.y - E.ground(s, u.x)) < 1);
   }
 });
+check('种子地图：同种子确定、异种子不同、保持镜像与步行约束、景物有效', () => {
+  for (const id of MAP_IDS) {
+    const a = createMapLayout(id, E.W, 0x1a2b3c4d),
+      b = createMapLayout(id, E.W, 0x1a2b3c4d),
+      c = createMapLayout(id, E.W, 0x5e6f7a8b);
+    assert.deepEqual(a, b, `${id} 同种子必须逐像素复现`);
+    assert.equal(a.seed, 0x1a2b3c4d);
+    assert.notDeepEqual(a.terrain, c.terrain, `${id} 异种子必须产生不同地形`);
+    assert(
+      a.scenerySites.some(
+        (p, i) => p.x !== c.scenerySites[i].x,
+      ),
+      `${id} 异种子必须产生不同景物布局`,
+    );
+    const t = a.terrain;
+    assert(t.every((y) => Number.isFinite(y) && y >= 310 && y <= 430));
+    if (id !== 'greyline') {
+      assert(t.slice(0, 221).every((y) => y === 374));
+      assert(t.slice(-221).every((y) => y === 374));
+      assert(t.every((y, x) => y === t[t.length - 1 - x]));
+      let adjacent = 0,
+        across36 = 0;
+      for (let x = 1; x < t.length; x++) {
+        adjacent = Math.max(adjacent, Math.abs(t[x] - t[x - 1]));
+        if (x >= 36) across36 = Math.max(across36, Math.abs(t[x] - t[x - 36]));
+      }
+      assert(adjacent <= 1);
+      assert(across36 <= 9, `${id} 种子地形 36px 跨度 ${across36}`);
+      for (const site of a.scenerySites)
+        assert(
+          a.scenerySites.some(
+            (p) =>
+              p.x === E.W - 1 - site.x &&
+              p.kind === site.kind &&
+              p.seed === site.seed,
+          ),
+          `${id} 种子景物必须镜像`,
+        );
+    }
+    const scenery = createScenery(t, a.scenerySites);
+    assert.equal(
+      new Set(scenery.map((p) => p.id)).size,
+      scenery.length,
+      `${id} 种子景物 id 必须唯一`,
+    );
+    assert(
+      scenery.every(
+        (p) =>
+          p.y === t[p.x] &&
+          p.parts.every((part) => part.hp > 0 && part.w > 0 && part.h > 0),
+      ),
+      `${id} 种子景物必须有效`,
+    );
+  }
+  // 传入 layoutSeed 时必须走旧路径，逐像素复现默认地形。
+  for (const id of MAP_IDS) {
+    assert.deepEqual(
+      createMapLayout(id, E.W, MAPS[id].layoutSeed),
+      createMapLayout(id),
+    );
+  }
+});
 console.log(JSON.stringify({ passed: results.length, metrics }, null, 2));

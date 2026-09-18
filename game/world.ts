@@ -2,7 +2,9 @@ import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import { treeBoxesV17 } from './tree-state-v17';
+import { STRIDE, terrainMinima } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
+import { weatherVisibility } from './weather';
 export interface SceneryPart {
   id: number;
   x: number;
@@ -46,6 +48,10 @@ export interface Wreck {
   pose?: Unit['pose'];
   facing?: number;
   lane?: number;
+  /** v83: fallen infantry keep their weapon's remaining ammo so living squadmates can loot it. */
+  member?: number;
+  ammo?: number;
+  ammoReserve?: number;
   id: number;
   cardId: Unit['id'];
   side: Side;
@@ -56,6 +62,17 @@ export interface Wreck {
   falling: boolean;
   vx: number;
   vy: number;
+  /**
+   * v106: angular velocity (rad/s) for infantry thrown by a blast — the
+   * ragdoll tumbles through the air on this spin, then settles on landing.
+   */
+  spin?: number;
+  /**
+   * v109: how the hulk died. Picks the authored wreck-state family:
+   * blast kills tear the hull apart, bullet kills puncture and riddle it,
+   * burns leave a gutted shell. Old serialized wrecks can omit this.
+   */
+  cause?: 'blast' | 'bullet' | 'burn';
 }
 export interface Mine {
   kind?: 'antipersonnel';
@@ -430,10 +447,42 @@ export function clearSight(
   ty: number,
   throughSmoke = false,
 ) {
-  const steps = Math.ceil(Math.abs(tx - sx) / 12);
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps;
-    if (sy + (ty - sy) * t >= floorAt(s, sx + (tx - sx) * t) - 2) return false;
+  const dx = tx - sx,
+    dy = ty - sy,
+    steps = Math.ceil(Math.abs(dx) / 12);
+  // Same 12px samples as before, but walked in blocks of 32: a block whose
+  // ray stays strictly below the terrain minimum (minus the same 2px margin)
+  // can be skipped wholesale. On flat ground every block skips, turning an
+  // O(distance) march into O(distance / 2048) bin lookups.
+  if (steps > 1) {
+    const minima = terrainMinima(s),
+      maxX = s.terrain.length - 1,
+      binCount = minima.length;
+    for (let i = 1; i < steps; ) {
+      const end = Math.min(steps - 1, i + 31);
+      const x0 = sx + (dx * i) / steps,
+        x1 = sx + (dx * end) / steps;
+      const lo = Math.floor(
+          (Math.max(0, Math.min(maxX, Math.min(x0, x1)))) / STRIDE,
+        ),
+        hi = Math.floor(
+          (Math.max(0, Math.min(maxX, Math.max(x0, x1)))) / STRIDE,
+        );
+      let minimum = Infinity;
+      for (let b = lo; b <= hi && b < binCount; b++)
+        if (minima[b] < minimum) minimum = minima[b];
+      if (
+        Math.max(sy + (dy * i) / steps, sy + (dy * end) / steps) <
+        minimum - 2
+      ) {
+        i = end + 1;
+        continue;
+      }
+      for (; i <= end; i++) {
+        const t = i / steps;
+        if (sy + dy * t >= floorAt(s, sx + dx * t) - 2) return false;
+      }
+    }
   }
   if (
     !throughSmoke &&
@@ -448,6 +497,20 @@ export function clearSight(
     return false;
   return true;
 }
+// Scratch storage for observationPenalty's per-obstruction max-loss dedup.
+// Prop keys are positive (id + 1), wreck keys negative (-(id + 1)), so the two
+// namespaces never collide.
+const penaltyKeys: number[] = [];
+const penaltyLoss: number[] = [];
+function penaltyAdd(key: number, loss: number) {
+  for (let i = 0; i < penaltyKeys.length; i++)
+    if (penaltyKeys[i] === key) {
+      if (loss > penaltyLoss[i]) penaltyLoss[i] = loss;
+      return;
+    }
+  penaltyKeys.push(key);
+  penaltyLoss.push(loss);
+}
 export function observationPenalty(
   s: GameState,
   sx: number,
@@ -457,13 +520,19 @@ export function observationPenalty(
   range: number,
 ) {
   // One house/tree is one obstruction even when its ray crosses several parts.
-  const obstacles = new Map<string, number>();
+  // Scratch dedup: this runs thousands of times per vision refresh, so reuse
+  // module-level arrays instead of allocating a Map with string keys per call.
+  // Not reentrant — it is only invoked synchronously from pointVisible.
+  penaltyKeys.length = 0;
+  penaltyLoss.length = 0;
   for (const box of nearbyObstacles(s, sx, tx)) {
     if (segmentBox(sx, sy, tx, ty, box) === null) continue;
-    const key = box.prop ? `prop:${box.prop.id}` : `wreck:${box.wreck!.id}`;
+    const key = box.prop ? box.prop.id + 1 : -(box.wreck!.id + 1);
     const loss = box.rubble ? 8 : box.prop?.kind === 'house' ? 60 : 25;
-    obstacles.set(key, Math.max(obstacles.get(key) ?? 0, loss));
+    penaltyAdd(key, loss);
   }
+  let sum = 0;
+  for (let i = 0; i < penaltyKeys.length; i++) sum += penaltyLoss[i];
   for (const wall of s.walls) {
     if (wall.hp <= 0) continue;
     const box = {
@@ -472,13 +541,9 @@ export function observationPenalty(
       w: 40,
       h: wall.height,
     };
-    if (segmentBox(sx, sy, tx, ty, box) !== null)
-      obstacles.set(`wall:${wall.uid}`, 8);
+    if (segmentBox(sx, sy, tx, ty, box) !== null) sum += 8;
   }
-  return Math.min(
-    range * 0.25,
-    [...obstacles.values()].reduce((sum, loss) => sum + loss, 0),
-  );
+  return Math.min(range * 0.25, sum);
 }
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
@@ -510,16 +575,43 @@ export function observerUnits(s: GameState, side: Side) {
   }
   return index.sides[side];
 }
-export function pointVisible(s: GameState, side: Side, x: number, y: number) {
+export function pointVisibleWith(
+  s: GameState,
+  side: Side,
+  x: number,
+  y: number,
+  candidates?: Unit[],
+) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
     return true;
-  return s.units.some((u) => {
+  if (
+    s.flares.some(
+      (f) =>
+        f.life > 0 && Math.hypot(f.x - x, (f.y - y) * 0.65) <= 260,
+    )
+  )
+    return true;
+  const pool = candidates ?? s.units;
+  return pool.some((u) => {
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
       return false;
-    const range = sightRange(u) * (s.players[side].recon > 0 ? 1.15 : 1);
+    const range =
+      sightRange(u) *
+      (s.players[side].recon > 0 ? 1.15 : 1) *
+      ((s.players[side].sensorBlindUntil ?? 0) > s.time ? 0.45 : 1) *
+      (s.night ? 0.45 : 1) *
+      weatherVisibility(s);
     const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
     if (distance > range) return false;
-    const eye = u.y - (CARDS[u.id].air ? 20 : u.pose === 'prone' ? 12 : 48);
+    const eye =
+      u.y -
+      (CARDS[u.id].air
+        ? 20
+        : u.pose === 'prone'
+          ? 12
+          : u.pose === 'hunker'
+            ? 20
+            : 48);
     if (distance > range - observationPenalty(s, u.x, eye, x, y, range))
       return false;
     return clearSight(
@@ -542,6 +634,9 @@ export function pointVisible(s: GameState, side: Side, x: number, y: number) {
     );
   });
 }
+export function pointVisible(s: GameState, side: Side, x: number, y: number) {
+  return pointVisibleWith(s, side, x, y);
+}
 const visibleLookup = new WeakMap<
   number[],
   { length: number; ids: Set<number> }
@@ -562,7 +657,23 @@ export function refreshVision(s: GameState) {
       .filter(
         (u) =>
           u.side === side ||
-          pointVisible(s, side, u.x, u.y - (u.pose === 'prone' ? 8 : 28)),
+          pointVisible(
+            s,
+            side,
+            u.x,
+            u.y - (u.pose === 'prone' ? 8 : u.pose === 'hunker' ? 16 : 28),
+          ) ||
+          // Night: a muzzle flash betrays the shooter to anyone nearby.
+          (s.night &&
+            (u.flashUntil ?? 0) > s.time &&
+            s.units.some(
+              (v) =>
+                v.side === side &&
+                v.hp > 0 &&
+                !v.wounded &&
+                !v.surrendered &&
+                Math.abs(v.x - u.x) <= 560,
+            )),
       )
       .map((u) => u.uid);
     for (let bin = 0; bin < 60; bin++) {

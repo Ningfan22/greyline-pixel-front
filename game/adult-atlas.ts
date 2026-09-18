@@ -36,3 +36,34 @@ export function adultAtlas(image: HTMLImageElement): AdultSprites {
     reactions8: frames.slice(36, 44),
   };
 }
+
+/**
+ * v121: dedicated hand-signal sheets (2x2 grid, point-forward / wave-overhead /
+ * point-back / fist). The old signal branch reused climbing frames, which read
+ * as the leader hauling himself up a rope instead of directing the squad.
+ * These sheets are painted at high resolution with real anti-aliased alpha, so
+ * unlike adultAtlas they keep smoothing on and skip the alpha binarisation.
+ */
+export function signalFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image);
+  const cellW = source.width / 2,
+    cellH = source.height / 2;
+  return Array.from({ length: 4 }, (_, index) => {
+    const out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      source,
+      (index % 2) * cellW,
+      Math.floor(index / 2) * cellH,
+      cellW,
+      cellH,
+      0,
+      0,
+      96,
+      96,
+    );
+    return out;
+  });
+}

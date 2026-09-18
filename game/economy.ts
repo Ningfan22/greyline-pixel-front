@@ -1,8 +1,24 @@
 export type Difficulty = 'standard' | 'veteran' | 'elite';
 export interface MatchOptions {
   difficulty?: Difficulty;
+  night?: boolean;
+  /** Weather cycles (v62). Defaults to on; pass false to keep a clear sky. */
+  weather?: boolean;
+  /**
+   * v113: override the terrain-generation seed. By default the match seed
+   * drives the map, so every match looks different. Pass the map's
+   * layoutSeed to reproduce the classic fixed terrain (tests, replays).
+   */
+  mapSeed?: number;
 }
-export type EconomyEffect = 'logistics' | 'capacity' | 'bonds';
+export type EconomyEffect =
+  | 'logistics'
+  | 'capacity'
+  | 'bonds'
+  | 'overdraft'
+  | 'production'
+  | 'forward_hq'
+  | 'levy';
 export const DEFAULT_DIFFICULTY: Difficulty = 'veteran';
 export const DIFFICULTY_RATE: Record<Difficulty, number> = {
   standard: 1,
@@ -20,6 +36,19 @@ export const ECONOMY_RULES = {
   bondDelay: 18,
   bondPayout: 3,
   maxBonds: 2,
+  overdraftDuration: 25,
+  overdraftPenalty: 1.5,
+  overdraftPayout: 5,
+  suppressPenalty: 2,
+  productionDuration: 15,
+  productionBoost: 0.62,
+  productionPayout: 2,
+  forwardHqInterval: 0.5,
+  forwardHqCapPenalty: 2,
+  levyDuration: 12,
+  levyPenalty: 1.35,
+  levyPayout: 3,
+  ewarfarePenalty: 1.6,
 } as const;
 export interface EconomyPlayer {
   energy: number;
@@ -29,6 +58,17 @@ export interface EconomyPlayer {
   logisticsLevel: number;
   bondUses: number;
   bondDueAt: number | null;
+  overdraftUntil: number | null;
+  /** Enemy electronic suppression: recharge interval multiplied while active. */
+  suppressedUntil: number | null;
+  /** War production surge: recharge interval shortened while active. */
+  productionUntil?: number | null;
+  /** Forward HQ: permanent faster recharge but lower cap. */
+  forwardHq?: boolean;
+  /** Emergency levy: immediate payout, slower recharge while active (v120). */
+  levyUntil?: number | null;
+  /** Enemy EW suppression: recharge interval multiplied while active (v120). */
+  ewarfareUntil?: number | null;
 }
 type EconomyMatch = { time: number; players: EconomyPlayer[] };
 export function initialEconomy(
@@ -47,6 +87,8 @@ export function initialEconomy(
     logisticsLevel: 0,
     bondUses: 0,
     bondDueAt: null,
+    overdraftUntil: null,
+    suppressedUntil: null,
   };
 }
 export function energyLimit(p: Pick<EconomyPlayer, 'energyCap'>): number {
@@ -65,11 +107,28 @@ export function energyInterval(s: EconomyMatch, side: 0 | 1): number {
     ECONOMY_RULES.minimumBaseInterval,
     ECONOMY_RULES.baseInterval - level * ECONOMY_RULES.logisticsStep,
   );
-  return base / Math.max(1, Math.min(1.3, p.economyRate ?? 1));
+  let interval = base / Math.max(1, Math.min(1.3, p.economyRate ?? 1));
+  if (p.overdraftUntil != null && p.overdraftUntil > s.time)
+    interval *= ECONOMY_RULES.overdraftPenalty;
+  if (p.suppressedUntil != null && p.suppressedUntil > s.time)
+    interval *= ECONOMY_RULES.suppressPenalty;
+  if (p.productionUntil != null && p.productionUntil > s.time)
+    interval = Math.max(1.2, interval - ECONOMY_RULES.productionBoost);
+  if (p.forwardHq)
+    interval = Math.max(
+      1.2,
+      interval - ECONOMY_RULES.forwardHqInterval,
+    );
+  if (p.levyUntil != null && p.levyUntil > s.time)
+    interval *= ECONOMY_RULES.levyPenalty;
+  if (p.ewarfareUntil != null && p.ewarfareUntil > s.time)
+    interval *= ECONOMY_RULES.ewarfarePenalty;
+  return interval;
 }
 export function economyBlock(
   p: EconomyPlayer,
   effect: EconomyEffect,
+  time: number,
 ): string | null {
   if (
     effect === 'logistics' &&
@@ -83,6 +142,14 @@ export function economyBlock(
     if ((p.bondUses ?? 0) >= ECONOMY_RULES.maxBonds)
       return '本局公债已使用两次';
   }
+  if (
+    effect === 'overdraft' &&
+    p.overdraftUntil != null &&
+    p.overdraftUntil > time
+  )
+    return '透支补给尚未结清';
+  if (effect === 'forward_hq' && p.forwardHq)
+    return '前沿指挥部已建立';
   return null;
 }
 /** Called only after playCard validates and pays its normal card cost. */
@@ -94,9 +161,27 @@ export function applyEconomy(
   if (effect === 'logistics') p.logisticsLevel = (p.logisticsLevel ?? 0) + 1;
   else if (effect === 'capacity')
     p.energyCap = Math.min(ECONOMY_RULES.maxCap, energyLimit(p) + 2);
-  else {
+  else if (effect === 'bonds') {
     p.bondUses = (p.bondUses ?? 0) + 1;
     p.bondDueAt = time + ECONOMY_RULES.bondDelay;
+  } else if (effect === 'overdraft') {
+    p.overdraftUntil = time + ECONOMY_RULES.overdraftDuration;
+    p.energy = p.energy + ECONOMY_RULES.overdraftPayout;
+  }
+  if (effect === 'production') {
+    p.productionUntil = time + ECONOMY_RULES.productionDuration;
+    p.energy = p.energy + ECONOMY_RULES.productionPayout;
+  }
+  if (effect === 'forward_hq') {
+    p.forwardHq = true;
+    p.energyCap = Math.max(
+      6,
+      energyLimit(p) - ECONOMY_RULES.forwardHqCapPenalty,
+    );
+  }
+  if (effect === 'levy') {
+    p.levyUntil = time + ECONOMY_RULES.levyDuration;
+    p.energy = p.energy + ECONOMY_RULES.levyPayout;
   }
 }
 export function updateEconomy(s: EconomyMatch, side: 0 | 1, dt: number): void {

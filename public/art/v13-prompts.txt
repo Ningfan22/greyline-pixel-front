@@ -1,0 +1,18 @@
+explosions-v13-alpha.txt
+Background extraction only. Remove the entire baked white background from this exact forty-eight-frame explosion sprite sheet and replace it with genuine PNG transparency (alpha zero), including every gap between sparks, soil fragments and smoke wisps. Preserve all explosion pixels, pixel-art texture, colors, silhouettes, dimensions, row order and eight-frame positions exactly. Keep the 1448 x 1086 canvas and the existing eight-column, six-row layout. Do not redraw, move, resize or add effects. Do not replace the background with any visible color, pattern, shadow or glow. Deliver a real RGBA cutout atlas with empty pixels fully transparent. Preserve naturally translucent smoke edges with partial alpha.
+
+explosions-v13.txt
+Generate a crisp pixel-art explosion animation sprite sheet for a realistic 2D military game. Transparent PNG cutout asset with a REAL RGBA alpha channel. Background pixels must have alpha=0. No checkerboard pattern, no white, gray or black matte, no scenery, labels, borders or dividing lines.
+
+Canvas: 1448 x 1086 pixels, EXACTLY 8 columns x 6 rows of equally sized cells, 48 separate frames. All effects stay inside their own cell with generous margins. This is 3 animations of 16 frames each. Each clip reads left to right across its first row, then left to right across its second row. Row 2 continues row 1, row 4 continues row 3, row 6 continues row 5; never restart the explosion at the beginning of the second row.
+
+Style: clearly visible carefully shaded pixel clusters, hard pixel edges, realistic restrained burnt orange sparks, warm gray-brown soil dust, charcoal smoke, occasional pale hot core. Not smooth 3D, not cartoon cloud puffs. Each neighboring frame is a real temporal progression with changing expanding shape and fading opacity. No repeated full-strength explosions. No helicopters, airplane bodies, people, ground line or props.
+
+ROW 1, frames 1-8: VEHICLE FUEL-AIR EXPLOSION. Fixed impact origin cell-local (128,232), exactly constant in all 16 frames. A WIDE fireball, broader than it is tall, blooming outward sideways as much as upward: white-yellow core, rolling orange flame front, thick black coal smoke curling at the edges. Peak around frames 4-6.
+ROW 2, frames 9-16 of that SAME vehicle blast: the wide fireball collapses, black smoke dominates and rolls upward, flame tongues shrink and separate, then thin into dark wisps. End frame almost empty. The impact origin is still (128,232). No new blast.
+ROW 3, frames 1-8: HEAVY ARTILLERY ERUPTION. Same fixed ground origin (128,232). A VERTICAL column of fire and soil shooting straight UP, taller than it is wide: bright orange core jet, heavy brown soil clods and dirt chunks thrown upward and outward, thick dust base. Distinctly narrower and taller than the vehicle blast.
+ROW 4, frames 9-16 of that SAME artillery eruption: the vertical column breaks up, soil clods fall, the fire jet dies into a rising brown-gray dust pillar, then disperses. Last frames are sparse falling debris and thin dust. Do not restart.
+ROW 5, frames 1-8: GRENADE FLASH. Same fixed ground origin (128,232). A SMALL, SHARP orange detonation flash — compact, jagged, brighter and quicker than the other blasts, with a few fast sparks and a quick pale gray-white smoke puff. Clearly the smallest event of the sheet.
+ROW 6, frames 9-16 of that SAME grenade blast: the flash is gone almost immediately, the gray-white smoke puff expands once, then breaks into small fast wisps and fades quickly. End frame nearly empty. Do not restart.
+
+Output only the evenly gridded 8x6 animation asset on genuine transparent alpha. Grid exists only as cell spacing; DO NOT draw grid lines, checkerboards or any background.

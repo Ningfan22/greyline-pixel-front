@@ -11,6 +11,13 @@ export interface TankGeometry {
   muzzleY: number;
   coaxX: number;
   coaxY: number;
+  /**
+   * Bounding box [x0, y0, x1, y1] of the thin muzzle section of the barrel,
+   * in final draw space (origin at bottom-centre, y up). Used to slide the
+   * barrel back into the mantlet on recoil while the hull stays planted.
+   * Only the three real tanks have this; other vehicles kick the whole hull.
+  */
+  barrelBand?: [number, number, number, number];
 }
 const TANKS: Record<string, TankGeometry> = {
   pickup: {
@@ -34,6 +41,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 127.29,
     coaxX: 53.7,
     coaxY: 106.74,
+    barrelBand: [-30, -135, 45, -100],
   },
   mortar_carrier: {
     size: [210, 127],
@@ -88,6 +96,9 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 57,
     coaxX: 54,
     coaxY: 57,
+    // v112: band must reach the muzzle tip so the whole thin barrel slides
+    // back as one piece — a short x1 left the tip planted in the hull pass.
+    barrelBand: [62.2, -62.2, 120, -54.0],
   },
   tank: {
     size: [270, 135],
@@ -98,6 +109,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 56,
     coaxX: 60,
     coaxY: 56,
+    barrelBand: [89.0, -61.7, 151, -52.5],
   },
   heavy_tank: {
     size: [305, 152.5],
@@ -108,6 +120,7 @@ const TANKS: Record<string, TankGeometry> = {
     muzzleY: 82,
     coaxX: 66,
     coaxY: 82,
+    barrelBand: [126.2, -90.0, 157, -75.7],
   },
 };
 export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {
@@ -131,6 +144,12 @@ for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
     'coaxY',
   ] as const)
     if (g[key] !== undefined) g[key] = g[key]! * scale;
+  if (g.barrelBand) g.barrelBand = g.barrelBand.map((v) => v * scale) as [
+    number,
+    number,
+    number,
+    number,
+  ];
 }
 export function tankGeometry(id: CardId): TankGeometry | null {
   return TANKS[id] ?? (modelOf(id) === 'tank' ? TANKS.tank : null);

@@ -1,5 +1,6 @@
 'use client';
 /* oxlint-disable next/no-img-element -- Generated WebP cards are already optimized and must work on static hosting. */
+import { useState } from 'react';
 import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
@@ -27,6 +28,14 @@ export function cardPictureUrl(id: CardId) {
     return assetUrl(`/art/v18-comeback/cards/${id}.webp`);
   if (id === 'fpv_drone' || id === 'air_assault')
     return assetUrl(`/art/v16-air/cards/${id}.webp`);
+  if (
+    id === 'overdraft' ||
+    id === 'signal_jam' ||
+    id === 'airborne_insertion' ||
+    id === 'forced_march' ||
+    id === 'cyber_suppression'
+  )
+    return assetUrl(`/art/v23-doctrine/cards/${id}.webp`);
   return assetUrl(
     `/art/${ADDITIONAL_CARD_ART.has(id) ? 'cards-v15' : 'cards-v10'}/${id}.webp`,
   );
@@ -79,6 +88,7 @@ export function CardFace({
     copy = CARD_COPY[id],
     value = cost ?? c.cost;
   const stats = cardStats(id, value);
+  const [pictureFailed, setPictureFailed] = useState(false);
   return (
     <figure
       className={`printed-card ${className}`}
@@ -104,6 +114,8 @@ export function CardFace({
         loading={eager ? 'eager' : 'lazy'}
         decoding="async"
         draggable={false}
+        style={pictureFailed ? { visibility: 'hidden' } : undefined}
+        onError={() => setPictureFailed(true)}
       />
       <span className="printed-card-cost" aria-hidden="true">
         <span>{value}</span>

@@ -16,6 +16,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [mapId, setMapId] = useState<MapId>(DEFAULT_MAP);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
+  const [night, setNight] = useState(false);
   const [completed, setCompleted] = useState<MissionId[]>([]);
   const [match, setMatch] = useState<{
     seed: number;
@@ -24,6 +25,7 @@ export default function Home() {
     mapId: MapId;
     missionId?: MissionId;
     difficulty: Difficulty;
+    night: boolean;
   } | null>(null);
   useEffect(() => {
     let live = true;
@@ -43,6 +45,8 @@ export default function Home() {
         );
         if (Array.isArray(progress)) setCompleted(progress.filter(isMissionId));
         if (isMapId(savedMap)) setMapId(savedMap);
+        const savedNight = localStorage.getItem('greyline-night');
+        if (savedNight === '1') setNight(true);
         const saved = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
         if (validDeck(saved)) {
           setDeck([...saved]);
@@ -77,6 +81,7 @@ export default function Home() {
       mapId,
       missionId,
       difficulty,
+      night,
     });
     setPage('battle');
   };
@@ -93,6 +98,7 @@ export default function Home() {
         seed={match.seed}
         mapId={match.mapId}
         difficulty={match.difficulty}
+        night={match.night}
         missionId={match.missionId}
         onMissionComplete={(id) => {
           setCompleted((previous) => {
@@ -148,6 +154,15 @@ export default function Home() {
         setMapId(id);
         try {
           localStorage.setItem('greyline-map', id);
+        } catch {
+          /* Selection remains valid this session. */
+        }
+      }}
+      night={night}
+      onNightChange={(value) => {
+        setNight(value);
+        try {
+          localStorage.setItem('greyline-night', value ? '1' : '0');
         } catch {
           /* Selection remains valid this session. */
         }

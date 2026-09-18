@@ -1,17 +1,17 @@
 {
-  "name": "greyline-pixel-front",
+  "name": "sites-project",
   "version": "0.1.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vite --config vite.pages.config.ts --host 0.0.0.0",
-    "build": "vite build --config vite.pages.config.ts",
+    "dev": "vinext dev",
+    "build": "vinext build",
     "dev:pages": "vite --config vite.pages.config.ts --host 0.0.0.0",
     "build:pages": "vite build --config vite.pages.config.ts",
     "preview:pages": "vite preview --config vite.pages.config.ts --host 0.0.0.0",
-    "start": "vite preview --config vite.pages.config.ts --host 0.0.0.0",
+    "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",
     "format": "oxfmt"
   },

@@ -332,6 +332,29 @@ export function setSquadOrder(
     trench.workRows = rows;
     trench.workStartedAt ??= s.time;
   }
+  // The squad leader (lowest uid among the living) punctuates a fresh order
+  // with a hand signal so the chain of command reads on the field, not just
+  // in the order UI. Repeated orders return earlier and never re-signal, and
+  // a per-squad cooldown (v121) keeps the gesture rare — a leader waving
+  // every few seconds read as noise, not command.
+  let leader = members[0];
+  for (const m of members) if (m.uid < leader.uid) leader = m;
+  const SIGNAL_COOLDOWN = 5;
+  const cmdKey = side * 1048576 + squad;
+  const cmdRec = s.squadCommand?.[cmdKey];
+  if (!cmdRec || s.time - (cmdRec.lastSignalAt ?? -Infinity) >= SIGNAL_COOLDOWN) {
+    leader.signalUntil = s.time + 1.1;
+    if (cmdRec) cmdRec.lastSignalAt = s.time;
+    // Nearby squad mates answer the signal with a quick return pump of the arm,
+    // so the chain of command reads as a two-way exchange instead of a one-man
+    // wave. The window is staggered by uid so acknowledgments ripple through the
+    // squad, and only members close enough to have seen the gesture answer.
+    for (const m of members) {
+      if (m === leader) continue;
+      if (Math.hypot(m.x - leader.x, m.y - leader.y) > 230) continue;
+      m.ackUntil = s.time + 0.55 + (m.uid % 3) * 0.18;
+    }
+  }
   for (let i = 0; i < ordered.length; i++) {
     const u = ordered[i];
     u.squadOrder = order;
@@ -544,6 +567,7 @@ export function updateSquadOrders(s: GameState, dt: number) {
         s.original[x] + cut * trench.progress,
       );
     }
+    s.terrainVersion++;
     for (const u of s.units)
       if (
         living(u) &&

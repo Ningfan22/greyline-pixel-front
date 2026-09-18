@@ -1,5 +1,9 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
+function hexa(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
+}
 export type Ammunition =
   | 'ap'
   | 'rifle'
@@ -28,10 +32,31 @@ export function ammunition(id: CardId, member = 0): Ammunition {
   if (id === 'grenadiers') return 'grenade';
   if (model === 'rocket') return 'rocket';
   if (model === 'tank') return 'cannon';
+  // v106: the strike jet's gun is a real autocannon, not a rifle-calibre
+  // door gun — its rounds kick up proper dust columns on soil impacts.
+  if (id === 'strike_jet') return 'autocannon';
   if (id === 'pickup' || CARDS[id].vehicleSupport) return 'machinegun';
   if (model === 'ifv') return 'autocannon';
   if (model === 'machinegun' || model === 'helicopter') return 'machinegun';
   return 'rifle';
+}
+
+/** Infantry small-arms magazine profile. Heavy weapons (rockets, mortars,
+ * grenades, vehicle guns) return null and keep cooldown-only pacing. */
+export interface MagazineSpec {
+  mag: number;
+  reserve: number;
+  reload: number; // seconds to swap magazines under fire
+}
+export function magazine(id: CardId, member = 0): MagazineSpec | null {
+  if (!CARDS[id].members) return null;
+  const kind = ammunition(id, member);
+  if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
+  if (kind === 'rifle') {
+    if (id === 'sniper') return { mag: 5, reserve: 25, reload: 3.0 };
+    return { mag: 30, reserve: 150, reload: 2.5 };
+  }
+  return null;
 }
 export const FLIGHT: Record<
   Ammunition,
@@ -207,13 +232,52 @@ export function drawMuzzle(
     );
   ctx.restore();
 }
+
+/**
+ * Muzzle-flash illumination: a brief warm radial glow cast onto the terrain
+ * around a firing weapon. Rendered with additive blending so multiple
+ * concurrent shooters stack into a flickering firefight ambience.
+ */
+export function drawMuzzleLight(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  kind: Ammunition,
+  intensity: number,
+) {
+  if (kind === 'drone' || intensity <= 0) return;
+  const heavy = kind === 'cannon' || kind === 'ap' || kind === 'autocannon';
+  const radius = heavy ? 90 : kind === 'machinegun' ? 55 : kind === 'rocket' || kind === 'mortar' ? 70 : 38;
+  const peak = heavy ? 0.5 : kind === 'machinegun' ? 0.34 : 0.24;
+  const alpha = peak * intensity;
+  if (alpha < 0.02) return;
+  const gx = x,
+    gy = y + 6;
+  const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, radius);
+  grad.addColorStop(0, `rgba(255,214,150,${alpha})`);
+  grad.addColorStop(0.35, `rgba(255,170,90,${alpha * 0.55})`);
+  grad.addColorStop(1, 'rgba(255,140,60,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(gx, gy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawParticle(
   ctx: CanvasRenderingContext2D,
   p: Particle,
   impacts?: HTMLCanvasElement[][],
 ) {
   const life = Math.max(0, p.life / p.maxLife),
-    smoke = p.kind === 'smoke' || p.kind === 'dust';
+    smoke =
+      p.kind === 'smoke' ||
+      p.kind === 'dust' ||
+      p.kind === 'cloud' ||
+      p.kind === 'mote' ||
+      p.kind === 'haze';
   if (p.kind === 'impact') {
     if (impacts) {
       const row = p.variant ?? 0;
@@ -247,12 +311,49 @@ export function drawParticle(
     ctx.globalAlpha = 1;
     return;
   }
+  if (p.kind === 'flash') {
+    // v111 additive detonation flash / lingering embers, drawn under the
+    // blast sprite so the fire reads as glowing from within.
+    const r = Math.max(2, p.size * (0.6 + (1 - life) * 0.6));
+    const a = Math.min(0.85, life * 2.4);
+    const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+    grad.addColorStop(0, hexa(p.color, a));
+    grad.addColorStop(0.4, hexa(p.color, a * 0.45));
+    grad.addColorStop(1, hexa(p.color, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
   ctx.globalAlpha = smoke
-    ? life * (p.kind === 'smoke' ? 0.22 : 0.46)
+    ? life *
+      (p.kind === 'smoke'
+        ? 0.22
+        : p.kind === 'cloud'
+          ? 0.3
+          : p.kind === 'mote'
+            ? 0.12
+            : p.kind === 'haze'
+              ? 0.13
+              : 0.46)
     : Math.min(1, life * 2);
   ctx.fillStyle = p.color;
   const size = smoke
-    ? Math.max(2, Math.round(p.size * (1 + (1 - life) * 0.8)))
+    ? Math.max(
+        2,
+        Math.round(
+          p.size *
+            (p.kind === 'mote'
+              ? 1
+              : p.kind === 'haze'
+                ? 1 + (1 - life) * 1.4
+                : 1 + (1 - life) * 0.8),
+        ),
+      )
     : p.size;
   const x = Math.round(p.x),
     y = Math.round(p.y);
@@ -280,6 +381,7 @@ export function drawBlast(
   b: Blast,
   legacy: HTMLCanvasElement[][],
   generated?: HTMLCanvasElement[][],
+  v13?: HTMLCanvasElement[][],
 ) {
   const penetration = b.kind === 'penetration',
     grenade = b.kind === 'grenade';
@@ -294,10 +396,17 @@ export function drawBlast(
         : crash
           ? 3.2
           : 5;
-  const frames =
-    penetration || !generated
-      ? legacy[penetration ? 0 : 1]
-      : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
+  const frames = penetration
+    ? legacy[0]
+    : !generated
+      ? legacy[1]
+      : v13 && (crash || b.kind === 'wreck')
+        ? v13[0]
+        : v13 && b.kind === 'artillery'
+          ? v13[1]
+          : v13 && grenade
+            ? v13[2]
+            : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
   // More of the first second is spent on expansion; the last frames dissipate slowly.
   const phases = penetration
     ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
@@ -305,10 +414,15 @@ export function drawBlast(
         0, 0.012, 0.026, 0.044, 0.066, 0.095, 0.13, 0.175, 0.22, 0.29, 0.38,
         0.48, 0.59, 0.71, 0.84, 0.94,
       ].map((t) => t * duration);
+  // Seed-driven variety: no two blasts of the same kind look identical.
+  const sd = b.seed >>> 0;
+  const scaleJ = 0.9 + (sd % 10) / 10 * 0.22; // 0.90 - 1.12
+  const speedJ = 0.88 + ((sd >>> 4) % 8) / 8 * 0.24; // 0.88 - 1.12
+  const tint = (sd >>> 8) % 3; // 0 normal / 1 white-hot / 2 fuel-rich
+  const age = b.age * speedJ;
   let index = 0;
-  while (index < frames.length - 1 && b.age >= phases[index + 1]) index++;
-  const sprite = frames[index];
-  const width = penetration
+  while (index < frames.length - 1 && age >= phases[index + 1]) index++;
+  const width = (penetration
     ? 48
     : grenade
       ? Math.max(52, Math.min(76, b.radius * 1.8))
@@ -320,8 +434,7 @@ export function drawBlast(
             ? Math.max(210, Math.min(290, b.radius * 4.8))
             : b.kind === 'artillery'
               ? Math.max(210, Math.min(320, b.radius * 6))
-              : Math.max(90, Math.min(250, b.radius * 5));
-  const height = (width * sprite.height) / sprite.width;
+              : Math.max(90, Math.min(250, b.radius * 5))) * scaleJ;
   const anchor = penetration
     ? 268 / 300
     : air
@@ -329,20 +442,39 @@ export function drawBlast(
       : generated
         ? 0.975
         : 261 / 300;
+  // Cross-fade between adjacent frames so the blast has twice as many
+  // visible steps instead of popping from one sprite to the next.
+  let frac = 0;
+  if (index < frames.length - 1 && phases[index + 1] > phases[index])
+    frac = Math.min(
+      1,
+      Math.max(0, (age - phases[index]) / (phases[index + 1] - phases[index])),
+    );
+  const baseAlpha = Math.min(
+    1,
+    Math.max(0, (duration - age) / (duration * 0.16)),
+  );
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.globalAlpha = Math.min(
-    1,
-    Math.max(0, (duration - b.age) / (duration * 0.16)),
-  );
+  if (tint === 1) ctx.filter = 'brightness(1.18) saturate(0.75)';
+  else if (tint === 2)
+    ctx.filter = 'saturate(1.45) hue-rotate(-12deg) brightness(0.95)';
   ctx.translate(Math.round(b.x), Math.round(b.y));
   if (b.seed % 2) ctx.scale(-1, 1);
-  ctx.drawImage(
-    sprite,
-    Math.round(-width / 2),
-    Math.round(-height * anchor),
-    Math.round(width),
-    Math.round(height),
-  );
+  const draw = (i: number, alpha: number) => {
+    if (alpha <= 0.01) return;
+    const sprite = frames[Math.min(i, frames.length - 1)];
+    const height = (width * sprite.height) / sprite.width;
+    ctx.globalAlpha = alpha * baseAlpha;
+    ctx.drawImage(
+      sprite,
+      Math.round(-width / 2),
+      Math.round(-height * anchor),
+      Math.round(width),
+      Math.round(height),
+    );
+  };
+  draw(index, 1 - frac);
+  draw(index + 1, frac);
   ctx.restore();
 }

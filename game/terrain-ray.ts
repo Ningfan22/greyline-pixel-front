@@ -1,42 +1,34 @@
 import type { GameState } from './engine';
 
-const STRIDE = 64;
+export const STRIDE = 64;
 const cache = new WeakMap<
   GameState,
   {
-    time: number;
+    version: number;
     terrain: number[];
     minima: Float64Array;
-    first: number;
-    last: number;
   }
 >();
-function terrainMinima(s: GameState) {
+export function terrainMinima(s: GameState) {
   const terrain = s.terrain,
-    last = terrain.length - 1,
     old = cache.get(s);
-  if (
-    old &&
-    old.time === s.time &&
-    old.terrain === terrain &&
-    old.first === terrain[0] &&
-    old.last === terrain[last]
-  )
+  // Terrain only changes through crater(), trench construction and squad
+  // digging, each of which bumps terrainVersion; keying on that instead of
+  // s.time keeps the minima valid for the whole stretch between writes
+  // (v100: was a full 3840-column rescan every tick).
+  if (old && old.version === s.terrainVersion && old.terrain === terrain)
     return old.minima;
   const minima = new Float64Array(Math.ceil(terrain.length / STRIDE)).fill(
     Infinity,
   );
-  for (let x = 0; x < terrain.length; x++)
-    minima[Math.floor(x / STRIDE)] = Math.min(
-      minima[Math.floor(x / STRIDE)],
-      terrain[x],
-    );
+  for (let x = 0; x < terrain.length; x++) {
+    const b = Math.floor(x / STRIDE);
+    if (terrain[x] < minima[b]) minima[b] = terrain[x];
+  }
   cache.set(s, {
-    time: s.time,
+    version: s.terrainVersion,
     terrain,
     minima,
-    first: terrain[0],
-    last: terrain[last],
   });
   return minima;
 }

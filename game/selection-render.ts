@@ -11,8 +11,15 @@ export function unitSelectionBounds(u: Unit) {
   const feet = u.y + (c.members ? infantryDepth(u.lane) : 0);
   if (c.members) {
     const height =
-      u.wounded || u.pose === 'prone' ? 19 : u.pose === 'crouch' ? 39 : 61;
-    const half = u.wounded || u.pose === 'prone' ? 27 : 13;
+      u.wounded || u.pose === 'prone'
+        ? 19
+        : u.pose === 'hunker'
+          ? 30
+          : u.pose === 'crouch'
+            ? 39
+            : 61;
+    const half =
+      u.wounded || u.pose === 'prone' ? 27 : u.pose === 'hunker' ? 16 : 13;
     return { x: u.x - half, y: feet - height, w: half * 2, h: height + 3 };
   }
   const [w, h] = unitSize(u.id);

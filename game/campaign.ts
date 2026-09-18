@@ -518,6 +518,7 @@ function preparePosition(s: GameState, side: Side, squad: number) {
       s.terrain[x],
       s.original[x] + trenchCutDepth(s, trench, x),
     );
+  s.terrainVersion++;
   for (const u of s.units.filter((u) => u.squad === squad && u.side === side)) {
     u.x = u.squadOrderX!;
     u.y = s.terrain[Math.floor(u.x)];

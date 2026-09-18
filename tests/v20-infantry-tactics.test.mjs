@@ -118,7 +118,10 @@ for (const side of [0, 1]) {
     assert(result.every((row) => row.covered > 20 && row.allBackFrames === 0));
   });
   test(`side ${side}: repeated real howitzer shells punish crowds but do not annihilate every dispersed squad`, () => {
-    const result = rows(side, 'barrage', 22);
+    // 28 s: buddy-drag (v41) pulls wounded stragglers out of scout vision,
+    // costing the barrage its spotted cooldown bonus; the sixth shell lands
+    // just inside the longer window.
+    const result = rows(side, 'barrage', 28);
     assert(result.every((row) => row.shells >= 6 && row.reactions > 0));
     assert(mean(result, 'averageCluster') < 9);
     assert(
