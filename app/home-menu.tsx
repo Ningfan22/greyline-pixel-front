@@ -18,12 +18,21 @@ import DifficultySelector, {
   DIFFICULTY_LABEL,
   DIFFICULTY_BONUS,
 } from './difficulty-selector';
+import Shop from './shop';
+import type { CollectionState } from '@/game/collection';
 
-export type LobbyPage = 'home' | 'builder' | 'settings' | 'guide' | 'campaign';
+export type LobbyPage =
+  | 'home'
+  | 'builder'
+  | 'shop'
+  | 'settings'
+  | 'guide'
+  | 'campaign';
 const navigation: { page: LobbyPage; label: string }[] = [
   { page: 'home', label: '首页' },
   { page: 'campaign', label: '故事战役' },
   { page: 'builder', label: '卡组' },
+  { page: 'shop', label: '商店' },
   { page: 'settings', label: '设置' },
   { page: 'guide', label: '作战手册' },
 ];
@@ -35,6 +44,7 @@ function PixelIcon({ name }: { name: LobbyPage }) {
     builder: 'M2 1h9v2H4v9H2V1Zm3 3h9v11H5V4Zm2 2v7h5V6H7Zm1 1h3v2H8V7Z',
     settings: 'M6 1h4v2h2v2h3v6h-3v2h-2v2H6v-2H4v-2H1V5h3V3h2V1Zm0 5v4h4V6H6Z',
     guide: 'M1 2h6v1h2V2h6v12H9v1H7v-1H1V2Zm2 2v8h4V4H3Zm6 0v8h4V4H9Z',
+    shop: 'M1 2h14v3H1V2Zm0 4h14v9H1V6Zm5 2v5h4V8H6Z',
   };
   return (
     <svg viewBox="0 0 16 16" aria-hidden="true" shapeRendering="crispEdges">
@@ -181,6 +191,9 @@ export default function HomeMenu({
   completed,
   onMissionStart,
   children,
+  gold,
+  collection,
+  onCollectionChange,
 }: {
   page: LobbyPage;
   ready: boolean;
@@ -196,6 +209,9 @@ export default function HomeMenu({
   completed: MissionId[];
   onMissionStart: (id: MissionId) => void;
   children: ReactNode;
+  gold: number;
+  collection: CollectionState | null;
+  onCollectionChange: (state: CollectionState) => void;
 }) {
   const stage = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -280,6 +296,10 @@ export default function HomeMenu({
           对手 · {DIFFICULTY_LABEL[difficulty]}
           <small>{DIFFICULTY_BONUS[difficulty]}</small>
         </button>
+        <div className={styles.goldStatus}>
+          <span>金币</span>
+          <strong>{gold}</strong>
+        </div>
         <div className={styles.deckStatus}>
           <span>当前编队</span>
           <strong>
@@ -309,6 +329,11 @@ export default function HomeMenu({
         <div className={styles.builderPage} hidden={page !== 'builder'}>
           {children}
         </div>
+        {page === 'shop' && collection && (
+          <div className={styles.panelPage}>
+            <Shop collection={collection} onChange={onCollectionChange} />
+          </div>
+        )}
         {page === 'settings' && (
           <div className={styles.panelPage}>
             <Settings

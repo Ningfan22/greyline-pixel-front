@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { DECK, validDeck, chooseAiDeck, type CardId } from '@/game/engine';
+import { useEffect, useMemo, useState } from 'react';
+import { DECK, chooseAiDeck, type CardId } from '@/game/engine';
 import Battle from './battle';
 import { getBattleAudio } from '@/game/audio';
 import DeckBuilder from './deck-builder';
@@ -8,11 +8,26 @@ import HomeMenu, { type LobbyPage } from './home-menu';
 import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
 import { isMissionId, MISSIONS, type MissionId } from '@/game/campaign';
-const STORAGE = 'greyline-deck-v6';
+import {
+  loadCollection,
+  validDeckWithCollection,
+  type CollectionState,
+} from '@/game/collection';
+import {
+  loadDeckStore,
+  activeDeck,
+  withActiveDeck,
+  addDeck as addDeckSlot,
+  deleteDeck as deleteDeckSlot,
+  renameDeck as renameDeckSlot,
+  selectDeck as selectDeckSlot,
+  type DeckStore,
+} from '@/game/decks-store';
 export default function Home() {
   const [page, setPage] = useState<LobbyPage | 'battle'>('home');
   const [builderOpened, setBuilderOpened] = useState(false);
-  const [deck, setDeck] = useState<CardId[]>([...DECK]);
+  const [collection, setCollection] = useState<CollectionState | null>(null);
+  const [deckStore, setDeckStore] = useState<DeckStore | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [mapId, setMapId] = useState<MapId>(DEFAULT_MAP);
   const [difficulty, setDifficulty] = useState<Difficulty>(DEFAULT_DIFFICULTY);
@@ -27,6 +42,10 @@ export default function Home() {
     difficulty: Difficulty;
     night: boolean;
   } | null>(null);
+  const deck = useMemo<CardId[]>(
+    () => (deckStore ? [...activeDeck(deckStore).cards] : [...DECK]),
+    [deckStore],
+  );
   useEffect(() => {
     let live = true;
     queueMicrotask(() => {
@@ -47,12 +66,14 @@ export default function Home() {
         if (isMapId(savedMap)) setMapId(savedMap);
         const savedNight = localStorage.getItem('greyline-night');
         if (savedNight === '1') setNight(true);
-        const saved = JSON.parse(localStorage.getItem(STORAGE) ?? 'null');
-        if (validDeck(saved)) {
-          setDeck([...saved]);
-        }
+        const col = loadCollection();
+        setCollection(col);
+        setDeckStore(loadDeckStore(col));
       } catch {
-        /* Keep the recommended deck when device storage is unavailable. */
+        /* 存储不可用时退回默认收藏与默认编队。 */
+        const fallback = loadCollection();
+        setCollection(fallback);
+        setDeckStore(loadDeckStore(fallback));
       }
       setLoaded(true);
     });
@@ -61,17 +82,22 @@ export default function Home() {
     };
   }, []);
   const save = (next: CardId[]) => {
-    if (!validDeck(next)) return '编队需满 20 张，且各卡数量不能超过上限';
-    setDeck([...next]);
-    try {
-      localStorage.setItem(STORAGE, JSON.stringify(next));
-      return '编队已保存到当前设备';
-    } catch {
-      return '编队本次已生效；浏览器未允许本地保存';
-    }
+    if (!collection) return '收藏仍在加载，请稍候';
+    if (!validDeckWithCollection(next, collection))
+      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
+    setDeckStore((prev) => (prev ? withActiveDeck(prev, next) : prev));
+    return '编队已保存到当前卡组';
+  };
+  const saveDeckAs = (cards: CardId[], name?: string) => {
+    if (!collection || !deckStore) return false;
+    if (!validDeckWithCollection(cards, collection)) return false;
+    const created = addDeckSlot(deckStore, name);
+    if (!created) return false;
+    setDeckStore(withActiveDeck(created, cards));
+    return true;
   };
   const begin = (chosen: CardId[], missionId?: MissionId) => {
-    if (!validDeck(chosen)) return;
+    if (!collection || !validDeckWithCollection(chosen, collection)) return;
     void getBattleAudio().unlock();
     const seed = Date.now();
     setMatch({
@@ -138,6 +164,9 @@ export default function Home() {
       page={page === 'battle' ? 'home' : page}
       ready={loaded}
       deckCount={deck.length}
+      gold={collection?.gold ?? 0}
+      collection={collection}
+      onCollectionChange={setCollection}
       mapId={mapId}
       difficulty={difficulty}
       completed={completed}
@@ -174,8 +203,22 @@ export default function Home() {
         <DeckBuilder
           deck={deck}
           onSave={save}
+          onSaveAs={saveDeckAs}
           onStart={begin}
           onExit={() => setPage('home')}
+          collection={collection}
+          deckStore={deckStore}
+          onSelectDeck={(id) =>
+            setDeckStore((prev) => (prev ? selectDeckSlot(prev, id) : prev))
+          }
+          onDeleteDeck={(id) =>
+            setDeckStore((prev) =>
+              prev ? deleteDeckSlot(prev, id) ?? prev : prev,
+            )
+          }
+          onRenameDeck={(name) =>
+            setDeckStore((prev) => (prev ? renameDeckSlot(prev, name) : prev))
+          }
         />
       )}
     </HomeMenu>
