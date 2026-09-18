@@ -720,7 +720,7 @@ export interface GameState {
   /** Per-squad command state: leader uid and command-vacuum window. */
   squadCommand?: Record<
     number,
-    { leaderUid: number; vacuumUntil: number }
+    { leaderUid: number; vacuumUntil: number; lastSignalAt?: number }
   >;
   /** Front-line x per side: [side0 foremost x, side1 foremost x]. */
   frontX?: [number, number];
@@ -2452,10 +2452,10 @@ function finishDeath(
     vx: c.air
       ? u.facing * 70
       : ragdoll
-        ? throwDir * (260 + blastPower * 320)
+        ? throwDir * (80 + blastPower * 120)
         : 0,
-    vy: ragdoll ? -(180 + blastPower * 220) : 0,
-    ...(ragdoll ? { spin: throwDir * (12 + blastPower * 14) } : {}),
+    vy: ragdoll ? -(110 + blastPower * 100) : 0,
+    ...(ragdoll ? { spin: throwDir * (4 + blastPower * 6) } : {}),
     cause: source === 'gas' ? 'burn' : source,
     // v83: a fallen rifleman keeps his remaining ammunition on the body
     // so a dry squadmate can pull a magazine off the same weapon.
@@ -9551,8 +9551,12 @@ export function tick(s: GameState, dt: number) {
       : wreckContact((x) => ground(s, x), w);
     if (w.falling) {
       w.x = Math.max(20, Math.min(W - 20, w.x + w.vx * dt));
-      if (isInfantry) w.vx *= Math.max(0, 1 - 0.55 * dt);
-      w.vy += 250 * dt;
+      // v121: infantry ragdolls use heavier gravity and real air drag so a
+      // blast tosses a man a believable distance (~100-160px) instead of
+      // launching him across the whole map. Aircraft wrecks keep their
+      // original floatier fall.
+      if (isInfantry) w.vx *= Math.max(0, 1 - 2.2 * dt);
+      w.vy += (isInfantry ? 420 : 250) * dt;
       w.y += w.vy * dt;
       w.angle += dt * (w.spin ?? 0.7 * Math.sign(w.vx || 1));
       const floorY = isInfantry ? ground(s, w.x) : contact!.y;
@@ -9565,10 +9569,26 @@ export function tick(s: GameState, dt: number) {
           w.vx = 0;
           w.vy = 0;
           w.angle = Math.max(-0.35, Math.min(0.35, w.angle));
+          // v121: a body hitting the dirt kicks up a dust puff — the old
+          // crash burst read as the corpse exploding on landing.
+          for (let i = 0; i < 10; i++) {
+            const life = 0.5 + fxRnd(s) * 0.6;
+            emitParticle(s, {
+              kind: 'dust',
+              x: w.x + (fxRnd(s) - 0.5) * 14,
+              y: floorY - 2,
+              vx: (fxRnd(s) - 0.5) * 40,
+              vy: -14 - fxRnd(s) * 26,
+              life,
+              maxLife: life,
+              color: fxRnd(s) < 0.5 ? '#8a7a5e' : '#756549',
+              size: 3 + fxRnd(s) * 4,
+            });
+          }
         } else {
           Object.assign(w, wreckContact((x) => ground(s, x), w));
+          burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         }
-        burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         s.visionIn = 0;
       }
     } else if (contact) Object.assign(w, contact);

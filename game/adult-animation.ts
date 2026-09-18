@@ -6,6 +6,8 @@ export interface AdultSprites {
   crouch8: HTMLCanvasElement[];
   actions20: HTMLCanvasElement[];
   reactions8: HTMLCanvasElement[];
+  /** v121: dedicated hand-signal frames — point fwd, wave overhead, point back, fist. */
+  signals4: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -33,6 +35,10 @@ const action = (index: number): AdultFrameChoice => ({
 });
 const reaction = (index: number): AdultFrameChoice => ({
   group: 'reactions8',
+  index,
+});
+const sig = (index: number): AdultFrameChoice => ({
+  group: 'signals4',
   index,
 });
 const cycle = (walk: number, length: number) =>
@@ -614,28 +620,24 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return action(8 + Math.min(3, Math.max(0, Math.floor(progress * 4))));
   }
   // Squad leaders pump a hand signal for a beat after an order changes, so the
-  // chain of command reads on the field. v116: the gesture varies with the
-  // order — an attack order points the arm toward the advance, a retreat
-  // points back toward friendly lines, an escort order points toward the
-  // armour, and hold/watch keeps the arm raised overhead — so a veteran can
-  // read the order off the leader's hand without opening the order UI. The
-  // gesture frame alternates with the overhead pump frame so it waves instead
-  // of freezing like a statue. v117: both beats are non-plain frames (8/9),
-  // so the renderer's patrol layer never covers the gesture the way it used
-  // to swallow the action(0) beat.
+  // chain of command reads on the field. v121: dedicated signal frames replace
+  // the old climb-frame reuse — attack points forward, retreat points back,
+  // escort points toward the armour, hold/watch waves overhead — each
+  // alternating with the raised-fist beat so the hand pumps instead of
+  // freezing like a statue.
   if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0) {
     const wave = Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2;
     const order = u.squadOrder;
     if (order === 'attack') {
       const dir = (u.side === 0 ? 1 : -1) as 1 | -1;
-      return wave ? { ...action(9), dir } : { ...action(8), dir };
+      return wave ? { ...sig(1), dir } : { ...sig(0), dir };
     }
     if (order === 'retreat') {
       const dir = (u.side === 0 ? -1 : 1) as 1 | -1;
-      return wave ? { ...action(9), dir } : { ...action(8), dir };
+      return wave ? { ...sig(1), dir } : { ...sig(2), dir };
     }
-    if (order === 'escort') return wave ? action(9) : action(8);
-    return action(wave ? 9 : 8);
+    if (order === 'escort') return wave ? sig(3) : sig(0);
+    return wave ? sig(3) : sig(1);
   }
   // Squad mates answer a fresh hand signal with a quick return pump of the
   // arm. Only upright members answer — crouched and prone defenders stay low
@@ -648,7 +650,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.reloadingUntil ?? 0) <= time &&
     (u.pose === 'idle' || u.pose === 'walk')
   )
-    return action(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 8 : 9);
+    return sig(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 3 : 1);
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)
@@ -673,7 +675,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.pose === 'idle' || u.pose === 'walk')
   ) {
     const t = (u.ammoSignalUntil ?? 0) - time;
-    return Math.floor((1.4 - t) * 2.2) % 2 ? action(8) : action(13);
+    return Math.floor((1.4 - t) * 2.2) % 2 ? sig(1) : action(13);
   }
   // v119: weapon crews work the gun while emplacing. MG / AT gun / mortar
   // setup is 1.2s of labour — the crew alternates the bent-work beat with

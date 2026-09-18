@@ -1,6 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas } from './adult-atlas';
+import { adultAtlas, signalFrames } from './adult-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import {
   adultIdentity,
@@ -495,6 +495,10 @@ export function loadArt() {
       loadImage('/art/adult-marines-v13.png'),
       loadImage('/art/adult-police-v13.png'),
       loadImage('/art/adult-militia-v13.png'),
+      loadImage('/art/adult-signals-infantry.webp'),
+      loadImage('/art/adult-signals-marines.webp'),
+      loadImage('/art/adult-signals-police.webp'),
+      loadImage('/art/adult-signals-militia.webp'),
       loadImage('/art/adult-specialists-v13.png'),
       loadImage('/art/ground-wrecks-v14.png'),
       loadImage('/art/air-wrecks-v14.png'),
@@ -530,6 +534,10 @@ export function loadArt() {
         adultMarines,
         adultPolice,
         adultMilitia,
+        signalInfantry,
+        signalMarines,
+        signalPolice,
+        signalMilitia,
         specialists,
         groundWrecks,
         airWrecks,
@@ -578,10 +586,10 @@ export function loadArt() {
       const fx13 = atlasFrames(transparentSheet(combatExplosionsV13), 8, 6);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const adults = {
-        infantry: adultAtlas(adultInfantry),
-        marines: adultAtlas(adultMarines),
-        police: adultAtlas(adultPolice),
-        militia: adultAtlas(adultMilitia),
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry) },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines) },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice) },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia) },
       };
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.
