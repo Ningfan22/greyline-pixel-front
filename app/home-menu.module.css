@@ -127,6 +127,21 @@
   padding-top: 40px;
   color: #a7b18e;
 }
+.goldStatus {
+  margin: auto 12px 0;
+  padding-top: 40px;
+  color: #a7b18e;
+}
+.goldStatus > span {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.goldStatus strong {
+  font-weight: 400;
+  font-size: 24px;
+  color: #e0a93f;
+}
 .deckStatus > span {
   display: block;
   font-size: 12px;

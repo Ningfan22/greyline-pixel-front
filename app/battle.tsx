@@ -1872,12 +1872,12 @@ export default function Battle({
           }
           aria-label="消耗 2 点指挥点抽一张牌"
         >
-          <span className="deck-card-back">
-            <span className="deck-emblem">
-              G<span>{'///'}</span>
-            </span>
-            <small>GREYLINE</small>
-          </span>
+          <img
+            className="deck-card-back"
+            src={assetUrl('/art/card-back-v1.webp')}
+            alt="牌堆"
+            draggable={false}
+          />
           <span className="deck-label">抽牌 · 2 点</span>
           <strong>
             {p.deckCount}

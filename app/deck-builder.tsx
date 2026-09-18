@@ -3,11 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Check,
   Info,
   Layers3,
   Minus,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   Undo2,
   X,
 } from 'lucide-react';
@@ -19,23 +22,43 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { CARDS, validDeck, copyLimit, type CardId } from '@/game/cards';
+import { CARDS, copyLimit, type CardId } from '@/game/cards';
 import { DECK_PRESETS } from '@/game/deck-presets';
 import { CardFace, cardStats } from '@/game/card-art';
 import { CARD_COPY } from '@/game/card-copy';
+import {
+  clampToCollection,
+  deckLimit,
+  ownedCount,
+  validDeckWithCollection,
+  type CollectionState,
+} from '@/game/collection';
+import { MAX_DECKS, activeDeck, type DeckStore } from '@/game/decks-store';
 const pool = Object.values(CARDS).sort(
   (a, b) => a.cost - b.cost || a.name.localeCompare(b.name, 'zh-CN'),
 );
 export default function DeckBuilder({
   deck,
   onSave,
+  onSaveAs,
   onStart,
   onExit,
+  collection,
+  deckStore,
+  onSelectDeck,
+  onDeleteDeck,
+  onRenameDeck,
 }: {
   deck: CardId[];
   onSave: (deck: CardId[]) => string;
+  onSaveAs: (deck: CardId[], name?: string) => boolean;
   onStart: (deck: CardId[]) => void;
   onExit: () => void;
+  collection: CollectionState | null;
+  deckStore: DeckStore | null;
+  onSelectDeck: (id: string) => void;
+  onDeleteDeck: (id: string) => void;
+  onRenameDeck: (name: string) => void;
 }) {
   const [draft, setDraft] = useState<CardId[]>([...deck]);
   const [history, setHistory] = useState<CardId[][]>([]);
@@ -48,6 +71,30 @@ export default function DeckBuilder({
     [drawer, setDrawer] = useState(false);
   const [message, setMessage] = useState(''),
     [filtersOpen, setFiltersOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false),
+    [renameValue, setRenameValue] = useState(''),
+    [confirmDelete, setConfirmDelete] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeId = deckStore?.activeId ?? '';
+  useEffect(() => {
+    setDraft([...deck]);
+    setHistory([]);
+    setPending(null);
+    setConfirmDelete(false);
+    setRenaming(false);
+    if (confirmTimer.current !== null) {
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = null;
+    }
+    // 切换卡组时重置编辑区；message 故意保留，让保存反馈不被吞掉。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+  useEffect(
+    () => () => {
+      if (confirmTimer.current !== null) clearTimeout(confirmTimer.current);
+    },
+    [],
+  );
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const press = useRef<{
     id: CardId;
@@ -80,6 +127,14 @@ export default function DeckBuilder({
   );
   const dirty = [...deck].sort().join('|') !== [...draft].sort().join('|');
   const countOf = (id: CardId) => draft.filter((v) => v === id).length;
+  const limitOf = (id: CardId) =>
+    collection ? deckLimit(collection, id) : copyLimit(id);
+  const ownedOf = (id: CardId) =>
+    collection ? ownedCount(collection, id) : copyLimit(id);
+  const isValidDeck = (value: CardId[]) =>
+    collection
+      ? validDeckWithCollection(value, collection)
+      : value.length === 20;
   const ordered = [...new Set(draft)].sort(
     (a, b) =>
       CARDS[a].cost - CARDS[b].cost ||
@@ -99,8 +154,14 @@ export default function DeckBuilder({
     setPending(null);
   };
   const pick = (id: CardId) => {
-    if (countOf(id) >= copyLimit(id)) {
-      setMessage(`${CARDS[id].name}最多编入 ${copyLimit(id)} 张`);
+    if (collection && ownedCount(collection, id) === 0) {
+      setMessage(`「${CARDS[id].name}」未拥有，去商店开卡包解锁`);
+      return;
+    }
+    if (countOf(id) >= limitOf(id)) {
+      setMessage(
+        `${CARDS[id].name}最多编入 ${limitOf(id)} 张（已拥有 ${ownedOf(id)}）`,
+      );
       return;
     }
     if (draft.length < 20) {
@@ -127,7 +188,7 @@ export default function DeckBuilder({
         setPending(null);
         return;
       }
-      if (countOf(pending) >= copyLimit(pending)) return;
+      if (countOf(pending) >= limitOf(pending)) return;
       next[index] = pending;
       apply(next, `已用一张${CARDS[pending].name}替换${CARDS[id].name}`);
       setDrawer(false);
@@ -137,13 +198,58 @@ export default function DeckBuilder({
     }
   };
   const save = () => {
-    if (validDeck(draft)) setMessage(onSave([...draft]));
+    if (isValidDeck(draft)) setMessage(onSave([...draft]));
   };
   const start = () => {
-    if (validDeck(draft)) {
+    if (isValidDeck(draft)) {
       onSave([...draft]);
       onStart([...draft]);
     }
+  };
+  const switchDeck = (id: string) => {
+    if (!deckStore || id === activeId) return;
+    if (
+      dirty &&
+      !window.confirm('当前卡组有未保存的修改，切换将丢失。确定切换吗？')
+    )
+      return;
+    onSelectDeck(id);
+  };
+  const saveAsNew = () => {
+    if (!deckStore) return;
+    if (deckStore.decks.length >= MAX_DECKS) {
+      setMessage('卡组槽已满（最多 6 套）');
+      return;
+    }
+    if (!isValidDeck(draft)) {
+      setMessage('编队满 20 张才能另存为新卡组');
+      return;
+    }
+    if (onSaveAs([...draft])) setMessage('已另存为新卡组');
+    else setMessage('另存失败：卡组槽已满或编队无效');
+  };
+  const confirmDeleteDeck = () => {
+    if (!deckStore) return;
+    if (deckStore.decks.length <= 1) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      if (confirmTimer.current !== null) clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmDelete(false), 3000);
+      return;
+    }
+    if (confirmTimer.current !== null) {
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = null;
+    }
+    onDeleteDeck(activeId);
+    setConfirmDelete(false);
+    setMessage('当前卡组已删除');
+  };
+  const commitRename = () => {
+    const name = renameValue.trim();
+    if (name) onRenameDeck(name.slice(0, 12));
+    setRenaming(false);
+    setMessage('卡组已重命名');
   };
   const visible = pool.filter(
     (c) =>
@@ -158,7 +264,7 @@ export default function DeckBuilder({
         : c.cost === Number(cost)) &&
       (owned === 'all' ||
         (owned === 'selected' && draft.includes(c.id)) ||
-        (owned === 'available' && countOf(c.id) < copyLimit(c.id))) &&
+        (owned === 'available' && countOf(c.id) < limitOf(c.id))) &&
       `${c.name}${c.tag}${c.description}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
@@ -228,7 +334,7 @@ export default function DeckBuilder({
             <span>
               {CARDS[id].name} ×{countOf(id)}
               <small>
-                上限 {copyLimit(id)} ·
+                已拥有 {ownedOf(id)} · 上限 {limitOf(id)} ·
                 {CARDS[id].members
                   ? `${CARDS[id].members} 人`
                   : CARDS[id].type === 'skill'
@@ -266,8 +372,18 @@ export default function DeckBuilder({
             const preset = DECK_PRESETS.find(
               (p) => p.id === event.target.value,
             );
-            if (preset)
-              apply([...preset.cards], `${preset.name}：${preset.plan}`);
+            if (preset) {
+              const cards = collection
+                ? clampToCollection([...preset.cards], collection)
+                : [...preset.cards];
+              const missing = preset.cards.length - cards.length;
+              apply(
+                cards,
+                missing
+                  ? `${preset.name}：${preset.plan}（${missing} 张未拥有已跳过）`
+                  : `${preset.name}：${preset.plan}`,
+              );
+            }
           }}
         >
           <option value="" disabled>
@@ -288,14 +404,14 @@ export default function DeckBuilder({
       <div className="armory-save">
         <button
           className="secondary-button"
-          disabled={!validDeck(draft)}
+          disabled={!isValidDeck(draft)}
           onClick={save}
         >
           {dirty ? '保存修改' : '保存卡组'}
         </button>
         <button
           className="primary-button"
-          disabled={!validDeck(draft)}
+          disabled={!isValidDeck(draft)}
           onClick={start}
         >
           出战 <ArrowRight size={16} />
@@ -320,6 +436,77 @@ export default function DeckBuilder({
           <b>满 20 张后，点新卡再选旧卡替换</b>
         </p>
       </div>
+      {deckStore && collection && (
+        <div className="armory-decks">
+          <select
+            aria-label="切换卡组"
+            value={activeId}
+            onChange={(event) => switchDeck(event.target.value)}
+          >
+            {deckStore.decks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} · {d.cards.length}/20
+              </option>
+            ))}
+          </select>
+          {renaming ? (
+            <span className="deck-rename">
+              <input
+                autoFocus
+                value={renameValue}
+                maxLength={12}
+                onChange={(event) => setRenameValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitRename();
+                  if (event.key === 'Escape') setRenaming(false);
+                }}
+                aria-label="卡组新名称"
+              />
+              <button
+                type="button"
+                aria-label="确认重命名"
+                onClick={commitRename}
+              >
+                <Check size={14} />
+              </button>
+              <button
+                type="button"
+                aria-label="取消重命名"
+                onClick={() => setRenaming(false)}
+              >
+                <X size={14} />
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setRenameValue(activeDeck(deckStore).name);
+                setRenaming(true);
+              }}
+            >
+              <Pencil size={13} /> 重命名
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={
+              deckStore.decks.length >= MAX_DECKS || !isValidDeck(draft)
+            }
+            onClick={saveAsNew}
+          >
+            另存为新卡组
+          </button>
+          <button
+            type="button"
+            className={confirmDelete ? 'danger-confirm' : ''}
+            disabled={deckStore.decks.length <= 1}
+            onClick={confirmDeleteDeck}
+          >
+            <Trash2 size={13} /> {confirmDelete ? '再点一次确认删除' : '删除本卡组'}
+          </button>
+        </div>
+      )}
       <div className="armory-layout">
         <section className="armory-collection">
           <div className="armory-topbar">
@@ -399,10 +586,12 @@ export default function DeckBuilder({
           <div className="armory-grid">
             {visible.map((c) => {
               const picked = draft.includes(c.id);
+              const locked =
+                !!collection && ownedCount(collection, c.id) === 0;
               return (
                 <article
                   key={c.id}
-                  className={`armory-card ${c.type} ${picked ? 'picked' : ''} ${pending === c.id ? 'pending' : ''}`}
+                  className={`armory-card ${c.type} ${picked ? 'picked' : ''} ${pending === c.id ? 'pending' : ''} ${locked ? 'locked' : ''}`}
                 >
                   <button
                     className="armory-card-select"
@@ -460,6 +649,9 @@ export default function DeckBuilder({
                     aria-label={`${draft.length === 20 ? '替换为' : '增加一张'}${c.name}，${c.cost} 点，${c.description}`}
                   >
                     <CardFace id={c.id} />
+                    {locked && (
+                      <span className="armory-card-lock">抽卡解锁</span>
+                    )}
                   </button>
                   <div className="armory-card-controls">
                     <button
@@ -476,14 +668,16 @@ export default function DeckBuilder({
                     </button>
                     <span
                       className="armory-card-count"
-                      aria-label={`${c.name}已编入${countOf(c.id)}张，上限${copyLimit(c.id)}张`}
+                      aria-label={`${c.name}已编入${countOf(c.id)}张，上限${limitOf(c.id)}张`}
                     >
-                      <b>{countOf(c.id)}</b> / {copyLimit(c.id)}
+                      <b>{countOf(c.id)}</b> / {limitOf(c.id)}
                     </span>
                     <button
                       type="button"
                       disabled={
-                        draft.length >= 20 || countOf(c.id) >= copyLimit(c.id)
+                        draft.length >= 20 ||
+                        countOf(c.id) >= limitOf(c.id) ||
+                        ownedOf(c.id) === 0
                       }
                       onPointerDown={controlPress}
                       onClick={(event) => {
@@ -544,14 +738,14 @@ export default function DeckBuilder({
         </output>
         <button
           className="secondary-button"
-          disabled={!validDeck(draft)}
+          disabled={!isValidDeck(draft)}
           onClick={save}
         >
           保存
         </button>
         <button
           className="primary-button"
-          disabled={!validDeck(draft)}
+          disabled={!isValidDeck(draft)}
           onClick={start}
         >
           出战 <ArrowRight size={14} />
@@ -590,8 +784,8 @@ export default function DeckBuilder({
                 {CARD_COPY[selectedCard.id].flavor}
               </blockquote>
               <p>
-                已编入 {countOf(selectedCard.id)} / 上限{' '}
-                {copyLimit(selectedCard.id)} 张
+                已拥有 {ownedOf(selectedCard.id)} · 可编入{' '}
+                {limitOf(selectedCard.id)} · 已编入 {countOf(selectedCard.id)} 张
               </p>
               {selectedCard.hp && (
                 <div className="detail-stat-row">
@@ -610,14 +804,17 @@ export default function DeckBuilder({
               <button
                 className="primary-button"
                 disabled={
-                  countOf(selectedCard.id) >= copyLimit(selectedCard.id)
+                  countOf(selectedCard.id) >= limitOf(selectedCard.id) ||
+                  ownedOf(selectedCard.id) === 0
                 }
                 onClick={() => {
                   pick(selectedCard.id);
                   setDetail(null);
                 }}
               >
-                {countOf(selectedCard.id) >= copyLimit(selectedCard.id)
+                {ownedOf(selectedCard.id) === 0
+                  ? '未拥有 · 去商店开包'
+                  : countOf(selectedCard.id) >= limitOf(selectedCard.id)
                   ? '数量已满'
                   : draft.length === 20
                     ? '选择旧卡替换'
