@@ -281,8 +281,6 @@ export function dugInTraceGlanceChoice(
  * should hold the default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
-  // A fresh hand-signal acknowledgment outranks routine scans and fidgets.
-  if ((u.ackUntil ?? 0) > time) return null;
   return (
     contactCalloutChoice(u, time) ??
     heardContactGlanceChoice(u, time) ??
@@ -492,7 +490,9 @@ const POSE_CHAINS: Record<
   crouch: { stand: [1, 7, 0], prone: [1, 2] },
   prone: { stand: [2, 1, 7, 0], crouch: [2, 1] },
 };
-const POSE_FRAME_S = 0.15;
+// v127: stance transitions play at half speed so stand/crouch/prone changes
+// read as deliberate movement instead of a snap.
+const POSE_FRAME_S = 0.3;
 
 /**
  * v113: reloads read as a four-beat drill instead of a static hunch. The
@@ -619,38 +619,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
         : u.motionTime / Math.max(0.01, u.motionDuration);
     return action(8 + Math.min(3, Math.max(0, Math.floor(progress * 4))));
   }
-  // Squad leaders pump a hand signal for a beat after an order changes, so the
-  // chain of command reads on the field. v121: dedicated signal frames replace
-  // the old climb-frame reuse — attack points forward, retreat points back,
-  // escort points toward the armour, hold/watch waves overhead — each
-  // alternating with the raised-fist beat so the hand pumps instead of
-  // freezing like a statue.
-  if ((u.signalUntil ?? 0) > time && !u.moving && u.fire <= 0) {
-    const wave = Math.floor(((u.signalUntil ?? 0) - time) * 6) % 2;
-    const order = u.squadOrder;
-    if (order === 'attack') {
-      const dir = (u.side === 0 ? 1 : -1) as 1 | -1;
-      return wave ? { ...sig(1), dir } : { ...sig(0), dir };
-    }
-    if (order === 'retreat') {
-      const dir = (u.side === 0 ? -1 : 1) as 1 | -1;
-      return wave ? { ...sig(1), dir } : { ...sig(2), dir };
-    }
-    if (order === 'escort') return wave ? sig(3) : sig(0);
-    return wave ? sig(3) : sig(1);
-  }
-  // Squad mates answer a fresh hand signal with a quick return pump of the
-  // arm. Only upright members answer — crouched and prone defenders stay low
-  // instead of popping up out of a trench to wave back.
-  if (
-    (u.ackUntil ?? 0) > time &&
-    !u.moving &&
-    u.fire <= 0 &&
-    (u.aimUntil ?? 0) <= time &&
-    (u.reloadingUntil ?? 0) <= time &&
-    (u.pose === 'idle' || u.pose === 'walk')
-  )
-    return sig(Math.floor(((u.ackUntil ?? 0) - time) * 7) % 2 ? 3 : 1);
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)

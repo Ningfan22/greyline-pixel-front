@@ -284,9 +284,11 @@ export interface Unit {
   /** v84: on the casualty — tourniquet window; bleedout nearly frozen until this time. */
   stabilizedUntil?: number;
   sortKey?: number;
-  signalUntil?: number;
-  /** Animation-only: squad mate is answering the leader's hand signal. */
-  ackUntil?: number;
+  /** v127: basic stance (idle/crouch/prone) changes are rate-limited. */
+  stanceLockUntil?: number;
+  lockedStance?: string;
+  /** v127: after a cover peek ends, the soldier rests behind cover this long. */
+  peekRestUntil?: number;
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
   vacuum?: boolean;
   /** v120, animation-only: this unit is its squad's current leader. */
@@ -720,7 +722,7 @@ export interface GameState {
   /** Per-squad command state: leader uid and command-vacuum window. */
   squadCommand?: Record<
     number,
-    { leaderUid: number; vacuumUntil: number; lastSignalAt?: number }
+    { leaderUid: number; vacuumUntil: number }
   >;
   /** Front-line x per side: [side0 foremost x, side1 foremost x]. */
   frontX?: [number, number];
@@ -3268,15 +3270,51 @@ export function pickMedicPatient(
  */
 export function peekShouldExpose(s: GameState, u: Unit): boolean {
   if ((u.exposedUntil ?? 0) > s.time) return true;
+  // v127: after a peek ends the soldier stays down for a full reload/breath
+  // cycle instead of bobbing up again on the next tick. The old rhythm
+  // (~0.55s up, immediately back up) read as nervous hopping, not fire and
+  // movement. Suppression stretches the rest.
+  if (s.time < (u.peekRestUntil ?? 0)) return false;
   if (u.cooldown > 0.05) return false;
   if (u.suppression > 45) {
     const hesitation = 0.3 + u.suppression * 0.004;
     if (s.time - (u.lastCombatShotAt ?? -Infinity) < hesitation) return false;
   }
-  let peek = 0.55 + (u.uid % 3) * 0.06 - Math.min(0.2, u.suppression * 0.003);
-  peek = Math.max(0.3, peek);
+  // v127: longer windows so the peek carries a real burst (3-5 shots) instead
+  // of one panicked round, and the up/down cycle reads as deliberate.
+  let peek =
+    1.5 + (u.uid % 3) * 0.15 - Math.min(0.3, u.suppression * 0.004);
+  peek = Math.max(1.1, peek);
   u.exposedUntil = s.time + peek;
+  const rest = 1.6 + Math.min(1.2, u.suppression * 0.012);
+  u.peekRestUntil = s.time + peek + rest;
   return true;
+}
+
+/**
+ * v127: rate-limit basic stance changes. Soldiers used to flip between
+ * stand/crouch/prone every time the tactic or order context twitched, which
+ * read as nervous hopping on the field. A stance change is accepted at most
+ * once per STANCE_COOLDOWN_S; while locked, the previous stance is kept.
+ * Emergency overrides (flinch, peek exposure, observation, air contact,
+ * cover shot) assign u.pose after this block and bypass the lock by design.
+ */
+const STANCE_COOLDOWN_S = 10;
+function applyStanceCooldown(
+  u: Unit,
+  time: number,
+  desired: string,
+): string {
+  if (u.lockedStance === undefined) {
+    u.lockedStance = desired;
+    u.stanceLockUntil = time + STANCE_COOLDOWN_S;
+    return desired;
+  }
+  if (u.lockedStance === desired) return desired;
+  if (time < (u.stanceLockUntil ?? 0)) return u.lockedStance;
+  u.lockedStance = desired;
+  u.stanceLockUntil = time + STANCE_COOLDOWN_S;
+  return desired;
 }
 
 export function coveringMate(
@@ -7584,7 +7622,7 @@ export function tick(s: GameState, dt: number) {
     }
     u.stepCooldown = Math.max(0, u.stepCooldown - dt);
     u.coverSearch -= dt;
-    u.pose = c.members
+    const desiredPose = c.members
       ? order === 'crouch'
         ? 'crouch'
         : order === 'prone'
@@ -7597,6 +7635,11 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    // v127: basic stance changes are rate-limited so a squad doesn't hop
+    // between stand/crouch/prone every time the tactic context twitches.
+    u.pose = c.members
+      ? applyStanceCooldown(u, s.time, desiredPose)
+      : desiredPose;
     if (c.members && u.withdrawStandby) u.pose = 'crouch';
     // A blast that landed nearby pins the soldier: they drop low and stop
     // shooting until the flinch window passes.
