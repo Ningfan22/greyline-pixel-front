@@ -261,7 +261,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '装甲后勤',
     ability: '战地抢修',
     rule: '单车立即抢修，再持续恢复。',
-    flavor: '修好的坦克，螺丝是隔壁车的。',
+    flavor: '修得好坦克，修不好命。',
   },
   precision: {
     en: 'PRECISION HOWITZER',
@@ -317,21 +317,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '补给班组',
     ability: '部署补给',
     rule: '部署抽一张牌，提供较远视野。',
-    flavor: '他们一来，阵地上的枪声都停了。',
+    flavor: '谁打补给车，谁今晚没饭。',
   },
   strike_jet: {
     en: 'GROUND-ATTACK JET',
     typeLabel: '对地航空',
     ability: '通场扫射',
     rule: '连续扫射，返航后低费再战。',
-    flavor: '通场一次，阵地上安静一半。',
+    flavor: '通场一次，花名册少一页。',
   },
   bomber: {
     en: 'TACTICAL BOMBER',
     typeLabel: '轰炸航空',
     ability: '通场投弹',
     rule: '六枚连投，返航后低费再战。',
-    flavor: '投弹手按按钮的时候在喝咖啡。',
+    flavor: '炸弹不长眼，投弹手也不长。',
   },
   marines: {
     en: 'MARINES',
@@ -380,7 +380,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '工程步兵',
     ability: '破障排雷',
     rule: '双人拆墙，近身排雷。',
-    flavor: '他们排雷，用脚。',
+    flavor: '排雷这活，没有第二次。',
   },
   mountain: {
     en: 'MOUNTAIN INFANTRY',
@@ -401,7 +401,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '精锐步兵',
     ability: '精锐伏击',
     rule: '短时伏击，抗压不投降。',
-    flavor: '他们到过的阵地，没有活口。',
+    flavor: '精锐的战场，没有目击者。',
   },
   grenadiers: {
     en: 'GRENADIER TEAM',
@@ -422,7 +422,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '便携防空',
     ability: '专职防空',
     rule: '制导导弹专门追击空中目标。',
-    flavor: '飞行员最怕的步兵。',
+    flavor: '一根管子，换一架飞机。',
   },
   heavy_mg: {
     en: 'HEAVY MACHINE GUN TEAM',
@@ -450,7 +450,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '反甲直升机',
     ability: '导弹猎甲',
     rule: '四点二秒制导打击载具。',
-    flavor: '坦克的天灵盖，归它管。',
+    flavor: '坦克最怕的声音，从头顶来。',
   },
   scout_drone: {
     en: 'RECON QUADCOPTER',
@@ -492,7 +492,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '空投补给',
     ability: '空投弹药',
     rule: '立即抽三张牌，手牌上限六张。',
-    flavor: '弹药落地，敌我都去抢。',
+    flavor: '弹药箱落地，战争暂停十秒。',
   },
   emp: {
     en: 'ELECTROMAGNETIC BLOCKADE',
@@ -506,7 +506,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '重型火炮',
     ability: '重炮覆盖',
     rule: '十七秒重炮，覆盖落点。',
-    flavor: '打完之后，地图都得重画。',
+    flavor: '一轮弹幕，山头矮了三米。',
   },
   medevac: {
     en: 'FIELD FIRST AID',
@@ -632,7 +632,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '攻坚破障',
     ability: '战斗工兵',
     rule: '爆破矮墙，清除地雷。',
-    flavor: '他们修的桥，自己先不过。',
+    flavor: '桥是工兵修的，命是坦克的。',
   },
   naval_gunfire: {
     en: 'NAVAL GUNFIRE',
@@ -653,7 +653,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '温压灼烧',
     ability: '温压弹',
     rule: '大范围高温灼烧。',
-    flavor: '它不烧人，它烧空气。',
+    flavor: '它烧完空气，人自己倒下。',
   },
   precision_rocket: {
     en: 'PRECISION ROCKET',
@@ -675,7 +675,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '电子干扰',
     ability: '出牌封锁',
     rule: '敌方三秒无法出牌。',
-    flavor: '对面的指挥官，突然失声。',
+    flavor: '敌人的命令，卡在嗓子里。',
   },
   emergency_levy: {
     en: 'EMERGENCY LEVY',
@@ -696,21 +696,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '步兵压制',
     ability: '震慑行动',
     rule: '敌步兵压制并定身。',
-    flavor: '炮声一停，没人敢先动。',
+    flavor: '炮火把勇气，炸成了本能。',
   },
   sensor_blind: {
     en: 'SENSOR BLIND',
     typeLabel: '电子干扰',
     ability: '视野压制',
     rule: '敌方视野骤降六秒。',
-    flavor: '敌人的卫星，突然老花。',
+    flavor: '致盲之后，敌人靠猜打仗。',
   },
   logistics_strike: {
     en: 'LOGISTICS STRIKE',
     typeLabel: '资源打击',
     ability: '后勤斩首',
     rule: '削敌三点指挥点。',
-    flavor: '断粮三天，坦克自己投降。',
+    flavor: '后勤一断，坦克变碉堡。',
   },
   freq_hop: {
     en: 'FREQUENCY HOPPING',
@@ -724,7 +724,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '电子干扰',
     ability: '电子压制',
     rule: '敌方回点放缓五秒。',
-    flavor: '看不见的战场，先死的是电台。',
+    flavor: '看不见的战争，电台先阵亡。',
   },
   airborne_at: {
     en: 'AIRBORNE AT TEAM',
@@ -745,7 +745,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '破障突击',
     ability: '突击工兵',
     rule: '四人工兵，减伤五成。',
-    flavor: '他们用身体标出雷区。',
+    flavor: '雷场的缺口，是工兵拿命换的。',
   },
   recon_jump: {
     en: 'RECON JUMP',
@@ -759,7 +759,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '徐进弹幕',
     ability: '递进覆盖',
     rule: '六发弹幕逐次延伸。',
-    flavor: '炮弹在前面走，人在后面跟。',
+    flavor: '跟着炮弹冲锋，慢一步就死。',
   },
   smoke_cover: {
     en: 'SMOKE COVER',
@@ -773,7 +773,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     typeLabel: '重型打击',
     ability: '重型弹幕',
     rule: '四发重炮大范围打击。',
-    flavor: '一轮过后，阵地上没有活人。',
+    flavor: '一轮重炮，阵地变成月球。',
   },
   illumination_round: {
     en: 'ILLUMINATION ROUND',
