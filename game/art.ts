@@ -2,6 +2,7 @@ import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { stanceAtlas } from './stance-art';
+import { packedWeaponStances } from './weapon-stance-art';
 import { lowReloadAtlas } from './low-reload-art';
 import { paintedBlastAtlas, paintedFootings } from './battlefield-effects-art';
 import { explosionAtlasV13, smokeAtlasV13, type PaintedBlasts } from './effect-atlas';
@@ -36,6 +37,7 @@ export interface Art {
   patrol: PatrolArtV17;
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
+  weaponStances?: AdultSpecialists;
   heavyMG?: SpecialistSprite[];
   glider: HTMLCanvasElement[];
   background: HTMLCanvasElement;
@@ -598,6 +600,7 @@ export function loadArt() {
       loadImage('/art/fuel-blast-v145.png'),
       loadImage('/art/earth-blast-v145.png'),
       loadImage('/art/building-footings-v145.png'),
+      loadImage('/art/weapon-stance-frames-v147.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -646,6 +649,7 @@ export function loadArt() {
         fuelBlastSheet,
         earthBlastSheet,
         footingSheet,
+        packedWeaponSheet,
       ],
       extra,
       trees,
@@ -729,6 +733,7 @@ export function loadArt() {
         parachute,
         adults,
         adultSpecialists: specialistAtlas(specialists),
+        weaponStances: packedWeaponStances(packedWeaponSheet),
         heavyMG: heavyMGAtlas(heavyMG),
         glider,
         wrecks: wreckFramesMap,

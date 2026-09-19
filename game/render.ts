@@ -608,8 +608,9 @@ export function render(
     const authoredBody = ownsAdultBody(choice);
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
-      body && choice && !authoredBody
-        ? heavyMGSprite(u, s.time, art.heavyMG) ?? specialistSprite(body, choice, u, art.adultSpecialists)
+      body && choice && (!authoredBody || choice.group === 'stance16')
+        ? (!authoredBody ? heavyMGSprite(u, s.time, art.heavyMG) : null) ??
+          specialistSprite(body, choice, u, art.adultSpecialists, art.weaponStances)
         : null;
     // v117: the patrol overlay only covers "plain" frames — the walk cycle
     // and the standing-alert frame. Every authored action frame (leader

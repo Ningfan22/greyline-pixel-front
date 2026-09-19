@@ -39,7 +39,9 @@ for(const side of [0,1]){
     for(const u of s.units){const f=adultFrameChoice(u,s.time);
       assert.notEqual(f.group,'signals4');
       if(crouchMotionActive(u)){assert.equal(f.group,'stance16');assert(!u.moving);
-        assert(drawn.includes(uniformFrame(art.adults[adultIdentity(u.id)][f.group][f.index],CARDS[u.id].uniform)));checked++;}
+        const base=art.adults[adultIdentity(u.id)][f.group][f.index];
+        const body=specialistSprite(base,f,u,art.adultSpecialists,art.weaponStances)?.image??base;
+        assert(drawn.includes(uniformFrame(body,CARDS[u.id].uniform)));checked++;}
     }
     const u=s.units[0],f=adultFrameChoice(u,s.time);
     trace.push({time:s.time,x:u.x,travel:u.crouchTravel,moving:u.moving,frame:`${f.group}:${f.index}`});
@@ -53,9 +55,9 @@ for(const side of [0,1]){
 const s=arena();for(const id of ['infantry','machinegun','javelin','mortar','sniper','medic']){
   const u=one(s,0,id,1000);u.crouchTravel=1;u.walk=3.4;u.moving=true;
   const f=adultFrameChoice(u,1),base=art.adults[adultIdentity(id)][f.group][f.index];
-  const moving=specialistSprite(base,f,u,art.adultSpecialists)?.image??base;
+  const moving=specialistSprite(base,f,u,art.adultSpecialists,art.weaponStances)?.image??base;
   u.moving=false;const held=adultFrameChoice(u,1);
-  assert.deepEqual(held,f);assert.equal(specialistSprite(base,held,u,art.adultSpecialists)?.image??base,moving);checked++;
+  assert.deepEqual(held,f);assert.equal(specialistSprite(base,held,u,art.adultSpecialists,art.weaponStances)?.image??base,moving);checked++;
 }
 // Inspect the precise authored bridge, at fixed body scale and baseline.
 const plate=createCanvas(8*170,205),pc=plate.getContext('2d');pc.fillStyle='#718178';pc.fillRect(0,0,plate.width,plate.height);

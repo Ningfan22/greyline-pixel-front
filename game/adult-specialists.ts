@@ -2,6 +2,8 @@ import { weaponModel } from './cards';
 import type { Unit } from './engine';
 import type { AdultFrameChoice } from './adult-animation';
 import { SPECIALIST_LANDMARKS } from './specialist-landmarks';
+import { isHeavyGunner } from './machinegun-team';
+import { isPrecisionObserver } from './precision-team';
 export type SpecialistRole =
   | 'machinegun'
   | 'rocket'
@@ -17,6 +19,8 @@ export interface AdultSpecialistArt {
   standing: SpecialistFrame;
   crouch: SpecialistFrame;
   prone: SpecialistFrame;
+  /** A whole-body painted drill, including its exact settled endpoints. */
+  stance16?: SpecialistFrame[];
 }
 export type AdultSpecialists = Partial<
   Record<SpecialistRole, AdultSpecialistArt>
@@ -73,17 +77,35 @@ export function specialistSprite(
   choice: AdultFrameChoice,
   u: Unit,
   sets?: AdultSpecialists,
+  weaponStances?: AdultSpecialists,
 ): SpecialistSprite | null {
   const model = weaponModel(u) as SpecialistRole,
-    set = sets?.[model];
+    // A portable LMG is not the heavy tripod gun. The precision observer
+    // carries ordinary kit/radio, not a second sniper rifle.
+    set =
+      (!isHeavyGunner(u) && !isPrecisionObserver(u)
+        ? weaponStances?.[model]
+        : undefined) ?? sets?.[model];
   if (
     !set ||
+    isPrecisionObserver(u) ||
     u.hp <= 0 ||
     u.wounded ||
     u.surrendered ||
     choice.group === 'reactions8'
   )
     return null;
+  if (choice.group === 'stance16') {
+    const frame = set.stance16?.[choice.index];
+    return frame
+      ? {
+          image: frame.image,
+          muzzle: frame.muzzle
+            ? { x: frame.muzzle[0] - 64, height: 96 - frame.muzzle[1] }
+            : null,
+        }
+      : null;
+  }
   const prone = choice.group === 'actions20' && [2, 12].includes(choice.index);
   const low =
     choice.group === 'crouch8' ||
@@ -103,7 +125,7 @@ export function specialistSprite(
     : low && !(model === 'mortar' && choice.group === 'crouch8')
       ? set.crouch
       : set.standing;
-  if (!u.moving && !prone && choice.group !== 'crouch8')
+  if (!u.moving && (!prone || set.stance16) && choice.group !== 'crouch8')
     return {
       image: part.image,
       muzzle: part.muzzle
