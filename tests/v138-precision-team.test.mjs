@@ -68,7 +68,8 @@ test('observer enables a real 800px shot, but smoke and blindness still deny vis
     if(mode==='blind')s.players[0].sensorBlindUntil=10;
     if(mode==='lost') b.hp=0;
     refreshVision(s); assert.equal(visibleToSide(s,0,e),mode==='clear',mode);
-    advance(s,1);
+    // The new stand→prone drill owns the hands for 2.4s before the first shot.
+    advance(s,4);
     assert.equal(a.shots>0,mode==='clear',mode);
   }
 });
@@ -82,7 +83,7 @@ test('precision rifle chooses the weapon operator, not a nearer rifle escort', (
     for(const u of mg)u.cooldown=1000;
     setOrder(s,side,'hold');setOrder(s,1-side,'hold');refreshVision(s);
     const shots=[];
-    for(let i=0;i<60;i++) {tick(s,1/60); shots.push(...s.projectiles.filter(p=>p.sourceUid===a.uid && !p.missed).map(p=>({...p})));}
+    for(let i=0;i<180;i++) {tick(s,1/60); shots.push(...s.projectiles.filter(p=>p.sourceUid===a.uid && !p.missed).map(p=>({...p})));}
     assert(shots.length>0); assert(shots.every(p=>p.targetUid===mg[0].uid),JSON.stringify({side,mg:mg.map(v=>[v.uid,v.member,v.x]),targets:shots.map(p=>p.targetUid)}));
   }
 });
@@ -140,6 +141,9 @@ test('rifle reloads after five shots; actual damage gains local designation, not
   for(const withObserver of [false,true]) {
     const s=arena(),[a,b]=group(s,0,'sniper_team',1000);
     if(!withObserver)b.hp=0;
+    // Damage test begins with an already-settled spotter. A spotter still
+    // lowering his body correctly cannot grant an observation bonus yet.
+    Object.assign(b,{pose:'prone',poseAnimSeen:'prone',stanceLockUntil:100});
     const e=single(s,1,'infantry',1450);
     setOrder(s,0,'hold');setOrder(s,1,'hold');refreshVision(s);
     const rounds=new Map(); let dry=false, reload=false;

@@ -601,7 +601,7 @@ export function render(
     const choice = c.members ? adultFrameChoice(u, s.time) : null;
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
-      body && choice
+      body && choice && choice.group !== 'stance16'
         ? heavyMGSprite(u, s.time, art.heavyMG) ?? specialistSprite(body, choice, u, art.adultSpecialists)
         : null;
     // v117: the patrol overlay only covers "plain" frames — the walk cycle
@@ -646,7 +646,7 @@ export function render(
           )
         : null;
     const digging =
-      u.digging && !u.moving && !isDead && !u.wounded && u.fire <= 0
+      u.digging && choice?.group !== 'stance16' && !u.moving && !isDead && !u.wounded && u.fire <= 0
         ? digFrameV18(
             art.digging,
             adultIdentity(u.id),
@@ -664,7 +664,7 @@ export function render(
     // ground. Specialist sprites, climbers, rappellers and casualties keep
     // their own animation path.
     const heldPose =
-      c.members &&
+      c.members && choice?.group !== 'stance16' &&
       !isDead &&
       !u.wounded &&
       !u.surrendered &&
@@ -721,6 +721,7 @@ export function render(
     // Idle infantry breathe: a 1px slow bob keeps held positions alive without drawing anatomy.
     const breathe =
       c.members &&
+      choice?.group !== 'stance16' &&
       !u.moving &&
       !isDead &&
       !u.wounded &&

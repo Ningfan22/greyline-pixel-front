@@ -3,7 +3,7 @@ import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, t
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
-import { GRENADE_THROW_S, GRENADE_RELEASE_S, POSE_TRANSITION_S } from './infantry-action-timing';
+import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress } from './infantry-action-timing';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
@@ -427,16 +427,13 @@ export interface Unit {
     | 'jump'
     | 'land';
   /**
-   * v110: pose-transition bookkeeping for the animator. The renderer records
-   * the last height class (stand/crouch/prone) it drew for this unit and the
-   * moment it changed, so stand↔crouch↔prone changes play a short authored
-   * frame chain instead of snapping. Animation-only; the engine never reads
-   * these. `poseAnimSeen` starts undefined so a unit's first draw never
-   * triggers a spurious transition.
+   * Simulation-owned posture clock. Off-screen units complete the same drill
+   * as visible units; rendering cannot start, restart or clear a transition.
    */
   poseAnimSeen?: 'stand' | 'crouch' | 'prone';
   poseAnimFrom?: 'stand' | 'crouch' | 'prone';
   poseAnimAt?: number;
+  poseAnimProgress?: number;
   motion: 'ground' | 'jump' | 'land' | 'bank';
   motionTime: number;
   motionDuration: number;
@@ -3435,6 +3432,8 @@ function setStance(
     u.pose = desired;
     return desired;
   }
+  // Finish a magazine drill before starting another whole-body action.
+  if (!u.wounded && (u.reloadingUntil ?? 0) > time) return u.pose;
   if (
     !u.wounded &&
     u.stanceLockUntil !== undefined &&
@@ -3448,6 +3447,7 @@ function setStance(
     u.poseAnimFrom = curClass;
     u.poseAnimSeen = nextClass;
     u.poseAnimAt = time;
+    u.poseAnimProgress = 0;
   }
   return desired;
 }
@@ -3731,7 +3731,8 @@ function moveSoldier(
   dt: number,
   mayTraverse = true,
 ) {
-  if (!dir || speed <= 0 || localUnitOrder(s, u) === 'watch') return;
+  if (!dir || speed <= 0 || localUnitOrder(s, u) === 'watch' ||
+      (u.motion === 'ground' && stanceTransitionActive(u, s.time))) return;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
@@ -7382,6 +7383,7 @@ export function tick(s: GameState, dt: number) {
   s.frontX = [front0, front1];
   updateSquadCommand(s);
   for (const u of s.units) {
+    u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
     u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
       // Incapacitation before release cancels preparation; no delayed throw
@@ -8468,7 +8470,7 @@ export function tick(s: GameState, dt: number) {
         u.squadOrder !== 'retreat' &&
         (u.withdrawUntil ?? 0) <= s.time &&
         (u.reloadingUntil ?? 0) <= s.time &&
-        s.time - (u.poseAnimAt ?? -Infinity) >= POSE_TRANSITION_S &&
+        !stanceTransitionActive(u, s.time) &&
         fragTarget
       ) {
         const clusterNear = nearUnits(s, fragTarget.x, 40, scanNearScratch);
@@ -9181,7 +9183,8 @@ export function tick(s: GameState, dt: number) {
     // — but the hull keeps its face toward the enemy.
     const reversing =
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
-    if (u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
+    if ((!c.members || !stanceTransitionActive(u, s.time)) &&
+        u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
     if (
       (c.damage ?? 0) > 0 &&
@@ -9277,6 +9280,7 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       if (
         u.cooldown <= 0 &&
+        (!c.members || !stanceTransitionActive(u, s.time)) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&
         !(

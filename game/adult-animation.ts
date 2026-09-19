@@ -1,6 +1,6 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
-import { GRENADE_THROW_S, POSE_TRANSITION_S } from './infantry-action-timing';
+import { GRENADE_THROW_S, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass } from './infantry-action-timing';
 import { isPrecisionObserver } from './precision-team';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
@@ -12,6 +12,8 @@ export interface AdultSprites {
   signals4: HTMLCanvasElement[];
   reload8: HTMLCanvasElement[];
   grenade8: HTMLCanvasElement[];
+  /** Painted stand→knee→prone cels, played backwards when rising. */
+  stance16: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -104,7 +106,7 @@ export function crouchFidgetChoice(
   const period = 10 + (u.uid % 4) * 0.9;
   const phase = (time + u.uid * 6.13) % period;
   if (phase < 1.4) return action(1); // action 17 is a running frame, not a crouch
-  if (phase < 2.4) return action(13); // lean forward to scan the sector
+  if (phase < 2.4) return action(1); // 13 is crawling on hands/knees, not a knee scan
   return null;
 }
 
@@ -284,7 +286,7 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   // Do not let decorative layers replace a throw, reload, or an authored
   // stance transition. They must never invent a different body height.
   if ((u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
-      u.poseAnimFrom !== undefined || u.flash > 0 || u.tending) return null;
+      stanceTransitionActive(u, time) || u.flash > 0 || u.tending) return null;
   return (
     heardContactGlanceChoice(u, time) ??
     blastGlanceChoice(u, time) ??
@@ -294,8 +296,8 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
     boundingRestChoice(u, time) ??
     crouchFidgetChoice(u, time) ??
     proneFidgetChoice(u, time) ??
-    magCheckChoice(u, time) ??
-    engineerFussChoice(u, time) ??
+    // Legacy decorative checks reused a hands-and-knees crawl. Only actual
+    // reload/treatment actions may use their work cels; idle cannot fake one.
     sectorScanChoice(u, time) ??
     idleMicroChoice(u, time)
   );
@@ -444,31 +446,15 @@ export function engineerFussChoice(
   return action(13); // back to the kneeling work
 }
 
-/**
- * v110: authored pose transitions. When a soldier's height class changes
- * (stand ↔ crouch ↔ prone), the renderer plays a short chain of existing
- * hand-drawn frames instead of snapping straight to the new pose. The
- * animator tracks the last height class it drew on the unit itself, so no
- * engine instrumentation is needed — the first draw after a pose change
- * starts the transition.
- *
- * Frame vocabulary (actions20): 0 = standing alert, 1 = knee kneel (the
- * crouch idle), 2 = prone, 6 = landing crouch (drop-in beat), 7 = landing
- * stable (half-rise beat). The chains read as: drop into a crouch, settle
- * onto a knee, then lie flat — and the reverse on the way up.
- *
- * Transitions only play for stationary soldiers: the walk / crouch-walk /
- * crawl cycles already carry a moving pose change, and sliding knee-frames
- * look worse than a clean snap. A fresh reload or hit flinch also takes
- * precedence for its beat; the time-based window simply resumes afterwards.
- */
+/** Dedicated painted progression, using the simulation's posture clock.
+ * Reload/fire/decoration cannot replace these cels midway through a drill. */
 const POSE_CHAINS: Record<
   'stand' | 'crouch' | 'prone',
   Partial<Record<'stand' | 'crouch' | 'prone', number[]>>
 > = {
-  stand: { crouch: [0, 6, 1], prone: [0, 6, 1, 2] },
-  crouch: { stand: [1, 7, 0], prone: [1, 2] },
-  prone: { stand: [2, 1, 7, 0], crouch: [2, 1] },
+  stand: { crouch: [0,1,2,3,4,5,6,7], prone: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] },
+  crouch: { stand: [7,6,5,4,3,2,1,0], prone: [8,9,10,11,12,13,14,15] },
+  prone: { stand: [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0], crouch: [15,14,13,12,11,10,9,8] },
 };
 /** Work may move the arms, but never invent a new stance behind the AI's back. */
 function groundedWork(u: Unit, time: number): AdultFrameChoice {
@@ -507,45 +493,15 @@ function reloadBeat(u: Unit, time: number): AdultFrameChoice {
   return { group: 'reload8', index: Math.min(7, Math.floor(elapsed / duration * 8)) };
 }
 
-function poseHeightClass(
-  pose: Unit['pose'],
-): 'stand' | 'crouch' | 'prone' {
-  if (pose === 'prone') return 'prone';
-  if (pose === 'crouch' || pose === 'hunker') return 'crouch';
-  // 'jump', 'land' and 'climb' are transient motion states with their own
-  // animation branches; counting them as stand avoids a spurious knee-drop
-  // after every landing.
-  return 'stand';
-}
-
 export function poseTransitionChoice(
   u: Unit,
   time: number,
 ): AdultFrameChoice | null {
-  const cls = poseHeightClass(u.pose);
-  if (u.poseAnimSeen === undefined) {
-    u.poseAnimSeen = cls;
-    return null;
-  }
-  if (u.poseAnimSeen !== cls) {
-    u.poseAnimFrom = u.poseAnimSeen;
-    u.poseAnimAt = time;
-    u.poseAnimSeen = cls;
-  }
-  const from = u.poseAnimFrom;
-  if (from === undefined || from === cls) return null;
-  const chain = POSE_CHAINS[from]?.[cls];
+  const progress = stanceTransitionProgress(u, time);
+  if (progress === null || !u.poseAnimFrom || !u.poseAnimSeen) return null;
+  const chain = POSE_CHAINS[u.poseAnimFrom]?.[u.poseAnimSeen];
   if (!chain) return null;
-  const window = POSE_TRANSITION_S;
-  const elapsed = time - (u.poseAnimAt ?? time);
-  if (elapsed >= window) {
-    u.poseAnimFrom = undefined;
-    return null;
-  }
-  // A burst/reload cannot repeatedly hide the intermediate frames. Horizontal
-  // navigation remains independent so a pose animation cannot strand a mover.
-  const idx = Math.min(chain.length - 1, Math.floor(elapsed / window * chain.length));
-  return action(chain[idx]);
+  return { group: 'stance16', index: chain[Math.min(chain.length - 1, Math.floor(progress * chain.length))] };
 }
 
 /** Every living, casualty and surrender state uses the same adult anatomy. */
@@ -583,7 +539,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Simulation and cels share a clock: the projectile leaves after cel five.
   if ((u.fragThrow ?? 0) > 0) {
     const elapsed = GRENADE_THROW_S - (u.fragThrow ?? 0);
-    if (poseHeightClass(u.pose) === 'stand')
+    if (stanceHeightClass(u.pose) === 'stand')
       return { group: 'grenade8', index: Math.min(7, Math.max(0, Math.floor(elapsed / GRENADE_THROW_S * 8))) };
     // v120: pose-specific throw chains so a crouching grenadier stays on a
     // knee and a prone one stays on the deck instead of popping to standing.
@@ -681,18 +637,9 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       if (radioT < 1.2) return action(3);
     }
     if (reloading) return reloadBeat(u, time);
-    // v117: firing from the deck — alternate the lie with the prone-reload
-    // frame so a burst reads as the weapon working instead of a frozen
-    // corpse. Covers both the primary and the underslung secondary.
-    if (u.fire > 0 || u.secondaryFire > 0)
-      return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 3 : 2);
-    // v119: in contact (aimUntil is refreshed on every engagement) a prone
-    // soldier keeps working the weapon between bursts — the lie alternates
-    // with the prone-work frame so the held line looks alive instead of a
-    // row of corpses. The phase is offset by uid so a squad doesn't sway in
-    // sync. idleMicro yields whenever aimUntil is active, so this shows.
-    if ((u.aimUntil ?? 0) > time)
-      return Math.floor(time * 2.2 + u.uid * 1.7) % 2 ? action(3) : action(2);
+    // Keep the aimed torso planted; discharge effects carry weapon recoil.
+    if (u.fire > 0 || u.secondaryFire > 0) return action(2);
+    if ((u.aimUntil ?? 0) > time) return action(2);
     return action(2);
   }
   if (u.pose === 'crouch') {
@@ -703,38 +650,16 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       return { group: 'crouch8', index: cycle(gait, 8) };
     }
     if (reloading) return reloadBeat(u, time);
-    // v117: firing from a knee — alternate the kneel with the hunched brace
-    // so the burst has a recoil cadence instead of one static pose.
-    if (u.fire > 0 || u.secondaryFire > 0)
-      return action(Math.floor((u.fire + u.secondaryFire) * 14) % 2 ? 13 : 1);
-    // v119: a crouched soldier in contact keeps the gun shouldered between
-    // bursts, shifting from the kneel to the hunched brace so the held
-    // position reads as aimed overwatch, not a man resting on one knee.
-    if ((u.aimUntil ?? 0) > time)
-      return Math.floor(time * 2.2 + u.uid * 1.7) % 2 ? action(13) : action(1);
+    // Frame 13 is a crawl, not a recoil cel. Do not swap the entire body.
+    if (u.fire > 0 || u.secondaryFire > 0) return action(1);
+    if ((u.aimUntil ?? 0) > time) return action(1);
     return action(1);
   }
   if (u.pose === 'hunker') {
     if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
     if (reloading) return reloadBeat(u, time);
-    // Heavy suppression: the soldier drops fully to the deck, too pinned to
-    // kneel or steal a glance. They lie on their side hugging the earth,
-    // stirring between a propped-on-elbow lie and a full curl so the pin
-    // reads as living fear rather than a static corpse. Only the down-time
-    // between peeks reaches this branch — peekShouldExpose still lifts them
-    // to fire — so the cower shows a soldier forcing themselves up to shoot
-    // and dropping back flat, never a hard stun. The phase is offset by uid
-    // so a pinned squad doesn't cower in sync.
-    if (u.suppression >= 80) {
-      const cower = (time + u.uid * 3.31) % 5.2;
-      return action(cower < 3.4 ? 13 : 1);
-    }
-    // Pinned behind cover: head down, stealing a brief glance over the rim
-    // every few seconds to check whether the coast is clear. The phase is
-    // offset by uid so a whole squad doesn't peek in unison.
-    const glance = (time + u.uid * 5.17) % 6.5;
-    if (glance < 0.5) return action(1);
-    return action(13);
+    // Hunker is the same committed knee-height class, not periodic crawling.
+    return action(1);
   }
   if (u.moving)
     return u.pose === 'run' || u.tactic === 'retreat'

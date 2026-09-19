@@ -1,7 +1,7 @@
 import type { Unit } from './engine';
 import type { SpecialistSprite } from './adult-specialists';
 import { isHeavyGunner } from './machinegun-team';
-import { POSE_TRANSITION_S } from './infantry-action-timing';
+import { POSE_TRANSITION_S, stanceTransitionActive } from './infantry-action-timing';
 
 // Measured cells of the original transparent image, not assumed 512px tiles.
 // Preserve authored pixels/alpha, one scale and a shared knee/foot baseline.
@@ -30,6 +30,7 @@ export function heavyMGFrame(u: Unit, time: number): number | null {
       u.parachuting || u.rappelling || u.digging || u.tending || u.flash > 0 ||
       u.draggingUid !== undefined || (u.fragThrow ?? 0) > 0 ||
       (u.overheatedUntil ?? 0) > time ||
+      stanceTransitionActive(u,time) ||
       time - (u.poseAnimAt ?? -Infinity) < POSE_TRANSITION_S) return null;
   if ((u.reloadingUntil ?? 0) > time && (u.ammo === 0 || u.tacticalReload)) {
     const start = u.reloadingStartAt ?? time;

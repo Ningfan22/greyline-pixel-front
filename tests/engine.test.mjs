@@ -71,6 +71,13 @@ import {
 const advance = (s, seconds) => {
   for (let t = 0; t < seconds - 1e-9; t += 1 / 60) tick(s, 1 / 60);
 };
+// Ballistic/role fixtures begin already in their requested firing posture.
+// Real lowering/rising latency is exercised in v142-motion, not bypassed by
+// production code merely to let these one-tick weapon assertions pass.
+const settledBody = (s,u,pose='idle') => Object.assign(u, {pose,
+  poseAnimSeen:pose==='prone'?'prone':pose==='crouch'?'crouch':'stand',
+  poseAnimFrom:undefined,poseAnimAt:undefined,poseAnimProgress:undefined,
+  stanceLockUntil:s.time+10,readyAt:s.time-10,aimUntil:s.time+100});
 const hand = (s, id) => {
   const c = { uid: ++s.uid, id };
   s.players[0].hand.push(c);
@@ -197,7 +204,7 @@ check('每名士兵独立寻找目标、开火和受击', () => {
   spawnUnit(s, 1, 'infantry', 740);
   const target = s.units[6];
   const firing = new Set();
-  for (let i = 0; i < 72; i++) {
+  for (let i = 0; i < 240; i++) {
     tick(s, 1 / 60);
     s.units.filter((u) => u.fire > 0).forEach((u) => firing.add(u.uid));
   }
@@ -210,6 +217,7 @@ check('机枪对空明显强于普通步兵的低效射击', () => {
   const s = fresh();
   s.units = [];
   spawnUnit(s, 0, 'infantry', 500);
+  s.units.forEach(u=>settledBody(s,u));
   spawnUnit(s, 1, 'helicopter', 590);
   const helicopter = s.units.at(-1);
   advance(s, 1);
@@ -217,6 +225,7 @@ check('机枪对空明显强于普通步兵的低效射击', () => {
   assert(rifleDamage > 0 && rifleDamage < helicopter.maxHp * 0.02);
   const beforeAA = helicopter.hp;
   spawnUnit(s, 0, 'machinegun', 540);
+  s.units.filter(u=>u.side===0).forEach(u=>settledBody(s,u));
   advance(s, 1);
   assert(
     beforeAA - helicopter.hp > rifleDamage * 8,
@@ -510,6 +519,7 @@ const duel = (id, distance) => {
   eyes.cooldown = 1e6;
   eyes.pace = 0;
   eyes.decisionIn = 1e6;
+  if(CARDS[id].members) settledBody(s,u,id==='mortar'?'crouch':'idle');
   refreshVision(s);
   return { s, u, target };
 };
@@ -665,6 +675,7 @@ check('卧姿狙击手有真实射线时保持卧姿开火，不为每枪起立'
   s.units[1].cooldown = 1000;
   setOrder(s, 0, 'prone');
   setOrder(s, 1, 'hold');
+  settledBody(s,u,'prone');
   u.cooldown = 0;
   spawnUnit(s, 0, 'scout_drone', 1200);
   refreshVision(s);
@@ -853,6 +864,7 @@ check('所有坦克主炮装填时同轴机枪仍独立开火，主副武器可�
 check('防空组只瞄准空中目标，反坦克爆炸只给装甲额外伤害', () => {
   const s = arena();
   spawnUnit(s, 0, 'manpads', 700);
+  s.units.forEach(u=>settledBody(s,u,'crouch'));
   spawnUnit(s, 1, 'infantry', 900);
   for (const u of s.units) u.cooldown = 0;
   tick(s, 1 / 60);
@@ -1031,6 +1043,7 @@ check('枪弹、炮弹和火箭使用各自速度与弹道，曳光按射击次�
   s.units = [s.units[0], s.units[6]];
   s.units[0].cooldown = 0;
   s.units[1].cooldown = 100;
+  settledBody(s,s.units[0]);
   tick(s, 1 / 60);
   const p = s.projectiles.find((p) => p.side === 0);
   assert(p);
@@ -1559,6 +1572,7 @@ check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减�
     squad.forEach((u) => {
       u.cooldown = 0;
       u.decisionIn = 100;
+      settledBody(s,u);
     });
     // This case checks mixed weapons, not tripod setup (covered in v140).
     if (id === 'heavy_mg') Object.assign(squad[0], {
@@ -2009,6 +2023,7 @@ check('标枪与反坦克炮的直击破甲倍率生效，原坦克与直升机�
     b.cooldown = b.secondaryCooldown = 100;
     a.cooldown = 0;
     a.decisionIn = 100;
+    if(CARDS[id].members) settledBody(s,a,'crouch');
     setOrder(s, 0, 'hold');
     advance(s, 1);
     assert(b.hp < 540, `${id}: ${b.hp}`);
@@ -2444,6 +2459,7 @@ check('房屋后中距离步兵会开火，坦克同轴也不会被许可检查�
     u.decisionIn = 100;
     u.tactic = 'crouch';
     u.pose = 'idle';
+    if(CARDS[id].members) settledBody(s,u);
     enemy.pace = 0;
     enemy.cooldown = 100;
     s.players[0].order = 'hold';
@@ -2487,6 +2503,7 @@ check('手榴弹保持杀伤但挖土更浅，烟尘在1.25秒内散去', () => 
   u.cooldown = 0;
   u.decisionIn = 100;
   u.tactic = 'crouch';
+  settledBody(s,u,'crouch');
   s.players[0].order = 'hold';
   refreshVision(s);
   tick(s, 1 / 60);
@@ -3223,7 +3240,8 @@ check('撤退归队后恢复两侧正确行进方向，不保留拥堵或撤退�
     // Regroup no longer bypasses the ten-second low-stance commitment.
     assert((u.x - joinX) * dir > 70, 'advances at the actual crouch speed');
     assert.equal(u.pose, 'crouch');
-    advance(s, 6.2);
+    // After the 10s commitment, allow the 1.2s authored rise to finish.
+    advance(s, 7.5);
     const unlockedX = u.x;
     advance(s, 2);
     assert((u.x - unlockedX) * dir > 95, 'upright advance returns once the stance lock expires');
@@ -3248,7 +3266,7 @@ function v13EngageFresh() {
   s.walls = [];
   return s;
 }
-function v13EngageSingle(s, side, id, x, tactic = 'prone') {
+function v13EngageSingle(s, side, id, x, tactic = 'prone', settled = true) {
   const before = s.units.length;
   spawnUnit(s, side, id, x);
   const u = s.units[before];
@@ -3256,10 +3274,12 @@ function v13EngageSingle(s, side, id, x, tactic = 'prone') {
   u.tactic = tactic;
   u.decisionIn = 1e6;
   u.cooldown = 0;
+  if(settled) settledBody(s,u,tactic==='prone'?'prone':['bound','cover','crouch'].includes(tactic)?'crouch':'idle');
   return u;
 }
 function v13EngageEnemy(s, x) {
   const v = v13EngageSingle(s, 1, 'infantry', x);
+  settledBody(s,v); // an upright target, as in the original first-shot fixture
   v.cooldown = 1e6;
   setOrder(s, 1, 'hold');
   return v;
@@ -3366,8 +3386,9 @@ check('v17交战：残骸完全挡线时走通道换位且保留安全距离', (
 });
 check('v13交战：小幅换位后恢复约300距离交火', () => {
   const s = v13EngageFresh(),
-    u = v13EngageSingle(s, 0, 'infantry', 550);
-  v13EngageEnemy(s, 900);
+    u = v13EngageSingle(s, 0, 'infantry', 550, 'prone', false);
+  const enemy=v13EngageSingle(s,1,'infantry',900,'prone',false);
+  enemy.cooldown=1e6;setOrder(s,1,'hold');
   for (let x = 640; x < 661; x++) s.terrain[x] = 335;
   refreshVision(s);
   v13EngageAdvance(s, 4);
@@ -4489,6 +4510,7 @@ const v14TacticsSolo = (s, side, id, x, tactic = 'prone') => {
     decisionIn: 1000,
     pace: 1,
   });
+  settledBody(s,u,tactic==='prone'?'prone':['bound','cover','crouch'].includes(tactic)?'crouch':'idle');
   return u;
 };
 const v14SuperiorContact = (side, order = 'advance') => {
@@ -4595,6 +4617,9 @@ check(
   () => {
     for (const side of [0, 1]) {
       const { s, own, dir } = v14SuperiorContact(side);
+      // This fixture starts an already deployed covering line; new-spawn
+      // stance latency and post-transition resumption have separate tests.
+      own.forEach(u=>settledBody(s,u,'crouch'));
       const starts = new Map(own.map((u) => [u.uid, u.x]));
       const squads = new Map(own.map((u) => [u.uid, u.squad]));
       const movedMembers = new Set();
@@ -4669,7 +4694,7 @@ check(
       assert(safeRear.every((u) => !u.backpedaling));
       assert(
         own.reduce((n, u) => n + u.shots, 0) >= 12,
-        'the squad keeps fighting while giving ground',
+        `the squad keeps fighting while giving ground: ${JSON.stringify(own.map(u=>({shots:u.shots,x:u.x,pose:u.pose,from:u.poseAnimFrom,at:u.poseAnimAt})))} `,
       );
     }
   },
@@ -5326,6 +5351,7 @@ check('两费RPG混编班能在皮卡射程外造成实际击毁，低费反制�
     u.cooldown = 0;
     u.personalMorale = 85;
     u.shots = 0;
+    settledBody(s,u,'crouch');
   }
   const truck = v15Unit(s, 1, 'pickup', 1520, true);
   advance(s, 1.2);
@@ -5364,7 +5390,7 @@ check('低费观察兵保持远距视线，不会为打出微弱自卫火力冲�
     assert.equal(scout.shots, 0);
     assert.equal(scout.pose, 'prone');
     setOrder(s, side, 'rush');
-    advance(s, 0.5);
+    advance(s, 1.5); // finishes the already-started 2.4s stand→prone drill
     assert.equal(scout.pose, 'prone', 'rush cannot break the ten-second stance commitment');
     assert((scout.x - x(700)) * dir > 0, 'scout still moves toward the ordered direction');
   }
