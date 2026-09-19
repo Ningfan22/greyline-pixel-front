@@ -16,3 +16,7 @@ This is a targeted audit of reported overlaps, not a claim that all 116 cards ha
 | Glider assault | Elite insertion uses existing airborne machinery | Visual/arrival differentiation still needs work; current description overstates distinct transport behavior |
 
 Next differentiation should change an actual decision (spotting versus shooting, prepared defense versus mobile escort, safe insertion versus risky immediate contact). It must be tested in the engine, not only renamed on the card face. Existing collections must not lose copies when roles change.
+
+## Follow-up in v138
+
+The sniper/precision overlap is now implemented as dual rifles versus a rifle/observer pair. See `v138-verification.md` for loss-of-observer behavior, targeting, real shot/reload tests and remaining overlaps. Other unresolved rows above have not been silently marked complete.

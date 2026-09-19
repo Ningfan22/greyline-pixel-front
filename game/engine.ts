@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S, POSE_TRANSITION_S } from './infantry-action-timing';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
@@ -247,6 +248,7 @@ export interface Unit {
   /** v83: loot window — until this timestamp the soldier is huddled over the body. */
   scavengeUntil?: number;
   observingUntil?: number;
+  observerFollowing?: boolean;
   /** v128: when a continuous observing spell started (hysteresis). */
   observingSince?: number;
   /** v128: hold the prone observer pose until this timestamp. */
@@ -3001,7 +3003,7 @@ function bodyHeight(
 }
 export function unitRange(s: GameState, u: Unit) {
   return (
-    weaponCard(u).range! *
+    (pairedPrecisionRange(s, u) ? 880 : weaponCard(u).range!) *
     (CARDS[u.id].infantryAbility === 'mountain_fire' &&
     !u.moving &&
     u.motion === 'ground' &&
@@ -3052,7 +3054,7 @@ function scoutSpotter(
   for (const v of s.units) {
     if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) continue;
     const vc = CARDS[v.id];
-    if (vc.trait !== 'scout' && !vc.observer) continue;
+    if (vc.trait !== 'scout' && !vc.observer && !precisionObserverReady(v)) continue;
     if (Math.abs(v.x - tx) > 760) continue;
     const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
     // v120: a sensor-blinded spotter sees less than half as far, so its
@@ -3077,7 +3079,7 @@ function scoutDesignates(
   for (const v of s.units) {
     if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) continue;
     const vc = CARDS[v.id];
-    if (vc.trait !== 'scout' && !vc.observer) continue;
+    if (vc.trait !== 'scout' && !vc.observer && !precisionObserverReady(v)) continue;
     if (Math.abs(v.x - target.x) > 700) continue;
     const eye = v.y - (vc.air ? 20 : v.pose === 'prone' ? 12 : 48);
     // v120: sensor blind degrades target designation the same way it degrades
@@ -5492,6 +5494,9 @@ function updateAI(s: GameState) {
   // must value them as recon assets — not double-buy observers alongside them.
   const observerCard = (id: CardId) =>
     CARDS[id].observer || CARDS[id].trait === 'scout';
+  // The hybrid card keeps its marksman purchase score. Only its surviving
+  // observer counts as an existing recon asset, not the rifleman's card id.
+  const observerUnit = (u: Unit) => observerCard(u.id) || isPrecisionObserver(u);
   const canSupportContact = (u: Unit, target: Unit) => {
     const c = weaponCard(u),
       distance = Math.abs(target.x - u.x);
@@ -5741,7 +5746,7 @@ function updateAI(s: GameState) {
                 (weaponCard(u).range ?? 0) >= 700 ||
                 modelOf(u.id) === 'sniper'),
           );
-          score = own.some((u) => observerCard(u.id))
+          score = own.some((u) => observerUnit(u))
             ? -100
             : needsSpotter
               ? 34
@@ -5764,7 +5769,7 @@ function updateAI(s: GameState) {
             (u) => CARDS[u.id].trait === 'close_assault' && isCombatant(u),
           ) || p.hand.some((h) => CARDS[h.id].trait === 'close_assault');
         const hasSpotter = own.some(
-          (u) => observerCard(u.id) && isCombatant(u),
+          (u) => observerUnit(u) && isCombatant(u),
         );
         const hasEngineer = own.some(
           (u) => CARDS[u.id].trait === 'engineer' && isCombatant(u),
@@ -5788,6 +5793,9 @@ function updateAI(s: GameState) {
           score += 7;
         if (model === 'sniper' && foot.length && !observerCard(c.id))
           score += 3;
+        if (c.id === 'sniper_team' && foot.some(v =>
+            ['machinegun', 'mortar', 'rocket'].includes(weaponCard(v).model ?? modelOf(v.id))))
+          score += 8;
         // Recon + marksman: scouts designate targets for snipers.
         if (model === 'sniper' && hasSpotter) score += 5;
         // Overwatch: a halted sniper covering a massed infantry advance lets
@@ -5867,7 +5875,7 @@ function updateAI(s: GameState) {
         // plugs a collapsing sector; recon jump fills a missing spotter.
         if (c.id === 'airborne_at' && armor.length) score += 8;
         if (c.id === 'rapid_insertion' && emergency) score += 6;
-        if (c.id === 'recon_jump' && !own.some((u) => observerCard(u.id)))
+        if (c.id === 'recon_jump' && !own.some((u) => observerUnit(u)))
           score += 5;
         if (c.air && !c.observer && !c.airOnly) {
           const enemyAA = groups(foes.filter((u) => weaponCard(u).antiAir));
@@ -6398,7 +6406,7 @@ function updateAI(s: GameState) {
           cardCost(o.h) <= p.energy + 1e-6 &&
           ((screens < 1.5 && lineInfantry(o.h.id)) ||
             (seekArmor &&
-              !own.some((u) => observerCard(u.id)) &&
+              !own.some((u) => observerUnit(u)) &&
               observerCard(o.h.id))),
       );
       if (support && playCard(s, 1, support.h.uid, support.x).ok) return;
@@ -8252,7 +8260,8 @@ export function tick(s: GameState, dt: number) {
     // sort, so precompute a numeric key per candidate instead of recomputing
     // ammunition/model lookups on every comparator call.
     const coverAmmo = isCoverBullet(primaryAmmo);
-    const sortMode: 'soft' | 'sniper' | 'armor' | 'none' =
+    const sortMode: 'soft' | 'sniper' | 'crew' | 'armor' | 'none' =
+      u.id === 'sniper_team' && u.member === 0 ? 'crew' :
       c.attackRun === 'strafe' ||
       softTargetWeapon ||
       ((c.armorMultiplier ?? 1) < 0.8 && coverAmmo)
@@ -8264,7 +8273,11 @@ export function tick(s: GameState, dt: number) {
             : 'none';
     for (const v of candOutScratch) {
       const rank =
-        sortMode === 'soft'
+        sortMode === 'crew'
+          ? !CARDS[v.id].members ? 3
+            : ['machinegun', 'mortar', 'rocket'].includes(weaponCard(v).model ?? modelOf(v.id)) ? 0
+              : modelOf(v.id) === 'sniper' && !isPrecisionObserver(v) ? 1 : 2
+          : sortMode === 'soft'
           ? softTargetRank(v)
           : sortMode === 'sniper'
             ? Number(!CARDS[v.id].members)
@@ -8272,7 +8285,7 @@ export function tick(s: GameState, dt: number) {
               ? Number(!CARDS[v.id].armored)
               : 0;
       v.sortKey =
-        (v.uid === focusUid ? 0 : 1_000_000) +
+        (sortMode === 'crew' || v.uid === focusUid ? 0 : 1_000_000) +
         rank * 10_000 +
         // AT teams concentrate on the most damaged armoured vehicle: a
         // crippled tank still shoots, so finishing it beats splitting fire.
@@ -8307,7 +8320,18 @@ export function tick(s: GameState, dt: number) {
         : undefined;
     // Unarmed-for-air infantry takes cover, while actual AA retains its own target selection.
     // Observers hold their useful sight line instead of marching into rifle range.
+    const precisionObserver = isPrecisionObserver(u);
+    const observerMate = precisionObserver ? precisionPartner(s, u) : undefined;
+    const observerDestination = observerMate ? observerMate.x - dir * 36 : u.x;
+    // Hysteresis: follow the rifle, not the generic unarmed-unit advance.
+    // No early return: casualty aid, withdrawal and contact-line safety still apply.
+    if (precisionObserver) {
+      if (Math.abs(observerDestination - u.x) > 60) u.observerFollowing = true;
+      if (!observerMate || Math.abs(observerDestination - u.x) <= 8) u.observerFollowing = false;
+    }
+    const observerTravel = precisionObserver && u.observerFollowing;
     const observing =
+      (precisionObserver && !observerTravel) ||
       !!(airContact && !c.antiAir && order !== 'rush') ||
       (u.id === 'scouts' &&
         order !== 'rush' &&
@@ -8894,7 +8918,8 @@ export function tick(s: GameState, dt: number) {
             ? escortTravel
               ? u.escortGoal!
               : null
-            : (ammoGoalX ??
+            : (observerTravel ? observerDestination : precisionObserver ? null :
+              ammoGoalX ??
               scavengeGoalX ??
               rescuedGoalX ??
               u.coverGoal ??
@@ -8943,12 +8968,13 @@ export function tick(s: GameState, dt: number) {
     // appears and drops out of scan range; snapping straight to prone made
     // scouts bob up and down every few ticks. Require a sustained observing
     // spell before dropping, then hold the pose for a full beat.
-    if (observing) {
+    const settledObservation = observing && (!precisionObserver || !observerMate?.moving);
+    if (settledObservation) {
       u.observingSince ??= s.time;
     } else {
       u.observingSince = undefined;
     }
-    if (observing && s.time - (u.observingSince ?? s.time) > 0.5)
+    if (settledObservation && s.time - (u.observingSince ?? s.time) > 0.5)
       u.observingHoldUntil = Math.max(
         u.observingHoldUntil ?? 0,
         s.time + 1.2,
@@ -8956,7 +8982,7 @@ export function tick(s: GameState, dt: number) {
     if ((u.observingHoldUntil ?? 0) > s.time) {
       u.pose = setStance(u, s.time, 'prone', { force: true });
       // Spotters hold the radio pose on a timer the renderer can read.
-      if (u.id === 'scouts') u.observingUntil = s.time + 0.25;
+      if (u.id === 'scouts' || precisionObserver) u.observingUntil = s.time + 0.25;
     }
     // v128: while the observer hold is active the soldier is pinned to the
     // deck watching aircraft / scanning — the cover block below must not

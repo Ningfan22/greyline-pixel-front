@@ -608,9 +608,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   sniper_team: {
     en: 'SNIPER TEAM',
-    typeLabel: '远距点杀',
-    ability: '狙击小组',
-    rule: '射程八百八，优先步兵。',
+    typeLabel: '搭档校射',
+    ability: '射手与观察员',
+    rule: '搭档就位增射程，优先重武器手。',
     flavor: '两个人，一颗子弹，一条命。',
   },
   veteran_squad: {

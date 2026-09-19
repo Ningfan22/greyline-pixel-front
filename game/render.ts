@@ -1,4 +1,6 @@
 import { mapDefinition, type MapId } from './maps';
+import { isPrecisionObserver } from './precision-team';
+import { infantryGeometry } from './infantry-geometry';
 import { filteredSprite } from './render-cache';
 import { drawTerrainLayer } from './terrain-render';
 import {
@@ -861,11 +863,11 @@ export function render(
     }
     // Spotters broadcast while observing: faint signal arcs pulse above the
     // kneeling radio pose, hinting at the shared-vision network.
-    if (c.members && u.id === 'scouts' && (u.observingUntil ?? 0) > s.time) {
+    if (c.members && (u.id === 'scouts' || isPrecisionObserver(u)) && (u.observingUntil ?? 0) > s.time) {
       const radioT = (s.time + u.uid * 1.37) % 4.4;
       if (radioT < 1.2) {
         const ax = u.x,
-          ay = u.y + infantryDepth(u.lane) - 52;
+          ay = u.y + infantryDepth(u.lane) - infantryGeometry(u).bodyHeight - 8;
         ctx.strokeStyle = 'rgba(226,214,170,0.7)';
         ctx.lineWidth = 1;
         for (let i = 0; i < 2; i++) {

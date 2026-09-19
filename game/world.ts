@@ -5,6 +5,7 @@ import { treeBoxesV17 } from './tree-state-v17';
 import { STRIDE, terrainMinima } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
 import { weatherVisibility } from './weather';
+import { isPrecisionObserver, precisionObserverReady } from './precision-team';
 export interface SceneryPart {
   id: number;
   x: number;
@@ -548,7 +549,7 @@ export function observationPenalty(
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
   return (
-    (c.sight ??
+    ((isPrecisionObserver(u) ? (precisionObserverReady(u) ? 920 : 440) : c.sight) ??
       (c.observer
         ? 820
         : c.air

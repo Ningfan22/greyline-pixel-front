@@ -1,6 +1,7 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
 import { GRENADE_THROW_S, POSE_TRANSITION_S } from './infantry-action-timing';
+import { isPrecisionObserver } from './precision-team';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
   walk8: HTMLCanvasElement[];
@@ -674,8 +675,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
-    // Spotters periodically kneel to work the radio while observing.
-    if (u.id === 'scouts') {
+    // Work the radio from prone; observation never raises the silhouette.
+    if (u.id === 'scouts' || isPrecisionObserver(u)) {
       const radioT = (time + u.uid * 1.37) % 4.4;
       if (radioT < 1.2) return action(3);
     }

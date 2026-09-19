@@ -1,6 +1,7 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
 import { drawSmokePuff } from './effect-atlas';
+import { isPrecisionObserver } from './precision-team';
 function hexa(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
@@ -51,11 +52,12 @@ export interface MagazineSpec {
   reload: number; // seconds to swap magazines under fire
 }
 export function magazine(id: CardId, member = 0): MagazineSpec | null {
+  if (isPrecisionObserver({ id, member })) return null;
   if (!CARDS[id].members) return null;
   const kind = ammunition(id, member);
   if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
   if (kind === 'rifle') {
-    if (id === 'sniper') return { mag: 5, reserve: 25, reload: 3.0 };
+    if (id === 'sniper' || id === 'sniper_team') return { mag: 5, reserve: 25, reload: 3.0 };
     return { mag: 30, reserve: 150, reload: 2.5 };
   }
   return null;

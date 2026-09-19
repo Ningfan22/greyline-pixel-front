@@ -37,6 +37,7 @@
  */
 
 import { CARDS, modelOf, type CardId } from './cards';
+import { isPrecisionObserver, precisionObserverReady } from './precision-team';
 import { nearUnits } from './spatial';
 import type { GameState, Unit } from './engine';
 
@@ -114,6 +115,7 @@ function isMedicProvider(u: Unit): boolean {
 function isSniperProvider(u: Unit): boolean {
   return (
     modelOf(u.id) === 'sniper' &&
+    !isPrecisionObserver(u) &&
     !u.moving &&
     u.motion === 'ground' &&
     (u.stillFor ?? 0) >= 0.65
@@ -150,7 +152,7 @@ function isInfantry(u: Unit): boolean {
  */
 function isSpotterProvider(u: Unit): boolean {
   const c = CARDS[u.id];
-  return c.trait === 'scout' || c.observer === true;
+  return c.trait === 'scout' || c.observer === true || precisionObserverReady(u);
 }
 
 /**

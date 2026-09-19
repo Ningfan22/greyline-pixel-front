@@ -1756,18 +1756,18 @@ export const CARDS: Record<CardId, Card> = {
     'sniper_team',
     '精确射手组',
     4,
-    '2 名狙击手，880 超远射程，优先点杀步兵',
+    '1 射手＋1 观察员；就位校射后射程从 650 提升至 880',
     {
       members: 2,
       hp: 110,
       damage: 52,
       rate: 2.6,
-      range: 880,
+      range: 650,
       speed: 50,
       uniform: 'elite',
-      tag: '远距 · 精确点杀',
+      tag: '搭档 · 校射点杀',
       detail:
-        '2人狙击小组，射程880，优先攻击步兵。比基础狙击小组伤害更高、射程更远，能在对手视野外逐一点杀敌方步兵和班组武器。',
+        '1名射手与1名不射击的观察员。射手基础单发52伤害，5发弹匣；观察员在120内停稳0.65秒且未被压制时，将射程650提升至880。观察员跟随射手，为炮兵校射，并标记700内可见敌人，使狙击伤害增加25%。阵亡、负伤、撤退或离队后搭档射程失效。射手优先打击可见的重武器操作手，其次敌方狙击手。',
     },
   ),
   veteran_squad: variant(
@@ -2287,6 +2287,9 @@ export function modelOf(id: CardId): BaseCardId {
 }
 export function weaponCard(u: { id: CardId; member: number }): Card {
   const c = CARDS[u.id];
+  if (u.id === 'sniper_team')
+    return { ...c, members: 1, damage: u.member === 0 ? 52 : 0,
+      range: u.member === 0 ? 650 : 0 };
   if (u.id === 'airborne_at')
     return u.member < 2
       ? { ...c, members: 1, damage: 60 }
