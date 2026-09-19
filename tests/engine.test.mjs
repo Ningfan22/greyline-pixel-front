@@ -1560,6 +1560,11 @@ check('机枪班与重机枪组各仅一名机枪手，护卫使用步枪且减�
       u.cooldown = 0;
       u.decisionIn = 100;
     });
+    // This case checks mixed weapons, not tripod setup (covered in v140).
+    if (id === 'heavy_mg') Object.assign(squad[0], {
+      pose: 'crouch', poseAnimSeen: 'crouch', tactic: 'crouch',
+      stillFor: 3, moving: false, stanceLockUntil: 10,
+    });
     setOrder(s, 0, 'hold');
     tick(s, 1 / 60);
     const shots = s.projectiles.filter((p) => p.side === 0);

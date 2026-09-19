@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S, POSE_TRANSITION_S } from './infantry-action-timing';
@@ -186,6 +187,8 @@ export interface Unit {
   heat?: number;
   heatAt?: number;
   overheatedUntil?: number;
+  mgBurstRestUntil?: number;
+  mgBoundGoal?: number;
   deadFor: number;
   lane: number;
   pace: number;
@@ -491,6 +494,7 @@ export interface Projectile {
   startLane?: number;
   targetLane?: number;
   suppressedUids?: number[];
+  suppressionMultiplier?: number;
   passedCover?: number[];
   uid?: number;
   guided?: boolean;
@@ -4520,6 +4524,8 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
   continueHeavyWithdrawal(s, u);
   const settled = !u.moving && u.motion === 'ground' && u.climbing <= 0;
   u.stillFor = settled ? (u.stillFor ?? 0) + dt : 0;
+  if (isHeavyGunner(u))
+    u.emplacementSetupUntil = s.time + Math.max(0, HEAVY_MG_SETUP - (u.stillFor ?? 0));
   if (u.id === 'ambush_squad')
     u.camouflageFor = canPrepareAmbush(u, s.time) ? (u.camouflageFor ?? 0) + dt : 0;
   u.ambushFor =
@@ -5800,6 +5806,13 @@ function updateAI(s: GameState) {
           score += 3;
         if (model === 'machinegun' && hasAssault && foot.length >= 2)
           score += 7;
+        if (c.id === 'heavy_mg') {
+          // Prepared guns cover a visible concentration, not a missing screen.
+          score += foot.length >= 6 && screens >= 1.5 && !emergency ? 11 : -3;
+        }
+        if (c.id === 'lmg_team' && hasAssault && own.some(u => u.moving && CARDS[u.id].members))
+          score += 9;
+        if (c.id === 'machinegun' && screens < 1.5) score += 6;
         if (model === 'sniper' && foot.length && !observerCard(c.id))
           score += 3;
         if (c.id === 'sniper_team' && foot.some(v =>
@@ -7911,10 +7924,15 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    // A tripod is worked from a low position; this request still passes the
+    // shared ten-second posture gate and the authored transition below.
+    if (isHeavyGunner(u) && ((u.contactUntil ?? 0) > s.time ||
+        Math.abs(u.x - (u.side === 0 ? W - 70 : 70)) <= unitRange(s,u)) &&
+        order !== 'rush' && desiredPose === 'idle') desiredPose = 'crouch';
     // Choose a usable firing height BEFORE committing for ten seconds. The
     // old order first locked a crouch, then immediately asked the peek layer
     // to stand up again; honoring the lock consequently left that man silent.
-    if (c.members && !c.indirect && u.suppression < 65 &&
+    if (c.members && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
         order !== 'prone' && order !== 'crouch' &&
         desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
       const lowBody = { ...u, pose: desiredPose, moving: false };
@@ -8990,7 +9008,7 @@ export function tick(s: GameState, dt: number) {
     if (
       !seeking &&
       threat &&
-      (u.exposedUntil ?? 0) > s.time &&
+      (u.exposedUntil ?? 0) > s.time && !isHeavyGunner(u) &&
       (u.observingHoldUntil ?? 0) <= s.time
     )
       u.pose = setStance(u, s.time, 'idle');
@@ -9029,10 +9047,10 @@ export function tick(s: GameState, dt: number) {
       (u.observingHoldUntil ?? 0) <= s.time
     ) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
-      if (s.time >= (u.stanceLockUntil ?? 0) &&
+      if (!isHeavyGunner(u) && s.time >= (u.stanceLockUntil ?? 0) &&
           firingHeight(s, u, threat.x, threat.y - 20, true) === 47)
         peekShouldExpose(s, u);
-      const peekExposed = (u.exposedUntil ?? 0) > s.time;
+      const peekExposed = !isHeavyGunner(u) && (u.exposedUntil ?? 0) > s.time;
       if (peekExposed) {
         // Exposure changes firing eligibility, not the posture commitment.
         // Rising over cover obeys the same ten-second gate as other actions.
@@ -9130,6 +9148,11 @@ export function tick(s: GameState, dt: number) {
       }
     } else u.boundStartedAt = undefined;
     const retreating = c.members && u.tactic === 'retreat';
+    if ((u.mgBurstRestUntil ?? 0) <= s.time) u.mgBoundGoal = undefined;
+    const mobileBurstCover = !withdrawing && !seeking && !displacing && !treating &&
+      !retreating && !withdrawalStep && !reloadingUnderContact && lightMGBound(s,u,target,order);
+    if (mobileBurstCover) u.mgBoundGoal ??= u.x + dir * 24;
+    const mobileBurstStep = mobileBurstCover && Math.abs(u.mgBoundGoal! - u.x) > 1;
     // Prepared ambushers let distant patrols approach instead of revealing
     // themselves at maximum rifle range. An explicit squad attack overrides it.
     const ambushHold = ambushConcealed(u, s.time) && target &&
@@ -9146,6 +9169,7 @@ export function tick(s: GameState, dt: number) {
     if (
       (c.damage ?? 0) > 0 &&
       !ambushHold &&
+      !mobileBurstStep &&
       (!c.armorOnly || !!target) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
@@ -9236,6 +9260,7 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       if (
         u.cooldown <= 0 &&
+        (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&
         !(
           c.members &&
@@ -9294,6 +9319,12 @@ export function tick(s: GameState, dt: number) {
             c.burstSize && (u.shots + 1) % c.burstSize === 0
               ? c.burstPause!
               : c.rate! * (closeBurst ? 0.65 : 1) * (spotted ? 0.7 : 1);
+          const gunBurst = machinegunBurst(u);
+          if (gunBurst && (u.shots + 1) % gunBurst.rounds === 0) {
+            u.cooldown = gunBurst.pause;
+            u.mgBurstRestUntil = s.time + gunBurst.pause;
+            u.mgBoundGoal = undefined;
+          }
           u.ambushFor = 0;
           if (u.id === 'ambush_squad') {
             u.camouflageFor = 0;
@@ -9303,7 +9334,7 @@ export function tick(s: GameState, dt: number) {
           u.fire = 0.25;
           // Slow-firing infantry (snipers, AT, riflemen) visibly work the
           // bolt/magazine through the first part of their cooldown.
-          if (c.members && u.cooldown >= 0.7 && u.cooldown < 4)
+          if (c.members && !gunBurst && u.cooldown >= 0.7 && u.cooldown < 4)
           {
             u.reloadingUntil = s.time + u.cooldown * 0.55;
             u.reloadingStartAt = s.time;
@@ -9440,6 +9471,7 @@ export function tick(s: GameState, dt: number) {
                   ? 'grenade'
                   : 'he',
             sourceUid: u.uid,
+            suppressionMultiplier: isHeavyGunner(u) ? 1.75 : 1,
             x: sx,
             y: sy,
             tx,
@@ -9524,6 +9556,7 @@ export function tick(s: GameState, dt: number) {
       !reloadingUnderContact &&
       !shocked &&
       (withdrawalStep ||
+        mobileBurstStep ||
         seeking ||
         bounding ||
         retreating ||
@@ -9620,6 +9653,8 @@ export function tick(s: GameState, dt: number) {
             ? u.x > closeThreat.x
               ? 1
               : -1
+            : mobileBurstStep
+              ? Math.sign(u.mgBoundGoal! - u.x)
             : displacing
               ? Math.sign(u.displaceGoal! - u.x)
             : seeking
@@ -9651,7 +9686,9 @@ export function tick(s: GameState, dt: number) {
             s,
             u,
             moveDir,
-            seeking || withdrawing
+            mobileBurstStep
+              ? Math.min(speed, Math.abs(u.mgBoundGoal! - u.x) / dt)
+            : seeking || withdrawing
               ? Math.min(speed, Math.abs(moveGoal! - u.x) / dt)
               : displacing
                 ? Math.min(speed, Math.abs(u.displaceGoal! - u.x) / dt)

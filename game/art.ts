@@ -3,6 +3,8 @@ import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
+import type { SpecialistSprite } from './adult-specialists';
+import { heavyMGAtlas } from './heavy-mg-art';
 import {
   adultIdentity,
   type AdultIdentity,
@@ -30,6 +32,7 @@ export interface Art {
   patrol: PatrolArtV17;
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
+  heavyMG?: SpecialistSprite[];
   background: HTMLCanvasElement;
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
   terrain: HTMLImageElement;
@@ -582,6 +585,7 @@ export function loadArt() {
       loadImage('/art/parachute-v1.png'),
       loadImage('/art/standing-reload-v135.png'),
       loadImage('/art/standing-grenade-v136.png'),
+      loadImage('/art/heavy-mg-v140.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -623,6 +627,7 @@ export function loadArt() {
         parachuteSheet,
         standingReload,
         standingGrenade,
+        heavyMG,
       ],
       extra,
       trees,
@@ -693,6 +698,7 @@ export function loadArt() {
         parachute,
         adults,
         adultSpecialists: specialistAtlas(specialists),
+        heavyMG: heavyMGAtlas(heavyMG),
         wrecks: wreckFramesMap,
         wreckVariants: wreckVariants(wreckFramesMap),
         mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),

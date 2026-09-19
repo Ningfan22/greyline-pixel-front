@@ -1,0 +1,28 @@
+Use case: stylized-concept
+Asset type: transparent raster game-animation sprite atlas, newly generated from scratch.
+
+Canvas and grid: Request exactly 2048 x 1024 pixels. EXACTLY FOUR COLUMNS and TWO ROWS, eight equal 512 x 512 square cels, read left to right across the top row then left to right across the bottom row. Cell origins are (0,0), (512,0), (1024,0), (1536,0), (0,512), (512,512), (1024,512), (1536,512). The grid is mathematical only: do NOT draw any lines, borders, dividers, text, labels, numbers, or checkerboard.
+
+Backdrop: genuinely transparent PNG with an alpha channel. ALL background pixels must have alpha 0, including the spaces between and around sprites and open spaces within tripod legs. No scenery, terrain, ground plane, contact-shadow floor, shadow puddles, smoke, or opaque background.
+
+Subject in EACH cel: the SAME ONE adult infantry gunner, with realistic human proportions, olive camouflage uniform, olive combat helmet and practical webbing. Entire person visible in strict side profile facing RIGHT, kneeling with LEFT KNEE DOWN, right knee bent and right boot planted. Positioned behind ONE large belt-fed heavy machine gun on a LOW, STABLE THREE-LEGGED TRIPOD. Gunner, gun, tripod and ammunition belt form ONE coherent drawable unit in each cel. Only one soldier and one gun per cel; these eight cels are successive states of the same unit, not a squad.
+
+Style: painterly raster game art matching a gritty realistic pixel battlefield. Detailed materials with clean readable silhouettes, restrained olive camouflage and dark worn metal. Realistic anatomy and functional consistent weapon design. NOT chibi, NOT oversized head, NOT blocky, NOT icon art, NOT vector art. Consistent side-on camera, scale, lighting, anatomy, equipment and proportions across all eight cels.
+
+Mandatory placement in EVERY cel: all visible pixels of the entire person, helmet, gun, tripod and belt stay inside LOCAL x=60..452 and y=80..440 inclusive. Fixed feet, left kneeling knee and tripod contact baseline at LOCAL y=440. Body center at approximately LOCAL x=200. Short barrel extends horizontally RIGHT with a distinct clear muzzle at LOCAL x=430, y=235. Maintain generous fully transparent margins. Never touch or cross a cell edge. Lock lower body, knee positions, planted boot positions, all three tripod feet, tripod geometry, gun mounting point, camera and scale across all eight cels. Never vertically shift the unit; never hop the knees or tripod.
+
+TOP ROW: FOUR sequential firing-cycle poses, no visible firing effects.
+Top-left / cel 1: stable aimed ready position, both hands in firing grip.
+Top second / cel 2: tiny gun recoil with slight shoulder followthrough; lower body and tripod completely fixed.
+Top third / cel 3: intermediate return from recoil, slightly different from cels 1 and 2; lower body and tripod completely fixed.
+Top-right / cel 4: settle into aim, subtle final arm/shoulder settling; lower body and tripod completely fixed.
+The firing cycle must contain four genuinely drawn subtly different intermediate poses. NO baked muzzle flash, smoke, bullets, tracers or ejecta; these are engine effects.
+
+BOTTOM ROW: FOUR sequential belt-reload poses, same kneeling posture and exact gun/tripod footprint and baseline as top row. Only FOREARMS, HANDS, RECEIVER TOP COVER and BELT move.
+Bottom-left / cel 5: hand at receiver lifts/opens the receiver top cover, other hand stays close to the feed.
+Bottom second / cel 6: top cover open, hands guide the ammunition belt into the feed; distinctly different forearm and belt arrangement.
+Bottom third / cel 7: hand presses the receiver top cover closed over the seated belt.
+Bottom-right / cel 8: hand finishes drawing the cocking handle and transitions back toward the aimed firing grip; top cover closed.
+Render these as four genuinely drawn related reload intermediates, not repeated stills and not unrelated gestures. Hands stay engaged with the receiver or grip. Keep torso, head and both legs in the same kneeling placement throughout.
+
+Hard exclusions: no second soldier, no extra limbs, no extra guns, no standing, no climbing, no raised command hand, no leaning out of the cell, no weapon morphing, no barrel length drift, no tripod deformation, no muzzle flash, no smoke, no bullets, no terrain, no floor shadows, no drawn checkerboard, no text or labels. Preserve the exact four-by-two layout and true transparent background.

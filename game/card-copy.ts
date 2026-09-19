@@ -428,7 +428,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'HEAVY MACHINE GUN TEAM',
     typeLabel: '重机枪组',
     ability: '持续封锁',
-    rule: '重机枪对空，两名步枪兵护卫。',
+    rule: '停稳展开，长点射强化压制。',
     flavor: '打得尽兴的人从来不搬弹箱。',
   },
   light_tank: {
@@ -821,7 +821,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'LMG TEAM',
     typeLabel: '机动压制',
     ability: '轻机枪组',
-    rule: '双人机枪，可对空。',
+    rule: '短点射，借友军掩护换位。',
     flavor: '枪管换得比水勤。',
   },
 };

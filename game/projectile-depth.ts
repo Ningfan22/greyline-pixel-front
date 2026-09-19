@@ -2,6 +2,7 @@ import type { GameState, Projectile, Unit } from './engine';
 import { CARDS, modelOf } from './cards';
 import { isCoverBullet } from './ballistics';
 import { sceneryIntercept, segmentBox } from './world';
+import { nearUnits } from './spatial';
 
 /** Deterministic FX randomness, mirroring engine.fxRnd without a circular import. */
 function fxRnd(s: GameState) {
@@ -93,6 +94,7 @@ function shelteredFromRay(
 }
 
 /** Near misses suppress only people alongside the traversed ray, once per bullet. */
+const suppressionScratch: Unit[] = [];
 export function suppressNearMiss(
   s: GameState,
   p: Projectile,
@@ -107,7 +109,9 @@ export function suppressNearMiss(
     dy = ty - sy,
     length2 = dx * dx + dy * dy;
   if (length2 < 0.01) return;
-  for (const u of s.units) {
+  // Only the short segment actually traversed this tick can suppress anyone.
+  // Use its spatial neighborhood rather than all soldiers for every bullet.
+  for (const u of nearUnits(s,(sx+tx)/2,Math.abs(tx-sx)/2+26,suppressionScratch)) {
     if (
       u.hp <= 0 ||
       u.wounded ||
@@ -141,7 +145,7 @@ export function suppressNearMiss(
     (p.suppressedUids ??= []).push(u.uid);
     u.suppression = Math.min(
       100,
-      u.suppression + (p.ammunition === 'machinegun' ? 4 : 2),
+      u.suppression + (p.ammunition === 'machinegun' ? 4 : 2) * (p.suppressionMultiplier ?? 1),
     );
     u.lastThreat = { x: p.startX, y: p.startY, until: s.time + 2 };
     if (u.suppression > 22) u.decisionIn = 0;

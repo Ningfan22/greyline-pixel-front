@@ -55,6 +55,8 @@ export function magazine(id: CardId, member = 0): MagazineSpec | null {
   if (isPrecisionObserver({ id, member })) return null;
   if (!CARDS[id].members) return null;
   const kind = ammunition(id, member);
+  if (member === 0 && id === 'lmg_team') return { mag: 60, reserve: 180, reload: 2.8 };
+  if (member === 0 && id === 'heavy_mg') return { mag: 150, reserve: 300, reload: 5.0 };
   if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
   if (kind === 'rifle') {
     if (id === 'sniper' || id === 'sniper_team') return { mag: 5, reserve: 25, reload: 3.0 };
