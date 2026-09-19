@@ -134,14 +134,16 @@ export function drawWreckSmoke(
 
     const baseY = w.y - 10;
     const seedBase = w.id * 13.7;
-    const latestPuff = Math.floor(now / SMOKE_PUFF_INTERVAL);
+    // A newly destroyed vehicle has no smoke history. Using global match time
+    // spawned an entire four-second column high in the sky on its first frame.
+    const latestPuff = Math.floor(w.age / SMOKE_PUFF_INTERVAL);
     const maxPuffs = Math.ceil(SMOKE_PUFF_LIFE / SMOKE_PUFF_INTERVAL);
 
     for (let p = 0; p < maxPuffs; p++) {
       const puffIdx = latestPuff - p;
       if (puffIdx < 0) continue;
       const puffStart = puffIdx * SMOKE_PUFF_INTERVAL;
-      const age = now - puffStart;
+      const age = w.age - puffStart;
       if (age > SMOKE_PUFF_LIFE) continue;
 
       const lifeT = age / SMOKE_PUFF_LIFE;

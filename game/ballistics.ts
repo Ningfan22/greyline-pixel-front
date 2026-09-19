@@ -1,6 +1,7 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
-import { drawSmokePuff } from './effect-atlas';
+import { drawSmokePuff, blendEffectFrame, type PaintedBlasts } from './effect-atlas';
+import { blastFrameAt } from './blast-animation';
 import { isPrecisionObserver } from './precision-team';
 function hexa(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
@@ -394,21 +395,14 @@ export function drawBlast(
   legacy: HTMLCanvasElement[][],
   generated?: HTMLCanvasElement[][],
   v13?: HTMLCanvasElement[][],
+  painted?: PaintedBlasts,
 ) {
   const penetration = b.kind === 'penetration',
     grenade = b.kind === 'grenade';
   const air = b.kind === 'air',
     crash = b.kind === 'crash';
-  const duration = penetration
-    ? 0.24
-    : grenade
-      ? 1.25
-      : air
-        ? 1.6
-        : crash
-          ? 3.2
-          : 5;
-  const frames = penetration
+  const authored = painted && (crash || b.kind === 'wreck' ? painted.fuel : b.kind === 'artillery' ? painted.earth : undefined);
+  const frames = authored ?? (penetration
     ? legacy[0]
     : !generated
       ? legacy[1]
@@ -418,22 +412,13 @@ export function drawBlast(
           ? v13[1]
           : v13 && grenade
             ? v13[2]
-            : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0];
-  // More of the first second is spent on expansion; the last frames dissipate slowly.
-  const phases = penetration
-    ? [0, 0.025, 0.05, 0.08, 0.11, 0.145, 0.18, 0.215]
-    : [
-        0, 0.012, 0.026, 0.044, 0.066, 0.095, 0.13, 0.175, 0.22, 0.29, 0.38,
-        0.48, 0.59, 0.71, 0.84, 0.94,
-      ].map((t) => t * duration);
-  // Seed-driven variety: no two blasts of the same kind look identical.
+            : generated[air ? 2 : crash || b.kind === 'wreck' ? 1 : 0]);
+  // Variety comes from separate painted fuel/earth/air families. Only small
+  // physical size and direction differences use the seed, never lifetime/tint.
   const sd = b.seed >>> 0;
   const scaleJ = 0.9 + (sd % 10) / 10 * 0.22; // 0.90 - 1.12
-  const speedJ = 0.88 + ((sd >>> 4) % 8) / 8 * 0.24; // 0.88 - 1.12
-  const tint = (sd >>> 8) % 3; // 0 normal / 1 white-hot / 2 fuel-rich
-  const age = b.age * speedJ;
-  let index = 0;
-  while (index < frames.length - 1 && age >= phases[index + 1]) index++;
+  const clock = blastFrameAt(b,frames.length);
+  if (clock.alpha <= 0) return;
   const width = (penetration
     ? 48
     : grenade
@@ -447,46 +432,20 @@ export function drawBlast(
             : b.kind === 'artillery'
               ? Math.max(210, Math.min(320, b.radius * 6))
               : Math.max(90, Math.min(250, b.radius * 5))) * scaleJ;
-  const anchor = penetration
+  const anchor = authored ? 154/160 : penetration
     ? 268 / 300
     : air
       ? 0.6
       : generated
         ? 0.975
         : 261 / 300;
-  // Cross-fade between adjacent frames so the blast has twice as many
-  // visible steps instead of popping from one sprite to the next.
-  let frac = 0;
-  if (index < frames.length - 1 && phases[index + 1] > phases[index])
-    frac = Math.min(
-      1,
-      Math.max(0, (age - phases[index]) / (phases[index + 1] - phases[index])),
-    );
-  const baseAlpha = Math.min(
-    1,
-    Math.max(0, (duration - age) / (duration * 0.16)),
-  );
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  if (tint === 1) ctx.filter = 'brightness(1.18) saturate(0.75)';
-  else if (tint === 2)
-    ctx.filter = 'saturate(1.45) hue-rotate(-12deg) brightness(0.95)';
   ctx.translate(Math.round(b.x), Math.round(b.y));
   if (b.seed % 2) ctx.scale(-1, 1);
-  const draw = (i: number, alpha: number) => {
-    if (alpha <= 0.01) return;
-    const sprite = frames[Math.min(i, frames.length - 1)];
-    const height = (width * sprite.height) / sprite.width;
-    ctx.globalAlpha = alpha * baseAlpha;
-    ctx.drawImage(
-      sprite,
-      Math.round(-width / 2),
-      Math.round(-height * anchor),
-      Math.round(width),
-      Math.round(height),
-    );
-  };
-  draw(index, 1 - frac);
-  draw(index + 1, frac);
+  const sprite = blendEffectFrame(frames[clock.index],frames[Math.min(clock.index+1,frames.length-1)],clock.blend);
+  const height = width*sprite.height/sprite.width;
+  ctx.globalAlpha *= clock.alpha;
+  ctx.drawImage(sprite,Math.round(-width/2),Math.round(-height*anchor),Math.round(width),Math.round(height));
   ctx.restore();
 }

@@ -1,5 +1,5 @@
-import { HOUSE_PROFILES, buildingStage, buildingType, type Scenery } from './world';
-import { buildingAnimation, type BuildingArt } from './building-art';
+import { buildingStage, buildingType, type Scenery } from './world';
+import { buildingAnimation, drawBuildingFooting, type BuildingArt } from './building-art';
 import { drawTreeV17, treeFrameV17, type TreeArtV17 } from './tree-art-v17';
 import { treeStateV17 } from './tree-state-v17';
 import { filteredSprite } from './render-cache';
@@ -50,20 +50,8 @@ export function drawScenery(
           : Math.max(0, (animation - 4) / 3)
         : 0;
     const base = p.y + (groundAt(p.x) - p.y) * settle;
-    // A still-standing wall has a masonry footing, including after a shell
-    // excavates adjacent earth. Fill the perspective-cut corner under the art
-    // instead of leaving a transparent triangle of sky beneath the house.
-    if (stage < 3) {
-      const half = HOUSE_PROFILES[row].width * 0.43;
-      const left = Math.round(p.x - half), right = Math.round(p.x + half);
-      for (let x = left; x < right; x += 4) {
-        const bottom = Math.max(base + 5, groundAt(x) + 3);
-        ctx.fillStyle = Math.floor((x - left) / 12) % 2 ? '#57594d' : '#656556';
-        ctx.fillRect(x, Math.round(base - 7), Math.min(4, right - x), Math.round(bottom - base + 7));
-      }
-      ctx.fillStyle = '#383c34';
-      ctx.fillRect(left, Math.round(base + 1), right - left, 2);
-    }
+    const footing=buildings.footings?.[row];
+    if(stage<3&&footing)drawBuildingFooting(ctx,p,row,base,footing,groundAt);
     // Use complete painted structural states: no floating roofs made from clips.
     // The same state drives the remaining masonry collision in buildingHull.
     ctx.drawImage(

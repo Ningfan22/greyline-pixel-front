@@ -5,6 +5,7 @@ import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, la
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
+import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
@@ -10204,19 +10205,7 @@ export function tick(s: GameState, dt: number) {
     b.age += dt;
     if (b.soil) b.y = ground(s, b.x);
   }
-  s.blasts = s.blasts.filter(
-    (b) =>
-      b.age <
-      (b.kind === 'penetration'
-        ? 0.24
-        : b.kind === 'grenade'
-          ? 1.25
-          : b.kind === 'air'
-            ? 1.6
-            : b.kind === 'crash'
-              ? 3.2
-              : 5),
-  );
+  s.blasts = s.blasts.filter((b) => b.age < blastDuration(b.kind));
   for (const r of s.ricochets) r.age += dt;
   s.ricochets = s.ricochets.filter((r) => r.age < RICOCHET_LIFE);
   for (const p of s.particles) {

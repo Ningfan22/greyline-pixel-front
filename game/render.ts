@@ -1220,7 +1220,7 @@ export function render(
   }
   for (const b of s.blasts)
     if (blastVisible(s, 0, b))
-      drawBlast(ctx, b, art.explosions, art.combatExplosions, art.combatExplosionsV13);
+      drawBlast(ctx, b, art.explosions, art.combatExplosions, art.combatExplosionsV13, art.paintedBlasts);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts, art.smoke);
   ctx.save();

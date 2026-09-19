@@ -4,6 +4,24 @@ import { transparentSheet } from './sprite-atlas';
 export interface BuildingArt {
   states: HTMLCanvasElement[][];
   collapse: HTMLCanvasElement[][];
+  footings?: HTMLCanvasElement[];
+}
+
+/** Painted masonry remains at the original floor level when adjacent soil is
+ * excavated. Clip to the terrain silhouette, never extend a flat colour block. */
+export function drawBuildingFooting(
+  ctx: CanvasRenderingContext2D, p: Scenery, row: number, base: number,
+  texture: HTMLCanvasElement, groundAt: (x: number) => number,
+) {
+  const half=HOUSE_PROFILES[row].width/2;
+  const left=Math.floor(p.x-half),right=Math.ceil(p.x+half),top=Math.round(base-7);
+  let bottom=base+7;
+  ctx.save();ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(right,top);
+  for(let x=right;x>=left;x-=2){const y=Math.max(base+7,groundAt(x)+3);bottom=Math.max(bottom,y);ctx.lineTo(x,y);}
+  ctx.lineTo(left,Math.max(base+7,groundAt(left)+3));ctx.closePath();ctx.clip();
+  const tileHeight=48;
+  for(let y=top;y<bottom;y+=tileHeight)ctx.drawImage(texture,left,y,right-left,tileHeight);
+  ctx.restore();
 }
 
 /** Measured atlas rows; a single footprint scale is shared by all damage frames. */

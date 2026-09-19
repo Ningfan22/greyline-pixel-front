@@ -3,7 +3,8 @@ import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { stanceAtlas } from './stance-art';
 import { lowReloadAtlas } from './low-reload-art';
-import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
+import { paintedBlastAtlas, paintedFootings } from './battlefield-effects-art';
+import { explosionAtlasV13, smokeAtlasV13, type PaintedBlasts } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
 import { heavyMGAtlas } from './heavy-mg-art';
@@ -53,6 +54,7 @@ export interface Art {
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
   combatExplosionsV13: HTMLCanvasElement[][];
+  paintedBlasts?: PaintedBlasts;
   wrecks: Record<WreckKind, HTMLCanvasElement>;
   wreckVariants: Record<
     WreckKind,
@@ -593,6 +595,9 @@ export function loadArt() {
       loadImage('/art/glider-v141.png'),
       loadImage('/art/infantry-stance-v142.png'),
       loadImage('/art/infantry-reload-v143.png'),
+      loadImage('/art/fuel-blast-v145.png'),
+      loadImage('/art/earth-blast-v145.png'),
+      loadImage('/art/building-footings-v145.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -638,6 +643,9 @@ export function loadArt() {
         gliderSheet,
         stanceSheet,
         lowReloadSheet,
+        fuelBlastSheet,
+        earthBlastSheet,
+        footingSheet,
       ],
       extra,
       trees,
@@ -751,7 +759,8 @@ export function loadArt() {
         },
         emplacements: buildEmplacements(emplacements),
         scenery: sceneryFrames(scenery),
-        buildings: buildingFrames(buildings, collapse),
+        buildings: {...buildingFrames(buildings, collapse),footings:paintedFootings(footingSheet)},
+        paintedBlasts: {fuel:paintedBlastAtlas(fuelBlastSheet,'fuel'),earth:paintedBlastAtlas(earthBlastSheet,'earth')},
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
         smoke: smokeAtlasV13(explosionSource),
@@ -761,28 +770,12 @@ export function loadArt() {
             stableTracks(tankArt[row], 10),
           ]),
         ),
-        combatExplosions: [
-          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
-            (i) => fx[Math.floor(i / 8)][i % 8],
-          ),
-          [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 7, 11, 12, 13, 14, 15].map(
-            (i) => fx[2 + Math.floor(i / 8)][i % 8],
-          ),
-          fx[4].concat(fx[5]),
-        ],
+        // Read each authored sequence once in chronological order. Interleaving
+        // the decay row with earlier fire cels made dying blasts ignite again.
+        combatExplosions: [fx[0].concat(fx[1]), fx[2].concat(fx[3]), fx[4].concat(fx[5])],
         // v13 authored families: A fuel-air vehicle blast, B vertical artillery
         // column, C sharp grenade flash — each 16 frames over two atlas rows.
-        combatExplosionsV13: [
-          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
-            (i) => fx13[Math.floor(i / 8)][i % 8],
-          ),
-          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
-            (i) => fx13[2 + Math.floor(i / 8)][i % 8],
-          ),
-          [0, 1, 2, 3, 4, 8, 9, 10, 11, 5, 6, 12, 13, 7, 14, 15].map(
-            (i) => fx13[4 + Math.floor(i / 8)][i % 8],
-          ),
-        ],
+        combatExplosionsV13: [fx13[0].concat(fx13[1]), fx13[2].concat(fx13[3]), fx13[4].concat(fx13[5])],
       };
     },
   );

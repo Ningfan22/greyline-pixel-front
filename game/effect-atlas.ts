@@ -10,6 +10,10 @@ export const EXPLOSION_BANDS = [
   [786, 925, 917],
   [925, 1086, 1048],
 ] as const;
+export interface PaintedBlasts {
+  fuel: HTMLCanvasElement[];
+  earth: HTMLCanvasElement[];
+}
 const COLUMN_CUTS = [
   [0, 180, 370, 559, 750, 943, 1132, 1320, 1448],
   [0, 187, 370, 565, 759, 946, 1132, 1310, 1448],
@@ -64,6 +68,25 @@ export function smokeAtlasV13(source: HTMLCanvasElement) {
 }
 
 const smokeTints = new WeakMap<HTMLCanvasElement, Map<string, HTMLCanvasElement>>();
+const effectBlends = new WeakMap<HTMLCanvasElement, WeakMap<HTMLCanvasElement, HTMLCanvasElement[]>>();
+/** Cached premultiplied-alpha blend. Drawing two translucent sprites directly
+ * with source-over punched a see-through dip into every halfway frame. */
+export function blendEffectFrame(first: HTMLCanvasElement, next: HTMLCanvasElement, phase: number) {
+  const step = Math.max(0,Math.min(4,Math.round(phase*4)));
+  if (step === 0 || first === next) return first;
+  if (step === 4) return next;
+  let pairs = effectBlends.get(first);
+  if (!pairs) effectBlends.set(first,pairs=new WeakMap());
+  let frames = pairs.get(next);
+  if (!frames) pairs.set(next,frames=[]);
+  if (!frames[step]) {
+    const out=document.createElement('canvas');out.width=first.width;out.height=first.height;
+    const c=out.getContext('2d')!;c.globalAlpha=1-step/4;c.drawImage(first,0,0);
+    c.globalCompositeOperation='lighter';c.globalAlpha=step/4;c.drawImage(next,0,0);
+    frames[step]=out;
+  }
+  return frames[step];
+}
 export function drawSmokePuff(
   ctx: CanvasRenderingContext2D,
   frames: HTMLCanvasElement[],
@@ -74,7 +97,9 @@ export function drawSmokePuff(
   color: string,
   alpha: number,
 ) {
-  const source = frames[Math.min(7, Math.max(0, Math.floor(phase * 8)))];
+  const position = Math.max(0,Math.min(frames.length-1,phase*(frames.length-1)));
+  const index = Math.floor(position);
+  const source = frames[index] && blendEffectFrame(frames[index],frames[Math.min(index+1,frames.length-1)],position-index);
   if (!source) return;
   let colors = smokeTints.get(source);
   if (!colors) smokeTints.set(source, colors = new Map());

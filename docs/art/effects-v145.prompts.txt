@@ -1,0 +1,46 @@
+ASSET: fuel-explosion
+Use case: stylized-concept
+Asset type: production bitmap animation atlas for a modern battlefield side-view 2D game.
+Create ONE square 2048x2048 PNG with a GENUINELY TRANSPARENT alpha background. Exactly 4 equal columns by 4 equal rows, 16 sequential painted animation cels, read left-to-right row-by-row. The 4x4 layout is invisible: no printed grid, labels, numbers, text or checkerboard.
+
+Subject: one fuel explosion occurring ONCE, progressing continuously from ignition to complete dissipation. Fixed orthographic side-view camera, fixed physical scale, identical registration in all 16 tiles. The ground origin is exactly x=50% of tile width and y=88% of tile height in EVERY tile (at 2048x2048: tiles 512x512, local origin x=256 y=450.56). Never center each plume independently, never normalize the sizes across frames. All painted pixels including smoke wisps, embers and glows must remain inside local x=10% to 90% and y=10% to 90% of their own tile. Maximum plume dimensions 80% of tile width and height. Leave generous fully transparent gutters around every cel. No touching adjacent cels, no clipped edges.
+
+Animation order, four frames per row:
+Row 1, cels 1-4: cel1 tiny concentrated hot white-amber ground flash at the origin; cel2 small orange flame beginning to rise; cel3 expanding irregular dirty orange fireball; cel4 nearly full turbulent orange fireball with sooty outer folds.
+Row 2, cels 5-8: cel5 the SINGLE maximum orange dirty fireball peak; cel6 cooling orange begins receding as charcoal smoke rolls outward; cel7 substantially less orange and more dark smoke; cel8 mostly rolling charcoal smoke with only faint residual heat deep inside.
+Row 3, cels 9-12: cel9 charcoal rolling smoke with almost no orange; cel10 charcoal smoke, ZERO flame or glow from here onward; cel11 smoke thins and breaks into wisps; cel12 smaller fading wisps.
+Row 4, cels 13-16: cel13 thin sparse charcoal-grey wisps; cel14 fewer fainter wisps; cel15 barely visible residual smoke; cel16 a final tiny faint remnant almost fully dissipated. All late cels represent the SAME dying event. NEVER a second ignition, NEVER another expanding fireball, NEVER bright flame returning.
+
+Style: fine hand-painted realistic military-game effects, dense dithered surface detail compatible with a 2D pixel battlefield, complex torn flame tongues and billowing particulate smoke. Rich internal shading, granular painterly texture. Not flat vector art, not cartoon circles, not outlined icons, not smooth geometric bubbles.
+Background must be actual PNG transparency with soft alpha smoke edges, not a painted black, white, grey or checkerboard background. No terrain, ground scenery, horizon, crater, shadow plane, units, soldiers, vehicles, buildings, extra objects, text, numbers, grid or watermark. Output only this one original atlas.
+
+ASSET: artillery-earth-blast
+Use case: stylized-concept
+Asset type: production bitmap animation atlas for a modern battlefield side-view 2D game.
+Create ONE square 2048x2048 PNG with a GENUINELY TRANSPARENT alpha background. Exactly 4 equal columns by 4 equal rows, 16 sequential painted animation cels, read left-to-right row-by-row. The 4x4 layout is invisible: no printed grid, labels, numbers, text or checkerboard.
+
+Subject: one artillery earth impact occurring ONCE, progressing continuously from initial impact through soil ejection to settling dust. This is an EARTH blast, not a huge fuel fireball. Fixed orthographic side-view camera, fixed physical scale, identical registration in all 16 tiles. The ground origin is exactly x=50% of tile width and y=88% of tile height in EVERY tile (at 2048x2048: tiles 512x512, local origin x=256 y=450.56). Never center each plume independently, never normalize the sizes across frames. All painted pixels including flying debris, dust wisps and initial sparks must stay inside local x=10% to 90% and y=10% to 90% of their own tile. Maximum plume dimensions 80% of tile width and height. Leave generous fully transparent gutters around every cel. No adjacent cel touching, no debris escaping its tile, no cropped edges.
+
+Animation order, four frames per row:
+Row 1, cels 1-4: cel1 tiny sharp amber impact flash at the ground origin; cel2 a narrow burst of brown soil and small rubble with the flash already fading; cel3 a rising irregular brown earth/debris column; cel4 a larger soil column with individual dark clods arcing inside the tile.
+Row 2, cels 5-8: cel5 the SINGLE maximum earth/debris column peak, predominantly brown soil and ochre dust, no large orange fireball; cel6 debris starts descending and dust rolls outward; cel7 lower soil plume with rolling dusty folds; cel8 dispersed descending earth and settling brown dust.
+Row 3, cels 9-12: cel9 thinning low rolling dust; cel10 less dense settling dust; cel11 fragmented dust eddies; cel12 faint settling residue.
+Row 4, cels 13-16: cel13 thin waning drifting dust; cel14 fewer smaller dust wisps; cel15 barely visible sparse dust; cel16 one last faint dust remnant, almost fully dissipated. No newly generated debris or expanding plume in late frames. NO flame after the initial impact; NEVER resurrect bright flame, never a second ignition.
+
+Style: fine hand-painted realistic military-game texture with dense dithered particulate detail compatible with a 2D pixel battlefield. Granular brown earth, gritty irregular rubble, complex layered dust shading. Not flat vector art, not cartoon circles, not outlined icons, not smooth geometric bubbles.
+Background must be actual PNG transparency with soft alpha dust edges, not a painted black, white, grey or checkerboard background. No terrain slab, ground scenery, horizon, permanent crater, shadow plane, units, soldiers, vehicles, buildings, extra objects, text, numbers, grid or watermark. Output only this one original atlas.
+
+ASSET: building-footings
+Use case: stylized-concept
+Asset type: production bitmap foundation texture atlas for existing standing buildings in a modern battlefield side-view 2D game.
+Create ONE 1024x1024 PNG containing exactly THREE wide, clearly separated horizontal masonry foundation strips on a GENUINELY TRANSPARENT alpha background. Each strip is about 900 pixels wide by 100 pixels high, running from x=62 to x=962. Place their straight top edges at approximately y=200, y=460 and y=720 respectively. Three matching 9:1 width-to-height strips, one above the next, with large transparent gutters and transparent outer margins.
+
+CRITICAL GEOMETRY: each strip is a CONTINUOUS SOLID OPAQUE filled rectangular frontal foundation facing. Completely fill every pixel of its rectangular interior with masonry and mortar. Alpha=255 throughout the interior, including all mortar joints, cracks and dark recesses. Cracks are surface color only, NEVER transparent holes. Straight perfectly horizontal top edge across the entire 900-pixel width, straight vertical ends. The only silhouette irregularity is a modest jagged bottom edge confined to the bottom 10% of the strip height. The upper 90% MUST be an unbroken opaque rectangle. No holes, arches, doorways, windows, sky, empty gaps, missing central pieces or separated piles of rubble anywhere inside any strip. Keep each strip an intact low band with roughly constant height. True transparency ONLY outside the three strip silhouettes.
+
+Materials in top-to-bottom order:
+Top strip: weathered dark-grey stone and rubble set in continuous dark mortar, a foundation facing for a plaster farmhouse.
+Middle strip: sooted red-brown brick mixed with concrete patches and continuous mortar, a foundation facing for a brick townhouse.
+Bottom strip: grey cracked concrete and embedded rubble aggregate, a foundation facing for a warehouse.
+
+Style: fine painterly realistic military-game texture, dense dithered detail compatible with a 2D pixel battlefield, worn and dilapidated European battlefield architecture. Subtle 3D shading on the FRONTAL surface only. Flat orthographic front elevation, no isometric depth, no visible top slab, no perspective or receding sides. Grime, chipped stone, soot, fine cracks and aged mortar remain painted within each solid band. These are foundation facings intended to be revealed by runtime clipping underneath an existing standing house, not whole houses or demolition scenes.
+No other scene, ground, dirt bed, scenery, buildings, units, props, detached stones, shadows outside the bands, text, numbers, labels, borders, grid, checkerboard or watermark. Transparency must be encoded in the PNG alpha channel, never simulated with a colored backdrop. Output only this one original atlas.
