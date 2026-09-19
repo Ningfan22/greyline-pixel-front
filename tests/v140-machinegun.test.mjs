@@ -98,6 +98,9 @@ test('light-gun bounds require real nearby covering fire and an uncleared-front 
     }
     target.x=x+dir*180;assert(!lightMGBound(s,u,target,'advance'));target.x=x+dir*400;
     setOrder(s,1-side,'hold');refreshVision(s);step(s,.5);
+    assert.equal(u.x,x,'the knee must rise before the covered bound');
+    assert(u.crouchTravel>0&&u.crouchTravel<1);
+    buddy.lastCombatShotAt=s.time;step(s,.6);
     assert((u.x-x)*dir>0 && (u.x-x)*dir<=24.01,JSON.stringify({side,x:u.x}));
     assert.equal(u.pose,'crouch');
   }

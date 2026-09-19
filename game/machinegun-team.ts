@@ -2,6 +2,7 @@ import type { GameState, Unit } from './engine';
 import { CARDS } from './cards';
 import { nearUnits } from './spatial';
 import { POSE_TRANSITION_S, stanceTransitionActive } from './infantry-action-timing';
+import { crouchTravelAmount } from './crouch-locomotion';
 
 export const HEAVY_MG_SETUP = 2.4;
 export function isHeavyGunner(u: Pick<Unit, 'id' | 'member'>) {
@@ -15,7 +16,7 @@ export function heavyMGReady(s: GameState, u: Unit) {
     !u.moving && u.motion === 'ground' && !u.parachuting && !u.rappelling &&
     u.climbing <= 0 && (u.stillFor ?? 0) >= HEAVY_MG_SETUP &&
     ['crouch','hunker','prone'].includes(u.pose) &&
-    !stanceTransitionActive(u,s.time) &&
+    !stanceTransitionActive(u,s.time) && crouchTravelAmount(u) === 0 &&
     s.time - (u.poseAnimAt ?? -Infinity) >= POSE_TRANSITION_S;
 }
 export function machinegunBurst(u: Pick<Unit, 'id' | 'member'>) {

@@ -1,5 +1,6 @@
 import type { GameState, Unit } from './engine';
 import { squadMates } from './spatial';
+import { crouchMotionActive } from './crouch-locomotion';
 
 /** Member roles are independent of the card's shared model/infantry traits. */
 export function isPrecisionObserver(u: { id: string; member: number }) {
@@ -9,7 +10,7 @@ export function isPrecisionObserver(u: { id: string; member: number }) {
 export function precisionObserverReady(u: Unit) {
   return isPrecisionObserver(u) && u.hp > 0 && !u.wounded && !u.surrendered &&
     u.motion === 'ground' && !u.parachuting && !u.rappelling && u.climbing <= 0 &&
-    !u.moving && u.poseAnimProgress === undefined && (u.stillFor ?? 0) >= 0.65 && u.suppression < 55 &&
+    !u.moving && !crouchMotionActive(u) && u.poseAnimProgress === undefined && (u.stillFor ?? 0) >= 0.65 && u.suppression < 55 &&
     u.tactic !== 'retreat' && u.squadOrder !== 'retreat' &&
     !u.tending && !u.withdrawStandby && u.draggingUid === undefined &&
     u.firstAidTargetUid === undefined;

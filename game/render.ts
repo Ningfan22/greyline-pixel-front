@@ -2,6 +2,7 @@ import { mapDefinition, type MapId } from './maps';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { infantryGeometry } from './infantry-geometry';
+import { crouchTravelAmount } from './crouch-locomotion';
 import { pathfinderReady, ambushConcealed } from './infantry-specialties';
 import { filteredSprite } from './render-cache';
 import { drawTerrainLayer } from './terrain-render';
@@ -648,7 +649,7 @@ export function render(
           )
         : null;
     const digging =
-      u.digging && !authoredBody && !u.moving && !isDead && !u.wounded && u.fire <= 0
+      u.digging && !authoredBody && crouchTravelAmount(u) === 0 && !u.moving && !isDead && !u.wounded && u.fire <= 0
         ? digFrameV18(
             art.digging,
             adultIdentity(u.id),
@@ -666,7 +667,7 @@ export function render(
     // ground. Specialist sprites, climbers, rappellers and casualties keep
     // their own animation path.
     const heldPose =
-      c.members && !authoredBody &&
+      c.members && !authoredBody && crouchTravelAmount(u) === 0 &&
       !isDead &&
       !u.wounded &&
       !u.surrendered &&

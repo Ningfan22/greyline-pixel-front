@@ -3,6 +3,7 @@ import type { Unit } from './engine';
 import { GRENADE_THROW_S, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive } from './infantry-action-timing';
 import { isPrecisionObserver } from './precision-team';
 import { ammunition } from './ballistics';
+import { crouchTravelAmount } from './crouch-locomotion';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
   walk8: HTMLCanvasElement[];
@@ -493,8 +494,14 @@ export function poseTransitionChoice(
 ): AdultFrameChoice | null {
   const progress = stanceTransitionProgress(u, time);
   if (progress === null || !u.poseAnimFrom || !u.poseAnimSeen) return null;
-  const chain = POSE_CHAINS[u.poseAnimFrom]?.[u.poseAnimSeen];
+  let chain = POSE_CHAINS[u.poseAnimFrom]?.[u.poseAnimSeen];
   if (!chain) return null;
+  if (u.poseAnimFrom === 'crouch' || u.poseAnimSeen === 'crouch') {
+    const low = 7-Math.round((u.poseAnimFrom === 'crouch' ? u.poseAnimFromTravel ?? 0 : u.poseAnimToTravel ?? 0)*5);
+    const start = u.poseAnimFrom === 'stand' ? 0 : u.poseAnimFrom === 'prone' ? 15 : low;
+    const end = u.poseAnimSeen === 'stand' ? 0 : u.poseAnimSeen === 'prone' ? 15 : low;
+    if (low < 7) chain = Array.from({length:Math.abs(end-start)+1},(_,i)=>start+i*Math.sign(end-start));
+  }
   return { group: 'stance16', index: chain[Math.min(chain.length - 1, Math.floor(progress * chain.length))] };
 }
 
@@ -530,6 +537,12 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.rappelling) return action(8 + cycle(u.walk / 2, 2));
   const poseTransition = poseTransitionChoice(u, time);
   if (poseTransition && u.motion === 'ground') return poseTransition;
+  const lowTravel = crouchTravelAmount(u);
+  if (lowTravel > 0 && u.motion === 'ground' && u.climbing <= 0) {
+    if (lowTravel < 1) return { group:'stance16', index:7-Math.round(lowTravel*5) };
+    // Brief traffic/aim stops freeze the last real footstep, not a lower body.
+    return { group:'crouch8', index:cycle(step,8) };
+  }
   // Simulation and cels share a clock: the projectile leaves after cel five.
   if ((u.fragThrow ?? 0) > 0) {
     const elapsed = GRENADE_THROW_S - (u.fragThrow ?? 0);

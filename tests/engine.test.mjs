@@ -576,6 +576,8 @@ check('迫击炮穿烟曲射，最小射程内后撤', () => {
     x = near.u.x;
   tick(near.s, 1 / 60);
   assert.equal(near.u.fire, 0);
+  // The crouched crew first rises off its planted knee before carrying the tube.
+  advance(near.s, 1);
   assert(near.u.x < x);
   const boundary = duel('mortar', 180);
   tick(boundary.s, 1 / 60);
@@ -870,7 +872,8 @@ check('防空组只瞄准空中目标，反坦克爆炸只给装甲额外伤害'
   tick(s, 1 / 60);
   assert(!s.projectiles.some((p) => p.side === 0));
   spawnUnit(s, 1, 'helicopter', 1100);
-  advance(s, 0.2);
+  // A newly spotted aircraft cancels the preparatory step; let the knee settle.
+  advance(s, 0.6);
   assert(s.projectiles.some((p) => p.side === 0));
   const a = arena();
   spawnUnit(a, 1, 'infantry', 800);
@@ -2280,7 +2283,8 @@ check('蹲伏士兵主动寻找残骸，低掩体可探身射击并吸收爆炸�
   target.pace = 0;
   u.x = 910;
   refreshVision(s);
-  advance(s, 2);
+  // Initial stand→knee plus planted knee→travel startup now take 2.1s.
+  advance(s, 3);
   assert(u.cover > 0.2);
   assert(u.x < 938);
   assert(u.shots > 0);
@@ -3236,7 +3240,7 @@ check('撤退归队后恢复两侧正确行进方向，不保留拥堵或撤退�
     advance(s, 1.3);
     assert.equal(u.squad, host);
     const joinX = u.x;
-    advance(s, 3);
+    advance(s, 3.9);
     // Regroup no longer bypasses the ten-second low-stance commitment.
     assert((u.x - joinX) * dir > 70, 'advances at the actual crouch speed');
     assert.equal(u.pose, 'crouch');
@@ -3344,6 +3348,8 @@ check('v13交战：稳定同班掩护允许跃进且掩护倒下后停步还击'
   assert.equal(u.x, 600);
   assert(u.shots > 0);
   v13EngageAdvance(s, 0.35);
+  assert.equal(u.x,600,'covered movement first raises the planted knee');
+  v13EngageAdvance(s, 1);
   assert(u.x > 605);
   assert(v.shots > 0);
   const x = u.x;
@@ -3455,6 +3461,8 @@ check('v13交战：已抵达掩体目标的同伴可以提供掩护', () => {
   assert.equal(u.x, 600);
   assert(u.shots > 0);
   v13EngageAdvance(s, 0.3);
+  assert.equal(u.x,600,'no sliding before the rise completes');
+  v13EngageAdvance(s, 1);
   assert(u.x > 600);
   assert(v.shots > 0);
   return { x: u.x };
@@ -3471,7 +3479,8 @@ check('v13交战：短时跃进后停步还击而非连续奔跑', () => {
     stationaryAfterMove = 0,
     maxRun = 0,
     run = 0;
-  for (let i = 0; i < 100; i++) {
+  // Include the additional 0.9s painted startup without relaxing the bound cap.
+  for (let i = 0; i < 160; i++) {
     const x = u.x;
     tick(s, 1 / 60);
     if (u.x > x + 0.01) {

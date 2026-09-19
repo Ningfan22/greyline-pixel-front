@@ -4,6 +4,7 @@ import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBo
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
+import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
@@ -434,6 +435,13 @@ export interface Unit {
   poseAnimFrom?: 'stand' | 'crouch' | 'prone';
   poseAnimAt?: number;
   poseAnimProgress?: number;
+  poseAnimFromTravel?: number;
+  poseAnimToTravel?: number;
+  /** Knee=0, low travelling body=1. Simulation-owned, never a draw-time lerp. */
+  crouchTravel?: number;
+  crouchMoveRequested?: boolean;
+  crouchStoppedFor?: number;
+  crouchStepCommittedUntil?: number;
   motion: 'ground' | 'jump' | 'land' | 'bank';
   motionTime: number;
   motionDuration: number;
@@ -3419,7 +3427,7 @@ function setStance(
   u: Unit,
   time: number,
   desired: Unit['pose'],
-  _legacy?: { force?: boolean },
+  options?: { force?: boolean; travel?: boolean },
 ): Unit['pose'] {
   // Already in the requested pose: never re-arm the lock on a re-asserted
   // state. Continuous override blocks (observer hold, medic treatment,
@@ -3440,12 +3448,15 @@ function setStance(
     time < u.stanceLockUntil
   )
     return u.pose;
+  const fromTravel = crouchTravelAmount(u);
   u.pose = desired;
   u.stanceLockUntil = time + STANCE_COOLDOWN_S;
   const nextClass = stanceClass(desired);
   if (nextClass !== 'motion') {
     u.poseAnimFrom = curClass;
     u.poseAnimSeen = nextClass;
+    u.poseAnimFromTravel = curClass === 'crouch' ? fromTravel : 0;
+    u.poseAnimToTravel = nextClass === 'crouch' && options?.travel ? 1 : 0;
     u.poseAnimAt = time;
     u.poseAnimProgress = 0;
   }
@@ -3506,6 +3517,7 @@ export function coveringMate(
       (!c.members && !airThreat) ||
       c.indirect ||
       v.moving ||
+      stanceTransitionActive(v,s.time) || crouchMotionActive(v) ||
       v.motion !== 'ground' ||
       v.climbing > 0 ||
       v.tactic === 'retreat' ||
@@ -3736,6 +3748,7 @@ function moveSoldier(
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
+  if (!requestCrouchStep(u,s.time)) return;
   u.facing = dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
@@ -4531,7 +4544,7 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
     u.dispersionGoal = undefined;
   }
   continueHeavyWithdrawal(s, u);
-  const settled = !u.moving && u.motion === 'ground' && u.climbing <= 0;
+  const settled = !u.moving && !crouchMotionActive(u) && !stanceTransitionActive(u,s.time) && u.motion === 'ground' && u.climbing <= 0;
   u.stillFor = settled ? (u.stillFor ?? 0) + dt : 0;
   if (isHeavyGunner(u))
     u.emplacementSetupUntil = s.time + Math.max(0, HEAVY_MG_SETUP - (u.stillFor ?? 0));
@@ -7384,6 +7397,7 @@ export function tick(s: GameState, dt: number) {
   updateSquadCommand(s);
   for (const u of s.units) {
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
+    u.crouchMoveRequested = false;
     u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
       // Incapacitation before release cancels preparation; no delayed throw
@@ -7973,7 +7987,7 @@ export function tick(s: GameState, dt: number) {
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
-      ? setStance(u, s.time, desiredPose)
+      ? setStance(u, s.time, desiredPose, { travel: order === 'crouch' && (u.contactUntil ?? 0) <= s.time && !u.tending })
       : desiredPose;
     if (c.members && u.withdrawStandby)
       u.pose = setStance(u, s.time, 'crouch', { force: true });
@@ -8002,10 +8016,8 @@ export function tick(s: GameState, dt: number) {
       if (pinned) {
         u.moving = false;
         u.coverGoal = null;
-        u.walk = 0;
         continue;
       }
-      u.walk = 0;
     }
     if (c.members && u.climbing > 0) {
       u.cover = 0;
@@ -8470,7 +8482,7 @@ export function tick(s: GameState, dt: number) {
         u.squadOrder !== 'retreat' &&
         (u.withdrawUntil ?? 0) <= s.time &&
         (u.reloadingUntil ?? 0) <= s.time &&
-        !stanceTransitionActive(u, s.time) &&
+        !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && crouchTravelAmount(u) === 0 &&
         fragTarget
       ) {
         const clusterNear = nearUnits(s, fragTarget.x, 40, scanNearScratch);
@@ -8645,7 +8657,7 @@ export function tick(s: GameState, dt: number) {
       withdrawing &&
       Math.abs(u.withdrawGoal! - u.x) > 0.5 &&
       (!withdrawalThreat ||
-        (Math.floor((s.time - u.withdrawStartedAt!) / 0.85) % 2 ===
+        (Math.floor((s.time - u.withdrawStartedAt!) / 1.8) % 2 ===
           u.withdrawGroup &&
           (!withdrawalCoverPossible ||
             coveringMate(s, u, withdrawalThreat, true))));
@@ -8896,8 +8908,7 @@ export function tick(s: GameState, dt: number) {
           if (share > 0) {
             buddy.ammoReserve = (buddy.ammoReserve ?? 0) - share;
             u.ammoReserve = (u.ammoReserve ?? 0) + share;
-            u.reloadingUntil = s.time + magSpec.reload;
-            u.reloadingStartAt = s.time;
+            startMagazineDrill(u, s.time, magSpec.reload);
             u.ammoShareUntil = s.time + 1.0;
             buddy.ammoShareUntil = s.time + 1.0;
             u.ammoBuddyUid = undefined;
@@ -8948,8 +8959,7 @@ export function tick(s: GameState, dt: number) {
               wreck.ammoReserve = (wreck.ammoReserve ?? 0) - fromReserve;
               wreck.ammo = (wreck.ammo ?? 0) - (take - fromReserve);
               u.ammoReserve = (u.ammoReserve ?? 0) + take;
-              u.reloadingUntil = s.time + magSpec.reload;
-              u.reloadingStartAt = s.time;
+              startMagazineDrill(u, s.time, magSpec.reload);
               u.scavengeWreckId = undefined;
               u.scavengeUntil = 0;
             }
@@ -9014,6 +9024,10 @@ export function tick(s: GameState, dt: number) {
     const contactFire = !!(
       c.members &&
       target &&
+      // A safe cover/withdrawal move owns its initial rise and first step.
+      // Cooldown expiry cannot cancel it halfway and restart it next frame.
+      !((u.crouchStepCommittedUntil ?? 0) > s.time &&
+        (seeking || displacing || withdrawing || u.tactic === 'bound')) &&
       !dispersionStep &&
       !(escortAhead && s.time - (u.lastCombatShotAt ?? -100) < 0.8) &&
       (u.cooldown <= 0 ||
@@ -9128,8 +9142,7 @@ export function tick(s: GameState, dt: number) {
     ) {
       const spec = magazine(u.id, u.member);
       if (spec && u.ammo < spec.mag * 0.35 && (u.ammoReserve ?? 0) >= spec.mag) {
-        u.reloadingUntil = s.time + spec.reload * 0.75;
-        u.reloadingStartAt = s.time;
+        startMagazineDrill(u, s.time, spec.reload * 0.75);
         u.tacticalReload = true;
       }
     }
@@ -9159,8 +9172,9 @@ export function tick(s: GameState, dt: number) {
       coveringMate(s, u, target) &&
       s.time >= (u.boundRestUntil ?? 0);
     if (bounding) {
-      u.boundStartedAt ??= s.time;
-      if (s.time - u.boundStartedAt >= 0.55 + (u.uid % 3) * 0.08) {
+      if (!stanceTransitionActive(u,s.time) && crouchStartDelay(u) === 0)
+        u.boundStartedAt ??= s.time;
+      if (u.boundStartedAt !== undefined && s.time - u.boundStartedAt >= 0.55 + (u.uid % 3) * 0.08) {
         bounding = false;
         u.boundRestUntil = s.time + 1.35;
         u.boundStartedAt = undefined;
@@ -9170,7 +9184,12 @@ export function tick(s: GameState, dt: number) {
     if ((u.mgBurstRestUntil ?? 0) <= s.time) u.mgBoundGoal = undefined;
     const mobileBurstCover = !withdrawing && !seeking && !displacing && !treating &&
       !retreating && !withdrawalStep && !reloadingUnderContact && lightMGBound(s,u,target,order);
-    if (mobileBurstCover) u.mgBoundGoal ??= u.x + dir * 24;
+    if (mobileBurstCover && u.mgBoundGoal === undefined) {
+      u.mgBoundGoal = u.x + dir * 24;
+      // A covering bound includes the real time needed to rise off the knee.
+      // Only a chosen covered move extends the burst rest, not ordinary fire.
+      u.mgBurstRestUntil = (u.mgBurstRestUntil ?? s.time) + crouchStartDelay(u);
+    }
     const mobileBurstStep = mobileBurstCover && Math.abs(u.mgBoundGoal! - u.x) > 1;
     // Prepared ambushers let distant patrols approach instead of revealing
     // themselves at maximum rifle range. An explicit squad attack overrides it.
@@ -9183,7 +9202,7 @@ export function tick(s: GameState, dt: number) {
     // — but the hull keeps its face toward the enemy.
     const reversing =
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
-    if ((!c.members || !stanceTransitionActive(u, s.time)) &&
+    if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u))) &&
         u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
     if (
@@ -9280,7 +9299,7 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       if (
         u.cooldown <= 0 &&
-        (!c.members || !stanceTransitionActive(u, s.time)) &&
+        (!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u))) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&
         !(
@@ -9377,8 +9396,7 @@ export function tick(s: GameState, dt: number) {
               const spec = magazine(u.id, u.member);
               if (spec) {
                 const rt = spec.reload * (u.suppression > 50 ? 1.5 : 1);
-                u.reloadingUntil = s.time + rt;
-                u.reloadingStartAt = s.time;
+                startMagazineDrill(u, s.time, rt);
               }
             }
           }
@@ -9631,7 +9649,7 @@ export function tick(s: GameState, dt: number) {
         } else {
           moveWant = 'walk';
         }
-        u.pose = setStance(u, s.time, moveWant);
+        u.pose = setStance(u, s.time, moveWant, { travel: true });
       }
       if (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time)
         u.pose = setStance(u, s.time, 'prone', { force: true });
@@ -9692,7 +9710,8 @@ export function tick(s: GameState, dt: number) {
               ? squadFormationLane(s, u)
               : undefined;
         const laneChange =
-          desiredLane !== undefined && !stanceTransitionActive(u, s.time)
+          desiredLane !== undefined && !stanceTransitionActive(u, s.time) &&
+            (Math.abs(desiredLane-u.lane) <= .001 || requestCrouchStep(u,s.time))
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
             : 0;
         u.lane += laneChange;
@@ -9819,6 +9838,7 @@ export function tick(s: GameState, dt: number) {
     } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
   }
+  for (const u of s.units) if (CARDS[u.id].members) stepCrouchLocomotion(u,s.time,dt);
   if (airPositions)
     for (const u of s.units) {
       const previous = airPositions.get(u.uid);

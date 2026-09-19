@@ -100,10 +100,10 @@ export function specialistSprite(
     return null;
   const part = prone
     ? set.prone
-    : low && !(model === 'mortar' && u.moving)
+    : low && !(model === 'mortar' && choice.group === 'crouch8')
       ? set.crouch
       : set.standing;
-  if (!u.moving && !prone)
+  if (!u.moving && !prone && choice.group !== 'crouch8')
     return {
       image: part.image,
       muzzle: part.muzzle
