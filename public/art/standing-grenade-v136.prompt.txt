@@ -1,0 +1,24 @@
+Use case: stylized-concept
+Asset type: one transparent game animation atlas, STANDING GRENADE THROW ONLY.
+
+Paint exactly EIGHT newly painted full-body animation cels of the same olive adult slender infantry soldier. The most recently displayed standing-reload-v135.png is the STYLE AND CHARACTER REFERENCE ONLY, not an edit target. Match its adult body proportions, helmet and dark protective eyewear, olive tactical vest and pouches, olive fatigues, compact backpack, gloves, knee pads, brown boots, and dark rifle design. Preserve its detailed semi-realistic 2D painted game-art finish, natural joints, fabric folds, and subdued olive palette. Not chunky pixel sprites, chibi, toy proportions, or oversized heads.
+
+Canvas: one square PNG, ideally 1536 x 1536 pixels. Genuine RGBA transparency with alpha-zero empty space and opaque soldier interiors. No background, shadow, ground plane, checkerboard, scenery, grid, borders, labels, numbers, text, or watermark.
+
+Layout: exactly FOUR evenly spaced columns by TWO evenly spaced rows, eight equal RECTANGULAR cells. At 1536 square each cell is 384 x 768 pixels. Chronology goes left to right across the top row, then left to right across the bottom row. One full figure per cell, no extra figures. Leave generous clear gutters: every complete soldier, rifle, hand, arm and grenade must remain inside the central 74% of its own cell width, with ample padding above and below. Never touch or cross adjacent cells. Frame 5's grenade stays immediately at the fingertips, not out in the gutter.
+
+Registration: all eight cels use EXACTLY THE SAME anatomical body scale, planted boot positions, pelvis anchor, hip height, and helmet height. Face RIGHT in every cel in the same side-view camera as the reference. The same two boots stay flat on the same local baseline at 88% of each cell height. The soldier's helmet-to-boot height is about 60% of the cell height; use that same scale for all eight. Use one locked standing leg/hip pose with modestly separated feet and both soles on the baseline. Do not shift, step, raise a knee, bend down, kneel, climb, jump, or bob the hips. The animation comes from the RIGHT throwing arm and a small shoulder rotation. Maintain exactly TWO arms and TWO legs in each frame.
+
+Rifle continuity: the SAME complete dark rifle is visibly hanging on a shoulder sling diagonally across the FRONT of the torso in ALL EIGHT cels, stock near the upper chest and muzzle angled down toward the opposite hip. Make the sling visibly support it. Keep this diagonal rifle and sling readable and consistent, including the last frame. Never aim or hold the rifle horizontally in this sequence. The right hand is free to throw. The left hand stays near the chest/vest and may steady the sling or rifle, never forms an extra arm. No weapon vanishing, duplication, clipping, or unexplained orientation changes.
+
+The eight chronological cels, with distinctly painted arm positions:
+1. TOP LEFT — PREPARE: right hand holds one grenade at chest height; left hand close to vest. Rifle visibly slung diagonally, both boots planted.
+2. TOP ROW SECOND — DRAW BACK: right hand draws the grenade back beside and just behind the shoulder, elbow flexed; left arm stays close to torso.
+3. TOP ROW THIRD — COCK: grenade in right hand behind the shoulder, bent elbow lifted, a clear compact overhand-throw preparation. Hips and feet unchanged.
+4. TOP ROW FOURTH — ACCELERATE: right upper arm swings forward and the elbow begins extending toward the RIGHT; grenade is still held. Distinct intermediate pose between cocking and release.
+5. BOTTOM LEFT — RELEASE: right arm extends forward toward the RIGHT, hand opens; the grenade is still immediately at the fingertips with at most a tiny visible gap, fully within this cell. No projectile trail and no grenade flying away through the gutter.
+6. BOTTOM ROW SECOND — FOLLOW THROUGH: grenade has left the scene; empty right hand and arm sweep forward and slightly down in a natural throwing follow-through, without shifting the pelvis or boots.
+7. BOTTOM ROW THIRD — LOWER: empty right arm drops toward the soldier's side, elbow relaxed, clearly intermediate between follow-through and ready. Rifle stays visibly slung diagonally.
+8. BOTTOM RIGHT — RETURN READY: empty right hand rests near chest/vest, balanced ready standing pose resembling frame 1, with the rifle still visibly slung diagonally and both feet unchanged.
+
+All eight figures must be complete and equally scaled, with realistic slender adult anatomy, coherent shoulders/elbows/wrists, correct hand attachment, a visible slung rifle throughout, fixed boots and hip height, and clear separation. No extra limbs, ghost limbs, waving, saluting, raised knees, motion blur, or action effects. Generate ONE image only.

@@ -1,7 +1,7 @@
 import { transparentSheet } from './sprite-atlas';
 import type { AdultSprites } from './adult-animation';
 /** The packed reference already uses a 384px cell, 252px adult and a shared foot anchor. */
-export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8'> {
+export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8' | 'grenade8'> {
   const source = transparentSheet(image),
     context = source.getContext('2d')!;
   const pixels = context.getImageData(0, 0, source.width, source.height);
@@ -51,6 +51,26 @@ export function standingReloadFrames(image: HTMLImageElement): HTMLCanvasElement
     const baseline = row === 0 ? 578 : 565;
     ctx.drawImage(source, (i % 4) * cellW, row * cellH, cellW, cellH,
       48 - 130 * scale, 95 - baseline * scale, cellW * scale, cellH * scale);
+    return out;
+  });
+}
+
+/** Measured gutters, NOT equal cells: the release hand extends past x=314.
+ * Registration still uses the original common pelvis/boot anchors, not each
+ * silhouette's bounding box, so an outstretched arm cannot shrink the body. */
+export function standingGrenadeFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image), scale = 63 / 504;
+  const cuts = [[40, 315, 640, 970, 1240], [40, 355, 640, 970, 1240]];
+  return Array.from({ length: 8 }, (_, i) => {
+    const row = Math.floor(i / 4), col = i % 4;
+    const left = cuts[row][col], right = cuts[row][col + 1];
+    const out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(source, left, row * 627 + 70, right - left, 528,
+      48 + (left - col * 313.5 - 171) * scale,
+      95 + (70 - 587) * scale, (right - left) * scale, 528 * scale);
     return out;
   });
 }

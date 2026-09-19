@@ -730,7 +730,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AIRBORNE AT TEAM',
     typeLabel: '空降反甲',
     ability: '敌后伞降',
-    rule: '四人伞降反甲班。',
+    rule: '双火箭手伞降，双步枪护卫。',
     flavor: '坦克的后方，从来不安全。',
   },
   rapid_insertion: {
@@ -744,7 +744,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ASSAULT SAPPERS',
     typeLabel: '破障突击',
     ability: '突击工兵',
-    rule: '四人工兵，减伤五成。',
+    rule: '爆伤减半，近身排雷。',
     flavor: '雷场的缺口，是工兵拿命换的。',
   },
   recon_jump: {

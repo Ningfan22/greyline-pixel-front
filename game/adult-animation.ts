@@ -1,5 +1,6 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
+import { GRENADE_THROW_S, POSE_TRANSITION_S } from './infantry-action-timing';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
   walk8: HTMLCanvasElement[];
@@ -9,6 +10,7 @@ export interface AdultSprites {
   /** v121: dedicated hand-signal frames — point fwd, wave overhead, point back, fist. */
   signals4: HTMLCanvasElement[];
   reload8: HTMLCanvasElement[];
+  grenade8: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -467,10 +469,6 @@ const POSE_CHAINS: Record<
   crouch: { stand: [1, 7, 0], prone: [1, 2] },
   prone: { stand: [2, 1, 7, 0], crouch: [2, 1] },
 };
-// v127: stance transitions play at half speed so stand/crouch/prone changes
-// read as deliberate movement instead of a snap.
-const POSE_TRANSITION_S = 1.2;
-
 /** Work may move the arms, but never invent a new stance behind the AI's back. */
 function groundedWork(u: Unit, time: number): AdultFrameChoice {
   if (u.pose === 'prone') return action(3);
@@ -581,10 +579,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.rappelling) return action(8 + cycle(u.walk / 2, 2));
   const poseTransition = poseTransitionChoice(u, time);
   if (poseTransition && u.motion === 'ground') return poseTransition;
-  // Grenade throw is a 0.45s countdown. The projectile spawns at the start of
-  // the animation, so the arm comes forward early and settles into a follow-through.
+  // Simulation and cels share a clock: the projectile leaves after cel five.
   if ((u.fragThrow ?? 0) > 0) {
-    const t = u.fragThrow ?? 0;
+    const elapsed = GRENADE_THROW_S - (u.fragThrow ?? 0);
+    if (poseHeightClass(u.pose) === 'stand')
+      return { group: 'grenade8', index: Math.min(7, Math.max(0, Math.floor(elapsed / GRENADE_THROW_S * 8))) };
     // v120: pose-specific throw chains so a crouching grenadier stays on a
     // knee and a prone one stays on the deck instead of popping to standing.
     // v128: the middle beat used frame 9 (climb — raised knee + arm), which
@@ -596,11 +595,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     const chain =
       u.pose === 'prone'
         ? [3, 12, 2]
-        : u.pose === 'crouch'
+        : u.pose === 'crouch' || u.pose === 'hunker'
           ? [13, 1, 13]
           : [0, 0, 0];
-    if (t > 0.33) return action(chain[0]); // wind-up
-    if (t > 0.17) return action(chain[1]); // release
+    if (elapsed < GRENADE_THROW_S / 2) return action(chain[0]); // wind-up
+    if (elapsed < GRENADE_THROW_S * 0.75) return action(chain[1]); // release
     return action(chain[2]); // follow-through
   }
   // Medics alternate between a kneeling pose and a low crouch while treating,

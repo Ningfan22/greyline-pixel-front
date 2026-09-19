@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { GRENADE_THROW_S, GRENADE_RELEASE_S, POSE_TRANSITION_S } from './infantry-action-timing';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
@@ -314,6 +315,8 @@ export interface Unit {
   buddyRallied?: boolean;
   fragLeft?: number;
   fragThrow?: number;
+  fragThrowStartedAt?: number;
+  fragAim?: { x: number; y: number };
   fragCooldown?: number;
   breachPropId?: number;
   breachShots?: number;
@@ -2274,6 +2277,7 @@ function hitUnit(
       : damage *
         protection *
         (1 - cover) *
+        (source === 'blast' ? (c.blastProtection ?? 1) : 1) *
         (c.trait === 'armor_vest' ? 0.88 : 1) *
         (c.members && !u.moving && s.players[u.side].fortify > 0 ? 0.7 : 1) *
         (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time
@@ -2812,14 +2816,16 @@ export function projectileIntercept(
   if (p.fromAir) return null;
   if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
     return terrainIntercept(s, sx, sy, tx, ty);
-  const hardHit = terrainIntercept(s, sx, sy, tx, ty, true);
+  const totalPath = Math.hypot(p.tx - p.startX, p.ty - p.startY) || 1;
+  const muzzleClear = totalPath * 0.5;
+  const travelled = Math.hypot(sx - p.startX, sy - p.startY);
+  const hardHit = smallArmsRayIntercept(s, sx, sy, tx, ty,
+    Number.isFinite(travelled) ? Math.max(0, muzzleClear - travelled) : 0);
   const hardDistance = hardHit
     ? Math.hypot(hardHit.x - sx, hardHit.y - sy)
     : Infinity;
   // 枪口前半程不被己方掩体挡弹：士兵躲在废墟后开火时，
   // 贴着枪口的掩体不应吃掉自己的子弹。
-  const totalPath = Math.hypot(p.tx - p.startX, p.ty - p.startY) || 1;
-  const muzzleClear = totalPath * 0.5;
   for (const hit of sceneryCoverHits(s, sx, sy, tx, ty)) {
     if (Math.hypot(hit.x - sx, hit.y - sy) >= hardDistance) break;
     if (p.passedCover?.includes(hit.id)) continue;
@@ -2832,6 +2838,20 @@ export function projectileIntercept(
     if (rnd(s) < 0.5) return { x: hit.x, y: hit.y };
   }
   return hardHit;
+}
+
+/** The first half ignores scenery INCLUDING wrecks, but never the soil.
+ * Use the same rule for aim permission and the travelling projectile. */
+function smallArmsRayIntercept(
+  s: GameState, sx: number, sy: number, tx: number, ty: number,
+  clearDistance = Math.hypot(tx - sx, ty - sy) * 0.5,
+) {
+  const length = Math.hypot(tx - sx, ty - sy);
+  if (clearDistance <= 0) return terrainIntercept(s, sx, sy, tx, ty, true);
+  const split = Math.min(1, clearDistance / (length || 1));
+  const mx = sx + (tx - sx) * split, my = sy + (ty - sy) * split;
+  const soil = terrainIntercept(s, sx, sy, mx, my, true, true);
+  return soil ?? (split < 1 ? terrainIntercept(s, mx, my, tx, ty, true) : null);
 }
 function retreatingFriendlyHit(
   s: GameState,
@@ -3092,6 +3112,7 @@ function firingHeight(
   u: FiringBody,
   tx: number,
   ty: number,
+  planStanding = false,
 ): number | null {
   const c = CARDS[u.id],
     height = muzzleHeight(u);
@@ -3100,20 +3121,25 @@ function firingHeight(
   const softCover = isCoverBullet(ammunition(u.id, u.member));
   const clear = (shooter: MuzzleBody, h: number) => {
     const point = muzzlePoint(shooter, tx, h);
-    // A long prone barrel cannot start a projectile inside or beyond a nearby wall.
+    // A long prone barrel cannot start a projectile through solid soil.
+    // Small arms may clear nearby scenery; heavy ordnance still checks it.
     if (
       c.members &&
-      terrainIntercept(s, shooter.x, shooter.y - h, point.x, point.y, softCover)
+      terrainIntercept(s, shooter.x, shooter.y - h, point.x, point.y, softCover, softCover)
     )
       return false;
     return (
       u.id === 'javelin' ||
-      !terrainIntercept(s, point.x, point.y, tx, ty, softCover)
+      !(softCover ? smallArmsRayIntercept(s, point.x, point.y, tx, ty)
+        : terrainIntercept(s, point.x, point.y, tx, ty))
     );
   };
   if (clear(u, height)) return height;
-  // Check both the standing height and its shorter barrel before rising to fire.
+  // Only the stance planner may test a hypothetical standing shot. Target
+  // selection must use the actual body: accepting a shot that needs a locked
+  // stance made the soldier neither shoot nor look for a firing position.
   if (
+    planStanding &&
     c.members &&
     clear(
       {
@@ -3149,8 +3175,8 @@ function canFireFromCover(
         x,
         y: ground(s, x),
         hullAngle: u.hullAngle,
-        pose: 'idle',
-        moving: u.moving,
+        pose: u.pose,
+        moving: false,
       },
       target.x,
       target.y -
@@ -3405,6 +3431,36 @@ function setStance(
   return desired;
 }
 
+/** A throw owns the hands and movement until the follow-through is complete.
+ * The target is committed at wind-up, not magically tracked after release. */
+function stepHandGrenade(s: GameState, u: Unit): boolean {
+  if ((u.fragThrow ?? 0) <= 0 || u.fragThrowStartedAt === undefined) return false;
+  const elapsed = s.time - u.fragThrowStartedAt;
+  u.fragThrow = Math.max(0, GRENADE_THROW_S - elapsed);
+  u.moving = false;
+  u.fire = u.secondaryFire = 0;
+  u.vx = u.vy = 0;
+  u.y = ground(s, u.x);
+  if (elapsed >= GRENADE_RELEASE_S && u.fragAim) {
+    const aim = u.fragAim;
+    u.fragAim = undefined;
+    if ((u.fragLeft ?? 0) > 0) {
+      u.fragLeft = (u.fragLeft ?? 0) - 1;
+      const dir = Math.sign(aim.x - u.x) || u.facing;
+      const low = u.pose === 'prone', kneeling = u.pose === 'crouch' || u.pose === 'hunker';
+      const sx = u.x + dir * (low ? 37 : kneeling ? 28 : 21);
+      const sy = u.y - (low ? 12 : kneeling ? 27 : 51);
+      const total = Math.max(0.65, Math.min(1.15, Math.hypot(aim.x - sx, aim.y - sy) / 210));
+      s.projectiles.push({ uid: ++s.uid, ammunition: 'grenade', effect: 'grenade',
+        damage: 42, radius: 40, arc: 70, life: total, total,
+        targetUid: null, base: null, side: u.side, sourceUid: u.uid,
+        x: sx, y: sy, tx: aim.x, ty: aim.y, startX: sx, startY: sy });
+    }
+  }
+  if (u.fragThrow === 0) u.fragThrowStartedAt = undefined;
+  return true;
+}
+
 export function coveringMate(
   s: GameState,
   u: Unit,
@@ -3532,10 +3588,9 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
     smokeBlocks(s, u.side, u.x, target.x)
   )
     return null;
-  const standing = { ...u, pose: 'idle' as const, moving: false };
-  const point = muzzlePoint(standing, target.x, 47),
+  const point = muzzlePoint(u, target.x),
     ty = target.y - bodyHeight(target);
-  if (terrainIntercept(s, u.x, u.y - 47, point.x, point.y)) return null;
+  if (terrainIntercept(s, u.x, u.y - muzzleHeight(u), point.x, point.y)) return null;
   const hit = sceneryIntercept(s, point.x, point.y, target.x, ty);
   if (!hit?.box.prop || hit.box.rubble) return null;
   const first = terrainIntercept(s, point.x, point.y, target.x, ty);
@@ -7272,6 +7327,14 @@ export function tick(s: GameState, dt: number) {
   s.frontX = [front0, front1];
   updateSquadCommand(s);
   for (const u of s.units) {
+    u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
+    if (!isCombatant(u) || u.rappelling || u.parachuting) {
+      // Incapacitation before release cancels preparation; no delayed throw
+      // can emerge from a casualty or resume after a medic revives them.
+      u.fragThrow = 0;
+      u.fragAim = undefined;
+      u.fragThrowStartedAt = undefined;
+    }
     u.digging = false;
     u.backpedaling = false;
     u.vacuum = CARDS[u.id].members
@@ -7753,6 +7816,7 @@ export function tick(s: GameState, dt: number) {
           (syn.overwatch ? 1.35 : 1) *
           vacuumSuppressionFactor(s, u),
     );
+    if (stepHandGrenade(s, u)) continue;
     if (c.members) {
       prepareInfantry(s, u, dt);
       decideTactic(s, u, dt);
@@ -7818,7 +7882,7 @@ export function tick(s: GameState, dt: number) {
           [0, 12, 24].some(step => {
             const x = u.x + dir * step;
             return firingHeight(s, { ...lowBody, x, y: ground(s, x) },
-              enemy.x, enemy.y - 20) === 47;
+              enemy.x, enemy.y - bodyHeight(enemy), true) === 47;
           }))) {
         desiredPose = 'idle';
         setStance(u, s.time, 'idle');
@@ -8297,18 +8361,24 @@ export function tick(s: GameState, dt: number) {
       }
     }
     if (c.frags) {
-      u.fragThrow = Math.max(0, (u.fragThrow ?? 0) - dt);
-      u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
+      // Hand grenades can arc over cover even if the rifle has no firing ray.
+      const fragTarget = candidates.find(v => !CARDS[v.id].air &&
+        Math.abs(v.x - u.x) >= 70 && Math.abs(v.x - u.x) <= 220);
       if (
         (u.fragLeft ?? 0) > 0 &&
         (u.fragCooldown ?? 0) <= 0 &&
         !u.tending &&
         !u.wounded &&
-        target &&
-        !CARDS[target.id].air &&
-        Math.abs(target.x - u.x) <= 220
+        u.motion === 'ground' &&
+        u.climbing <= 0 &&
+        u.tactic !== 'retreat' &&
+        u.squadOrder !== 'retreat' &&
+        (u.withdrawUntil ?? 0) <= s.time &&
+        (u.reloadingUntil ?? 0) <= s.time &&
+        s.time - (u.poseAnimAt ?? -Infinity) >= POSE_TRANSITION_S &&
+        fragTarget
       ) {
-        const clusterNear = nearUnits(s, target.x, 150, scanNearScratch);
+        const clusterNear = nearUnits(s, fragTarget.x, 40, scanNearScratch);
         let clusterCount = 0;
         let clusterSumX = 0;
         for (const v of clusterNear) {
@@ -8317,43 +8387,25 @@ export function tick(s: GameState, dt: number) {
             isCombatant(v) &&
             !CARDS[v.id].air &&
             visibleToSide(s, u.side, v) &&
-            Math.abs(v.x - target.x) <= 150
+            Math.abs(v.x - fragTarget.x) <= 40 &&
+            Math.abs(v.x - u.x) <= 220
           ) {
             clusterCount++;
             clusterSumX += v.x;
           }
         }
-        if (clusterCount >= 2) {
+        // Never lob a blast into an ally already contesting that position.
+        if (clusterCount >= 2 && !s.units.some(v => v.side === u.side &&
+            v.hp > 0 && !CARDS[v.id].air && Math.abs(v.x - clusterSumX / clusterCount) < 55)) {
           const cx = clusterSumX / clusterCount;
           const cy = ground(s, cx);
-          const sx = u.x;
-          const sy = Math.min(u.y - bodyHeight(u) + 20, ground(s, u.x) - 6);
-          const dist = Math.hypot(cx - sx, cy - sy);
-          const total = Math.max(0.3, dist / 650);
-          u.fragThrow = 0.45;
-          u.fragLeft = (u.fragLeft ?? 0) - 1;
+          u.fragThrow = GRENADE_THROW_S;
+          u.fragThrowStartedAt = s.time;
+          u.fragAim = { x: cx, y: cy };
           u.fragCooldown = 6;
-          u.facing = Math.sign(cx - sx) || dir;
-          s.projectiles.push({
-            uid: ++s.uid,
-            ammunition: 'grenade',
-            effect: 'grenade',
-            damage: 42,
-            radius: 40,
-            arc: 70,
-            life: total,
-            total,
-            targetUid: null,
-            base: null,
-            side: u.side,
-            sourceUid: u.uid,
-            x: sx,
-            y: sy,
-           tx: cx,
-           ty: cy,
-           startX: sx,
-           startY: sy,
-         });
+          u.facing = Math.sign(cx - u.x) || dir;
+          stepHandGrenade(s, u);
+          continue;
        }
      }
    }
@@ -8917,7 +8969,8 @@ export function tick(s: GameState, dt: number) {
       (u.observingHoldUntil ?? 0) <= s.time
     ) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
-      if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
+      if (s.time >= (u.stanceLockUntil ?? 0) &&
+          firingHeight(s, u, threat.x, threat.y - 20, true) === 47)
         peekShouldExpose(s, u);
       const peekExposed = (u.exposedUntil ?? 0) > s.time;
       if (peekExposed) {
@@ -9024,7 +9077,7 @@ export function tick(s: GameState, dt: number) {
     // — but the hull keeps its face toward the enemy.
     const reversing =
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
-    if (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly)
+    if (u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
     if (
       (c.damage ?? 0) > 0 &&
@@ -9125,7 +9178,9 @@ export function tick(s: GameState, dt: number) {
           ammunition(u.id, u.member) === 'rifle' &&
           s.time - (u.readyAt ?? -100) < 0.24 * veteranReadiness(u)
         ) &&
-        (c.sortieAmmo === undefined || u.shots < c.sortieAmmo)
+        (c.sortieAmmo === undefined || u.shots < c.sortieAmmo) &&
+        // A deliberate breach round is meant to collide with this surface.
+        (coverShot || firingHeight(s, u, tx, ty) !== null)
       ) {
         if (firingHeight(s, u, tx, ty) === 47) {
           // v128: never snap the pose per shot — the peek/cover block owns
@@ -9151,14 +9206,9 @@ export function tick(s: GameState, dt: number) {
           coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
-          !terrainIntercept(
-            s,
-            sx,
-            sy,
-            tx,
-            ty,
-            isCoverBullet(ammunition(u.id, u.member)),
-          )
+          !(isCoverBullet(ammunition(u.id, u.member))
+            ? smallArmsRayIntercept(s, sx, sy, tx, ty)
+            : terrainIntercept(s, sx, sy, tx, ty))
         ) {
           const closeBurst =
             (u.assaultBurstUntil ?? 0) > s.time &&

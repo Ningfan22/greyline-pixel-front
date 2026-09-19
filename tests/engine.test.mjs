@@ -653,7 +653,7 @@ check('十分钟时限才触发按基地生命结算', () => {
   assert.equal(s.time, 600);
   assert.equal(s.status, 'finished');
 });
-check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () => {
+check('卧姿狙击手有真实射线时保持卧姿开火，不为每枪起立', () => {
   const s = fresh();
   s.units = [];
   s.walls = [];
@@ -670,7 +670,8 @@ check('卧姿狙击手按真实枪口检查视线，必要时起身开火', () =
   refreshVision(s);
   tick(s, 1 / 60);
   assert(u.fire > 0);
-  assert.equal(u.pose, 'idle');
+  assert.equal(u.pose, 'prone');
+  assert.equal(u.muzzleY, muzzlePoint(u, s.units[1].x).y);
 });
 check('116种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
   assert.equal(Object.keys(CARDS).length, 116);
@@ -3214,7 +3215,14 @@ check('撤退归队后恢复两侧正确行进方向，不保留拥堵或撤退�
     assert.equal(u.squad, host);
     const joinX = u.x;
     advance(s, 3);
-    assert((u.x - joinX) * dir > 100);
+    // Regroup no longer bypasses the ten-second low-stance commitment.
+    assert((u.x - joinX) * dir > 70, 'advances at the actual crouch speed');
+    assert.equal(u.pose, 'crouch');
+    advance(s, 6.2);
+    const unlockedX = u.x;
+    advance(s, 2);
+    assert((u.x - unlockedX) * dir > 95, 'upright advance returns once the stance lock expires');
+    assert(['walk', 'idle'].includes(u.pose));
     assert.equal(u.facing, dir);
     assert.equal(u.tactic, 'advance');
     for (const key of ['uid', 'id', 'member', 'hp'])
@@ -3357,7 +3365,7 @@ check('v13交战：小幅换位后恢复约300距离交火', () => {
   v13EngageEnemy(s, 900);
   for (let x = 640; x < 661; x++) s.terrain[x] = 335;
   refreshVision(s);
-  v13EngageAdvance(s, 3);
+  v13EngageAdvance(s, 4);
   assert(u.shots > 0);
   assert(u.x > 550 && u.x <= 614);
   assert(900 - u.x > 280);
@@ -3387,7 +3395,7 @@ check('v13交战：火箭不轰击己方近身掩体且换位有界', () => {
   assert(840 - u.x >= 140);
   return { shots: u.shots, x: u.x };
 });
-check('v13交战：探身开火后装填期间不立即趴回地面', () => {
+check('v136交战：卧姿射击和装填期间不擅自起立', () => {
   const s = v13EngageFresh();
   s.terrain = createGame(37, undefined, undefined, undefined, {
     mapSeed: GREYLINE_LAYOUT_SEED,
@@ -3400,9 +3408,13 @@ check('v13交战：探身开火后装填期间不立即趴回地面', () => {
   refreshVision(s);
   tick(s, 1 / 60);
   assert(u.fire > 0);
-  assert.equal(u.pose, 'idle');
-  tick(s, 1 / 60);
-  assert.equal(u.pose, 'idle');
+  assert.equal(u.pose, 'prone');
+  const committedUntil = u.stanceLockUntil;
+  for (let i=0; i<60; i++) {
+    tick(s, 1 / 60);
+    assert.equal(u.pose, 'prone');
+    assert.equal(u.stanceLockUntil, committedUntil);
+  }
   return { pose: u.pose, exposedUntil: u.exposedUntil };
 });
 check('v13交战：已抵达掩体目标的同伴可以提供掩护', () => {
@@ -4606,7 +4618,8 @@ check(
         for (const u of movingBack) {
           movedMembers.add(u.uid);
           assert.equal(u.facing, u.backpedaling ? dir : -dir);
-          if (u.backpedaling) assert.equal(u.pose, 'crouch');
+          if (u.backpedaling) assert(['crouch', 'hunker', 'prone'].includes(u.pose),
+            'a prone member may crawl backwards without bypassing the posture lock');
           assert.equal(
             u.fire,
             0,

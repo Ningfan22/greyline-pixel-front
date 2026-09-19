@@ -221,6 +221,8 @@ export interface Card {
     | 'mountain'
     | 'scout';
   armorMultiplier?: number;
+  /** Incoming blast damage multiplier; does not protect against bullets or gas. */
+  blastProtection?: number;
   airOnly?: boolean;
   uniform?:
     | 'marine'
@@ -2014,18 +2016,22 @@ export const CARDS: Record<CardId, Card> = {
   ),
   // ── v120 空降特种流派 ─────────────────────────────────────────────
   airborne_at: variant(
-    'infantry',
+    'rocket',
     'airborne_at',
     '空降反甲组',
     5,
-    '4 人空降反甲班，高穿甲，直接伞降目标区域',
+    '双火箭手加双护卫，伞降侧后猎甲',
     {
       members: 4,
       hp: 220,
-      damage: 30,
-      range: 400,
+      damage: 128,
+      range: 460,
+      rate: 6.5,
+      radius: 12,
       speed: 66,
-      armorMultiplier: 1.7,
+      armorMultiplier: 2.2,
+      armorOnly: true,
+      infantryMultiplier: 0.35,
       airdrop: true,
       targetGround: true,
       doctrine: 'assault',
@@ -2033,7 +2039,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'marine',
       tag: '空降 · 装甲猎杀',
       detail:
-        '4人空降反甲班组直接伞降至目标区域，每人配备反坦克武器，对装甲伤害×1.7。可空降至敌方装甲侧后实施猎杀。',
+        '5费4人220生命，直接伞降目标区域。两名火箭手各每6.5秒发射60伤火箭，射程460、对装甲乘2.2，主武器只打载具；两名步枪护卫各每1.1秒4伤、射程340。射程短于地面反坦克组，依靠落点形成侧后交叉火力。',
     },
   ),
   rapid_insertion: variant(
@@ -2064,7 +2070,7 @@ export const CARDS: Record<CardId, Card> = {
     'sapper_assault',
     '突击工兵',
     3,
-    '4 人工兵班，可排雷破障，减伤 50%',
+    '4 人防爆工兵，爆炸伤害减半，近身排雷',
     {
       members: 4,
       hp: 200,
@@ -2072,13 +2078,13 @@ export const CARDS: Record<CardId, Card> = {
       range: 380,
       speed: 64,
       trait: 'engineer',
-      armorMultiplier: 1.5,
+      blastProtection: 0.5,
       uniform: 'engineer',
       doctrine: 'assault',
       discipline: 88,
       tag: '步兵 · 破障突击',
       detail:
-        '4人突击工兵班，自带减伤50%，可排除敌方地雷并破坏障碍物。攻坚必备，在雷场和工事前无人能替代。',
+        '3费4人200生命。防爆装备使受到的爆炸伤害降低50%，不减免子弹或毒气；36内每1.2秒清除一枚敌雷。负责顶住炮火排雷推进，不维修载具，不额外增加对装甲伤害。',
     },
   ),
   recon_jump: variant(
@@ -2281,6 +2287,11 @@ export function modelOf(id: CardId): BaseCardId {
 }
 export function weaponCard(u: { id: CardId; member: number }): Card {
   const c = CARDS[u.id];
+  if (u.id === 'airborne_at')
+    return u.member < 2
+      ? { ...c, members: 1, damage: 60 }
+      : { ...c, members: 1, model: 'infantry', damage: 4, rate: 1.1,
+          range: 340, radius: 0, armorOnly: false, armorMultiplier: 0.15, infantryMultiplier: 1 };
   if (u.id === 'antiarmor')
     return u.member === 0
       ? {
@@ -2318,6 +2329,7 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
       };
 }
 export function weaponModel(u: { id: CardId; member: number }): BaseCardId {
+  if (u.id === 'airborne_at') return u.member < 2 ? 'rocket' : 'infantry';
   return (modelOf(u.id) === 'machinegun' || u.id === 'antiarmor') &&
     u.member > 0
     ? 'infantry'

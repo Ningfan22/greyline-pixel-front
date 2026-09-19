@@ -1,6 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas, signalFrames, standingReloadFrames } from './adult-atlas';
+import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import {
@@ -581,6 +581,7 @@ export function loadArt() {
       loadImage('/art/support-vehicles-v14.png'),
       loadImage('/art/parachute-v1.png'),
       loadImage('/art/standing-reload-v135.png'),
+      loadImage('/art/standing-grenade-v136.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -621,6 +622,7 @@ export function loadArt() {
         supportVehicles,
         parachuteSheet,
         standingReload,
+        standingGrenade,
       ],
       extra,
       trees,
@@ -664,11 +666,12 @@ export function loadArt() {
       const fx13 = explosionAtlasV13(explosionSource);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const reload8 = standingReloadFrames(standingReload);
+      const grenade8 = standingGrenadeFrames(standingGrenade);
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8 },
-        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8 },
-        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8 },
-        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8 },
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8 },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8 },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8 },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8 },
       };
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.

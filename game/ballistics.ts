@@ -16,6 +16,7 @@ export type Ammunition =
   | 'mortar'
   | 'drone';
 export function ammunition(id: CardId, member = 0): Ammunition {
+  if (id === 'airborne_at') return member < 2 ? 'rocket' : 'rifle';
   if (CARDS[id].emplacement === 'at_gun') return 'ap';
   if (
     id === 'javelin' ||
