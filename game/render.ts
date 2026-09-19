@@ -5,7 +5,11 @@ import { infantryGeometry } from './infantry-geometry';
 import { crouchTravelAmount } from './crouch-locomotion';
 import { pathfinderReady, ambushConcealed } from './infantry-specialties';
 import { filteredSprite } from './render-cache';
-import { drawTerrainLayer } from './terrain-render';
+import {
+  drawTerrainLayer,
+  TERRAIN_TEXTURE_WIDTH,
+  TERRAIN_TEXTURE_HEIGHT,
+} from './terrain-render';
 import {
   drawUnitSelection,
   selectionOccluded,
@@ -96,12 +100,12 @@ function rearSoilTexture(
   const cached = rearSoilTextures.get(terrain);
   if (cached) return cached;
   const canvas = document.createElement('canvas');
-  canvas.width = terrain.width;
-  canvas.height = terrain.height;
+  canvas.width = TERRAIN_TEXTURE_WIDTH;
+  canvas.height = TERRAIN_TEXTURE_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
   ctx.filter = 'brightness(0.62) saturate(0.72)';
-  ctx.drawImage(terrain, 0, 0);
+  ctx.drawImage(terrain, 0, 0, canvas.width, canvas.height);
   rearSoilTextures.set(terrain, canvas);
   return canvas;
 }
@@ -124,12 +128,12 @@ function terrainTexture(
   const existing = textures.get(id);
   if (existing) return existing;
   const canvas = document.createElement('canvas');
-  canvas.width = art.terrain.width;
-  canvas.height = art.terrain.height;
+  canvas.width = TERRAIN_TEXTURE_WIDTH;
+  canvas.height = TERRAIN_TEXTURE_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
   ctx.filter = palette.terrainFilter;
-  ctx.drawImage(art.terrain, 0, 0);
+  ctx.drawImage(art.terrain, 0, 0, canvas.width, canvas.height);
   ctx.filter = 'none';
   ctx.globalCompositeOperation = 'color';
   ctx.globalAlpha = palette.tintStrength;
