@@ -1,7 +1,8 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
-import { GRENADE_THROW_S, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass } from './infantry-action-timing';
+import { GRENADE_THROW_S, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive } from './infantry-action-timing';
 import { isPrecisionObserver } from './precision-team';
+import { ammunition } from './ballistics';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
   walk8: HTMLCanvasElement[];
@@ -14,6 +15,8 @@ export interface AdultSprites {
   grenade8: HTMLCanvasElement[];
   /** Painted stand→knee→prone cels, played backwards when rising. */
   stance16: HTMLCanvasElement[];
+  /** Eight fixed-knee and eight prone magazine drills. */
+  lowReload16: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -24,6 +27,10 @@ export interface AdultFrameChoice {
    * unit's real facing, which keeps driving muzzle direction and movement.
    */
   dir?: 1 | -1;
+}
+/** These are whole-body authored actions, not bases for a decorative torso. */
+export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','reactions8'].includes(choice.group);
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -464,33 +471,20 @@ function groundedWork(u: Unit, time: number): AdultFrameChoice {
   return action(0);
 }
 
-/**
- * v113: reloads read as a four-beat drill instead of a static hunch. The
- * engine stamps `reloadingStartAt` when the dry receiver locks back, so the
- * animation tracks progress through the reload window — drop the spent mag,
- * grab a fresh one, seat it, rack the charging handle — rather than freezing
- * on one frame for the whole duration. Prone soldiers stay on the deck and
- * alternate the lie with the prone-reload frame so the mag swap still reads
- * as active work at ground level.
- */
+/** One actual magazine clock, with authored cels at the committed height. */
 function reloadBeat(u: Unit, time: number): AdultFrameChoice {
+  // Belt/launcher work must keep its own weapon, not become a rifle drill.
+  // The heavy gun's dedicated belt cels are applied by its renderer.
+  if (ammunition(u.id, u.member) !== 'rifle')
+    return action(u.pose === 'prone' ? 2 : stanceHeightClass(u.pose) === 'crouch' ? 1 : 0);
   const until = u.reloadingUntil ?? 0;
   const startedAt = u.reloadingStartAt ?? until - 1.4;
   const duration = Math.max(0.001, until - startedAt);
   const elapsed = Math.min(duration, Math.max(0, time - startedAt));
-  if (u.pose === 'prone')
-    return action(Math.floor(elapsed * 3) % 2 ? 3 : 2);
-  const beat = Math.min(3, Math.floor((elapsed / duration) * 4));
-  // v128: frames 8/9 are the CLIMB cycle (raised hand + raised knee). The old
-  // chains reused them for the "seat the mag" / "rack the handle" beats, which
-  // is why reloading soldiers kept flashing the swim-lane climb pose. Use the
-  // kneeling-work frame (13) and the single-knee frame (1) for the active
-  // beats instead — same hunch-and-reach read, no climb.
-  // Crouched: hunch over the mag well, drop to a knee, hunch again, arm
-  // forward to seat the fresh mag.
-  if (u.pose === 'crouch' || u.pose === 'hunker') return action([13, 1, 13, 1][beat]);
-  // Eight newly painted standing cels; no reused knee, command or rope poses.
-  return { group: 'reload8', index: Math.min(7, Math.floor(elapsed / duration * 8)) };
+  const beat = Math.min(7, Math.floor(elapsed / duration * 8));
+  if (u.pose === 'prone') return { group: 'lowReload16', index: 8 + beat };
+  if (stanceHeightClass(u.pose) === 'crouch') return { group: 'lowReload16', index: beat };
+  return { group: 'reload8', index: beat };
 }
 
 export function poseTransitionChoice(
@@ -585,6 +579,9 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       : u.pose === 'crouch' || u.pose === 'hunker'
         ? { group: 'crouch8', index: cycle(step, 8) }
         : { group: 'walk8', index: cycle(step, 8) };
+  // A receiving soldier actually replaces the magazine. Sharing/observing
+  // must not hide the drill, nor may a decorative task restart its clock.
+  if (!u.moving && magazineReloadActive(u, time)) return reloadBeat(u, time);
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)
@@ -628,7 +625,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     return groundedWork(u, time);
   // Stance transitions are resolved above the work actions, before arrival
   // at the stable prone/crouch frames below.
-  const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
     // Work the radio from prone; observation never raises the silhouette.
@@ -636,7 +632,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       const radioT = (time + u.uid * 1.37) % 4.4;
       if (radioT < 1.2) return action(3);
     }
-    if (reloading) return reloadBeat(u, time);
     // Keep the aimed torso planted; discharge effects carry weapon recoil.
     if (u.fire > 0 || u.secondaryFire > 0) return action(2);
     if ((u.aimUntil ?? 0) > time) return action(2);
@@ -649,7 +644,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       const gait = u.draggingUid !== undefined ? u.walk / 2 : step;
       return { group: 'crouch8', index: cycle(gait, 8) };
     }
-    if (reloading) return reloadBeat(u, time);
     // Frame 13 is a crawl, not a recoil cel. Do not swap the entire body.
     if (u.fire > 0 || u.secondaryFire > 0) return action(1);
     if ((u.aimUntil ?? 0) > time) return action(1);
@@ -657,7 +651,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   }
   if (u.pose === 'hunker') {
     if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
-    if (reloading) return reloadBeat(u, time);
     // Hunker is the same committed knee-height class, not periodic crawling.
     return action(1);
   }
@@ -679,7 +672,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // the renderer's patrol layer overlays the dedicated aimed-rifle pose
   // (raise3[2]) for the whole burst, so the weapon reads as shouldered and
   // on target between shots instead of rocking through gait frames.
-  if (reloading) return reloadBeat(u, time);
   // v117: underslung / personal secondary discharge — the arm-forward frame
   // for the 0.09s window so a GL or pistol shot reads as its own beat
   // instead of vanishing under the patrol idle. Non-plain on purpose: it

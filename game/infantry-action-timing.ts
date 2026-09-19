@@ -22,6 +22,12 @@ export function stanceTransitionProgress(u: PoseClock, time: number): number | n
 export function stanceTransitionActive(u: PoseClock, time: number): boolean {
   return stanceTransitionProgress(u, time) !== null;
 }
+/** Cycling a bolt/receiver after a shot is not replacing a magazine. */
+export function magazineReloadActive(
+  u: Partial<Pick<Unit, 'ammo' | 'tacticalReload' | 'reloadingUntil'>>, time: number,
+): boolean {
+  return (u.ammo === 0 || !!u.tacticalReload) && (u.reloadingUntil ?? 0) > time;
+}
 export const GRENADE_THROW_S = 1.1;
 // Cel five still paints the grenade at the fingertips; cel six is empty.
 export const GRENADE_RELEASE_S = GRENADE_THROW_S * 5 / 8;

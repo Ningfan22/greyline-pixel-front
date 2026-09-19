@@ -2,6 +2,7 @@ import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { stanceAtlas } from './stance-art';
+import { lowReloadAtlas } from './low-reload-art';
 import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
@@ -591,6 +592,7 @@ export function loadArt() {
       loadImage('/art/heavy-mg-v140.png'),
       loadImage('/art/glider-v141.png'),
       loadImage('/art/infantry-stance-v142.png'),
+      loadImage('/art/infantry-reload-v143.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -635,6 +637,7 @@ export function loadArt() {
         heavyMG,
         gliderSheet,
         stanceSheet,
+        lowReloadSheet,
       ],
       extra,
       trees,
@@ -680,11 +683,12 @@ export function loadArt() {
       const reload8 = standingReloadFrames(standingReload);
       const grenade8 = standingGrenadeFrames(standingGrenade);
       const stance16 = stanceAtlas(stanceSheet);
+      const lowReload16 = lowReloadAtlas(lowReloadSheet);
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8, stance16 },
-        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8, stance16 },
-        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8, stance16 },
-        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8, stance16 },
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8, stance16, lowReload16 },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8, stance16, lowReload16 },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8, stance16, lowReload16 },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8, stance16, lowReload16 },
       };
       // The settled posture is the last painted cel: no snap to a differently
       // proportioned legacy body at the exact end of the transition.

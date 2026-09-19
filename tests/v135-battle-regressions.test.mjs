@@ -123,14 +123,15 @@ test('treatment and low-posture reloads use grounded frames, never the run or cl
     const allowed = pose === 'prone' ? [2, 3, 12] : pose === 'idle' ? [0] : [1, 13];
     for (const treatment of [false, true]) {
       u.tending = treatment;
+      u.ammo = 0;
       u.reloadingStartAt = 0;
       u.reloadingUntil = 3;
       for (let t = 0; t < 3; t += 0.05) {
         u.tendingTime = t;
         const f = adultFrameChoice(u, t);
-        if (pose === 'idle' && !treatment) {
-          assert.equal(f.group, 'reload8');
-          assert.equal(f.index, Math.min(7, Math.floor(t / 3 * 8)));
+        if (!treatment) {
+          assert.equal(f.group, pose === 'idle' ? 'reload8' : 'lowReload16');
+          assert.equal(f.index, (pose === 'prone' ? 8 : 0) + Math.min(7, Math.floor(t / 3 * 8)));
           continue;
         }
         assert.equal(f.group, 'actions20');

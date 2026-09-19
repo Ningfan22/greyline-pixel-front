@@ -1,0 +1,43 @@
+Use case: stylized-concept
+Asset type: v143, a single original game animation atlas of sixteen rifle-reload cels.
+
+Generate exactly ONE new PNG atlas, ideally 2048 x 2048, with real RGBA transparency. FOUR columns and FOUR rows, sixteen equal square cells, one complete full-body soldier in each cell. This is a new drawing; the already-viewed infantry-stance-v142.png is a STYLE AND ANATOMY REFERENCE ONLY, not an edit target. Its frame 8 is the stable kneeling endpoint reference, and its frame 16 is the flat prone endpoint reference. Do not reproduce that sheet's standing-to-prone transition or its layout defects. Create newly authored reload poses.
+
+Background: genuinely transparent alpha 0 everywhere outside the figures, weapons and held magazines, including all gutters and internal gaps. No opaque backdrop and no painted checkerboard. Generous completely clear gutters around every cel.
+
+Character and rendering: the SAME adult modern infantry rifleman, right-facing exact side view, olive-drab helmet and uniform, tactical vest and pouches, dark boots, dark modern rifle, worn cloth, gritty muted earth/olive palette, detailed digitally painted realistic anatomy. Preserve reference character proportions, helmet, vest, rifle and boot design. Not chibi, not blocky pixel art, no enlarged head or exaggerated hands. Fixed camera, physical scale and lighting across all 16 cels.
+
+CRITICAL GRID REGISTRATION:
+At 2048 square each tile is exactly 512 x 512. Imaginary cell edges are x and y = 0, 512, 1024, 1536, 2048. Do NOT draw these edges. Position each figure relative to its OWN tile, with the front ground contact at exactly local y = 461 (90% of tile height) and ample transparent space above and below. Nothing crosses any tile edge. Maintain clear horizontal margins of approximately 8% of tile width on both sides, including the rifle muzzle and the rear boot. Every cel retains the entire body, all boots, all limbs and the whole rifle. Do not let limbs from one row enter the next row. Do not enlarge or vertically center figures individually.
+
+ONE COMMON ANATOMICAL SCALE FOR BOTH STANCES:
+A hypothetical upright version of this soldier would measure 65% of one tile height, about 333 px. In all eight kneeling cels the crouched full-body height is about 44% of tile height, about 225 px, helmet top around local y = 236 and ground contacts at y = 461. In all eight prone cels body height is about 18%, about 92 px, helmet top around local y = 369 and ground contacts at y = 461. Keep helmet, torso, upper/lower arm, thigh, shin, boot, and rifle physical lengths consistent between the two stances. The prone soldier must look flattened horizontally at the SAME scale, never zoomed in or enlarged to fill the cell. Leave the large empty area above prone bodies transparent.
+
+ANIMATION ORGANIZATION:
+Read row-major, left to right, top to bottom. First TWO complete rows, cels 1-8, are ONE-KNEE RELOAD ONLY. Last TWO complete rows, cels 9-16, are FLAT PRONE RELOAD ONLY. Never alternate knee and prone, never transition stance during a sequence.
+
+KNEELING CELS 1-8:
+Keep the rear knee and front boot grounded, fixed leg placement, same torso and helmet position, and same head height throughout. The stable one-knee posture matches reference frame 8. Only hands, forearms, magazine, and small rifle tilt move. Clearly readable hand/magazine silhouettes should tell the reload story.
+Row 1, col 1 / cel 1: stable knee, rifle aimed horizontally right, both hands in the ordinary aiming grip.
+Row 1, col 2 / cel 2: rifle lowers slightly but remains pointed right; support hand leaves fore-end and visibly reaches toward the magazine.
+Row 1, col 3 / cel 3: support hand holds the removed empty magazine clearly separated just beneath the magazine well, with a visible transparent gap.
+Row 1, col 4 / cel 4: support hand reaches a vest magazine pouch to obtain a fresh magazine; rifle remains supported, knee and head stay fixed.
+Row 2, col 1 / cel 5: fresh magazine visible in support hand moving toward the empty magazine well, still clearly separate.
+Row 2, col 2 / cel 6: magazine seated; support palm beneath its base presses it home.
+Row 2, col 3 / cel 7: hand moves to the charging-handle area near the rifle receiver for a small clear pulling gesture, while the other hand supports the rifle. No lifted overhead arm.
+Row 2, col 4 / cel 8: both hands return to exactly cel 1's stable rifle-aimed knee pose, matching its silhouette, position, body scale and ground contacts.
+
+PRONE CELS 9-16:
+The soldier remains fully prone, flat and horizontal throughout, matching reference frame 16, facing right with boots trailing left. Hips, extended legs and supporting elbow stay planted at the same local positions. Head and torso remain nearly stationary; forearms and hands articulate for the reload. Both legs stay extended; never bend into a four-legged crouch. Rifle points right for the entire sequence.
+Row 3, col 1 / cel 9: stable full-body prone aimed pose, rifle horizontal right, cheek near stock.
+Row 3, col 2 / cel 10: small controlled lowering of rifle while the moving hand reaches the magazine; supporting elbow and hips remain grounded.
+Row 3, col 3 / cel 11: empty magazine visibly withdrawn from its well and held nearby, separated by a small clear transparent gap.
+Row 3, col 4 / cel 12: moving hand reaches a vest pouch for a fresh magazine without raising the torso or hips.
+Row 4, col 1 / cel 13: new magazine held clearly just short of the magazine well, moving into position.
+Row 4, col 2 / cel 14: magazine seated; palm visibly presses its base; torso and legs remain flat.
+Row 4, col 3 / cel 15: small charging-handle hand gesture near receiver while supporting elbow, hips and legs stay planted.
+Row 4, col 4 / cel 16: return to exactly cel 9's full-body rifle-aimed prone pose and registration.
+
+Each intermediate reload beat must be visually distinct through hand position, magazine location and rifle support. The start/end aiming poses of each eight-cel sequence intentionally match. Keep all hand actions anatomically coherent, physically attached to arms, and within their cells. Maintain figure size and fixed stance; do not fake reload progress by shifting the whole body.
+
+Avoid: floor, ground patch, cast shadow, floating debris or loose magazines outside the cel, text, labels, cell numbers, borders, guide lines, UI, watermarks, muzzle flash, firing, blood, injury, casualty, extra people, extra limbs, missing limbs, overhead gestures, waving, climbing, crawling, stance alternation, bent four-legged pose, cropped rifle, clipped boots, perspective rotation, enlarged prone anatomy. Output only this single transparent atlas.

@@ -3,7 +3,7 @@ import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, t
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
-import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress } from './infantry-action-timing';
+import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
@@ -3433,7 +3433,7 @@ function setStance(
     return desired;
   }
   // Finish a magazine drill before starting another whole-body action.
-  if (!u.wounded && (u.reloadingUntil ?? 0) > time) return u.pose;
+  if (!u.wounded && magazineReloadActive(u, time)) return u.pose;
   if (
     !u.wounded &&
     u.stanceLockUntil !== undefined &&
@@ -9353,13 +9353,8 @@ export function tick(s: GameState, dt: number) {
           }
           u.rapidUntil = 0;
           u.fire = 0.25;
-          // Slow-firing infantry (snipers, AT, riflemen) visibly work the
-          // bolt/magazine through the first part of their cooldown.
-          if (c.members && !gunBurst && u.cooldown >= 0.7 && u.cooldown < 4)
-          {
-            u.reloadingUntil = s.time + u.cooldown * 0.55;
-            u.reloadingStartAt = s.time;
-          }
+          // A discharged round cycles the weapon, not the entire magazine.
+          // Only the dry-magazine/top-up/handoff paths start a reload below.
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
@@ -9697,7 +9692,7 @@ export function tick(s: GameState, dt: number) {
               ? squadFormationLane(s, u)
               : undefined;
         const laneChange =
-          desiredLane !== undefined
+          desiredLane !== undefined && !stanceTransitionActive(u, s.time)
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
             : 0;
         u.lane += laneChange;
