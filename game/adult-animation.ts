@@ -290,7 +290,6 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
     traceGlanceChoice(u, time) ??
     dugInTraceGlanceChoice(u, time) ??
     boundingRestChoice(u, time) ??
-    leaderRadioChoice(u, time) ??
     crouchFidgetChoice(u, time) ??
     proneFidgetChoice(u, time) ??
     magCheckChoice(u, time) ??
@@ -320,7 +319,10 @@ export function contactCalloutChoice(
   if (u.pose !== 'idle' && u.pose !== 'walk') return null;
   const dir = u.calloutDir ?? 1;
   const wave = Math.floor(((u.calloutUntil ?? 0) - time) * 6) % 2;
-  return wave ? { ...action(9), dir } : { ...action(0), dir };
+  // v128: dedicated hand-signal frames — the old action(9) is the climb
+  // pose (arm up + knee raised), so a contact shout read as a man scaling
+  // a wall in the middle of a field. sig(1) waves overhead, sig(0) points.
+  return wave ? { ...sig(1), dir } : { ...sig(0), dir };
 }
 
 /**
@@ -342,7 +344,8 @@ export function leaderPointChoice(
   if (u.pose !== 'idle' && u.pose !== 'walk') return null;
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
   if ((u.fragThrow ?? 0) > 0) return null;
-  return { ...action(9), dir: u.pointDir ?? 1 };
+  // v128: sig(0) point-forward instead of the climb pose (see above).
+  return { ...sig(0), dir: u.pointDir ?? 1 };
 }
 
 /**
@@ -386,32 +389,6 @@ export function boundingRestChoice(
 }
 
 /**
- * v120: leader radio beat — a squad leader holding position out of contact
- * periodically raises a hand to his ear as if working the radio, alternating
- * with the alert stance so the beat reads as a live comms check instead of a
- * statue. Animation-only, like the other idle layers. Only fires out of
- * contact — a leader in a fight has the point-out and callout layers above.
- */
-export function leaderRadioChoice(
-  u: Unit,
-  time: number,
-): AdultFrameChoice | null {
-  if (!u.leader) return null;
-  if ((u.contactUntil ?? 0) > time) return null;
-  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
-  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
-  if (u.suppression > 0.4) return null;
-  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
-  if (u.vacuum) return null;
-  if ((u.fragThrow ?? 0) > 0) return null;
-  if (u.pose !== 'idle') return null;
-  const period = 13 + (u.uid % 4) * 1.1;
-  const phase = (time + u.uid * 4.57) % period;
-  if (phase >= 2.4) return null;
-  return Math.floor((2.4 - phase) * 2.6) % 2 ? action(8) : action(0);
-}
-
-/**
  * v120: magazine check — a rifleman holding position periodically hunches
  * over the mag well and seats/checks the magazine, so a held line reads as
  * professionals maintaining their kit instead of statues. Animation-only.
@@ -434,7 +411,7 @@ export function magCheckChoice(
   const phase = (time + u.uid * 6.83) % period;
   if (phase >= 2.6) return null;
   if (phase < 0.9) return action(13); // hunch over the mag well
-  if (phase < 1.7) return action(9); // arm forward, seat/check the mag
+  if (phase < 1.7) return action(1); // drop a knee to seat/check the mag
   return action(13); // back to the hunch
 }
 
@@ -511,12 +488,17 @@ function reloadBeat(u: Unit, time: number): AdultFrameChoice {
   if (u.pose === 'prone')
     return action(Math.floor(elapsed * 3) % 2 ? 3 : 2);
   const beat = Math.min(3, Math.floor((elapsed / duration) * 4));
+  // v128: frames 8/9 are the CLIMB cycle (raised hand + raised knee). The old
+  // chains reused them for the "seat the mag" / "rack the handle" beats, which
+  // is why reloading soldiers kept flashing the swim-lane climb pose. Use the
+  // kneeling-work frame (13) and the single-knee frame (1) for the active
+  // beats instead — same hunch-and-reach read, no climb.
   // Crouched: hunch over the mag well, drop to a knee, hunch again, arm
   // forward to seat the fresh mag.
-  if (u.pose === 'crouch') return action([13, 1, 13, 9][beat]);
-  // Standing / hunkered: hunch, arm forward to the chest rig, hunch to seat
-  // the mag, arm overhead to rack the charging handle.
-  return action([13, 9, 13, 8][beat]);
+  if (u.pose === 'crouch') return action([13, 1, 13, 1][beat]);
+  // Standing / hunkered: hunch, reach to the chest rig, hunch to seat the
+  // mag, settle back to alert.
+  return action([13, 1, 13, 0][beat]);
 }
 
 function poseHeightClass(
@@ -591,12 +573,15 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     const t = u.fragThrow ?? 0;
     // v120: pose-specific throw chains so a crouching grenadier stays on a
     // knee and a prone one stays on the deck instead of popping to standing.
+    // v128: the middle beat used frame 9 (climb — raised knee + arm), which
+    // read as the swim-lane pose. The kneeling-work frame (13) carries the
+    // same arm-cocked release without the climb silhouette.
     const chain =
       u.pose === 'prone'
-        ? [3, 9, 2]
+        ? [3, 13, 2]
         : u.pose === 'crouch'
-          ? [11, 9, 10]
-          : [8, 9, 10];
+          ? [11, 13, 10]
+          : [13, 1, 0];
     if (t > 0.33) return action(chain[0]); // wind-up
     if (t > 0.17) return action(chain[1]); // release
     return action(chain[2]); // follow-through
@@ -625,7 +610,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // instead of two identical hunches. Only upright soldiers run the drill —
   // a pinned rifleman stays low and waits for a lull in the fire.
   if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
-    return (u.reloadingUntil ?? 0) > time ? action(13) : action(9);
+    // v128: giver extends an arm (sig point-forward) instead of the climb pose.
+    return (u.reloadingUntil ?? 0) > time ? action(13) : sig(0);
   // v83: looting a fallen comrade's kit — a knee-down rummage beat
   // alternating with the huddled work beat so the search reads as active.
   if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
@@ -756,7 +742,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     !u.moving &&
     (u.pose === 'idle' || u.pose === 'walk')
   )
-    return action(9);
+    // v128: point-forward signal beat instead of the climb pose.
+    return sig(0);
   return action(0);
 }
 export function adultWreckChoice(

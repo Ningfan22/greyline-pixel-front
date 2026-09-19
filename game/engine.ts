@@ -245,6 +245,10 @@ export interface Unit {
   /** v83: loot window — until this timestamp the soldier is huddled over the body. */
   scavengeUntil?: number;
   observingUntil?: number;
+  /** v128: when a continuous observing spell started (hysteresis). */
+  observingSince?: number;
+  /** v128: hold the prone observer pose until this timestamp. */
+  observingHoldUntil?: number;
   readyAt?: number;
   exposedUntil?: number;
   firingGoal?: number | null;
@@ -284,9 +288,8 @@ export interface Unit {
   /** v84: on the casualty — tourniquet window; bleedout nearly frozen until this time. */
   stabilizedUntil?: number;
   sortKey?: number;
-  /** v127: basic stance (idle/crouch/prone) changes are rate-limited. */
+  /** v127/v128: stance-class (stand/crouch/prone) changes are rate-limited. */
   stanceLockUntil?: number;
-  lockedStance?: string;
   /** v127: after a cover peek ends, the soldier rests behind cover this long. */
   peekRestUntil?: number;
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
@@ -3292,27 +3295,39 @@ export function peekShouldExpose(s: GameState, u: Unit): boolean {
 }
 
 /**
- * v127: rate-limit basic stance changes. Soldiers used to flip between
+ * v127/v128: rate-limit stance-class changes. Soldiers used to flip between
  * stand/crouch/prone every time the tactic or order context twitched, which
- * read as nervous hopping on the field. A stance change is accepted at most
- * once per STANCE_COOLDOWN_S; while locked, the previous stance is kept.
- * Emergency overrides (flinch, peek exposure, observation, air contact,
- * cover shot) assign u.pose after this block and bypass the lock by design.
+ * read as nervous hopping on the field. A cross-class change is accepted at
+ * most once per STANCE_COOLDOWN_S.
+ *
+ * v128: the lock is evaluated against the *current* u.pose, not a separate
+ * lockedStance field. Functional override blocks (cover peek, observation
+ * hold, flinch, air contact, reload) run after this block and write u.pose
+ * directly; while a cross-class change is locked this function returns the
+ * current pose, so the main path yields to those overrides instead of
+ * re-asserting a stale stance every frame (that fight was the prone/up
+ * twitch). Within-class changes (idle<->walk<->run, crouch<->hunker) are
+ * always free, and motion poses (jump/land/climb) bypass the lock.
  */
 const STANCE_COOLDOWN_S = 10;
+function stanceClass(
+  pose: string,
+): 'stand' | 'crouch' | 'prone' | 'motion' {
+  if (pose === 'prone') return 'prone';
+  if (pose === 'crouch' || pose === 'hunker') return 'crouch';
+  if (pose === 'jump' || pose === 'land' || pose === 'climb') return 'motion';
+  return 'stand';
+}
 function applyStanceCooldown(
   u: Unit,
   time: number,
   desired: string,
 ): string {
-  if (u.lockedStance === undefined) {
-    u.lockedStance = desired;
-    u.stanceLockUntil = time + STANCE_COOLDOWN_S;
-    return desired;
-  }
-  if (u.lockedStance === desired) return desired;
-  if (time < (u.stanceLockUntil ?? 0)) return u.lockedStance;
-  u.lockedStance = desired;
+  const curClass = stanceClass(u.pose);
+  if (curClass === 'motion') return desired;
+  if (curClass === stanceClass(desired)) return desired;
+  if (u.stanceLockUntil !== undefined && time < u.stanceLockUntil)
+    return u.pose;
   u.stanceLockUntil = time + STANCE_COOLDOWN_S;
   return desired;
 }
@@ -8599,17 +8614,50 @@ export function tick(s: GameState, dt: number) {
         s.time - (u.lastCombatShotAt ?? -Infinity) <
           Math.min(0.18, c.rate! * 0.35))
     );
-    if (!seeking && threat && (u.exposedUntil ?? 0) > s.time) u.pose = 'idle';
+    // v128: never snap a pinned observer back up to idle — the observer
+    // hold below owns the prone pose while aircraft are overhead or a
+    // scout is scanning. Fighting the two every tick was the prone/up
+    // twitch.
+    if (
+      !seeking &&
+      threat &&
+      (u.exposedUntil ?? 0) > s.time &&
+      (u.observingHoldUntil ?? 0) <= s.time
+    )
+      u.pose = 'idle';
     if (threat && c.members) {
       if ((u.aimUntil ?? 0) <= s.time) u.readyAt = s.time;
       u.aimUntil = s.time + 2.5;
     }
+    // v128: hysteresis on the observer pose. `observing` flickers as contact
+    // appears and drops out of scan range; snapping straight to prone made
+    // scouts bob up and down every few ticks. Require a sustained observing
+    // spell before dropping, then hold the pose for a full beat.
     if (observing) {
+      u.observingSince ??= s.time;
+    } else {
+      u.observingSince = undefined;
+    }
+    if (observing && s.time - (u.observingSince ?? s.time) > 0.5)
+      u.observingHoldUntil = Math.max(
+        u.observingHoldUntil ?? 0,
+        s.time + 1.2,
+      );
+    if ((u.observingHoldUntil ?? 0) > s.time) {
       u.pose = 'prone';
       // Spotters hold the radio pose on a timer the renderer can read.
       if (u.id === 'scouts') u.observingUntil = s.time + 0.25;
     }
-    if (u.cover > 0.2 && !seeking && threat) {
+    // v128: while the observer hold is active the soldier is pinned to the
+    // deck watching aircraft / scanning — the cover block below must not
+    // pop him back up to a crouch every tick (that was the prone/up twitch).
+    // Observers in this state have no shot to peek for anyway.
+    if (
+      u.cover > 0.2 &&
+      !seeking &&
+      threat &&
+      (u.observingHoldUntil ?? 0) <= s.time
+    ) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
       if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
         peekShouldExpose(s, u);
@@ -8630,6 +8678,7 @@ export function tick(s: GameState, dt: number) {
     // decorative bolt-cycle after a shot does not.
     const reloadingUnderContact =
       c.members &&
+      (u.observingHoldUntil ?? 0) <= s.time &&
       (u.ammo === 0 || u.tacticalReload) &&
       (u.reloadingUntil ?? 0) > s.time &&
       (u.contactUntil ?? 0) > s.time &&
@@ -8660,8 +8709,16 @@ export function tick(s: GameState, dt: number) {
         u.tacticalReload = true;
       }
     }
+    // v128: aircraft overhead pins the squad — but route it through the
+    // observer hold instead of snapping `u.pose` directly. airContact
+    // flickers in and out as planes cross the scan cone, and a bare pose
+    // assignment fought the cover/observer blocks every tick (the prone
+    // twitch). The hold is sticky and the observer block owns the pose.
     if (airContact && !c.antiAir && !seeking && order !== 'rush')
-      u.pose = 'prone';
+      u.observingHoldUntil = Math.max(
+        u.observingHoldUntil ?? 0,
+        s.time + 1.2,
+      );
     let bounding =
       c.members &&
       !withdrawing &&
@@ -8749,7 +8806,9 @@ export function tick(s: GameState, dt: number) {
         tx += (rnd(s) - 0.5) * 90;
         ty += (rnd(s) - 0.5) * 44;
       }
-      if (coverShot) {
+      // v128: don't pop a pinned observer up to fire at cover — the
+      // observer hold owns the pose while aircraft are overhead.
+      if (coverShot && (u.observingHoldUntil ?? 0) <= s.time) {
         u.pose = 'idle';
         u.exposedUntil = s.time + 2.5;
       }
@@ -8781,7 +8840,8 @@ export function tick(s: GameState, dt: number) {
           tx += (rnd(s) - 0.5) * jitter * 2;
         }
       }
-      if (c.indirect && !c.vehicle) u.pose = 'crouch';
+      if (c.indirect && !c.vehicle && (u.observingHoldUntil ?? 0) <= s.time)
+        u.pose = 'crouch';
       if (
         u.cooldown <= 0 &&
         !overheated(s, u) &&
@@ -8794,10 +8854,21 @@ export function tick(s: GameState, dt: number) {
         (c.sortieAmmo === undefined || u.shots < c.sortieAmmo)
       ) {
         if (firingHeight(s, u, tx, ty) === 47) {
-          u.pose = 'idle';
-          // Brief follow-through only — the peek rhythm in the cover block
-          // decides how long he stays up, so he drops back to reload between shots.
-          u.exposedUntil = Math.max(u.exposedUntil ?? -Infinity, s.time + 0.35);
+          // v128: never snap the pose per shot — the peek/cover block owns
+          // stance. Keep the exposure window alive across the whole burst and
+          // push the reload rest past the last shot, so a soldier fires a
+          // real burst standing, drops back once, and stays down instead of
+          // bobbing up and down round by round (the old 0.35s per-shot
+          // extension made him twitch between idle and crouch/prone).
+          const burstWindow = Math.max(0.9, (c.rate ?? 0.5) * 4);
+          u.exposedUntil = Math.max(
+            u.exposedUntil ?? -Infinity,
+            s.time + burstWindow,
+          );
+          u.peekRestUntil = Math.max(
+            u.peekRestUntil ?? 0,
+            u.exposedUntil + 1.4 + Math.min(1.0, u.suppression * 0.01),
+          );
         }
         const point = muzzlePoint(u, tx),
           sx = point.x,
@@ -9053,7 +9124,7 @@ export function tick(s: GameState, dt: number) {
             u.deadFor = 0;
             u.fire = 0;
           }
-        } else if (c.members && u.pose === 'prone') u.pose = 'crouch';
+        }
       }
     } else if (
       !treating &&
