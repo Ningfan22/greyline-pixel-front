@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
@@ -463,6 +464,8 @@ export interface Unit {
   healing: number;
   tending?: boolean;
   tendingTime?: number;
+  tendingKind?: SupportWork;
+  tendingTargetUid?: number;
   repairTime: number;
   recoverySupportUntil?: number;
   commandSupportUntil?: number;
@@ -7398,6 +7401,7 @@ export function tick(s: GameState, dt: number) {
   updateSquadCommand(s);
   for (const u of s.units) {
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
+    const previousWork = beginSupportTick(u);
     u.crouchMoveRequested = false;
     u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
@@ -7672,7 +7676,7 @@ export function tick(s: GameState, dt: number) {
         u.fire = 0;
         u.secondaryFire = 0;
         u.moving = false;
-        u.pose = setStance(u, s.time, 'crouch');
+        u.pose = setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'crouch');
         u.y = ground(s, u.x);
         continue;
       }
@@ -7757,7 +7761,7 @@ export function tick(s: GameState, dt: number) {
       c.members &&
       u.hp >= u.maxHp * 0.5 &&
       u.personalMorale >= 40 &&
-      !u.tending &&
+      !previousWork.tending &&
       u.id !== 'medic' &&
       u.squadOrder !== 'retreat' &&
       u.withdrawHeavyUid === undefined &&
@@ -7820,7 +7824,7 @@ export function tick(s: GameState, dt: number) {
       u.hp >= u.maxHp * 0.5 &&
       u.personalMorale >= 40 &&
       u.suppression < 55 &&
-      !u.tending &&
+      !previousWork.tending &&
       u.id !== 'medic' &&
       u.squadOrder !== 'retreat' &&
       u.withdrawHeavyUid === undefined &&
@@ -7958,6 +7962,11 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    // An ongoing service task requests the same height before the generic
+    // combat stance commits. Otherwise every expired ten-second lock could
+    // make a treating medic stand up and immediately ask to kneel again.
+    if (previousWork.tending && c.members && order !== 'prone')
+      desiredPose = u.pose === 'prone' ? 'prone' : 'crouch';
     // A tripod is worked from a low position; this request still passes the
     // shared ten-second posture gate and the authored transition below.
     if (isHeavyGunner(u) && ((u.contactUntil ?? 0) > s.time ||
@@ -7968,7 +7977,7 @@ export function tick(s: GameState, dt: number) {
     // to stand up again; honoring the lock consequently left that man silent.
     if (c.members && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
         order !== 'prone' && order !== 'crouch' &&
-        desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
+        !previousWork.tending && desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
       const lowBody = { ...u, pose: desiredPose, moving: false };
       if (s.units.some(enemy => enemy.side !== u.side && isCombatant(enemy) &&
           !CARDS[enemy.id].air && visibleToSide(s, u.side, enemy) &&
@@ -7988,7 +7997,7 @@ export function tick(s: GameState, dt: number) {
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
-      ? setStance(u, s.time, desiredPose, { travel: order === 'crouch' && (u.contactUntil ?? 0) <= s.time && !u.tending })
+      ? setStance(u, s.time, desiredPose, { travel: order === 'crouch' && (u.contactUntil ?? 0) <= s.time && !previousWork.tending })
       : desiredPose;
     if (c.members && u.withdrawStandby)
       u.pose = setStance(u, s.time, 'crouch', { force: true });
@@ -8167,11 +8176,11 @@ export function tick(s: GameState, dt: number) {
       if (c.static) {
         treating = true;
         u.moving = false;
-        setStance(u, s.time, 'crouch');
+        setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'crouch');
       }
       if (patient) {
         treating = true;
-        u.pose = setStance(u, s.time, 'crouch');
+        u.pose = setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'crouch');
         const movingToPatient =
           !c.static && patient.wounded && Math.abs(patient.x - u.x) > 64;
         if (movingToPatient) {
@@ -8183,27 +8192,22 @@ export function tick(s: GameState, dt: number) {
             c.speed! * u.pace * 0.8,
             dt,
           );
-          u.tending = false;
-          u.tendingTime = 0;
-        } else if (u.supportCooldown <= 0) {
-          u.tending = true;
-          u.tendingTime = (u.tendingTime ?? 0) + dt;
-          if (patient.wounded) {
-            // v132: 治疗量越高的医疗单位扶起倒地伤员越快
-            patient.rescueProgress += 0.8 * Math.max(1, c.heal / 6);
-            patient.rescuedAt = s.time;
-          }
-          patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
-          patient.healing = 0.6;
-          u.healing = 0.6;
-          u.supportCooldown = 0.8;
         } else {
-          u.tending = true;
-          u.tendingTime = (u.tendingTime ?? 0) + dt;
+          continueSupportWork(u, previousWork, 'medical', patient.uid, s.time, dt);
+          if (patient.x !== u.x) u.facing = Math.sign(patient.x - u.x);
+          if (u.supportCooldown <= 0) {
+            if (patient.wounded) {
+              // v132: 治疗量越高的医疗单位扶起倒地伤员越快
+              patient.rescueProgress += 0.8 * Math.max(1, c.heal / 6);
+              patient.rescuedAt = s.time;
+            }
+            patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
+            patient.healing = 0.6;
+            u.healing = 0.6;
+            u.supportCooldown = 0.8;
+          }
         }
       } else {
-        u.tending = false;
-        u.tendingTime = 0;
         // v79: no patient in triage range — a medic follows a fresh friendly
         // blood trail to where a casualty was last dragged, closing the gap
         // until normal triage picks the man up. Enemy blood is ignored:
@@ -8263,11 +8267,10 @@ export function tick(s: GameState, dt: number) {
             c.speed! * u.pace * 0.85,
             dt,
           );
-          u.tending = false;
         } else {
-          u.pose = setStance(u, s.time, 'crouch');
-          u.tending = true;
-          u.tendingTime = (u.tendingTime ?? 0) + dt;
+          u.pose = setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'crouch');
+          continueSupportWork(u, previousWork, 'repair', vehicle.uid, s.time, dt);
+          if (vehicle.x !== u.x) u.facing = Math.sign(vehicle.x - u.x);
           if (u.supportCooldown <= 0) {
             vehicle.hp = Math.min(vehicle.maxHp, vehicle.hp + 8);
             vehicle.healing = 0.6;

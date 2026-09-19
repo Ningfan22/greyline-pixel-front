@@ -18,6 +18,8 @@ export interface AdultSprites {
   stance16: HTMLCanvasElement[];
   /** Eight fixed-knee and eight prone magazine drills. */
   lowReload16: HTMLCanvasElement[];
+  /** Eight medical-work cels at each of stand, knee and prone height. */
+  medical24: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -31,7 +33,7 @@ export interface AdultFrameChoice {
 }
 /** These are whole-body authored actions, not bases for a decorative torso. */
 export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
-  return !!choice && ['stance16','reload8','lowReload16','grenade8','reactions8'].includes(choice.group);
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','reactions8','medical24'].includes(choice.group);
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -294,7 +296,8 @@ export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   // Do not let decorative layers replace a throw, reload, or an authored
   // stance transition. They must never invent a different body height.
   if ((u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
-      stanceTransitionActive(u, time) || u.flash > 0 || u.tending) return null;
+      stanceTransitionActive(u, time) || u.flash > 0 || u.tending ||
+      (u.firstAidUntil ?? 0) > time) return null;
   return (
     heardContactGlanceChoice(u, time) ??
     blastGlanceChoice(u, time) ??
@@ -422,9 +425,7 @@ export function magCheckChoice(
   const period = 21 + (u.uid % 5) * 1.3;
   const phase = (time + u.uid * 6.83) % period;
   if (phase >= 2.6) return null;
-  if (phase < 0.9) return action(13); // hunch over the mag well
-  if (phase < 1.7) return action(1); // drop a knee to seat/check the mag
-  return action(13); // back to the hunch
+  return action(1); // no dedicated kit-check drill yet: retain the planted knee
 }
 
 /**
@@ -448,10 +449,7 @@ export function engineerFussChoice(
   const period = 16 + (u.uid % 4) * 1.2;
   const phase = (time + u.uid * 5.29) % period;
   if (phase >= 2.8) return null;
-  // Keep the work on one knee; bank/vault frames do not belong in this drill.
-  if (phase < 1.2) return action(13); // kneeling, working the kit
-  if (phase < 2.0) return action(1); // keep the established kneeling height
-  return action(13); // back to the kneeling work
+  return action(1); // frame 13 is crawling, not kneeling kit work
 }
 
 /** Dedicated painted progression, using the simulation's posture clock.
@@ -465,11 +463,26 @@ const POSE_CHAINS: Record<
   prone: { stand: [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0], crouch: [15,14,13,12,11,10,9,8] },
 };
 /** Work may move the arms, but never invent a new stance behind the AI's back. */
-function groundedWork(u: Unit, time: number): AdultFrameChoice {
-  if (u.pose === 'prone') return action(3);
+function groundedWork(u: Unit, _time: number): AdultFrameChoice {
+  if (u.pose === 'prone') return action(2);
   if (u.pose === 'crouch' || u.pose === 'hunker')
-    return action(Math.floor(time * 1.5 + u.uid) % 2 ? 13 : 1);
+    return action(1);
   return action(0);
+}
+
+/** Only a real treatment task may own the painted medical body. */
+export function medicalWorkChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
+      u.moving || u.motion !== 'ground' || u.climbing > 0 ||
+      stanceTransitionActive(u, time) || crouchTravelAmount(u) > 0) return null;
+  const aid = (u.firstAidUntil ?? 0) > time;
+  const medical = u.tending && u.tendingKind === 'medical';
+  if (!aid && !medical) return null;
+  const pose = stanceHeightClass(u.pose);
+  const elapsed = aid ? Math.max(0, time - (u.firstAidUntil! - 1.5)) : u.tendingTime ?? 0;
+  const beat = aid ? Math.min(7, Math.floor(elapsed / 1.5 * 8))
+    : Math.floor(Math.max(0, elapsed) / .3) % 8;
+  return { group: 'medical24', index: (pose === 'stand' ? 0 : pose === 'crouch' ? 8 : 16) + beat };
 }
 
 /** One actual magazine clock, with authored cels at the committed height. */
@@ -548,31 +561,22 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     const elapsed = GRENADE_THROW_S - (u.fragThrow ?? 0);
     if (stanceHeightClass(u.pose) === 'stand')
       return { group: 'grenade8', index: Math.min(7, Math.max(0, Math.floor(elapsed / GRENADE_THROW_S * 8))) };
-    // v120: pose-specific throw chains so a crouching grenadier stays on a
-    // knee and a prone one stays on the deck instead of popping to standing.
-    // v128: the middle beat used frame 9 (climb — raised knee + arm), which
-    // read as the swim-lane pose. The kneeling-work frame (13) carries the
-    // same arm-cocked release without the climb silhouette.
-    // v130: the crouch wind-up still used frame 11 — ALSO a climb frame —
-    // so every crouched grenadier flashed the swimmer pose. Wind-up now
-    // stays on the kneeling-work beat (13) and release on the plain kneel (1).
+    // Low throws retain the committed body until their own hand-work cels
+    // exist. The former "kneeling work" frame 13 is actually a crawl.
     const chain =
       u.pose === 'prone'
         ? [3, 12, 2]
         : u.pose === 'crouch' || u.pose === 'hunker'
-          ? [13, 1, 13]
+          ? [1, 1, 1]
           : [0, 0, 0];
     if (elapsed < GRENADE_THROW_S / 2) return action(chain[0]); // wind-up
     if (elapsed < GRENADE_THROW_S * 0.75) return action(chain[1]); // release
     return action(chain[2]); // follow-through
   }
-  // Medics alternate between a kneeling pose and a low crouch while treating,
-  // never the hit-reaction fall frames.
-  if (u.tending)
-    return u.pose === 'prone' ? action(3)
-      : u.pose === 'crouch' || u.pose === 'hunker'
-        ? action(Math.floor((u.tendingTime ?? 0) * 2) % 2 ? 13 : 1)
-        : action(0);
+  const medical = medicalWorkChoice(u, time);
+  if (medical) return medical;
+  // Repair is a different job. It must not borrow bandaging or crawl cels.
+  if (u.tending && !u.moving && u.motion === 'ground') return groundedWork(u, time);
   // While changing a cooked barrel the gunner drops to one knee and works the
   // weapon, alternating with a low crouch so the pause reads as urgent labour.
   if ((u.overheatedUntil ?? 0) > time && !u.moving)
@@ -602,16 +606,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // a pinned rifleman stays low and waits for a lull in the fire.
   if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
     // v128: giver extends an arm (sig point-forward) instead of the climb pose.
-    return u.pose === 'crouch' || u.pose === 'hunker' ? action(13) : action(0);
+    return u.pose === 'crouch' || u.pose === 'hunker' ? action(1) : action(0);
   // v83: looting a fallen comrade's kit — a knee-down rummage beat
   // alternating with the huddled work beat so the search reads as active.
   if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
     return groundedWork(u, time);
-  // v84: combat lifesaver working a tourniquet — the medic kneel / low-crouch
-  // rhythm already used while tending, so the aid reads as skilled labour.
-  if ((u.firstAidUntil ?? 0) > time && u.pose !== 'prone')
-    return u.pose === 'crouch' || u.pose === 'hunker'
-      ? action(Math.floor(time * 2 + u.uid) % 2 ? 13 : 1) : action(0);
   if (
     (u.ammoSignalUntil ?? 0) > time &&
     !u.moving &&

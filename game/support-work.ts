@@ -1,0 +1,35 @@
+import type { Unit } from './engine';
+import { stanceTransitionActive } from './infantry-action-timing';
+import { crouchTravelAmount } from './crouch-locomotion';
+
+export type SupportWork = 'medical' | 'repair';
+type PreviousWork = Pick<Unit, 'tending' | 'tendingKind' | 'tendingTime' | 'tendingTargetUid'>;
+
+/** Work is renewed by the actual service branch, never left latched by an early exit. */
+export function beginSupportTick(u: Unit): PreviousWork {
+  const previous = {
+    tending: u.tending, tendingKind: u.tendingKind,
+    tendingTime: u.tendingTime, tendingTargetUid: u.tendingTargetUid,
+  };
+  u.tending = false;
+  u.tendingKind = undefined;
+  u.tendingTargetUid = undefined;
+  u.tendingTime = 0;
+  return previous;
+}
+
+export function continueSupportWork(
+  u: Unit, previous: PreviousWork, kind: SupportWork,
+  targetUid: number, time: number, dt: number,
+) {
+  const sameTask = previous.tending && previous.tendingKind === kind &&
+    previous.tendingTargetUid === targetUid;
+  u.tending = true;
+  u.tendingKind = kind;
+  u.tendingTargetUid = targetUid;
+  // Finish the real lowering/rising drill before playing hand work. Keep
+  // this clock independent of health pulses and how often the canvas draws.
+  const settled = !u.moving && u.motion === 'ground' &&
+    !stanceTransitionActive(u, time) && crouchTravelAmount(u) === 0;
+  u.tendingTime = settled ? (sameTask ? previous.tendingTime ?? 0 : 0) + dt : 0;
+}
