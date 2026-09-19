@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { tryVeteranReload, relayReloadActive } from './veteran-team';
 import { grenadeReleaseOrigin } from './grenade-geometry';
 import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
 import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContact, REPAIR_CONTACT_TOLERANCE, REPAIR_FIRST_WORK_S } from './repair-work';
@@ -318,6 +319,8 @@ export interface Unit {
   artilleryChecks?: number[];
   artilleryReactAt?: number;
   lastCombatShotAt?: number;
+  /** A real, completed magazine drill covered by the veteran's squad. */
+  relayReload?: boolean;
   stillFor?: number;
   ambushFor?: number;
   camouflageFor?: number;
@@ -2358,7 +2361,7 @@ function hitUnit(
           isCombatant(v) &&
           Math.abs(v.x - u.x) <= 90,
       ).length >= 2;
-    const resolve = supported || c.infantryAbility === 'elite' ? 0.65 : 1;
+    const resolve = supported || c.infantryAbility === 'elite' || c.infantryAbility === 'fire_discipline' ? 0.65 : 1;
     const umbrella = aaUmbrella(s, u.side, u.x) ? 0.7 : 1;
     const firebase = unitSynergy(s, u, s.time).fire_base ? 0.65 : 1;
     u.suppression = Math.min(
@@ -7896,6 +7899,7 @@ export function tick(s: GameState, dt: number) {
         }
       }
       u.reloadingUntil = 0;
+      u.relayReload = false;
     }
     u.secondaryCooldown -= dt;
     u.secondaryFire = Math.max(0, u.secondaryFire - dt);
@@ -9105,18 +9109,25 @@ export function tick(s: GameState, dt: number) {
     // animation's reload branch, which is why reloads used to be invisible
     // on the advance. Dry swaps and tactical top-ups both count; the
     // decorative bolt-cycle after a shot does not.
+    if (c.infantryAbility==='fire_discipline' && target && CARDS[target.id].members && Math.abs(target.x-u.x)>100 &&
+        !seeking && !treating && !displacing && !withdrawing && !withdrawalStep &&
+        order!=='rush' && (u.assaultSurgeUntil??0)<=s.time && (u.coverGoal===null) &&
+        (u.firingGoal==null))
+      tryVeteranReload(s,u,v=>Math.abs(v.x-target.x)<=unitRange(s,v) &&
+        visibleToSide(s,v.side,target) &&
+        firingHeight(s,v,target.x,target.y-bodyHeight(target))!==null);
     const reloadingUnderContact =
       c.members &&
       (u.observingHoldUntil ?? 0) <= s.time &&
       (u.ammo === 0 || u.tacticalReload) &&
       (u.reloadingUntil ?? 0) > s.time &&
-      (u.contactUntil ?? 0) > s.time &&
+      ((u.contactUntil ?? 0) > s.time || relayReloadActive(u,s.time)) &&
       order !== 'rush' &&
       (u.assaultSurgeUntil ?? 0) <= s.time &&
       !withdrawing &&
       u.tactic !== 'retreat' &&
       !withdrawalStep;
-    if (reloadingUnderContact)
+    if (reloadingUnderContact && !relayReloadActive(u,s.time))
       u.pose = setStance(
         u,
         s.time,
@@ -9128,6 +9139,7 @@ export function tick(s: GameState, dt: number) {
     // pinned, with enough reserve to fill the mag.
     if (
       c.members &&
+      (c.infantryAbility !== 'fire_discipline' || (!target && (u.contactUntil??0)<=s.time)) &&
       u.ammo > 0 &&
       !u.tacticalReload &&
       (u.reloadingUntil ?? 0) <= s.time &&
@@ -9202,6 +9214,7 @@ export function tick(s: GameState, dt: number) {
       fireCoax(s, u);
     if (
       (c.damage ?? 0) > 0 &&
+      !relayReloadActive(u,s.time) &&
       !ambushHold &&
       !mobileBurstStep &&
       (!c.armorOnly || !!target) &&

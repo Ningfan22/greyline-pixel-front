@@ -217,6 +217,7 @@ export interface Card {
     | 'rapid'
     | 'mountain_fire'
     | 'buddy_rally'
+    | 'fire_discipline'
     | 'elite';
   trait?:
     | 'close_assault'
@@ -1789,7 +1790,7 @@ export const CARDS: Record<CardId, Card> = {
     'veteran_squad',
     '老兵班组',
     4,
-    '6 名老兵，高士气高纪律，压制下仍能作战',
+    '6 名老兵，双人实射掩护，低弹成员逐个换弹',
     {
       members: 6,
       hp: 260,
@@ -1798,11 +1799,11 @@ export const CARDS: Record<CardId, Card> = {
       speed: 70,
       doctrine: 'assault',
       discipline: 96,
-      infantryAbility: 'elite',
+      infantryAbility: 'fire_discipline',
       uniform: 'elite',
-      tag: '前线 · 精锐主力',
+      tag: '前线 · 轮换装填',
       detail:
-        '6名久经沙场的老兵。96点纪律让他们在炮火压制下仍能保持射击，精英训练让他们快速进入伏击状态。比基础步兵班贵一倍，但战线稳定性完全不是一个级别。',
+        '4费6人260生命，96纪律。弹匣不超过12发时，若120内有两名同班队友实际开火掩护，则停稳成员逐个提前换弹；每班最多一人主动装填，耗时2.5秒、只消耗缺少的备用弹。不加快射速、不获得伏击首枪加成；个人受击压制和士气损失仍降低35%。散队、近敌100内或强行推进时不启动轮换，撤退不受阻。',
     },
   ),
   medic_team: variant(

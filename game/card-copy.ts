@@ -619,9 +619,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   veteran_squad: {
     en: 'VETERAN SQUAD',
-    typeLabel: '精锐主力',
-    ability: '老兵班组',
-    rule: '六老兵，高纪律抗压制。',
+    typeLabel: '持续作战',
+    ability: '轮换装填',
+    rule: '双人掩护，逐个换弹。',
     flavor: '伤疤就是资历章。',
   },
   medic_team: {
