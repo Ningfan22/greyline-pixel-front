@@ -5,6 +5,7 @@ import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
 import { heavyMGAtlas } from './heavy-mg-art';
+import { gliderAtlas } from './glider-art';
 import {
   adultIdentity,
   type AdultIdentity,
@@ -33,6 +34,7 @@ export interface Art {
   adults: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
   heavyMG?: SpecialistSprite[];
+  glider: HTMLCanvasElement[];
   background: HTMLCanvasElement;
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
   terrain: HTMLImageElement;
@@ -586,6 +588,7 @@ export function loadArt() {
       loadImage('/art/standing-reload-v135.png'),
       loadImage('/art/standing-grenade-v136.png'),
       loadImage('/art/heavy-mg-v140.png'),
+      loadImage('/art/glider-v141.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -628,6 +631,7 @@ export function loadArt() {
         standingReload,
         standingGrenade,
         heavyMG,
+        gliderSheet,
       ],
       extra,
       trees,
@@ -682,12 +686,14 @@ export function loadArt() {
       // Match the last raising pose to the established firing anatomy at the handoff.
       for (const id of Object.keys(adults) as AdultIdentity[])
         patrol[id].raise3[2] = adults[id].actions20[0];
+      const glider=gliderAtlas(gliderSheet);
       const wreckFramesMap = wreckFrames(
         groundWrecks,
         airWrecks,
         mobileVehicles,
         supportVehicles,
         extra.fpvSheet,
+        glider[6],
       );
       return {
         comeback,
@@ -699,8 +705,10 @@ export function loadArt() {
         adults,
         adultSpecialists: specialistAtlas(specialists),
         heavyMG: heavyMGAtlas(heavyMG),
+        glider,
         wrecks: wreckFramesMap,
-        wreckVariants: wreckVariants(wreckFramesMap),
+        wreckVariants: {...wreckVariants(wreckFramesMap),
+          glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),
         background,
         mapBackgrounds: extra.mapBackgrounds,
@@ -845,6 +853,7 @@ export function cardFrame(art: Art, index: number) {
 }
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
+  if(id==='glider_transport')return art.glider[frame%art.glider.length];
   if (c.members)
     return uniformFrame(art.adults[adultIdentity(id)].actions20[0], c.uniform);
   const mobile = art.mobileVehicles?.[id];
@@ -868,6 +877,7 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
+  if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];
   if (id === 'fpv_drone') return [54, 28];

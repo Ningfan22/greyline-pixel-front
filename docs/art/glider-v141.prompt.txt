@@ -1,0 +1,24 @@
+Use case: stylized-concept
+Asset type: one original transparent PNG gameplay sprite atlas for a gritty, realistic, painted-raster, side-on modern battlefield game. This is a functional animation/state atlas, not a poster or presentation.
+
+Canvas and layout: request exactly 2048 x 1536 pixels, arranged as exactly 2 columns x 4 rows, eight equal invisible cells, each 1024 x 384 pixels. Reading order is left to right, then top to bottom. Cell origins are (0,0), (1024,0), (0,384), (1024,384), (0,768), (1024,768), (0,1152), (1024,1152). Do not draw these guides, numbers, or any grid.
+
+Background: genuine transparent alpha, with alpha zero everywhere outside the glider silhouettes. No solid backdrop, white backdrop, baked checkerboard, gradients, terrain, floor, or cast floor shadows. The aircraft itself must have a solid opaque silhouette and naturally antialiased edges, including an opaque dark interior in open-door frames.
+
+Subject: the same small fictional unpowered military assault glider in every cell, sized and proportioned to carry four soldiers internally, but absolutely no people visible anywhere. Realistic streamlined fuselage, long glider wings, conventional tail, and black rubber landing skids. Olive-drab muted camouflage; believable subdued painted material, seams, scuffs, and surface wear. Unpowered: absolutely no engine, engine nacelle, exhaust, rotors, propeller, or jet. Right-facing in every frame, nose to the right and tail to the left. Complete aircraft including wings and tail, recognizable realistic painted proportions and textures, not tiny pixel-stick art, pixel art, cartoon, or diagram.
+
+Camera and registration: one fixed strictly side-on orthographic camera for all eight states. No three-quarter or top-down view. Keep exactly the same airframe identity, scale, orientation, camouflage placement, illumination, and fuselage position across all eight cells. Within each cell use local coordinates: fixed fuselage center (512,220), fixed ground/skid bottom y=314. Every part of each glider, including all wings, tail, skids, doors, and damaged parts, must remain fully contained in local x=90..934 and y=70..314. Maintain generous transparent gutters on all four sides, no content touching tile edges, no overlapping cells. Keep a readable solid silhouette. Do not rotate or shift the whole aircraft to communicate descent; use only the small specified control-surface change. Damage should preserve the same rough footprint and registration.
+
+Exactly eight distinct states:
+1. Row 1, left: clean intact closed fuselage in glide, side door fully closed.
+2. Row 1, right: same closed fuselage during descent, subtle wing/control-surface flex only. Same airframe size, center, and side-view pose.
+3. Row 2, left: touchdown; black rubber skids visibly compress, aircraft intact and side door closed. Keep skid bottom at local y=314.
+4. Row 2, right: grounded; side door starting to open, only a narrow opening, approximately one-quarter open.
+5. Row 3, left: same grounded aircraft; the same side door half open, clearly further open than state 4.
+6. Row 3, right: same grounded aircraft; the same side door fully open, exposing a dark empty opaque interior. No people, silhouettes of people, cargo, or unloading figures. States 4 through 6 must show a coherent progressive opening of the same door in the same location.
+7. Row 4, left: damaged grounded glider; clearly fractured wing and crushed right-facing nose, still recognizable as the same airframe, same rough footprint. No fire or smoke.
+8. Row 4, right: second, more severely wrecked state of the same glider; folded tail and torn fuselage skin, with the same rough footprint and right-facing orientation. No fire or smoke. Keep all wreck parts within the cell's specified bounds, no scattered particle debris.
+
+Lighting and finish: consistent muted realistic painted-raster game asset finish, tangible military airframe materials, subtle self-shading only, readable dark rubber skids, no rim glow, no surrounding haze. The clean frames retain realistic weathering without damage.
+
+Absolute exclusions: no people anywhere, no projectiles, no flames, no fire, no smoke, no particles, no floor shadows, no terrain, no background, no checkerboard pattern, no text, no labels, no numbers, no insignia, no logos, no watermark, no borders, no grid. Exactly one PNG containing all eight cells; do not output separate images.

@@ -89,7 +89,8 @@ const RARITY_POOLS: Record<Rarity, CardId[]> = (() => {
     epic: [],
     legendary: [],
   };
-  for (const id of Object.keys(CARDS) as CardId[]) pools[rarityOf(id)].push(id);
+  for (const id of Object.keys(CARDS) as CardId[])
+    if (!CARDS[id].internal) pools[rarityOf(id)].push(id);
   return pools;
 })();
 
@@ -132,11 +133,12 @@ export function collectionProgress(state: CollectionState): {
   let species = 0;
   let copies = 0;
   for (const id of Object.keys(CARDS) as CardId[]) {
+    if (CARDS[id].internal) continue;
     const n = state.owned[id] ?? 0;
     if (n > 0) species += 1;
     copies += n;
   }
-  return { species, total: Object.keys(CARDS).length, copies };
+  return { species, total: Object.values(CARDS).filter(c => !c.internal).length, copies };
 }
 
 /** 编队校验：满 20 张、每张不超过收藏上限。 */

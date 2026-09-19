@@ -15,6 +15,7 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
+  if(id==='glider_transport')return cardPictureUrl('glider_assault');
   if (
     id === 'field_logistics' ||
     id === 'command_expansion' ||

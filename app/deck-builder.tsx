@@ -34,7 +34,7 @@ import {
   type CollectionState,
 } from '@/game/collection';
 import { MAX_DECKS, activeDeck, type DeckStore } from '@/game/decks-store';
-const pool = Object.values(CARDS).sort(
+const pool = Object.values(CARDS).filter(c => !c.internal).sort(
   (a, b) => a.cost - b.cost || a.name.localeCompare(b.name, 'zh-CN'),
 );
 export default function DeckBuilder({

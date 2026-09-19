@@ -46,6 +46,8 @@ export function buildingStage(p: Scenery) {
   return health < full * 0.48 || broken > 0 ? 2 : health < full * 0.83 ? 1 : 0;
 }
 export interface Wreck {
+  /** Empty unpowered transport, not a destroyed/burning vehicle. */
+  abandoned?: boolean;
   /** Preserve the casualty's final presentation; old serialized wrecks can omit these. */
   pose?: Unit['pose'];
   facing?: number;

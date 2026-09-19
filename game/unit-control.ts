@@ -22,6 +22,7 @@ export function localUnitOrder(s: GameState, u: Unit) {
 export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   let order = localUnitOrder(s, u);
+  if(u.glider)return false;
   if (c.members || !order || order === 'attack' || u.hp <= 0 || u.surrendered)
     return false;
   if (fixedWingUnit(u) && c.patrolTime) {

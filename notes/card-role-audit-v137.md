@@ -28,3 +28,9 @@ Ambush/ranger overlap now has an actual defensive-concealment versus mobile-reco
 ## Follow-up in v140
 
 Machinegun roles now have actual different firing/movement decisions: the five-person base squad retains continuous fire and four escorts; the two-person light team fires four-round bursts and may bound at most 24px during the pause under nearby actual friendly fire; the three-person heavy team needs 2.4s stationary low-posture setup and uses eight-round bursts plus stronger real near-miss pressure. Movement restarts setup, normal stance commitments still apply, and no imaginary through-cover suppression aura was introduced. Real gunner magazines/reload times, dedicated painted heavy-gun cels and AI selection were verified. See `v140-verification.md`. Glider arrival differentiation, other unreviewed cards and gameplay balance are still open.
+
+## Follow-up in v141
+
+Glider assault now actually flies in an unarmed 180-HP transport, rolls to a stop and unloads four existing elite soldiers sequentially. It needs a clear runway and descent; AA can destroy the occupied hull in flight, and rifles can kill it during unloading. Remaining passengers are then lost. An empty intact hull remains as cover, with no fuel explosion, rotor sound or return card. This differs from guide-accelerated parachutists and hovering/rappelling helicopter insertion. Collectible ID, cost, rarity, copies and flavor are preserved. The runtime transport is not a new collectible.
+
+Generated art has two closed-flight cels, a touchdown cel, one clean open-door cel and two separately painted wreck silhouettes. The generation did **not** deliver a clean high-frame-count opening sequence: two later opening cels have unwanted damage and are excluded from healthy unloading. See `v141-verification.md` for exact limits, physical map changes and tests. This completes this targeted transport role split, not the wider 116-card balance/duplication audit.

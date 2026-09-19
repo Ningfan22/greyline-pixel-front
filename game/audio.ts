@@ -484,6 +484,7 @@ export class BattleAudio {
         card.air &&
         !card.sortie &&
         !card.oneWay &&
+        card.airframe !== 'glider' &&
         modelOf(u.id) === 'helicopter'
       )
         this.sample('rotor.wav', u.x, 0.085, 3.8, card.observer ? 1.4 : 0.88);

@@ -589,8 +589,12 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'GLIDER ASSAULT',
     typeLabel: '精英空降',
     ability: '滑翔机突击',
-    rule: '四精英静默空降伏击。',
+    rule: '着陆卸下四精英，途中可被拦截。',
     flavor: '没有引擎声的来客。',
+  },
+  glider_transport: {
+    en: 'ASSAULT GLIDER', typeLabel: '无武装运输', ability: '着陆卸载',
+    rule: '停稳后逐一卸下四名步兵。', flavor: '',
   },
   pathfinders: {
     en: 'PATHFINDERS',

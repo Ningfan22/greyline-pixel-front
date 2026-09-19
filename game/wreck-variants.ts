@@ -1017,6 +1017,8 @@ export function wreckVariants(
   return Object.fromEntries(
     (Object.keys(WRECKS) as WreckKind[]).map((kind) => {
       const frame = frames[kind];
+      // The glider has individually painted destruction states in its own atlas.
+      if(kind==='glider_transport')return [kind,{blast:[frame],bullet:[frame],burn:[frame]}];
       const spec = SPECS[kind] ?? {};
       const seed = hash(kind);
       const isAircraft = AIRCRAFT.has(kind);

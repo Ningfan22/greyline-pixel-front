@@ -44,11 +44,12 @@ export const SQUAD_ORDERS: {
 export const TRENCH_DEPTH = 36;
 export const MAX_TRENCH_DEPTH = 48;
 const living = (u: Unit) =>
-  u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling;
+  u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling && !u.glider;
 export const controllableUnit = living;
 
 export function ordersForUnit(id: CardId) {
   const c = CARDS[id];
+  if(c.internal)return [];
   if (c.members) return SQUAD_ORDERS;
   if (c.static) return SQUAD_ORDERS.filter((o) => o.id === 'watch');
   if (fixedWingUnit({ id }))

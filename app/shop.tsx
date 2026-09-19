@@ -104,7 +104,7 @@ export default function Shop({
   const ownedCards = useMemo(
     () =>
       (Object.keys(CARDS) as CardId[])
-        .filter((id) => ownedCount(collection, id) > 0)
+        .filter((id) => !CARDS[id].internal && ownedCount(collection, id) > 0)
         .sort(
           (a, b) =>
             CARDS[a].cost - CARDS[b].cost ||

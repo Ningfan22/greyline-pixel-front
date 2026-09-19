@@ -8,6 +8,7 @@ export function wreckFrames(
   mobile: HTMLImageElement,
   support: HTMLImageElement,
   fpv: HTMLImageElement,
+  glider: HTMLCanvasElement,
 ) {
   const sheets = {
     ground: transparentSheet(ground),
@@ -15,6 +16,7 @@ export function wreckFrames(
     mobile: transparentSheet(mobile),
     support: transparentSheet(support),
     fpv,
+    glider,
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {

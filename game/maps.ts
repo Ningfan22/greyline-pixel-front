@@ -400,10 +400,42 @@ export function createMapLayout(
       ? undefined
       : mulberry32(actualSeed ^ 0x9e3779b9);
   const terrain = mapTerrain(mapId, width, actualSeed);
-  const scenerySites =
+  let scenerySites =
     mapId === 'greyline'
       ? villageScenerySites(width, sceneryRand)
       : mirroredSites(mapId, width, sceneryRand);
+  // Keep seeded, visible clearings between buildings. These are physical
+  // open ground for manoeuvre/landing, not collision exceptions for aircraft.
+  // Classic layout seeds stay byte-for-byte compatible with old replays.
+  if(actualSeed!==definition.layoutSeed) {
+    const openGaps=()=>{
+      const houses=scenerySites.filter(p=>p.kind==='house').map(p=>p.x).sort((a,b)=>a-b);
+      const boundaries=[480,...houses,width-480];
+      return boundaries.slice(1).map((right,i)=>({left:boundaries[i]+150,right:right-150}))
+        .filter(g=>g.right-g.left>=660);
+    };
+    // Dense village blocks have no physically possible glider approach. Make
+    // one central site a field, retaining the other houses and their pads.
+    if(!openGaps().length){
+      const houses=scenerySites.filter(p=>p.kind==='house').sort((a,b)=>Math.abs(a.x-width/2)-Math.abs(b.x-width/2));
+      if(houses.length>2)scenerySites=scenerySites.filter(p=>p!==houses[0]);
+    }
+    const gaps=openGaps();
+    const chosen=new Set<number>();
+    for(const fraction of [.3,.7]) {
+      const gap=gaps.filter((_,i)=>!chosen.has(i)).sort((a,b)=>
+        Math.abs((a.left+a.right)/2-width*fraction)-Math.abs((b.left+b.right)/2-width*fraction))[0];
+      if(!gap)continue;chosen.add(gaps.indexOf(gap));
+      const cx=Math.round((gap.left+gap.right)/2),left=cx-330,right=cx+330,y=terrain[cx];
+      scenerySites=scenerySites.filter(p=>p.kind!=='tree'||p.x<left-25||p.x>right+25);
+      for(let x=left-24;x<=right+24;x++){
+        const d=Math.max(left-x,x-right,0),t=smooth(Math.min(1,d/24));
+        terrain[x]=Math.round(y*(1-t)+terrain[x]*t);
+      }
+    }
+    if(mapId==='greyline')scenerySites.filter(p=>p.kind==='house')
+      .sort((a,b)=>a.x-b.x).forEach((p,i)=>{p.building=i%3;});
+  }
   // v130: houses are painted as a single rectangle whose base sits on one
   // ground sample, but the authored terrain rolls ±13 px across a house
   // footprint — the downhill corner floated in mid-air. Level a building

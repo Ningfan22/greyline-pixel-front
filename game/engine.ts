@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
@@ -476,6 +477,7 @@ export interface Unit {
     nextAt: number;
     squad?: number;
   };
+  glider?: GliderFlight;
   rappelling?: boolean;
   /** Timestamp when rappel descent started — safety net forces a landing. */
   rappellingStartAt?: number;
@@ -1387,6 +1389,7 @@ export function playCard(
   const token = p.hand[index],
     c = CARDS[token.id],
     cost = cardCost(token) + ((p.taxCards ?? 0) > 0 ? 2 : 0);
+  if (c.internal) return {ok:false,message:'运输机体不能单独出牌'};
   if (cardReadyIn(s, token) > 0)
     return {
       ok: false,
@@ -1410,11 +1413,14 @@ export function playCard(
   )
     return { ok: false, message: '无效的入场位置' };
   const landingX =
+    c.insertion === 'glider' ? gliderLanding(s,x ?? defaultLanding(s,side),side) :
     c.airlift || c.airdrop
       ? safeLanding(s, x ?? defaultLanding(s, side))
       : undefined;
+  if(c.insertion==='glider'&&landingX===null)
+    return {ok:false,message:'滑翔机需要平缓空地，请避开房屋、树干和残骸'};
   // Airdrop units descend onto the selected point; airlift transports still enter at HQ.
-  if (c.airdrop) x = landingX;
+  if (c.airdrop) x = landingX ?? undefined;
   else if (c.type === 'unit') x = side === 0 ? 112 : W - 112;
   if (
     c.targetGround &&
@@ -1442,7 +1448,8 @@ export function playCard(
     applyEconomy(p, c.economy, s.time);
   } else if (c.type === 'unit') {
     const spawnedAt = s.units.length;
-    spawnUnit(s, side, c.id, x!);
+    spawnUnit(s, side, c.insertion==='glider' ? 'glider_transport' : c.id, x!);
+    if(c.insertion==='glider')prepareGlider(s,s.units.at(-1)!,landingX!);
     if (c.airlift)
       s.units.at(-1)!.airlift = {
         x: landingX!,
@@ -1450,7 +1457,7 @@ export function playCard(
         dropped: 0,
         nextAt: s.time,
       };
-    if (c.airdrop)
+    if (c.airdrop && !c.insertion)
       for (let i = spawnedAt; i < s.units.length; i++) {
         const u = s.units[i];
         u.parachuting = true;
@@ -2490,7 +2497,7 @@ function finishDeath(
     y: u.y,
     angle: u.hullAngle,
     age: 0,
-    falling: !!c.air || ragdoll,
+    falling: airborneTarget(u) || ragdoll,
     vx: c.air
       ? u.facing * 70
       : ragdoll
@@ -2525,7 +2532,7 @@ function finishDeath(
   }
   if (!c.members && !c.air)
     burst(s, u.x, u.y - 20, c.armored ? 60 : 42, 'wreck');
-  else if (c.air) burst(s, u.x, u.y - 20, c.oneWay ? 12 : 24, 'air');
+  else if (c.air && !u.glider) burst(s, u.x, u.y - 20, c.oneWay ? 12 : 24, 'air');
   bailoutCrew(s, u, c, overkill);
   settleSortie(s, u, false);
 }
@@ -3001,6 +3008,7 @@ export function muzzlePoint(
 function bodyHeight(
   u: Pick<Unit, 'pose'> & Partial<Pick<Unit, 'id' | 'moving'>>,
 ) {
+  if(u.id==='glider_transport')return 26;
   if (u.id && CARDS[u.id].members) return infantryGeometry(u).bodyHeight;
   if (u.id && (CARDS[u.id].armored || CARDS[u.id].vehicle))
     return armorHeight(u.id) * 0.55;
@@ -4063,8 +4071,8 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
   const distance = Math.abs(source.x - target.x);
   return (
     (c.damage ?? 0) > 0 &&
-    (!t.air || c.antiAir || rifleRotorTarget(source, target)) &&
-    (!c.airOnly || t.air) &&
+    (!airborneTarget(target) || c.antiAir || rifleRotorTarget(source, target)) &&
+    (!c.airOnly || airborneTarget(target)) &&
     (!c.armorOnly || t.armored || t.vehicle) &&
     distance >= (c.minRange ?? 0) &&
     distance <= unitRange(s, source) + margin &&
@@ -5895,14 +5903,19 @@ function updateAI(s: GameState) {
           const guideFront = groundFoes.length ? Math.max(...groundFoes.map(u => u.x)) : enemyFront;
           x = safeLanding(s, c.id === 'pathfinders' ? guideFront + 300 : enemyFront - 140);
           score = cohorts >= 2 && groundFoes.length ? 17 : -2;
-          if (c.id !== 'pathfinders') {
+          if (c.id !== 'pathfinders' && !c.insertion) {
             const guide = own.filter(u => pathfinderReady(s, u) &&
               Math.abs(u.x - x!) <= 500 &&
               groundFoes.every(v => Math.abs(v.x - u.x) >= 160))
               .sort((a, b) => Math.abs(a.x - x!) - Math.abs(b.x - x!))[0];
             if (guide) { x = safeLanding(s, guide.x); score += 5; }
-          } else if (p.hand.some(h => h.id !== c.id && CARDS[h.id].airdrop)) {
+          } else if (c.id==='pathfinders' && p.hand.some(h => h.id !== c.id && CARDS[h.id].airdrop)) {
             score += own.some(u => u.id === 'pathfinders') ? -6 : 6;
+          }
+          if(c.insertion==='glider'){
+            const lz=gliderLanding(s,x,1);
+            if(lz===null)score=-100;
+            else {x=lz;score-=foes.filter(v=>weaponCard(v).antiAir&&v.x>x!-500).length*9;}
           }
         }
         // v120: airborne AT hunts armour from the drop zone; rapid insertion
@@ -7886,6 +7899,10 @@ export function tick(s: GameState, dt: number) {
     u.flash = Math.max(0, u.flash - dt);
     u.fire = Math.max(0, u.fire - dt);
     u.moving = false;
+    if(u.glider){
+      stepGlider(s,u,dt,{spawn:spawnUnit,crash:v=>finishDeath(s,v,v.side,'bullet')});
+      continue;
+    }
     const controlledNavigation = stepUnitControl(s, u, dt);
     const localOrder = localUnitOrder(s, u);
     const order = c.members
@@ -8294,8 +8311,8 @@ export function tick(s: GameState, dt: number) {
         !v.surrendered &&
         !v.wounded &&
         visibleToSide(s, u.side, v) &&
-        (!CARDS[v.id].air || c.antiAir || rifleRotorTarget(u, v)) &&
-        (!c.airOnly || CARDS[v.id].air) &&
+        (!airborneTarget(v) || c.antiAir || rifleRotorTarget(u, v)) &&
+        (!c.airOnly || airborneTarget(v)) &&
         (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
         (!c.patrolTime || !u.patrolExiting) &&
         (!c.sortie ||
@@ -10152,7 +10169,8 @@ export function tick(s: GameState, dt: number) {
           }
         } else {
           Object.assign(w, wreckContact((x) => ground(s, x), w));
-          burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
+          if(w.cardId==='glider_transport')gliderDust(s,w.x,w.y,18);
+          else burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         }
         s.visionIn = 0;
       }

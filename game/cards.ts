@@ -119,7 +119,8 @@ export type CardId =
   | 'fallback'
   | 'fire_team'
   | 'assault_grenadiers'
-  | 'lmg_team';
+  | 'lmg_team'
+  | 'glider_transport';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -129,6 +130,9 @@ export type Doctrine =
   | 'irregular'
   | 'elite';
 export interface Card {
+  /** Runtime transport prototype, not a collectible/playable card. */
+  internal?: boolean;
+  insertion?: 'glider';
   economy?: EconomyEffect;
   comeback?: 'gas' | 'withdrawal' | 'reserve';
   id: CardId;
@@ -153,6 +157,7 @@ export interface Card {
     | 'loiter_drone'
     | 'fpv_drone'
     | 'transport_heli'
+    | 'glider'
     | 'interceptor';
   sortie?: boolean;
   patrolTime?: number;
@@ -1689,7 +1694,7 @@ export const CARDS: Record<CardId, Card> = {
     'glider_assault',
     '滑翔机突击',
     4,
-    '4 名精英步兵静默滑翔空降，落地即伏击',
+    '滑翔机运送4名精英，着陆后逐一离舱',
     {
       members: 4,
       hp: 240,
@@ -1701,12 +1706,20 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'assault',
       infantryAbility: 'elite',
       airdrop: true,
+      insertion: 'glider',
       targetGround: true,
       tag: '空降 · 精英纵深',
       detail:
-        '4人精英突击班搭乘滑翔机静默降落到战场任意位置。精英训练让他们1秒即可进入伏击状态，落地就能打出伏击加成；没有运输机临空的噪音，对手更难预判落点。',
+        '无武装滑翔机（180生命）从己方边缘进场，寻找指定位置附近的平缓空地，滑跑停稳后逐一卸下4名精英，共240生命。飞行途中可被防空拦截，击毁时尚未离舱者损失；不能在房屋和树干上着陆，不接受伞降引导加速。机体停留作掩体，不返航。步兵停稳1秒后首枪对步兵伤害乘1.5；没有隐身或不可见落点加成。',
     },
   ),
+  glider_transport: variant('helicopter', 'glider_transport', '滑翔运输机', 0,
+    '运输机体，不可单独入组或抽取', {
+      internal: true, en: 'ASSAULT GLIDER', airframe: 'glider',
+      hp: 180, damage: 0, rate: 1, range: 0, speed: 360, sight: 360,
+      altitude: 70, antiAir: false, vehicle: true, crew: 0,
+      tag: '运输 · 无武装', detail: '滑翔机突击的运输机体。',
+    }),
   pathfinders: variant(
     'infantry',
     'pathfinders',
@@ -2507,6 +2520,7 @@ for (const id of ['tank', 'light_tank', 'heavy_tank'] as const)
     ' 同轴机枪独立装填：射程 420，每 0.18 秒对步兵射击，单发 3 伤害。';
 
 export function copyLimit(id: CardId) {
+  if (CARDS[id]?.internal) return 0;
   if (id === 'toxic_cloud') return 1;
   if (id === 'militia') return 6;
   if (id === 'infantry' || id === 'pickup') return 4;

@@ -4,6 +4,7 @@ import { VEHICLE_SCALE } from './vehicle-geometry';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
+  | 'glider_transport'
   | 'light_tank'
   | 'tank'
   | 'heavy_tank'
@@ -29,7 +30,7 @@ export type WreckKind =
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider';
   source: Rect;
   width: number;
   height: number;
@@ -57,6 +58,9 @@ function shape(
 }
 /** Authored silhouettes measured from the generated atlases; no live-sprite scaling ratios. */
 export const WRECKS: Record<WreckKind, WreckGeometry> = {
+  glider_transport: { atlas:'glider',source:[0,0,256,100],width:256,height:100,
+    parts:[[.08,.45,.3,.19],[.38,.62,.52,.27],[.48,.4,.22,.24]],
+    support:[.51,.86,.92],spriteOffset:0 },
   fpv_drone: { atlas: 'fpv', ...FPV_WRECK_PROFILE },
   pickup: shape(
     'mobile',

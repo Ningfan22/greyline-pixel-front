@@ -1,4 +1,5 @@
 import { mapDefinition, type MapId } from './maps';
+import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { infantryGeometry } from './infantry-geometry';
 import { pathfinderReady, ambushConcealed } from './infantry-specialties';
@@ -404,6 +405,13 @@ export function render(
           }
           foregroundBounds.push(...cached.boxes);
         }
+        if(w.cardId==='glider_transport') {
+          const frame=w.abandoned?art.glider[3]:art.glider[w.cause==='blast'||w.cause==='burn'?7:6];
+          const inset=8;
+          drawSprite(ctx,frame,w.x-Math.sin(w.angle)*inset,w.y+Math.cos(w.angle)*inset,
+            256,100,(w.facing??(w.side===0?1:-1))<0,1,w.angle);
+          continue;
+        }
         ctx.save();
         // v105: wrecks of the same card no longer look identical — three
         // burn conditions plus stable per-wreck tilt/scale jitter and a
@@ -681,7 +689,7 @@ export function render(
         : null;
     const img = body
       ? uniformFrame(digging ?? idleMicro ?? patrol ?? specialist?.image ?? body, c.uniform)
-      : unitFrame(art, u.id, frame);
+      : unitFrame(art, u.id, u.glider?gliderArtIndex(u,s.time):frame);
     const visualMuzzle = specialist?.muzzle
       ? {
           x: u.x + u.facing * specialist.muzzle.x,
@@ -792,7 +800,7 @@ export function render(
     const drawY =
       u.y +
       infantryDepth(u.lane) +
-      (isTank ? 0 : 3) +
+      (u.glider ? 8 : isTank ? 0 : 3) +
       breathe +
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
@@ -823,7 +831,7 @@ export function render(
           ? (microDir ?? choice?.dir ?? u.facing) < 0
           : u.side === 1,
         alpha,
-        c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
+        c.armored || geometry || u.glider || u.id === 'fpv_drone' ? u.hullAngle : 0,
       );
     }
     if (!c.members && isDead) ctx.restore();

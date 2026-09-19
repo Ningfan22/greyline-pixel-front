@@ -126,7 +126,7 @@ export function drawWreckSmoke(
   const now = s.time;
   for (const w of s.wrecks) {
     const c = CARDS[w.cardId];
-    if (!c.armored && !c.vehicle) continue;
+    if (w.abandoned || w.cardId==='glider_transport' || (!c.armored && !c.vehicle)) continue;
     if (w.x < camera - 80 || w.x > camera + viewportWidth + 80) continue;
 
     const strength = Math.max(0, 1 - w.age / 120);
@@ -343,7 +343,7 @@ export function drawWreckFire(
   const now = s.time;
   for (const w of s.wrecks) {
     const c = CARDS[w.cardId];
-    if (!c.armored && !c.vehicle) continue;
+    if (w.abandoned || w.cardId==='glider_transport' || (!c.armored && !c.vehicle)) continue;
     if (w.x < camera - 80 || w.x > camera + viewportWidth + 80) continue;
 
     const strength = Math.max(0, 1 - w.age / FIRE_LIFETIME);

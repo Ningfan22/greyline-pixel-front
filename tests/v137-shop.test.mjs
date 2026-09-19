@@ -30,7 +30,7 @@ test('all-common ten-pack gets a guaranteed ace; natural high rarity is left alo
 });
 
 test('pity selects a genuinely available ace even if every other ace is full', () => {
-  const aces = Object.keys(CARDS).filter(id => rarityOf(id) === 'epic');
+  const aces = Object.keys(CARDS).filter(id => !CARDS[id].internal && rarityOf(id) === 'epic');
   const missing = aces.at(-1);
   const owned = Object.fromEntries(aces.filter(id => id !== missing).map(id => [id, copyLimit(id)]));
   const r = openTenPacks(account(owned), () => 0.9);
