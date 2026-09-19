@@ -1,0 +1,16 @@
+Use case: stylized-concept.
+Asset type: production game sprite atlas for a realistic adult military side-scrolling pixel warfare game.
+
+Generate ONE atlas, exactly 4 columns by 3 rows, target 2048 × 1536 pixels, a perfectly regular grid of 512 × 512 cells. No visible grid or labels. Real transparent background with alpha, never a drawn checkerboard. Strict orthographic SIDE ELEVATION seen by a lateral battlefield camera, no isometric or 3D perspective.
+
+Each row shows the SAME recognizable building in four increasingly damaged states. Row 1: weathered two-storey pale grey beige plaster town house, asymmetrical window wear, exposed red brick under plaster, worn pitched slate roof and modest chimney. Row 2: red-brick corner workshop / shop, two storeys, broad ground-floor workshop entrance, darker roof. Row 3: low wide industrial warehouse, one storey, worn concrete and brick, corrugated roof and broad metal loading doors. Realistic building proportions suited to adult-sized infantry in a gritty battlefield, not cute toy buildings.
+
+Columns left to right, exactly four stages for each building:
+1. Structurally intact but aged, stained, weathered, believable windows / doors and worn roof.
+2. Moderate damage: smashed windows, missing roof patches, exposed brick and cracked plaster, building still largely standing.
+3. Major partial collapse: jagged torn roof and walls, visible floor joists and internal rooms, part of exterior wall missing and recognizable rubble at base; the broken-away volume is visibly absent.
+4. Permanent LOW rubble ruin: collapsed masonry heap, broken floor beams and roof fragments, some short jagged wall stubs under one-quarter original building height, recognizable same materials; this is static settled debris.
+
+All four cells of each row must use IDENTICAL original building footprint, scale, framing and baseline; damaged states only lose structure and gain debris, never zoom out or resize. Place each building centered within its cell at cell x=256. Intended ground line is local y=440 in EVERY cell: across the atlas row ground anchors y=440, 952, 1464. Keep all intact roofs below local y=100, and all building/debris pixels inside local x=58..454, local y=74..445. Generous blank transparent margins between cells and above each sprite. No fragments crossing cell boundaries. No ground strip.
+
+Style: visibly crisp hand-crafted PIXEL ART, deliberate 2–4 pixel block clusters at this large output size, hard stepped silhouette edges, restrained detailed texture, readable at game scale, no painterly smearing, no vector flatness or soft antialiasing. Muted worn earth, warm concrete, dark slate, rust brick and desaturated soot tones with strong internal dark values in exposed rooms. Flat consistent soft daylight. No ambient background, scene, landscape, terrain, sky, captions, typography, signs, labels, UI, people, vehicles, weapons, fireballs, fire, explosions, watermark, checker pattern, detached shadows. Transparent holes in destroyed architecture and windows where appropriate. Do not print this specification into the picture.

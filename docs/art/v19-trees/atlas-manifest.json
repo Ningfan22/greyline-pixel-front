@@ -1,0 +1,550 @@
+{
+  "source": "builtin imagegen edits",
+  "alphaExtraction": "Remove generated gray/white transparency checker only; all colored tree pixels preserved before nearest-neighbor sampling.",
+  "logicalCell": [
+    128,
+    80
+  ],
+  "runtimeCell": [
+    256,
+    160
+  ],
+  "anchor": [
+    70,
+    150
+  ],
+  "frames": {
+    "pine": [
+      {
+        "index": 0,
+        "source": [
+          71,
+          21,
+          158,
+          286
+        ],
+        "root": [
+          150,
+          307
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 16,
+          "top": 5,
+          "width": 39,
+          "height": 70
+        },
+        "opaquePixels": 22556,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 1,
+        "source": [
+          550,
+          21,
+          173,
+          286
+        ],
+        "root": [
+          629,
+          307
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 16,
+          "top": 5,
+          "width": 42,
+          "height": 70
+        },
+        "opaquePixels": 21547,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 2,
+        "source": [
+          1026,
+          21,
+          178,
+          286
+        ],
+        "root": [
+          1114,
+          307
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 13,
+          "top": 5,
+          "width": 44,
+          "height": 70
+        },
+        "opaquePixels": 21687,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 3,
+        "source": [
+          1569,
+          21,
+          157,
+          286
+        ],
+        "root": [
+          1616,
+          307
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 23,
+          "top": 5,
+          "width": 38,
+          "height": 70
+        },
+        "opaquePixels": 22477,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 4,
+        "source": [
+          81,
+          362,
+          189,
+          237
+        ],
+        "root": [
+          113,
+          599
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 27,
+          "top": 17,
+          "width": 46,
+          "height": 58
+        },
+        "opaquePixels": 22150,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 5,
+        "source": [
+          579,
+          379,
+          234,
+          220
+        ],
+        "root": [
+          610,
+          599
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 27,
+          "top": 21,
+          "width": 57,
+          "height": 54
+        },
+        "opaquePixels": 22953,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 6,
+        "source": [
+          1054,
+          406,
+          274,
+          193
+        ],
+        "root": [
+          1083,
+          599
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 28,
+          "top": 28,
+          "width": 67,
+          "height": 47
+        },
+        "opaquePixels": 22878,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 7,
+        "source": [
+          1491,
+          443,
+          311,
+          156
+        ],
+        "root": [
+          1520,
+          599
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 28,
+          "top": 37,
+          "width": 76,
+          "height": 38
+        },
+        "opaquePixels": 24025,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 8,
+        "source": [
+          52,
+          745,
+          332,
+          96
+        ],
+        "root": [
+          78,
+          837
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 29,
+          "top": 53,
+          "width": 81,
+          "height": 23
+        },
+        "opaquePixels": 18728,
+        "groundAlignmentLogicalPixels": 1
+      },
+      {
+        "index": 9,
+        "source": [
+          541,
+          737,
+          364,
+          104
+        ],
+        "root": [
+          568,
+          837
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 28,
+          "top": 51,
+          "width": 89,
+          "height": 25
+        },
+        "opaquePixels": 21026,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 10,
+        "source": [
+          1021,
+          740,
+          349,
+          101
+        ],
+        "root": [
+          1048,
+          837
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 28,
+          "top": 51,
+          "width": 85,
+          "height": 25
+        },
+        "opaquePixels": 19961,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 11,
+        "source": [
+          1470,
+          746,
+          344,
+          91
+        ],
+        "root": [
+          1496,
+          837
+        ],
+        "scale": 0.48951048951048953,
+        "logical": {
+          "left": 29,
+          "top": 53,
+          "width": 84,
+          "height": 22
+        },
+        "opaquePixels": 14041,
+        "groundAlignmentLogicalPixels": 0
+      }
+    ],
+    "broadleaf": [
+      {
+        "index": 0,
+        "source": [
+          17,
+          14,
+          239,
+          270
+        ],
+        "root": [
+          131,
+          284
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 5,
+          "top": 5,
+          "width": 62,
+          "height": 70
+        },
+        "opaquePixels": 37842,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 1,
+        "source": [
+          480,
+          24,
+          226,
+          260
+        ],
+        "root": [
+          586,
+          284
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 7,
+          "top": 7,
+          "width": 59,
+          "height": 68
+        },
+        "opaquePixels": 32106,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 2,
+        "source": [
+          975,
+          19,
+          205,
+          265
+        ],
+        "root": [
+          1048,
+          284
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 16,
+          "top": 6,
+          "width": 53,
+          "height": 69
+        },
+        "opaquePixels": 30630,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 3,
+        "source": [
+          1467,
+          46,
+          222,
+          238
+        ],
+        "root": [
+          1506,
+          284
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 13,
+          "width": 58,
+          "height": 62
+        },
+        "opaquePixels": 29248,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 4,
+        "source": [
+          78,
+          342,
+          227,
+          239
+        ],
+        "root": [
+          115,
+          581
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 13,
+          "width": 59,
+          "height": 62
+        },
+        "opaquePixels": 29261,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 5,
+        "source": [
+          541,
+          352,
+          249,
+          229
+        ],
+        "root": [
+          582,
+          581
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 24,
+          "top": 15,
+          "width": 65,
+          "height": 60
+        },
+        "opaquePixels": 29100,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 6,
+        "source": [
+          1005,
+          386,
+          269,
+          195
+        ],
+        "root": [
+          1043,
+          581
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 24,
+          "width": 70,
+          "height": 51
+        },
+        "opaquePixels": 27404,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 7,
+        "source": [
+          1473,
+          443,
+          275,
+          140
+        ],
+        "root": [
+          1511,
+          581
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 40,
+          "width": 72,
+          "height": 36
+        },
+        "opaquePixels": 21541,
+        "groundAlignmentLogicalPixels": 1
+      },
+      {
+        "index": 8,
+        "source": [
+          78,
+          702,
+          291,
+          131
+        ],
+        "root": [
+          114,
+          828
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 26,
+          "top": 42,
+          "width": 76,
+          "height": 34
+        },
+        "opaquePixels": 20249,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 9,
+        "source": [
+          541,
+          718,
+          288,
+          114
+        ],
+        "root": [
+          578,
+          828
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 46,
+          "width": 75,
+          "height": 30
+        },
+        "opaquePixels": 16987,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 10,
+        "source": [
+          1007,
+          727,
+          278,
+          102
+        ],
+        "root": [
+          1044,
+          828
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 49,
+          "width": 72,
+          "height": 27
+        },
+        "opaquePixels": 15272,
+        "groundAlignmentLogicalPixels": 0
+      },
+      {
+        "index": 11,
+        "source": [
+          1463,
+          733,
+          285,
+          97
+        ],
+        "root": [
+          1500,
+          828
+        ],
+        "scale": 0.5204460966542751,
+        "logical": {
+          "left": 25,
+          "top": 50,
+          "width": 74,
+          "height": 25
+        },
+        "opaquePixels": 12995,
+        "groundAlignmentLogicalPixels": 0
+      }
+    ]
+  }
+}

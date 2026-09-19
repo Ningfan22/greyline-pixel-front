@@ -1,0 +1,173 @@
+rifle-walk-prompt.txt
+
+Use case: stylized-concept. Production sprite asset for a serious modern military 2D side-view pixel game. Create ONE adult rifleman's anatomically correct WALK CYCLE, exactly 8 frames, laid out as 4 columns x 2 rows in chronological reading order. Transparent background, NO checkerboard, no captions, no scenery, no floor line.
+
+STYLE RESET: restrained realistic pixel art, adult soldier 7.5 heads tall, small realistically proportioned helmet and head, long legs about half full height, lean human build, correctly sized hands and boots. NOT chibi, NOT toy soldier, no cartoon ink outlines, no cute bobble head, no muscular comic exaggeration. Olive combat fatigues with subtle camouflage, matte dark body armor, modest backpack, black modern rifle. Clearly discrete crisp pixel clusters, about 80 logical pixels per standing human height, enlarged with nearest-neighbor look. Military simulation sprite, subdued olive/brown/black.
+
+All 8 figures must face exactly RIGHT in strict side profile, same body scale, hips at the same horizontal cell anchor, planted foot at exactly the same floor within each row. Rifle held aimed to right in BOTH hands at chest/shoulder height, torso and head kept almost stationary. Foreground leg is slightly lighter olive; far leg is noticeably darker, making them distinguishable during the swap.
+
+This is 8 different IN-BETWEEN POSES, not eight copies of a wide stance. Feet cycle smoothly THROUGH the body, never leap up:
+0 CONTACT A: near/foreground RIGHT leg reaches forwards, HEEL touches floor, toe raised slightly; far/LEFT leg trails backwards, heel lifted and only toe on floor.
+1 DOWN A: body lowers 2 pixels, right planted foot flattens under forward knee, right knee bends absorbing weight; left heel rises and rear knee bends to lift toes just off floor.
+2 PASSING A: right support leg directly below hip, left swinging knee and ankle pass beside right shin, feet NARROW and nearly overlap under body; left foot is 2–4 pixels off floor, NOT a high-knee march.
+3 UP A: right supporting leg now angled backwards on forefoot; left swing leg reaches forwards but its foot remains just above floor, left knee softly bent, toe lifted ready for next contact.
+4 CONTACT B: EXACT OPPOSITE LEG to frame0, far/darker LEFT leg reaches forwards with heel touching floor; near/lighter RIGHT leg trails back with only toe touching floor. Swap leg occlusion, not a duplicate of frame0.
+5 DOWN B: left planted foot flattens with weight, left knee bends; right trailing heel rises, right knee begins swing.
+6 PASSING B: left support leg below hip, right swinging foot passes close beside left ankle, feet NARROW and nearly overlap under body, 2–4 pixel foot lift.
+7 UP B: left support leg trails backwards on forefoot; right swing leg advances forwards, foot just above ground ready to return smoothly to frame0.
+
+CRITICAL: frames2 and6 must be upright narrow-stance passing poses, not wide walking silhouettes. Frames1/3/5/7 are genuine in-betweens with bent ankles/knees. Both feet cannot be flat on ground in every frame. Never do a repeated spread-legs pose for most frames. Leg shading alternates which leg is in front. No walking in reverse. No independent camera motion or varying body size. Generous clear margins around every figure so no gun or boot crosses a cell. Output one sprite sheet only.
+
+
+-----
+
+rifle-crouch-walk.prompt.txt
+
+Use case: identity-preserve.
+Asset type: adult pixel-art crouch-walking animation, 8 frames in a 4-column by 2-row atlas.
+
+Use ONLY the attached rifle-walk image as the character, proportions, equipment, colors and rendering reference. Make ONE new sprite atlas showing this EXACT SAME adult soldier CROUCH-WALKING carefully to the RIGHT with his rifle aimed level forward. This is not a cartoon redesign. Keep the helmeted head the SAME small size, the same face, neck, hands, realistic torso, backpack, webbing, camouflage fabric, black modern rifle and boots. Preserve the actual LENGTH of thighs and shins from the standing reference: they are bent into a crouch, never shortened into a toy body. Real adult human anatomy, restrained realistic pixel-art rendering and hard pixel edges, no large head, no chibi, no mascot, no thick rounded comic outline.
+
+Composition: exactly EIGHT complete sprites, four across the top row and four across the bottom row, read left to right then down. 1536x1024 PNG. True transparent alpha outside the eight soldiers. No backdrop, black or gray field, gradients, checkerboard, fog, glow, floor shadows, text, numbers, grid lines, labels or extra figures. Leave enough empty padding for every boot, rifle barrel and backpack. Each cell has the SAME character scale, body-center anchor and foot-ground baseline. Do not independently stretch the sprites to fill their cells. The lowered head/torso remains at nearly the same height across all frames.
+
+Pose shared across all eight: low natural moving crouch, hips lowered, torso leaning forward only slightly, head looking right, rifle continuously shouldered and level, both hands holding it. Knees bend with anatomically plausible weight. At least one boot bears weight on the shared ground level at ALL times. No knee touches the ground. This is a moving crouch, not static kneeling, not sitting, not squatting in place, not high-stepping, not kicking. The swinging boot stays LOW, moving near the ankle of the supporting leg, never lifting above the midpoint of the other shin.
+
+CRITICAL: EIGHT DISTINCT INTERMEDIATE FRAMES OF ONE CONTINUOUS LOOP.
+Treat the visible NEAR leg as the RIGHT leg, slightly lighter, and the FAR leg as the LEFT leg, slightly darker. Preserve these anatomical identities in ALL frames; the near/far overlap must genuinely reverse in the second half. The bottom row is not a duplicate of the top row. Keep the upper body steady while the legs change support and configuration.
+
+Frame 0 (top-left), near-leg CONTACT: near right heel/sole lands a short distance ahead of the hips; far left foot is behind on its toe, heel raised. Both knees bent. Moderate foot separation, not an exaggerated split.
+Frame 1, near-leg DOWN/RECOIL: right sole now flat and carries the weight; right knee flexes slightly more. Left trailing toe is just leaving the floor and its knee begins moving under the hips. Feet closer than frame 0. This must visibly differ from contact.
+Frame 2, far-leg PASSING: right boot flat supporting the crouched body; left ankle passes closely beside the right ankle beneath the hips, left toe just above the floor. Knees nearly overlap, feet have the NARROWEST separation of this half. No lifted knee, no long front kick.
+Frame 3, far-leg LATE SWING: right foot still supports behind the hips; left boot now swings a short distance ahead, heel hovering just above ground, toe gently raised. This is an INTERMEDIATE stride, narrower than the upcoming contact. Do not reuse the wide pose from frame 0.
+Frame 4 (bottom-left), far-leg CONTACT: LEFT far heel/sole touches down ahead, RIGHT near foot trails on its toe behind. Reverse the front/back leg overlap compared with frame 0. The darker far leg is now forward and the lighter near leg is trailing.
+Frame 5, far-leg DOWN/RECOIL: left far sole flat carrying weight; left knee flexed. Right near rear toe lifts off and moves inward under the body. Feet are closer than frame 4.
+Frame 6, near-leg PASSING: left far boot flat supports the body; right near ankle passes closely beside it, toe just above ground. Narrowest foot separation of the second half, both knees close together. The lighter near leg overlaps IN FRONT of the darker supporting leg at their crossing, unlike frame 2.
+Frame 7, near-leg LATE SWING: left far foot supports behind the hips while right near boot swings a short distance ahead, heel just above ground, preparing to land back in frame 0. Intermediate stride, no reused contact pose.
+
+Make narrow passing frames 2/6, compressed down frames 1/5 and intermediate swinging frames 3/7 clearly distinguishable in lower-body silhouette. Keep the head and rifle stable, but do not freeze the legs. A coherent weight transfer and honest near/far leg swap are more important than decorative detail. Both halves need their own distinct overlap and knee/boot placement. Every sprite must still look like the SAME realistic adult soldier from the supplied reference.
+
+No exaggerated head, no shortened legs, no cute proportions, no smooth 3D/plastic toy, no anime, no running/jumping, no knee-high swinging boot, no sliding frozen stance, no repeated copies presented as animation.
+
+
+-----
+
+rifle-actions-prompt.txt
+
+Use case: stylized-concept. The attached image is a REFERENCE for a single realistic adult military rifleman, his proportions, pixel art rendering, uniform, weapon and side-view lighting. It is NOT the output layout. Create an action sprite sheet of the SAME adult man for a serious side-scrolling military game. True transparent background without checkerboard. 4 columns by 5 rows, exactly 20 separately isolated whole-body sprites. Crisp real pixel clusters, no blur, no outline cartoon, no cute proportions; adult 7.5 heads tall with small helmet, slim long legs and normal hands and boots. Keep his appearance consistent and identical overall adult scale in every cell, all facing RIGHT, as in reference. Whole bodies fit each equal cell with generous margin.
+
+Read the rows from left to right. DIFFERENT actions per cell:
+ROW 0: (0) upright standing firmly aiming rifle right with both feet comfortably close; (1) low crouch aiming rifle right, both knees bent, torso leans slightly; (2) lying flat prone aiming rifle right elbows supported, legs long behind; (3) low prone crawl, left elbow reaches and right knee bends slightly outward.
+ROW 1: (4) step-off ledge/takeoff with back foot pushing and torso leaning forward, rifle held ready; (5) falling jump with both feet clear and knees gently drawn, not dramatic superhero pose; (6) landing compressed squat absorbing impact, rifle safely held across chest; (7) recovering from landing to a half crouch.
+ROW 2: (8) climbing reach, left hand reaches above head, right hand secures slung rifle, right foot planted low; (9) climbing pull, elbow bends carrying body upward and right knee lifts toward waist; (10) climbing mantle, chest forward, one hand braced at hip height and one knee on imagined ledge; (11) finishing mantle, weight shifts over knee, rear leg follows. No actual walls or platforms, only soldier poses.
+ROW 3: (12) prone crawl alternate phase with right elbow forward and left knee subtly bent; (13) prone recovery elbows under chest rising to knees; (14) wounded lying on side on ground with bent knee and one hand on torso, rifle beside close to hand, non-graphic; (15) motionless fallen soldier lying sideways, no gore, all limbs connected and natural.
+ROW 4 RUN CYCLE, holding rifle in BOTH hands facing right: (16) near/right foot strikes ahead, far/left leg bent back, slight forward lean; (17) flight with rear leg folded back and forward knee swinging ahead, both feet airborne; (18) opposite/far left foot strikes ahead with near/right leg folded back; (19) opposite flight phase, near/right leg now swings ahead and far/left leg folded back. Long adult limbs, physical running, not chibi leaping.
+
+The silhouette and limb angles MUST change clearly for each requested action. Same camera, scale, clothing, head size and lighting. Do not repeat a standing walking pose to fill cells. There are exactly four full people on each of five rows. NO text, numbers, arrows, panels, floor lines, wall props, smoke or background. Transparent alpha.
+
+
+-----
+
+rifle-reactions-prompt.txt
+
+Use case: stylized-concept. Use attached image only as a character/style reference. Create 8 NEW reaction animation frames of the same olive military rifleman, adult anatomically realistic 7.5-head proportions, small head and helmet, long lean legs, crisp restrained pixel art, not cartoon or chibi. Transparent background without a drawn checker pattern. 4 columns x 2 rows. Keep the SAME true body scale and equipment proportions across all poses, so kneeling or fallen poses naturally occupy less vertical height, not enlarged.
+
+Row 1 is a continuous 4-frame surrender: 0 standing, rifle lowered on its sling, palms beginning to lift; 1 standing, both empty hands visibly above shoulder/head height, rifle slung diagonally across chest with both hands off weapon; 2 lowering to one knee with both hands still raised, head bowed; 3 kneeling on both knees with hands placed behind helmet, rifle hangs on sling, compliant posture.
+Row 2 is a continuous 4-frame non-graphic incapacitation: 4 standing hit reaction, shoulders recoil and one knee buckles, no blood; 5 sinking to one knee, left hand braces ground and rifle lowers; 6 falling onto side with hip contacting ground, one elbow braces; 7 fully lying on side, one leg softly bent and one hand on torso, rifle on ground immediately nearby. Natural adult anatomy and all limbs connected, no gore.
+
+Right-facing strict side view, fixed camera. Same helmet size, chest size, boots and material detail as reference. Changes of limb pose must be clear. Exactly eight full bodies, no cutoffs, no extra people, no text, no scenery, no walls, no ground. Same adult man through all 8 images, consistent scale, transparent alpha.
+
+
+-----
+
+rifle-specialists-prompt.txt
+
+Use case: stylized-concept. Production modern warfare pixel sprite sheet. Attached rifleman is an appearance, realistic adult anatomy, pixel rendering and lighting reference only. Keep exactly the same adult body scale/head/helmet and olive uniform proportions. NOT chibi, no large heads or thick comic outlines. Create 15 specialized soldiers, 5 columns x 3 rows. True transparent background. Strict right-facing side profile and identical ground anchor and body scale within each row. Whole figures, all weapons visible, no cell overlaps, generous margin.
+
+Each COLUMN is one specialty with a DIFFERENT clearly recognizable correctly held weapon:
+Column0 MACHINE GUNNER: one belt-fed light machine gun with box magazine and long barrel/bipod, both hands operate it. No second rifle.
+Column1 ANTI-TANK ROCKET GUNNER: one dark green shoulder-fired anti-tank launcher tube, rear end behind shoulder, sight at eye level, both hands support the launcher. No rifle sticking out beneath.
+Column2 SNIPER: one long scoped precision rifle, thin long barrel and bipod, held correctly in both hands.
+Column3 MEDIC: olive combat medic with a clearly identifiable compact off-white medical satchel / bandage pouch, carrying one black carbine safely; no modern red-cross emblem needed.
+Column4 MORTAR GUNNER: when standing he carries one folded mortar tube vertically by shoulder and its baseplate on pack; when crouching he operates a small deployed mortar tube angled UP and RIGHT with baseplate and two supporting legs placed immediately beside him; when prone he low-crawls carrying a folded mortar tube on his back, no standing deployed tube.
+
+Each ROW changes posture, never character scale:
+Row0 upright steady firing-ready stance, adult height and helmet width exactly match reference. Gunner aiming right (mortar carrier exception).
+Row1 low kneeling/crouched firing stance with hips lowered and knees bent, naturally 70–75% the standing height; same helmet/limb scale, not a shrunken person.
+Row2 low prone aiming/crawling, elbows near ground, legs extended behind, full adult body LENGTH, naturally short vertical height; same helmet and weapon scale. Launcher operator uses a plausible low prone launcher pose with tube raised just above shoulder.
+
+These will be used as full idle sprites and also cropped at the waist as upper-body equipment layers over the matching generated walking legs, so maintain the reference body proportions and hip alignment. No extra rifle underneath the special weapon. ONE gun per soldier. No firing flashes, projectiles, arrows, text, badges, scenery, cell borders, ground line or painted checker. Muted olive, charcoal metal, realistic pixels. Exactly15 full figures.
+
+
+-----
+
+adult-marine-44-prompt.txt
+
+Use case: identity-preserve. EDIT the attached finished transparent sprite atlas into a MARINE uniform/equipment variant. This is an exact animation atlas edit, not a new arrangement. The input has an 8-column by 6-row fixed grid (48 cells); only the first44 cells contain figures, the final4 cells in the last row must remain fully empty/transparent. Preserve the exact number, location, scale, ground contact, silhouette pose and limb joint positions of EACH input sprite. Every frame has a different purpose: walking8, crouch-walking8, standing/crouching/prone/jump/climb/crawl/injured/dead/run16–35, surrender and hit36–43. Do not duplicate or swap cells. Do not turn all frames into a standing gunman. The narrow-leg passing poses at indices2,6,10,14 MUST remain narrow-leg passing, all raised heels and opposite near/far leg shading preserved.
+
+Change only character identity through realistic surface equipment and colors: modern marines in muted DESERT TAN / subdued sand-and-brown camouflage, tan cloth helmet cover with compact goggles attached, tan tactical plate carrier and small rear utility roll, darker gloves and boots, same black rifle. Clearly different from olive standard infantry. Keep adult lean 7.5-head proportions, small normal head and long adult legs, no chibi or comic outline. Kneeling and prone figures remain physically the SAME scale as standing, not enlarged.
+
+Keep the same realistic restrained pixel art texture, defined pixel clusters, same pixel resolution as input. Consistent uniform palette and lighting across all44 frames. No blue background, no glow, no scenery, no labels, no cell borders, no text, no extra figures or weapons. True transparent alpha as in the source, final4 cells empty. Preserve original 3072×2304 layout if possible, do not crop canvas.
+
+
+-----
+
+adult-police-44-prompt.txt
+
+Use case: precise-object-edit.
+Input image 1 is the EXACT EDIT TARGET: a production 44-frame adult infantry sprite atlas already laid out and approved for animation. This is an appearance-only identity edit. Preserve the target's complete pixel-art anatomy, exact per-frame poses, leg-swap walking phases, silhouette scale, coordinates, weapon direction, cell positions and relative spacing.
+
+Change the same olive soldier in EVERY occupied cell into one consistent armed-police infantry identity: very dark navy blue cloth uniform, matte black/navy ballistic protective helmet of exactly the same normal adult head size, dark charcoal tactical vest, dark protective elbow/knee pads, low-profile black tactical pouches and compact backpack. Make the police identity visibly different in clothing and protective equipment, not just a blue tint over olive camouflage. Remove camouflage mottling and use subdued worn navy fabric. Keep black modern rifle, same stock/barrel shape, sling and exact hand grips. No police lettering, insignia text, badges, logos or shield props.
+
+CRITICAL INVARIANTS:
+- SAME canvas ratio and requested 3072×2304 size as the input. Exactly 8 equal columns × 6 equal rows; each cell 384×384.
+- EXACTLY 44 visible people in the original reading order. Keep the LAST FOUR CELLS of the LAST ROW completely transparent EMPTY. Do not fill them with extra characters.
+- No pose regeneration or substitution. Do not turn crouch into standing, crawl into kneeling, or running into walking. Keep BOTH narrow passing-leg poses at walk frames2/6 and crouch frames10/14.
+- Retain all original hand, shoulder, knee, ankle, boot and head positions as closely as an appearance edit allows. Keep realistic adult proportions with long legs, small human head, lean body, normal helmet. NEVER enlarge heads, helmets, hands or boots or make them cute.
+- Each figure remains fixed to the same horizontal body anchor and same floor/airborne position; do not center figures by their visible bounding box, zoom them to fill their cells, or change body size between stance changes.
+- Preserve the exact relative scale: upright figure about252px tall in a384px cell; crouch walking lower around212px, static deep crouch around180px, prone much lower and long horizontally. Raised hands may rise above upright head. Use the existing target as the geometry, not these descriptions to redraw it.
+- All original weapons stay where they are. Preserve the rifle lying beside the final fallen/lying poses; do not drop those separate components. Do not add a second gun to hands or remove slung weapons in surrender poses.
+- Real transparent background with alpha, matching input. No black/white/colored matte and NO PRINTED CHECKERBOARD. Keep transparent holes between limbs and around weapons, and all existing empty cell margins.
+
+Layout verification only, not instruction to redraw:
+row0 = 8 distinct right-facing walk frames.
+row1 = 8 distinct right-facing crouch-walk frames.
+row2 = stand, deep crouch, prone, crawl, takeoff, falling jump, landing, recovering.
+row3 = climb reach, climb pull, climb mantle, climb finish, alternate prone crawl, prone rise, wounded side-lying, dead.
+row4 = 4 distinct run frames then lower rifle/raise hands, standing surrender hands up, single-knee surrender, both-knee surrender hands on head.
+row5 = hit recoil, hit kneeling support, side fall, side lying beside rifle, followed by FOUR EMPTY transparent cells.
+
+Crisp military pixel art with discrete hard pixel clusters, matching target density and texture. Flat restrained lighting; no soft painted shading or cartoon outlines. No captions, frame numbers, labels, watermarks, scenery, floor strips, UI, smoke, particle effects, muzzle flashes or extra objects. Edit the uniform and protective equipment only; retain the approved action atlas geometry.
+
+
+-----
+
+adult-militia-44-prompt.txt
+
+Use case: identity-preserve.
+Asset type: EXACT pose-preserving reskin of an existing adult pixel-art animation atlas.
+
+EDIT THE PROVIDED IMAGE. Preserve its layout and all 44 individual poses exactly. Do not generate a new animation set or redraw the sequence from memory. This is only a costume/weapon identity change, pixel-art reskin of the same adult human skeleton.
+
+Keep the same 3072x2304 canvas, EXACTLY 8 columns and 6 rows, each cell 384x384. Keep every character in its existing cell at the same body scale, same head/body/foot anchors, same direction, same limb configuration and near/far leg overlap. Keep the distinct eight-frame walking phases from the first row and distinct eight-frame crouch-walking phases from the second row. These intermediate poses must not be collapsed into repeated copies.
+
+Change the person in all 44 occupied cells into the SAME lightly equipped militia rifleman:
+- Brown worn civilian field jacket over a plain dark shirt.
+- Olive green trousers, practical dark worn boots.
+- Close-fitting brown knit cap, NO helmet; keep the same SMALL adult head and face dimensions.
+- Lightweight canvas ammunition belt and one or two small pouches.
+- Remove bulky armor plates, thick tactical body armor and large military backpack. Retain the natural adult torso, shoulder and limb dimensions beneath the clothing.
+- Replace each existing modern rifle with ONE old AK-pattern rifle with worn wooden stock/handguard and a dark steel barrel, held at precisely the same angle and by the same hands. In poses with the weapon slung, lowered, set on ground or absent, preserve that exact original weapon state and count. No extra weapons.
+
+Preserve adult proportions: small head, believable neck/shoulders, full-length adult thighs and shins, ordinary hands and feet. Not cute, not big-headed, not stocky toy proportions, not a mascot. Match the source's sober realistic military pixel-art, restrained brown/olive palette, rugged fabric, clearly defined pixel clusters, hard edges and natural shading. No new heavy black cartoon contour, no plastic 3D sheen, no anime.
+
+MANDATORY FRAME OCCUPANCY AND ORDER, zero-based row-major:
+Indices 0-7: the eight standing walk frames, exactly as in row 0.
+Indices 8-15: the eight crouch-walk frames, exactly as in row 1.
+Indices 16-35: twenty different supplied actions; preserve standing, crouched, prone, crawling, jumping, vaulting, falling, injured and running configurations exactly where they are. Do not replace prone or fallen figures with standing figures.
+Indices 36-43: the eight reaction frames, including hands raised, kneeling, recoiling and downed poses. Preserve the original hands-up/weapon-away/body orientations.
+Indices 44-47: the LAST FOUR CELLS of the bottom row are COMPLETELY EMPTY and FULLY TRANSPARENT. DO NOT ADD FIGURES THERE.
+There must be EXACTLY 44 figures total, in the first 44 original occupied cells, with no additional character and no missing pose.
+
+Transparency is mandatory: preserve genuinely transparent alpha in all original empty areas and in the final four empty cells. No checkerboard pattern, black or white background, backdrop gradient, scene, ground, shadow floor, halo, decorative silhouette, grid lines, labels, text or watermark. Do not enlarge the figures or fill the large original empty cell margins.
+
+Highest priority: original 44 poses, adult body geometry, original cell locations and distinct walking phase silhouettes remain intact. Change ONLY clothing, headgear, loadout and rifle appearance. Never copy one pose across multiple cells to fill the atlas.

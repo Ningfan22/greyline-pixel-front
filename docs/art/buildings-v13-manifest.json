@@ -1,0 +1,908 @@
+{
+  "version": "v13",
+  "scope": "Generated building atlases used by the game; original pixels preserved",
+  "generation_mode": "built-in image_gen",
+  "request_count": 2,
+  "pixel_edits": false,
+  "generated_at_local_date": "2026-09-11",
+  "archetype_rows": [
+    "weathered_two_storey_plaster_house",
+    "red_brick_corner_workshop",
+    "low_industrial_warehouse"
+  ],
+  "coordinate_convention": "Zero-based pixel coordinates; boundaries and bboxes use exclusive right/bottom. safe_rect is x,y,width,height. Ground y is recommended visible contact coordinate.",
+  "assets": [
+    {
+      "path": "buildings-v13.png",
+      "original_sha256": "d47e5b680902cc014069df9e9238612edcaf94b558d0b9f59763c35b4cfd4dfb",
+      "dimensions": [
+        1448,
+        1086
+      ],
+      "mode": "RGBA",
+      "columns": 4,
+      "rows": 3,
+      "recommended_column_boundaries": [
+        0,
+        362,
+        724,
+        1086,
+        1448
+      ],
+      "recommended_row_boundaries": [
+        0,
+        399,
+        781,
+        1086
+      ],
+      "recommended_ground_anchor_absolute_y": [
+        363,
+        728,
+        1013
+      ],
+      "bbox_method": "Alpha >=64; excludes very low alpha fringe",
+      "cells": [
+        {
+          "row": 0,
+          "column": 0,
+          "safe_rect": [
+            0,
+            0,
+            362,
+            399
+          ],
+          "measured_content_bbox_exclusive": [
+            38,
+            84,
+            315,
+            364
+          ],
+          "anchor_in_rect": [
+            181.0,
+            363
+          ]
+        },
+        {
+          "row": 0,
+          "column": 1,
+          "safe_rect": [
+            362,
+            0,
+            362,
+            399
+          ],
+          "measured_content_bbox_exclusive": [
+            401,
+            84,
+            677,
+            364
+          ],
+          "anchor_in_rect": [
+            181.0,
+            363
+          ]
+        },
+        {
+          "row": 0,
+          "column": 2,
+          "safe_rect": [
+            724,
+            0,
+            362,
+            399
+          ],
+          "measured_content_bbox_exclusive": [
+            762,
+            107,
+            1064,
+            364
+          ],
+          "anchor_in_rect": [
+            181.0,
+            363
+          ]
+        },
+        {
+          "row": 0,
+          "column": 3,
+          "safe_rect": [
+            1086,
+            0,
+            362,
+            399
+          ],
+          "measured_content_bbox_exclusive": [
+            1109,
+            230,
+            1425,
+            364
+          ],
+          "anchor_in_rect": [
+            181.0,
+            363
+          ]
+        },
+        {
+          "row": 1,
+          "column": 0,
+          "safe_rect": [
+            0,
+            399,
+            362,
+            382
+          ],
+          "measured_content_bbox_exclusive": [
+            32,
+            434,
+            332,
+            729
+          ],
+          "anchor_in_rect": [
+            181.0,
+            329
+          ]
+        },
+        {
+          "row": 1,
+          "column": 1,
+          "safe_rect": [
+            362,
+            399,
+            362,
+            382
+          ],
+          "measured_content_bbox_exclusive": [
+            394,
+            434,
+            692,
+            729
+          ],
+          "anchor_in_rect": [
+            181.0,
+            329
+          ]
+        },
+        {
+          "row": 1,
+          "column": 2,
+          "safe_rect": [
+            724,
+            399,
+            362,
+            382
+          ],
+          "measured_content_bbox_exclusive": [
+            756,
+            434,
+            1067,
+            729
+          ],
+          "anchor_in_rect": [
+            181.0,
+            329
+          ]
+        },
+        {
+          "row": 1,
+          "column": 3,
+          "safe_rect": [
+            1086,
+            399,
+            362,
+            382
+          ],
+          "measured_content_bbox_exclusive": [
+            1109,
+            605,
+            1426,
+            729
+          ],
+          "anchor_in_rect": [
+            181.0,
+            329
+          ]
+        },
+        {
+          "row": 2,
+          "column": 0,
+          "safe_rect": [
+            0,
+            781,
+            362,
+            305
+          ],
+          "measured_content_bbox_exclusive": [
+            17,
+            834,
+            346,
+            1014
+          ],
+          "anchor_in_rect": [
+            181.0,
+            232
+          ]
+        },
+        {
+          "row": 2,
+          "column": 1,
+          "safe_rect": [
+            362,
+            781,
+            362,
+            305
+          ],
+          "measured_content_bbox_exclusive": [
+            379,
+            834,
+            708,
+            1013
+          ],
+          "anchor_in_rect": [
+            181.0,
+            232
+          ]
+        },
+        {
+          "row": 2,
+          "column": 2,
+          "safe_rect": [
+            724,
+            781,
+            362,
+            305
+          ],
+          "measured_content_bbox_exclusive": [
+            741,
+            856,
+            1068,
+            1013
+          ],
+          "anchor_in_rect": [
+            181.0,
+            232
+          ]
+        },
+        {
+          "row": 2,
+          "column": 3,
+          "safe_rect": [
+            1086,
+            781,
+            362,
+            305
+          ],
+          "measured_content_bbox_exclusive": [
+            1104,
+            922,
+            1430,
+            1012
+          ],
+          "anchor_in_rect": [
+            181.0,
+            232
+          ]
+        }
+      ],
+      "alpha": {
+        "present": true,
+        "extrema": [
+          0,
+          255
+        ],
+        "fully_transparent_pixels": 904572,
+        "fully_opaque_pixels": 1767,
+        "partial_alpha_pixels": 666189,
+        "dominant_nonzero_alpha": [
+          253,
+          252
+        ],
+        "notes": "True alpha; most building interiors have alpha 252–253 rather than 255. Preserve native output."
+      },
+      "prompt_file": "buildings-damage-states-prompt.txt",
+      "requested_dimensions": [
+        2048,
+        1536
+      ],
+      "generator_original": "exec-a70a3ca5-fd3a-4641-b4ff-7fb633340c4e.png",
+      "states": [
+        "intact_weathered",
+        "moderate_damage",
+        "major_partial_collapse",
+        "permanent_rubble"
+      ],
+      "measured_row_content_spans_exclusive": [
+        [
+          84,
+          364
+        ],
+        [
+          434,
+          729
+        ],
+        [
+          834,
+          1014
+        ]
+      ],
+      "issues": [
+        "Output native size 1448×1086 differs from requested 2048×1536; copied unchanged.",
+        "Nominal equal row splitting at 362 and 724 would clip building bottoms. Use measured row boundaries 399 and 781.",
+        "House rubble retains a relatively tall chimney/wall stub (134 px vs 280 px standing height); workshop ruin also retains some taller wall stubs. They exceed requested one-quarter-height limit, though most mass is low rubble.",
+        "Workshop facade shows a slight corner angle, and roofs reveal a slight top plane; intended elevation remains readable for a side-scroller but is not mathematically pure orthographic.",
+        "Very low alpha fringe pixels exist around shapes. Most opaque-looking interior pixels are alpha 252–253, not 255.",
+        "Building widths and anchors are visually consistent per row but not pixel-identical across damage states; rubble widens toward right in several cells."
+      ],
+      "copied_byte_identical": true
+    },
+    {
+      "path": "building-collapse-v13.png",
+      "original_sha256": "b3e9e6a7caaa00657f81419792a598ef7947dd1d96bb57b6d4c85612b6e3dce9",
+      "dimensions": [
+        2048,
+        768
+      ],
+      "mode": "RGB",
+      "columns": 8,
+      "rows": 3,
+      "recommended_column_boundaries": [
+        0,
+        267,
+        523,
+        779,
+        1032,
+        1293,
+        1540,
+        1794,
+        2048
+      ],
+      "recommended_row_boundaries": [
+        0,
+        296,
+        561,
+        768
+      ],
+      "recommended_ground_anchor_absolute_y": [
+        276,
+        533,
+        723
+      ],
+      "bbox_method": "Approximate foreground: min RGB <185 OR RGB channel range >24; excludes pale neutral checker background but can omit light grey dust",
+      "cells": [
+        {
+          "row": 0,
+          "column": 0,
+          "safe_rect": [
+            0,
+            0,
+            267,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            24,
+            64,
+            245,
+            277
+          ],
+          "anchor_in_rect": [
+            128.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 1,
+          "safe_rect": [
+            267,
+            0,
+            256,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            281,
+            64,
+            504,
+            278
+          ],
+          "anchor_in_rect": [
+            117.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 2,
+          "safe_rect": [
+            523,
+            0,
+            256,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            537,
+            65,
+            779,
+            278
+          ],
+          "anchor_in_rect": [
+            117.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 3,
+          "safe_rect": [
+            779,
+            0,
+            253,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            779,
+            90,
+            1030,
+            278
+          ],
+          "anchor_in_rect": [
+            117.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 4,
+          "safe_rect": [
+            1032,
+            0,
+            261,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            1034,
+            126,
+            1292,
+            277
+          ],
+          "anchor_in_rect": [
+            120.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 5,
+          "safe_rect": [
+            1293,
+            0,
+            247,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            1293,
+            132,
+            1531,
+            276
+          ],
+          "anchor_in_rect": [
+            115.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 6,
+          "safe_rect": [
+            1540,
+            0,
+            254,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            1548,
+            169,
+            1786,
+            278
+          ],
+          "anchor_in_rect": [
+            124.0,
+            276
+          ]
+        },
+        {
+          "row": 0,
+          "column": 7,
+          "safe_rect": [
+            1794,
+            0,
+            254,
+            296
+          ],
+          "measured_content_bbox_exclusive": [
+            1800,
+            184,
+            2031,
+            278
+          ],
+          "anchor_in_rect": [
+            126.0,
+            276
+          ]
+        },
+        {
+          "row": 1,
+          "column": 0,
+          "safe_rect": [
+            0,
+            296,
+            267,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            21,
+            314,
+            255,
+            534
+          ],
+          "anchor_in_rect": [
+            128.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 1,
+          "safe_rect": [
+            267,
+            296,
+            256,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            275,
+            314,
+            511,
+            535
+          ],
+          "anchor_in_rect": [
+            117.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 2,
+          "safe_rect": [
+            523,
+            296,
+            256,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            531,
+            314,
+            779,
+            535
+          ],
+          "anchor_in_rect": [
+            117.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 3,
+          "safe_rect": [
+            779,
+            296,
+            253,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            779,
+            314,
+            1032,
+            535
+          ],
+          "anchor_in_rect": [
+            117.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 4,
+          "safe_rect": [
+            1032,
+            296,
+            261,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            1032,
+            346,
+            1293,
+            534
+          ],
+          "anchor_in_rect": [
+            120.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 5,
+          "safe_rect": [
+            1293,
+            296,
+            247,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            1293,
+            395,
+            1531,
+            533
+          ],
+          "anchor_in_rect": [
+            115.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 6,
+          "safe_rect": [
+            1540,
+            296,
+            254,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            1547,
+            431,
+            1786,
+            535
+          ],
+          "anchor_in_rect": [
+            124.0,
+            237
+          ]
+        },
+        {
+          "row": 1,
+          "column": 7,
+          "safe_rect": [
+            1794,
+            296,
+            254,
+            265
+          ],
+          "measured_content_bbox_exclusive": [
+            1802,
+            461,
+            2032,
+            535
+          ],
+          "anchor_in_rect": [
+            126.0,
+            237
+          ]
+        },
+        {
+          "row": 2,
+          "column": 0,
+          "safe_rect": [
+            0,
+            561,
+            267,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            18,
+            588,
+            260,
+            723
+          ],
+          "anchor_in_rect": [
+            128.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 1,
+          "safe_rect": [
+            267,
+            561,
+            256,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            275,
+            590,
+            516,
+            724
+          ],
+          "anchor_in_rect": [
+            117.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 2,
+          "safe_rect": [
+            523,
+            561,
+            256,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            531,
+            590,
+            779,
+            724
+          ],
+          "anchor_in_rect": [
+            117.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 3,
+          "safe_rect": [
+            779,
+            561,
+            253,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            779,
+            598,
+            1028,
+            768
+          ],
+          "anchor_in_rect": [
+            117.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 4,
+          "safe_rect": [
+            1032,
+            561,
+            261,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            1033,
+            617,
+            1293,
+            724
+          ],
+          "anchor_in_rect": [
+            120.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 5,
+          "safe_rect": [
+            1293,
+            561,
+            247,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            1293,
+            648,
+            1529,
+            724
+          ],
+          "anchor_in_rect": [
+            115.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 6,
+          "safe_rect": [
+            1540,
+            561,
+            254,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            1547,
+            659,
+            1786,
+            724
+          ],
+          "anchor_in_rect": [
+            124.0,
+            162
+          ]
+        },
+        {
+          "row": 2,
+          "column": 7,
+          "safe_rect": [
+            1794,
+            561,
+            254,
+            207
+          ],
+          "measured_content_bbox_exclusive": [
+            1801,
+            659,
+            2030,
+            724
+          ],
+          "anchor_in_rect": [
+            126.0,
+            162
+          ]
+        }
+      ],
+      "alpha": {
+        "present": false,
+        "notes": "Opaque RGB image; generated pale grey/white checker pattern is baked into pixels, not a viewer transparency indicator."
+      },
+      "prompt_file": "buildings-collapse-prompt.txt",
+      "requested_dimensions": [
+        3072,
+        1152
+      ],
+      "generator_original": "exec-b0ca2a50-6729-4eb0-b4dd-63944f790bc9.png",
+      "reference_image": "buildings-v13.png",
+      "frames": [
+        "structural_cracking",
+        "roof_buckling",
+        "roof_wall_failure",
+        "upper_floor_fall",
+        "wall_floor_collapse",
+        "masonry_landing",
+        "dust_settling",
+        "permanent_rubble"
+      ],
+      "measured_row_content_spans_exclusive": [
+        [
+          64,
+          278
+        ],
+        [
+          314,
+          535
+        ],
+        [
+          590,
+          724
+        ]
+      ],
+      "issues": [
+        "CRITICAL: no alpha channel. White/light-grey checkerboard is baked into RGB pixels, despite explicitly requesting genuine transparency and no checker pattern. No alpha retry was made.",
+        "Baked background is a varied checker pattern, not one flat neutral matte; simple single-color chroma-key is insufficient. Requires import-side background isolation before use. Do not display raw atlas directly in-game.",
+        "Native output size 2048×768 differs from requested 3072×1152; copied unchanged.",
+        "Nominal equal 256px row splitting clips first and second row bases. Use measured row cuts 296 and 561.",
+        "Middle animation frames contain small debris/dust in gutters. Suggested column cuts are compromises; notably frame indices 2/3 can have adjacent detached fragments touching the cut.",
+        "Column footprint/center and ground contact vary by a few pixels between frames. Recommended anchors are common reference anchors, not evidence of exact generator compliance.",
+        "One isolated dark speck occurs at the bottom edge within row 2 frame 3, which inflates its raw color-threshold bbox to y=768; main structural content ends at y=724.",
+        "Dust is restrained and structurally appropriate, but edges are more finely textured than strict low-resolution pixel clusters.",
+        "Final rubble shape/material closely relates to reference but is not pixel-identical to the static final damage state."
+      ],
+      "copied_byte_identical": true
+    }
+  ],
+  "import_notes": [
+    "Use original assets as sources; preserve them byte-for-byte.",
+    "Use measured row boundaries, not equal-height atlas slicing.",
+    "Apply a fixed world footprint/scale per archetype and use supplied anchors; avoid resizing each frame to its visible bounding box because falling geometry must shrink in place.",
+    "If resolving collapse background during import, inspect against a dark scene and preserve pale dust and chipped plaster; the source has no alpha.",
+    "Play all 8 collapse frames once; then show static damage state column 3 for permanent persistent rubble, accepting a modest shape transition."
+  ]
+}
