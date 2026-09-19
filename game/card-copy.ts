@@ -106,7 +106,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ARMORED MINE CLEARER',
     typeLabel: '工程装甲',
     ability: '排雷开路',
-    rule: '近距自动排雷，快速处理矮墙。',
+    rule: '停车扫雷，范围大于步兵。',
     flavor: '他走过的路，别人才敢走。',
   },
   infantry: {
@@ -378,8 +378,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   engineers: {
     en: 'COMBAT ENGINEERS',
     typeLabel: '工程步兵',
-    ability: '破障拆墙',
-    rule: '双人工具组，近身拆墙排雷。',
+    ability: '低费排雷',
+    rule: '双人工具组，近身排雷。',
     flavor: '排雷这活，没有第二次。',
   },
   mountain: {
@@ -603,7 +603,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AMBUSH SQUAD',
     typeLabel: '守备伏击',
     ability: '伏击小组',
-    rule: '静止两秒，首射翻倍。',
+    rule: '停步蓄势，首射增伤八成。',
     flavor: '他们等的人，从来没等到他们。',
   },
   sniper_team: {
@@ -628,10 +628,10 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '绷带管够，血不够。',
   },
   combat_engineers: {
-    en: 'COMBAT ENGINEERS',
-    typeLabel: '攻坚破障',
-    ability: '战斗工兵',
-    rule: '爆破矮墙，清除地雷。',
+    en: 'FIELD MECHANICS',
+    typeLabel: '装甲抢修',
+    ability: '随车抢修',
+    rule: '接近受损装甲，停车维修。',
     flavor: '桥是工兵修的，命是坦克的。',
   },
   naval_gunfire: {

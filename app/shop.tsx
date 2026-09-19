@@ -9,9 +9,12 @@ import {
 } from 'react';
 import { Coins, Package, Play, RotateCcw, X } from 'lucide-react';
 import { CARDS, type CardId } from '@/game/cards';
-import { CardFace } from '@/game/card-art';
+import { CardFace, cardStats } from '@/game/card-art';
+import { CARD_COPY } from '@/game/card-copy';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { assetUrl } from '@/game/asset-url';
 import TearCanvas from './tear-canvas';
+import { createRevealTimers } from './reveal-timers';
 import {
   AD_COOLDOWN_MS,
   AD_REWARD,
@@ -69,16 +72,17 @@ export default function Shop({
   >({});
   const [flipped, setFlipped] = useState<boolean[]>([]);
   const [message, setMessage] = useState('');
+  const [detail, setDetail] = useState<CardId | null>(null);
   const [adReadyAt, setAdReadyAt] = useState(readAdCooldown);
   const [, forceTick] = useState(0);
-  const flipTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [flipTimers] = useState(createRevealTimers);
+  const purchasePending = useRef(false);
 
   useEffect(() => {
     return () => {
-      for (const timer of flipTimers.current) clearTimeout(timer);
-      flipTimers.current = [];
+      flipTimers.cancel();
     };
-  }, []);
+  }, [flipTimers]);
 
   useEffect(() => {
     if (!adReadyAt) return;
@@ -110,12 +114,15 @@ export default function Shop({
   );
 
   const startReveal = (ten: boolean) => {
+    if (purchasePending.current) return;
     const cost = ten ? TEN_PACK_COST : PACK_COST;
     if (collection.gold < cost) {
       setMessage(`金币不足：${ten ? '十连' : '一包'}需要 ${cost} 金币`);
       return;
     }
     const r = ten ? openTenPacks(collection) : openPack(collection);
+    purchasePending.current = true;
+    flipTimers.cancel();
     setPrevOwned(collection.owned);
     onChange(r.state);
     setResult({
@@ -154,19 +161,13 @@ export default function Shop({
 
   const flipAll = () => {
     if (!result) return;
-    for (const timer of flipTimers.current) clearTimeout(timer);
-    flipTimers.current = [];
-    let delay = 0;
-    result.draws.forEach((_, i) => {
-      if (!flipped[i]) {
-        const idx = i;
-        flipTimers.current.push(setTimeout(() => flipOne(idx), delay));
-        delay += result.ten ? 28 : 120;
-      }
-    });
+    flipTimers.reveal(result.draws.flatMap((_, i) => flipped[i] ? [] : [i]),
+      result.ten ? 28 : 120, flipOne);
   };
 
   const resetCounter = () => {
+    flipTimers.cancel();
+    purchasePending.current = false;
     setPhase('idle');
     setResult(null);
     setFlipped([]);
@@ -249,15 +250,18 @@ export default function Shop({
       ) : phase === 'tearing' ? (
         <section className="shop-reveal" aria-label="开包动画">
           <div className="shop-tear-wrap">
-            <TearCanvas onDone={() => setPhase('fanned')} />
+            <TearCanvas onDone={() => {
+              purchasePending.current = false;
+              setPhase('fanned');
+            }} />
           </div>
           <p className="shop-hint">点击跳过动画</p>
         </section>
       ) : (
         result && (
-        <section className="shop-reveal" aria-label="开包结果">
+        <section className="shop-reveal" aria-label="开包结果" onClick={flipAll}>
           {result.ten ? (
-            <div className="shop-ten-wrap" onClick={flipAll}>
+            <div className="shop-ten-wrap">
               <div className="shop-ten-grid">
                 {result.draws.map((d, i) => {
                   const isNew =
@@ -269,7 +273,8 @@ export default function Shop({
                       className={`shop-flip shop-ten-card ${flipped[i] ? 'open' : ''} rarity-${d.rarity}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        flipOne(i);
+                        if (flipped[i]) setDetail(d.id);
+                        else flipOne(i);
                       }}
                       aria-label={
                         flipped[i]
@@ -286,7 +291,7 @@ export default function Shop({
                           height={300}
                           draggable={false}
                         />
-                        <span className="shop-flip-front">
+                        <span className="shop-flip-front" aria-hidden={!flipped[i]}>
                           <CardFace id={d.id} className="shop-card-face" />
                           <span
                             className="shop-card-rarity"
@@ -306,12 +311,12 @@ export default function Shop({
               </div>
             </div>
           ) : (
-            <div className="shop-fan" onClick={flipAll}>
+            <div className="shop-fan">
               {result.draws.map((d, i) => {
                 const isNew =
                   !d.converted && (prevOwned[d.id] ?? 0) === 0;
                 const style = {
-                  '--fan-x': `${(i - 2) * 62}px`,
+                  '--fan-x': `calc(${i - 2} * clamp(32px, 12cqw, 62px))`,
                   '--fan-r': `${(i - 2) * 11}deg`,
                   '--fan-y': `${Math.abs(i - 2) * 12}px`,
                   zIndex: 10 - Math.abs(i - 2),
@@ -324,7 +329,8 @@ export default function Shop({
                     className={`shop-flip shop-fan-card ${flipped[i] ? 'open' : ''} rarity-${d.rarity}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      flipOne(i);
+                      if (flipped[i]) setDetail(d.id);
+                      else flipOne(i);
                     }}
                     aria-label={
                       flipped[i]
@@ -341,7 +347,7 @@ export default function Shop({
                         height={300}
                         draggable={false}
                       />
-                      <span className="shop-flip-front">
+                      <span className="shop-flip-front" aria-hidden={!flipped[i]}>
                         <CardFace id={d.id} className="shop-card-face" />
                         <span
                           className="shop-card-rarity"
@@ -369,7 +375,10 @@ export default function Shop({
             )}
             {result.pity && <span className="shop-pity">保底王牌已触发</span>}
           </div>
-          <div className="shop-reveal-actions">
+          <div className="shop-reveal-actions" onClick={(e) => e.stopPropagation()}>
+            {!allFlipped && <button type="button" className="secondary-button" onClick={flipAll}>
+              全部翻开
+            </button>}
             <button
               type="button"
               className="secondary-button"
@@ -416,19 +425,41 @@ export default function Shop({
         <h3>我的卡牌</h3>
         <div className="shop-collection-grid">
           {ownedCards.map((id) => (
-            <div
+            <button
+              type="button"
               key={id}
               className={`shop-owned-card rarity-${rarityOf(id)}`}
               title={`${CARDS[id].name} ×${ownedCount(collection, id)}`}
+              aria-label={`放大查看${CARDS[id].name}`}
+              onClick={() => setDetail(id)}
             >
               <CardFace id={id} className="shop-owned-face" />
               <span className="shop-owned-count">
                 ×{ownedCount(collection, id)}
               </span>
-            </div>
+            </button>
           ))}
         </div>
       </section>
+      <Dialog open={detail !== null} onOpenChange={(open) => { if (!open) setDetail(null); }}>
+        <DialogContent className="card-detail-dialog">
+          {detail && <div className="detail-layout">
+            <div className="detail-card-col"><CardFace id={detail} className="detail-card-face" /></div>
+            <div className="detail-info-col">
+              <DialogTitle>{CARDS[detail].name}<small>{CARDS[detail].cost} 指挥点</small></DialogTitle>
+              <DialogDescription>{CARDS[detail].tag}</DialogDescription>
+              <p>{CARDS[detail].detail}</p>
+              <blockquote className="card-flavor-quote">{CARD_COPY[detail].flavor}</blockquote>
+              <p>已拥有 {ownedCount(collection, detail)} 张 · {RARITY_LABEL[rarityOf(detail)]}</p>
+              {CARDS[detail].hp && <div className="detail-stat-row">
+                <span>全组生命 <b>{CARDS[detail].hp}</b></span>
+                <span>{cardStats(detail)[3][0]} <b>{cardStats(detail)[3][1]}</b></span>
+                <span>人数 <b>{CARDS[detail].members ?? 1}</b></span>
+              </div>}
+            </div>
+          </div>}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

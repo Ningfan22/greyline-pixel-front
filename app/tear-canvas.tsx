@@ -154,18 +154,22 @@ function paintCardBack(ctx: CanvasRenderingContext2D) {
 export default function TearCanvas({ onDone }: { onDone: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const doneRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  const rafRef = useRef(0);
+  onDoneRef.current = onDone;
   const finish = () => {
     if (!doneRef.current) {
       doneRef.current = true;
-      onDone();
+      cancelAnimationFrame(rafRef.current);
+      onDoneRef.current();
     }
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) { finish(); return; }
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) { finish(); return; }
     ctx.imageSmoothingEnabled = false;
 
     const reduced =
@@ -173,7 +177,7 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
       Boolean(
         window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
       );
-    const speed = reduced ? 0.35 : 1;
+    if (reduced) { finish(); return; }
 
     // 预渲染袋身与卡背
     const bag = document.createElement('canvas');
@@ -195,10 +199,10 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
     ];
 
     const start = performance.now();
-    let raf = 0;
 
     const frame = (now: number) => {
-      const t = ((now - start) / 1000) * speed;
+      if (doneRef.current) return;
+      const t = (now - start) / 1000;
       ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
       // 入场：弹入 + 轻微浮动
@@ -312,21 +316,21 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
         finish();
         return;
       }
-      raf = requestAnimationFrame(frame);
+      rafRef.current = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    rafRef.current = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
   return (
+    <button type="button" className="tear-player" onClick={finish} aria-label="跳过开包动画">
     <canvas
       ref={canvasRef}
       width={CANVAS_W}
       height={CANVAS_H}
       className="tear-canvas"
-      onClick={finish}
-      role="img"
-      aria-label="卡包撕开动画，点击跳过"
+      aria-hidden="true"
     />
+    </button>
   );
 }

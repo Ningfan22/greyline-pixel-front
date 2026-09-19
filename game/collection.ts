@@ -254,7 +254,7 @@ export interface PackResult {
   drawn: PackDraw[];
   /** 本次转化获得的金币总数。 */
   goldGained: number;
-  /** 十连保底是否触发（把一张常规替换成了王牌）。 */
+  /** 十连保底是否触发（把一张低于王牌的卡替换成了王牌）。 */
   pity: boolean;
 }
 
@@ -277,6 +277,7 @@ export function openPack(
   state: CollectionState,
   rng: () => number = Math.random,
 ): PackResult {
+  requireGold(state, PACK_COST);
   const owned = { ...state.owned };
   const drawn: PackDraw[] = [];
   let goldGained = 0;
@@ -300,6 +301,7 @@ export function openTenPacks(
   state: CollectionState,
   rng: () => number = Math.random,
 ): PackResult {
+  requireGold(state, TEN_PACK_COST);
   const owned = { ...state.owned };
   const drawn: PackDraw[] = [];
   let goldGained = 0;
@@ -308,23 +310,15 @@ export function openTenPacks(
     const id = rollCard(rollRarity(rng), rng);
     drawn.push({ id, rarity: rarityOf(id), converted: false, gold: 0 });
   }
-  // 保底：没有王牌及以上稀有度时，把第一张常规替换为王牌。
+  // 全精锐也必须保底；先替换常规，没有常规则替换第一张精锐。
   if (!drawn.some((d) => d.rarity === 'epic' || d.rarity === 'legendary')) {
-    const idx = drawn.findIndex((d) => d.rarity === 'common');
-    if (idx >= 0) {
-      // 尽量挑一张还没到携带上限的王牌，避免保底被转化成金币。
-      let pityId = rollCard('epic', rng);
-      for (let tries = 0; tries < 8 && (owned[pityId] ?? 0) >= copyLimit(pityId); tries += 1) {
-        pityId = rollCard('epic', rng);
-      }
-      drawn[idx] = {
-        id: pityId,
-        rarity: 'epic',
-        converted: false,
-        gold: 0,
-      };
-      pity = true;
-    }
+    const idx = Math.max(0, drawn.findIndex((d) => d.rarity === 'common'));
+    // 有未满的王牌就从其中选；全满时仍按正常溢出规则返还 20 金币。
+    const available = RARITY_POOLS.epic.filter((id) => (owned[id] ?? 0) < copyLimit(id));
+    const pool = available.length ? available : RARITY_POOLS.epic;
+    const pityId = pool[Math.floor(rng() * pool.length)];
+    drawn[idx] = { id: pityId, rarity: 'epic', converted: false, gold: 0 };
+    pity = true;
   }
   for (const draw of drawn) {
     const settled = settleDraw(draw.id, owned);
@@ -350,4 +344,10 @@ export function grantAdReward(state: CollectionState): CollectionState {
   };
   saveCollection(next);
   return next;
+}
+
+function requireGold(state: CollectionState, cost: number) {
+  if (!Number.isFinite(state.gold) || state.gold < cost) {
+    throw new RangeError('金币不足，未购买卡包');
+  }
 }

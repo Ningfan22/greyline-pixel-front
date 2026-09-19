@@ -882,7 +882,7 @@ export const CARDS: Record<CardId, Card> = {
     'mine_clearer',
     '装甲扫雷车',
     4,
-    '近距排雷，停车处理路障',
+    '装甲保护下停车排雷，范围大于徒步工兵',
     {
       en: 'ARMORED MINE CLEARER',
       vehicle: true,
@@ -898,7 +898,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 440,
       tag: '工程 · 排雷开路',
       detail:
-        '430 生命。自动探测附近 110 距离的敌方地雷，停车每 0.6 秒排除一枚，优先保障履带前方安全；不展示远处隐藏地雷。遇到近处矮墙时停车，每 0.6 秒清除 90 耐久。',
+        '430 生命。自动探测附近 110 距离的敌方地雷，停车每 0.6 秒排除一枚，优先保障履带前方安全；不展示远处隐藏地雷。比徒步工兵探雷范围更大，但费用更高、移动更慢，且不能修车。',
     },
   ),
   javelin: variant(
@@ -1735,7 +1735,7 @@ export const CARDS: Record<CardId, Card> = {
     'ambush_squad',
     '伏击小组',
     3,
-    '3 名伏击兵，静止 2 秒后首波齐射伤害翻倍',
+    '3 名伏击兵，静止蓄势 2 秒后下一发对步兵增伤 80%',
     {
       members: 3,
       hp: 165,
@@ -1748,7 +1748,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'elite',
       tag: '守备 · 以静制动',
       detail:
-        '3人伏击小组，静止2秒后进入伏击状态，开火首波齐射造成双倍伤害。蹲在掩体或草丛里等对手撞上来，是防守反击流派的核心单位。',
+        '3人伏击小组，静止且未开火蓄势2秒后，下一发对步兵伤害乘1.8。每人移动或射击都会重置自己的蓄势；连续交火不会每发都获得加成，且不能攻击未发现目标。',
     },
   ),
   sniper_team: variant(
@@ -2452,10 +2452,10 @@ Object.assign(CARDS.engineers, {
   hp: 70,
   damage: 6,
   range: 260,
-  tag: '工程 · 破障排雷',
-  description: '双人工具组，近身拆墙排雷，自卫火力有限。',
+  tag: '工程 · 低费排雷',
+  description: '双人工具组，近身排雷，自卫火力有限。',
   detail:
-    '1费2人70生命。接近矮墙拆除障碍，36内每1.2秒排除一枚敌方地雷；不能发现远处地雷。全组6伤害。',
+    '1费2人70生命。36内每1.2秒排除一枚敌方地雷；不能发现远处地雷。全组6伤害，不能修理装甲，也没有突击工兵的爆炸减伤。',
 });
 Object.assign(CARDS.antiarmor, {
   cost: 2,
