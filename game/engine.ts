@@ -199,6 +199,7 @@ export interface Unit {
   bleedOut: number;
   woundedBy: Side;
   rescueProgress: number;
+  medicalReadyAt?: number;
   crawling?: boolean;
   rescuedAt?: number;
   crawlFxAt?: number;
@@ -293,7 +294,7 @@ export interface Unit {
   /** v127: after a cover peek ends, the soldier rests behind cover this long. */
   peekRestUntil?: number;
   /** v129: stable down-pose held between cover peeks (picked once per drop). */
-  peekDownPose?: string;
+  peekDownPose?: 'crouch' | 'hunker' | 'prone';
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
   vacuum?: boolean;
   /** v120, animation-only: this unit is its squad's current leader. */
@@ -559,6 +560,8 @@ export interface Marker {
     | 'naval'
     | 'cluster'
     | 'thermobaric'
+    | 'heavy'
+    | 'creeping'
     | 'rocket';
   impacts?: number[];
 }
@@ -584,6 +587,7 @@ export interface Smoke {
   side: Side;
 }
 export interface Flare {
+  radius?: number;
   x: number;
   y: number;
   life: number;
@@ -689,7 +693,7 @@ export interface Player extends EconomyPlayer {
   /** Frequency hopping: immune to enemy disruption while active (v120). */
   freqHopUntil?: number;
   /** EW suppression: enemy recharge interval multiplied while active (v120). */
-  ewarfareUntil?: number;
+  ewarfareUntil?: number | null;
   /** Tactical fallback: own infantry speed boost while active (v120). */
   fallbackUntil?: number;
 }
@@ -1034,6 +1038,7 @@ export function spawnUnit(
       bleedOut: 0,
       woundedBy: side === 0 ? 1 : 0,
       rescueProgress: 0,
+      medicalReadyAt: c.medicalSetup ? s.time + c.medicalSetup : undefined,
       injuryCooldown: 0,
       shots: i,
       secondaryShots: 0,
@@ -1098,10 +1103,8 @@ export function draw(s: GameState, side: Side, count = 1) {
   let drawn = 0;
   for (let i = 0; i < count; i++) {
     if (p.hand.length >= MAX_HAND) break;
-    if (!p.deck.length) {
-      p.deck = shuffle(p, p.discard);
-      p.discard = [];
-    }
+    // A battle has a finite draw pile. Spent cards only return through an
+    // explicit recovery effect; an empty pile never refills itself.
     const token = p.deck.shift();
     if (!token) break;
     p.hand.push(token);
@@ -1129,7 +1132,7 @@ export function requestDraw(
     return { ok: false, message: '手牌已满，请先使用一张卡' };
   if (p.drawIn > 0)
     return { ok: false, message: `补给准备中，还需 ${Math.ceil(p.drawIn)} 秒` };
-  if (!p.deck.length && !p.discard.length)
+  if (!p.deck.length)
     return { ok: false, message: '没有可抽取的卡牌' };
   if (p.energy < DRAW_COST)
     return { ok: false, message: '抽牌需要 2 点指挥点' };
@@ -1310,11 +1313,12 @@ function safeLanding(s: GameState, requested: number) {
   }
   return center;
 }
-export function launchFlare(s: GameState, side: Side, x: number, life = 10) {
+export function launchFlare(s: GameState, side: Side, x: number, life = 10, radius = 260) {
   const tx = Math.max(40, Math.min(W - 40, x));
   s.flares.push({
     x: tx,
-    y: ground(s, tx) - 250,
+    y: ground(s, tx) - (radius < 260 ? 145 : 250),
+    radius,
     life,
     maxLife: life,
     side,
@@ -1524,7 +1528,7 @@ export function playCard(
       // v132: 点穴打击——截获的 2 点指挥点归己方所有
       p.energy = Math.min(energyLimit(p), p.energy + 2);
     }
-    if (c.effect === 'forage') draw(s, side, 2);
+    if (c.effect === 'forage') draw(s, side, 1);
     if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
     if (c.effect === 'blackout' && !hopImmune) foe.blackoutUntil = s.time + 8;
     if (c.effect === 'interdict' && !hopImmune)
@@ -1575,7 +1579,7 @@ export function playCard(
           life: 10,
           side,
         });
-    if (c.effect === 'illumination') launchFlare(s, side, x!, 14);
+    if (c.effect === 'illumination') launchFlare(s, side, x!, 14, 160);
     if (c.effect === 'minefield')
       for (const dx of [-60, 0, 60])
         s.mines.push({
@@ -2360,6 +2364,8 @@ function hitUnit(
     if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
       u.woundedFromPose = u.pose;
       u.wounded = true;
+      u.rappelling = false;
+      u.parachuting = false;
       u.woundedTime = 0;
       u.bleedOut = 25;
       u.woundedBy = side;
@@ -3270,7 +3276,9 @@ export function pickMedicPatient(
       !CARDS[v.id].members
     )
       continue;
-    const radius = medic.squadOrder === 'watch' && v.wounded ? 64 : 140;
+    const card = CARDS[medic.id];
+    const radius = v.wounded && (medic.squadOrder === 'watch' || card.static)
+      ? 64 : (card.healRange ?? 140);
     if (Math.abs(v.x - medic.x) > radius) continue;
     if (v.wounded && anotherMedicOnPatient(s, medic, v)) continue;
     const score = medicTriageScore(medic, v);
@@ -3360,15 +3368,15 @@ function applyStanceCooldown(
  * - within-class changes (idle<->walk<->run, crouch<->hunker) are always free.
  * - cross-class changes (stand<->crouch<->prone) are rate-limited to once per
  *   STANCE_COOLDOWN_S; while locked the current pose is held.
- * - force=true bypasses the lock for reactions (blast flinch, bailout, card
- *   effects) but still arms a fresh lock, so a forced drop stays committed.
+ * - Legacy force hints no longer bypass healthy posture commitment. Real
+ *   casualties retain their separate wounded/death animation path.
  */
 function setStance(
   u: Unit,
   time: number,
-  desired: string,
-  opts?: { force?: boolean },
-): string {
+  desired: Unit['pose'],
+  _legacy?: { force?: boolean },
+): Unit['pose'] {
   // Already in the requested pose: never re-arm the lock on a re-asserted
   // state. Continuous override blocks (observer hold, medic treatment,
   // digging) run every frame; without this early return each frame would
@@ -3381,13 +3389,19 @@ function setStance(
     return desired;
   }
   if (
-    !opts?.force &&
+    !u.wounded &&
     u.stanceLockUntil !== undefined &&
     time < u.stanceLockUntil
   )
     return u.pose;
   u.pose = desired;
   u.stanceLockUntil = time + STANCE_COOLDOWN_S;
+  const nextClass = stanceClass(desired);
+  if (nextClass !== 'motion') {
+    u.poseAnimFrom = curClass;
+    u.poseAnimSeen = nextClass;
+    u.poseAnimAt = time;
+  }
   return desired;
 }
 
@@ -3586,7 +3600,7 @@ function traverse(s: GameState, u: Unit, dt: number) {
     // climb silhouette. The animation layer maps motion==='bank' to the
     // crouch gait; keep the pose value consistent so nothing downstream
     // (stanceClass, render layers) treats the unit as climbing.
-    u.pose = 'crouch';
+    u.pose = setStance(u, s.time, 'crouch');
     const t = Math.min(1, u.motionTime / u.motionDuration),
       ease = t * t * (3 - 2 * t);
     u.x = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
@@ -3615,6 +3629,24 @@ function orderedWithdrawal(s: GameState, u: Unit) {
     u.squadOrderX !== undefined
   );
 }
+
+/** Ground units cannot pass an uncleared enemy contact, even on a rush order.
+ * Repositioning to the rear is always allowed. Air sorties are independent. */
+export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
+  const dir = u.side === 0 ? 1 : -1;
+  if (CARDS[u.id].air || (proposedX - u.x) * dir <= 0) return proposedX;
+  let limit = proposedX;
+  const gap = CARDS[u.id].members ? 105 : 150;
+  for (const enemy of s.units) {
+    if (enemy.side === u.side || !isCombatant(enemy) || CARDS[enemy.id].air ||
+        enemy.rappelling || enemy.parachuting || (enemy.x - u.x) * dir < 0 ||
+        (enemy.x - u.x) * dir > Math.abs(proposedX - u.x) + gap ||
+        !visibleToSide(s, u.side, enemy)) continue;
+    const stop = enemy.x - dir * gap;
+    if ((stop - limit) * dir < 0) limit = stop;
+  }
+  return (limit - u.x) * dir < 0 ? u.x : limit;
+}
 function moveSoldier(
   s: GameState,
   u: Unit,
@@ -3624,6 +3656,9 @@ function moveSoldier(
   mayTraverse = true,
 ) {
   if (!dir || speed <= 0 || localUnitOrder(s, u) === 'watch') return;
+  const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
+  speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
+  if (speed <= 0) return;
   u.facing = dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
@@ -3678,7 +3713,7 @@ function moveSoldier(
     u.motionToX = destination;
     u.motionToY = ground(s, destination);
     u.motionLift = 4;
-    u.pose = 'crouch'; // v130: bank = crouch-shuffle, not climb pose
+    u.pose = setStance(u, s.time, 'crouch');
     return;
   }
   const wall = s.walls.find(
@@ -5156,7 +5191,7 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
   }
   if (s.players[u.side].order === 'hold' || Math.abs(delta) < 1) return false;
   const change = Math.sign(delta) * Math.min(Math.abs(delta), 28 * dt);
-  u.x += change;
+  u.x = contactSafeX(s, u, u.x + change);
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = true;
@@ -5190,7 +5225,7 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
     delta = goal - u.x;
   if (Math.abs(delta) < 1) return false;
   const change = Math.sign(delta) * Math.min(Math.abs(delta), 28 * dt);
-  u.x += change;
+  u.x = contactSafeX(s, u, u.x + change);
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = true;
@@ -5942,7 +5977,7 @@ function updateAI(s: GameState) {
       } else if (c.id === 'morale') {
         if (battle && cohorts >= 2 && p.morale <= 0) score = 22;
       } else if (c.id === 'supply' || c.effect === 'ammo') {
-        if (p.hand.length <= MAX_HAND - 1) score = 25;
+        if (p.deck.length > 0) score = 25;
       } else if (c.effect === 'rally') {
         if (moraleNeed >= 2) score = 26;
       } else if (c.effect === 'medevac') {
@@ -6362,7 +6397,7 @@ function updateAI(s: GameState) {
       );
     // Own remaining card identities are public deck-building information; never
     // inspect the opposing hand or use the shuffled draw order to choose a card.
-    const strongInPool = [...p.deck, ...p.discard].filter(
+    const strongInPool = p.deck.filter(
       (h) => requiredPower(h.id) >= 0.8,
     );
     const counter = counterChoices[0];
@@ -6379,7 +6414,7 @@ function updateAI(s: GameState) {
       return; // Save for the effective held counter before any command or rifle squad.
     }
 
-    const canSearch = p.deck.length > 0 || p.discard.length > 0;
+    const canSearch = p.deck.length > 0;
     // Playing supply removes its own card first: five held cards still leave
     // room for both draws. Use this paid effect before the more expensive draw.
     const resupply =
@@ -7360,7 +7395,7 @@ export function tick(s: GameState, dt: number) {
         u.rappelling = false;
         u.parachuting = false;
         u.pose = 'idle';
-        u.motion = undefined;
+        u.motion = 'ground';
       }
       u.y = ground(s, u.x);
       continue;
@@ -7757,7 +7792,7 @@ export function tick(s: GameState, dt: number) {
     }
     u.stepCooldown = Math.max(0, u.stepCooldown - dt);
     u.coverSearch -= dt;
-    const desiredPose = c.members
+    let desiredPose: Unit['pose'] = c.members
       ? order === 'crouch'
         ? 'crouch'
         : order === 'prone'
@@ -7770,6 +7805,28 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    // Choose a usable firing height BEFORE committing for ten seconds. The
+    // old order first locked a crouch, then immediately asked the peek layer
+    // to stand up again; honoring the lock consequently left that man silent.
+    if (c.members && !c.indirect && u.suppression < 65 &&
+        order !== 'prone' && order !== 'crouch' &&
+        desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
+      const lowBody = { ...u, pose: desiredPose, moving: false };
+      if (s.units.some(enemy => enemy.side !== u.side && isCombatant(enemy) &&
+          !CARDS[enemy.id].air && visibleToSide(s, u.side, enemy) &&
+          Math.abs(enemy.x - u.x) <= unitRange(s, u) + 120 &&
+          [0, 12, 24].some(step => {
+            const x = u.x + dir * step;
+            return firingHeight(s, { ...lowBody, x, y: ground(s, x) },
+              enemy.x, enemy.y - 20) === 47;
+          }))) {
+        desiredPose = 'idle';
+        setStance(u, s.time, 'idle');
+        // Also commit when already standing: movement/peek code later in the
+        // same tick must not immediately replace this chosen firing stance.
+        u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
+      }
+    }
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
@@ -7794,7 +7851,7 @@ export function tick(s: GameState, dt: number) {
       // v129: route the flinch drop through the stance gate with force, and
       // never lift a man who's already on the deck back to a crouch — that
       // snap-to-crouch-then-back was half the prone twitch.
-      let flinchWant = pinned && u.flinchProne ? 'prone' : 'crouch';
+      let flinchWant: Unit['pose'] = pinned && u.flinchProne ? 'prone' : 'crouch';
       if (stanceClass(u.pose) === 'prone') flinchWant = 'prone';
       u.pose = setStance(u, s.time, flinchWant, { force: true });
       u.fire = 0;
@@ -7868,7 +7925,7 @@ export function tick(s: GameState, dt: number) {
       // v129: suppression jitters around the 78 threshold, which used to flip
       // bailing crew between prone and hunker every frame. Gate it with
       // force and keep a man on the deck once he's down.
-      let bailWant =
+      let bailWant: Unit['pose'] =
         u.suppression > 78 ? 'prone' : u.suppression > 55 ? 'hunker' : 'crouch';
       if (stanceClass(u.pose) === 'prone') bailWant = 'prone';
       u.pose = setStance(u, s.time, bailWant, { force: true });
@@ -7949,12 +8006,18 @@ export function tick(s: GameState, dt: number) {
     const range = unitRange(s, u);
     let treating = serviceVehicle(s, u);
     if (c.heal) {
-      const patient = pickMedicPatient(s, u);
+      const medicalSettingUp = (u.medicalReadyAt ?? 0) > s.time;
+      const patient = medicalSettingUp ? undefined : pickMedicPatient(s, u);
+      if (c.static) {
+        treating = true;
+        u.moving = false;
+        setStance(u, s.time, 'crouch');
+      }
       if (patient) {
         treating = true;
         u.pose = setStance(u, s.time, 'crouch');
         const movingToPatient =
-          patient.wounded && Math.abs(patient.x - u.x) > 64;
+          !c.static && patient.wounded && Math.abs(patient.x - u.x) > 64;
         if (movingToPatient) {
           u.pose = setStance(u, s.time, 'walk');
           moveSoldier(
@@ -7991,7 +8054,7 @@ export function tick(s: GameState, dt: number) {
         // medics do not chase the other side's wounded.
         const intel = s.traceIntel[u.side];
         if (
-          intel &&
+          !c.static && intel &&
           intel.side === u.side &&
           intel.until > s.time &&
           Math.abs(intel.x - u.x) > 40 &&
@@ -8858,10 +8921,9 @@ export function tick(s: GameState, dt: number) {
         peekShouldExpose(s, u);
       const peekExposed = (u.exposedUntil ?? 0) > s.time;
       if (peekExposed) {
-        // Peek-up is the cover-fire mechanic's internal state: a fast
-        // crouch→stand pop that bypasses the 10s stance lock, or the
-        // soldier could never rise to fire over cover. Direct write.
-        u.pose = 'idle';
+        // Exposure changes firing eligibility, not the posture commitment.
+        // Rising over cover obeys the same ten-second gate as other actions.
+        setStance(u, s.time, 'idle');
         u.peekDownPose = undefined;
       } else {
         // Down-pose: pick once when the peek ends, then hold it for the
@@ -8875,7 +8937,7 @@ export function tick(s: GameState, dt: number) {
                 ? 'hunker'
                 : 'crouch';
         }
-        u.pose = u.peekDownPose;
+        setStance(u, s.time, u.peekDownPose);
       }
     }
     // v114: a soldier caught mid-reload while in contact stops advancing and
@@ -8915,7 +8977,7 @@ export function tick(s: GameState, dt: number) {
       (u.ammoReserve ?? 0) > 0
     ) {
       const spec = magazine(u.id, u.member);
-      if (spec && u.ammo < spec.mag * 0.35 && u.ammoReserve >= spec.mag) {
+      if (spec && u.ammo < spec.mag * 0.35 && (u.ammoReserve ?? 0) >= spec.mag) {
         u.reloadingUntil = s.time + spec.reload * 0.75;
         u.reloadingStartAt = s.time;
         u.tacticalReload = true;
@@ -9367,15 +9429,13 @@ export function tick(s: GameState, dt: number) {
         // hysteresis on the suppression threshold. The old direct write
         // flipped prone↔crouch every frame near 65 suppression — the
         // "rapidly prone and stand up" twitch.
-        let moveWant: string;
-        let moveForce = false;
+        let moveWant: Unit['pose'];
         if (
           (u.assaultSurgeUntil ?? 0) > s.time &&
           !withdrawing &&
           !retreating
         ) {
           moveWant = 'run';
-          moveForce = true;
         } else if (
           order === 'rush' ||
           bounding ||
@@ -9383,7 +9443,6 @@ export function tick(s: GameState, dt: number) {
           breachRun
         ) {
           moveWant = 'run';
-          moveForce = order === 'rush' || retreating || breachRun;
         } else if (
           order === 'crouch' ||
           (withdrawing && withdrawalThreat && order !== 'prone')
@@ -9393,10 +9452,8 @@ export function tick(s: GameState, dt: number) {
           const pinned =
             u.pose === 'prone' ? u.suppression > 45 : u.suppression > 65;
           moveWant = pinned ? 'prone' : 'crouch';
-          moveForce = order === 'crouch';
         } else if (order === 'prone') {
           moveWant = 'prone';
-          moveForce = true;
         } else if (withdrawing || escortAhead) {
           moveWant = 'walk';
         } else if (u.tactic === 'prone') {
@@ -9406,7 +9463,7 @@ export function tick(s: GameState, dt: number) {
         } else {
           moveWant = 'walk';
         }
-        u.pose = setStance(u, s.time, moveWant, { force: moveForce });
+        u.pose = setStance(u, s.time, moveWant);
       }
       if (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time)
         u.pose = setStance(u, s.time, 'prone', { force: true });
@@ -9504,7 +9561,7 @@ export function tick(s: GameState, dt: number) {
         (!c.vehicle || order !== 'hold' || reversing)
       ) {
         const before = u.x;
-        u.x = Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt));
+        u.x = contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt)));
         u.moving = Math.abs(u.x - before) > 0.001;
         // A reversing vehicle keeps its hull aimed at the threat it is
         // backing away from — only the tracks carry it out of the kill zone.

@@ -538,9 +538,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   foraged_supplies: {
     en: 'FORAGED SUPPLIES',
-    typeLabel: '低费过牌',
+    typeLabel: '零费换牌',
     ability: '就地补给',
-    rule: '支付一点，立即抽两张。',
+    rule: '零费抽一张，替换自身。',
     flavor: '缴获的罐头最香。',
   },
   blitz_doctrine: {
@@ -622,9 +622,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   medic_team: {
     en: 'MEDIC TEAM',
-    typeLabel: '持续救治',
+    typeLabel: '前线抢救',
     ability: '医疗小组',
-    rule: '三军医，治疗量提升。',
+    rule: '随队前进，接近倒地战友施救。',
     flavor: '绷带管够，血不够。',
   },
   combat_engineers: {
@@ -778,8 +778,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   illumination_round: {
     en: 'ILLUMINATION ROUND',
     typeLabel: '持久照明',
-    ability: '照明弹',
-    rule: '目标区域照明十四秒。',
+    ability: '前沿照明弹',
+    rule: '小范围照明，持续十四秒。',
     flavor: '黑夜变白昼，偷袭变明攻。',
   },
   minefield: {
@@ -791,9 +791,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   field_hospital: {
     en: 'FIELD HOSPITAL',
-    typeLabel: '持续治疗',
+    typeLabel: '固定救护',
     ability: '野战医院',
-    rule: '三军医，治疗量提升。',
+    rule: '原地展开，远距治疗、近距抢救。',
     flavor: '能自己走的，优先。',
   },
   fallback: {

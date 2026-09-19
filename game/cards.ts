@@ -188,6 +188,10 @@ export interface Card {
   minRange?: number;
   indirect?: boolean;
   heal?: number;
+  /** Treatment radius, separate from the medic's weapon range. */
+  healRange?: number;
+  /** Seconds needed to open a fixed medical post after deployment. */
+  medicalSetup?: number;
   armored?: boolean;
   /** A ground vehicle body; armor damage resistance still requires armored. */
   vehicle?: boolean;
@@ -471,7 +475,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     type: 'skill',
     tag: '调度 · 抽牌',
     description: '立即补充 2 张手牌',
-    detail: '立即抽 2 张牌，最多持有 6 张。用过的牌会在牌库抽空后洗回。',
+    detail: '立即从剩余牌库抽 2 张牌，最多持有 6 张。牌库抽空后不再补牌，弃牌不会自动洗回。',
     atlas: 8,
   },
   jam: {
@@ -1581,14 +1585,14 @@ export const CARDS: Record<CardId, Card> = {
     'supply',
     'foraged_supplies',
     '就地补给',
-    1,
-    '立即抽 2 张牌',
+    0,
+    '零费抽 1 张牌，不增加手牌总数',
     {
       en: 'FORAGED SUPPLIES',
       effect: 'forage',
-      tag: '调度 · 低费过牌',
+      tag: '调度 · 零费换牌',
       detail:
-        '支付1点，立即抽2张牌。比战地补给更便宜的过牌手段，快攻牌组用它快速找到关键组件；牌库抽空后用过的牌会洗回。',
+        '不消耗指挥点，打出后从剩余牌库抽1张牌。只替换自身，不增加手牌数量；适合找关键组件，牌库耗尽时无效。战地补给则支付1点抽2张，提供手牌数量优势。',
     },
   ),
   blitz_doctrine: variant(
@@ -1790,7 +1794,7 @@ export const CARDS: Record<CardId, Card> = {
     'medic_team',
     '医疗小组',
     3,
-    '3 名军医，治疗光环强化，持续救治周围步兵',
+    '3 名随队军医，主动接近伤员，治疗与近距抢救',
     {
       members: 3,
       hp: 150,
@@ -1799,10 +1803,11 @@ export const CARDS: Record<CardId, Card> = {
       range: 260,
       speed: 66,
       heal: 6,
+      healRange: 140,
       uniform: 'medic',
-      tag: '救治 · 持续恢复',
+      tag: '机动 · 前线抢救',
       detail:
-        '3人医疗小组，每人每0.8秒治疗附近步兵6点生命。比基础医疗组治疗量高50%，站在主力班组身后能让整条战线的续航大幅提升。',
+        '3名随队军医，各自在140范围内寻找伤员；会接近倒地战友，进入64距离后施救。每0.8秒治疗一人6点生命。可以随部队推进，负责把前线伤员从失血边缘救回来。',
     },
   ),
   combat_engineers: variant(
@@ -2077,7 +2082,7 @@ export const CARDS: Record<CardId, Card> = {
     },
   ),
   recon_jump: variant(
-    'scouts',
+    'sniper',
     'recon_jump',
     '侦察跳降',
     2,
@@ -2092,6 +2097,8 @@ export const CARDS: Record<CardId, Card> = {
       airdrop: true,
       targetGround: true,
       trait: 'scout',
+      doctrine: 'recon',
+      discipline: 90,
       uniform: 'recon',
       tag: '空降 · 前沿侦察',
       detail:
@@ -2144,20 +2151,20 @@ export const CARDS: Record<CardId, Card> = {
   illumination_round: variant(
     'flare',
     'illumination_round',
-    '照明弹',
+    '前沿照明弹',
     1,
-    '目标区域照明 14 秒，比基础照明更持久',
+    '小范围持续照明，160 半径、14 秒',
     {
       en: 'ILLUMINATION ROUND',
       effect: 'illumination',
       tag: '支援 · 持久照明',
       detail:
-        '发射一发照明弹，目标区域持续14秒照亮（比基础照明弹多4秒）。夜间作战或烟幕环境下的必备侦察手段。',
+        '低空照亮160半径的小范围区域14秒，供一个班组持续观察。普通照明弹花费2点，覆盖260半径、持续10秒，适合照出更宽的战线。两者均会暴露范围内双方部队。',
     },
   ),
   // ── v120 防御守备流派 ─────────────────────────────────────────────
   minefield: variant(
-    'antitank_mine',
+    'smoke',
     'minefield',
     '混合雷场',
     3,
@@ -2175,24 +2182,26 @@ export const CARDS: Record<CardId, Card> = {
     'field_hospital',
     '野战医院',
     4,
-    '3 名军医，治疗量 +125%，扶起倒地更快，自带减伤',
+    '固定救护站，展开 3 秒；远距治疗、近距快速抢救',
     {
       members: 3,
       hp: 160,
-      damage: 9,
+      damage: 0,
       rate: 1.2,
-      range: 340,
-      speed: 40,
+      range: 0,
+      speed: 0,
+      static: true,
       heal: 9,
-      armorMultiplier: 1.4,
+      healRange: 220,
+      medicalSetup: 3,
       uniform: 'medic',
-      tag: '守备 · 持续治疗',
+      tag: '固定 · 后方救护',
       detail:
-        '3名军医组成的野战医院，每人每0.8秒治疗附近步兵9生命（比基础医疗组+125%），抢救倒地伤员的速度快50%，自带减伤40%。移动较慢但治疗范围更大，是防线的持续作战保障。与随队机动的医疗小组不同，野战医院适合钉在关键阵地后方撑起一片回血区。',
+        '3名军医原地展开救护站，3秒后开始工作，不移动、不射击。每人每0.8秒为220范围内一名伤员恢复9生命；倒地者需被送到64距离内，抢救速度比医疗小组快50%。部署在掩护后方，配合随队军医和战友拖救接收伤员。',
     },
   ),
   fallback: variant(
-    'fortify',
+    'morale',
     'fallback',
     '战术后撤',
     2,

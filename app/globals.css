@@ -5862,7 +5862,7 @@ body:has(.game-shell.touch-battle) {
   padding: 12px 0 4px;
 }
 .tear-canvas {
-  width: 300px;
+  width: min(420px, 100%, calc((100dvh - 200px) * 224 / 288));
   height: auto;
   cursor: pointer;
   image-rendering: pixelated;

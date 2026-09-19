@@ -409,18 +409,25 @@ export function createMapLayout(
   // footprint — the downhill corner floated in mid-air. Level a building
   // pad under every house (with a smooth earthen ramp at the edges) so the
   // masonry sits flat. Trees keep the raw grade.
-  for (const site of scenerySites) {
-    if (site.kind !== 'house') continue;
+  // Merge overlapping pads before levelling. Otherwise a later house's ramp
+  // tilts the corner of a house we just flattened.
+  const pads: { left: number; right: number; y: number }[] = [];
+  const blend = 34;
+  for (const site of scenerySites.filter(site => site.kind === 'house').sort((a, b) => a.x - b.x)) {
     const cx = Math.max(0, Math.min(width - 1, Math.round(site.x)));
-    const halfW = 112; // widest house profile is 220 px across
-    const blend = 34;
-    const padY = terrain[cx];
-    for (let x = cx - halfW - blend; x <= cx + halfW + blend; x++) {
+    const previous = pads.at(-1);
+    if (previous && cx - 112 - blend <= previous.right + blend)
+      previous.right = cx + 112;
+    else pads.push({ left: cx - 112, right: cx + 112, y: terrain[cx] });
+  }
+  for (const pad of pads) {
+    const padY = pad.y;
+    for (let x = pad.left - blend; x <= pad.right + blend; x++) {
       if (x < 0 || x >= width) continue;
-      const d = Math.abs(x - cx);
-      if (d <= halfW) terrain[x] = padY;
+      const d = Math.max(pad.left - x, x - pad.right, 0);
+      if (d === 0) terrain[x] = padY;
       else {
-        const t = (d - halfW) / blend;
+        const t = d / blend;
         const s = t * t * (3 - 2 * t);
         terrain[x] = Math.round(terrain[x] * s + padY * (1 - s));
       }

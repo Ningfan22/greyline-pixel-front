@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react';
 
 const W = 160;
 const H = 224;
+// The fan rises above the bag and the torn strip swings past its sides.
+// The canvas itself must include that space; CSS overflow cannot restore it.
+const PAD_X = 32;
+const PAD_TOP = 48;
+const CANVAS_W = W + PAD_X * 2;
+const CANVAS_H = H + PAD_TOP + 16;
 const TEAR_BASE = 44;
 const PIVOT_X = W - 4;
 const CARD_W = 30;
@@ -193,7 +199,7 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
 
     const frame = (now: number) => {
       const t = ((now - start) / 1000) * speed;
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
       // 入场：弹入 + 轻微浮动
       const enterP = clamp01(t / DURATION.enter);
@@ -202,6 +208,7 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
       const bobY = Math.sin(t * 2.2) * 1.2;
 
       ctx.save();
+      ctx.translate(PAD_X, PAD_TOP);
       ctx.translate(W / 2, H / 2 + bobY);
       ctx.scale(scale, scale);
       ctx.translate(-W / 2, -H / 2);
@@ -314,8 +321,8 @@ export default function TearCanvas({ onDone }: { onDone: () => void }) {
   return (
     <canvas
       ref={canvasRef}
-      width={W}
-      height={H}
+      width={CANVAS_W}
+      height={CANVAS_H}
       className="tear-canvas"
       onClick={finish}
       role="img"

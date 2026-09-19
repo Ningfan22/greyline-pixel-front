@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["app/**/*.ts", "app/**/*.tsx", "components/**/*.tsx", "game/**/*.ts", "game/**/*.tsx", "lib/**/*.ts", "static-app/**/*.tsx", "vite.pages.config.ts"],
+  "exclude": ["node_modules", "output", "docs", "dist-pages"],
+  "compilerOptions": { "incremental": false }
+}

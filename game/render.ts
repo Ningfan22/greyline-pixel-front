@@ -64,30 +64,14 @@ import {
 } from './art';
 import {
   coverProp,
-  peekRise,
   transportCrewCount,
   transportCrewSlot,
-  type Pose,
 } from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
 // Supersonic rounds that whip past the camera leave a brief white streak.
 // Render-layer only: the simulation never knows these exist.
 const whipStreaks = new WhipStreakLayer();
 let whipStatus = '';
-const poseTracker = new Map<
-  number,
-  {
-    prev: Pose;
-    pose: Pose;
-    at: number;
-    lastImg?: HTMLCanvasElement;
-    lastFlip?: boolean;
-    snap?: HTMLCanvasElement;
-    snapFlip?: boolean;
-    snapW?: number;
-    snapH?: number;
-  }
->();
 const wreckBounds = new WeakMap<
   object,
   {
@@ -212,7 +196,7 @@ function drawNightOverlay(
   // Flares are the primary night illuminators.
   for (const f of s.flares) {
     if (f.life <= 0) continue;
-    punch(f.x, f.y, 300, 0.95);
+    punch(f.x, f.y, (f.radius ?? 260) + 40, 0.95);
   }
   // Friendly squads carry a soft local light.
   for (const u of s.units) {
@@ -579,7 +563,6 @@ export function render(
     )
     .sort((a, b) => layer(a) - layer(b) || a.lane - b.lane);
   let coverDrawn = false;
-  const seenInfantry = new Set<number>();
   drawSynergyLinks(ctx, s, sorted, camera, viewportWidth);
   for (const u of sorted) {
     if (CARDS[u.id].air && !coverDrawn) {
@@ -735,44 +718,9 @@ export function render(
       u.pose === 'idle'
         ? Math.round(Math.sin(s.time * 2.1 + u.uid * 1.7))
         : 0;
-    // Cover props + peek transitions: track pose changes per infantryman so
-    // rising from crouch/prone eases the sprite up instead of snapping.
-    let peekY = 0;
-    let showProp = false;
-    if (c.members && !isDead) {
-      seenInfantry.add(u.uid);
-      // v117: honour the frame choice's own facing (signal points, contact
-      // callouts) before falling back to the unit's real facing.
-      const poseFlip = (microDir ?? choice?.dir ?? u.facing) < 0;
-      const tracked = poseTracker.get(u.uid);
-      if (!tracked) {
-        poseTracker.set(u.uid, {
-          prev: u.pose,
-          pose: u.pose,
-          at: s.time,
-          lastImg: img,
-          lastFlip: poseFlip,
-        });
-      } else if (tracked.pose !== u.pose) {
-        poseTracker.set(u.uid, {
-          prev: tracked.pose,
-          pose: u.pose,
-          at: s.time,
-          lastImg: img,
-          lastFlip: poseFlip,
-          snap: tracked.lastImg,
-          snapFlip: tracked.lastFlip,
-          snapW: tracked.lastImg?.width,
-          snapH: tracked.lastImg?.height,
-        });
-      } else {
-        tracked.lastImg = img;
-        tracked.lastFlip = poseFlip;
-      }
-      const t = poseTracker.get(u.uid)!;
-      showProp = u.cover > 0.2 && !u.moving;
-      if (showProp) peekY = peekRise(t.prev, t.pose, s.time - t.at);
-    }
+    // Authored posture cels already contain their vertical motion. Do not
+    // translate the whole body a second time or fade it when walking stops.
+    const showProp = !!c.members && !isDead && u.cover > 0.2 && !u.moving;
     if (u.rappelling) {
       const carrier = s.units.find(
         (v) =>
@@ -807,80 +755,8 @@ export function render(
       ctx.lineTo(Math.round(u.x + 5), Math.round(u.y + infantryDepth(u.lane) - 20));
       ctx.stroke();
     }
-    // Stance transitions (idle<->crouch<->prone) cross-fade: the old pose's
-    // last frame is blended out while the new pose fades in, so going prone
-    // or crouching reads as motion instead of a hard sprite swap.
-    let poseAlpha = 1;
-    let poseDy = 0;
-    let poseSnap: {
-      img: HTMLCanvasElement;
-      flip: boolean;
-      a: number;
-      dy: number;
-      w: number;
-      h: number;
-    } | null = null;
-    if (c.members && !isDead) {
-      const pt = poseTracker.get(u.uid);
-      if (pt?.snap && pt.snapW && pt.snapH) {
-        const since = s.time - pt.at;
-        const DUR = 0.26;
-        if (since < DUR) {
-          const blend = 1 - Math.pow(1 - since / DUR, 3);
-          poseAlpha = 0.2 + 0.8 * blend;
-          const rank = (p: Pose): number | null =>
-            p === 'prone'
-              ? 2
-              : p === 'crouch' || p === 'hunker'
-                ? 1
-                : p === 'idle'
-                  ? 0
-                  : null;
-          const r0 = rank(pt.prev);
-          const r1 = rank(pt.pose);
-          if (r0 !== null && r1 !== null && r0 !== r1) {
-            const settle = Math.round(4 * (1 - blend));
-            if (r1 > r0) {
-              // Going low: the old (taller) frame sinks as it fades out.
-              poseSnap = {
-                img: pt.snap,
-                flip: pt.snapFlip ?? false,
-                a: 0.85 * (1 - blend),
-                dy: settle,
-                w: pt.snapW,
-                h: pt.snapH,
-              };
-            } else {
-              // Rising: the new (taller) frame starts low and eases up.
-              poseDy = settle;
-              poseSnap = {
-                img: pt.snap,
-                flip: pt.snapFlip ?? false,
-                a: 0.85 * (1 - blend),
-                dy: 0,
-                w: pt.snapW,
-                h: pt.snapH,
-              };
-            }
-          }
-        } else {
-          pt.snap = undefined;
-        }
-      }
-    }
-    if (poseSnap) {
-      drawSprite(
-        ctx,
-        poseSnap.img,
-        u.x,
-        u.y + infantryDepth(u.lane) + 3 + peekY + breathe + poseSnap.dy,
-        poseSnap.w,
-        poseSnap.h,
-        poseSnap.flip,
-        alpha * poseSnap.a,
-        0,
-      );
-    }
+    // Body motion comes from the authored intermediate frames. Keep one
+    // fully opaque soldier, including during escort idle/walk changes.
     // Armored vehicles and gun emplacements react when they fire. Real tanks
     // soak recoil through the breech: the barrel slides back into the
     // mantlet while the hull stays planted, so tanks with a measured barrel
@@ -913,9 +789,7 @@ export function render(
       u.y +
       infantryDepth(u.lane) +
       (isTank ? 0 : 3) +
-      peekY +
       breathe +
-      poseDy +
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);
@@ -928,7 +802,7 @@ export function render(
         w,
         h,
         u.side === 1,
-        alpha * poseAlpha,
+        alpha,
         u.hullAngle,
         barrelBand,
         barrelRecoil,
@@ -944,7 +818,7 @@ export function render(
         c.members || c.air
           ? (microDir ?? choice?.dir ?? u.facing) < 0
           : u.side === 1,
-        alpha * poseAlpha,
+        alpha,
         c.armored || geometry || u.id === 'fpv_drone' ? u.hullAngle : 0,
       );
     }
@@ -1141,8 +1015,6 @@ export function render(
       3,
     );
   }
-  for (const uid of poseTracker.keys())
-    if (!seenInfantry.has(uid)) poseTracker.delete(uid);
   if (!coverDrawn) drawCoverProps(true);
   for (const u of sorted)
     drawUnitSelection(ctx, u, {
@@ -1179,7 +1051,8 @@ export function render(
     const strength = burn * flicker;
     const gx = f.x + sway;
     const gy = f.y + 14;
-    const pool = ctx.createRadialGradient(gx, gy, 0, gx, gy, 300);
+    const lightRadius = (f.radius ?? 260) + 40;
+    const pool = ctx.createRadialGradient(gx, gy, 0, gx, gy, lightRadius);
     pool.addColorStop(0, `rgba(255,246,214,${0.4 * strength})`);
     pool.addColorStop(0.4, `rgba(255,238,190,${0.2 * strength})`);
     pool.addColorStop(1, 'rgba(255,230,170,0)');
@@ -1187,7 +1060,7 @@ export function render(
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = pool;
     ctx.beginPath();
-    ctx.arc(gx, gy, 300, 0, Math.PI * 2);
+    ctx.arc(gx, gy, lightRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     // Parachute canopy and the candle itself.
@@ -1261,7 +1134,7 @@ export function render(
     );
     ctx.restore();
   }
-  drawWreckSmoke(ctx, s, camera, viewportWidth);
+  drawWreckSmoke(ctx, s, camera, viewportWidth, art.smoke);
   drawWreckFire(ctx, s, camera, viewportWidth);
   for (const f of s.smokes) {
     if (f.side !== 0 && !pointVisible(s, 0, f.x, ground(s, f.x) - 30)) continue;
@@ -1326,7 +1199,7 @@ export function render(
     if (blastVisible(s, 0, b))
       drawBlast(ctx, b, art.explosions, art.combatExplosions, art.combatExplosionsV13);
   for (const p of s.particles)
-    if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts);
+    if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts, art.smoke);
   ctx.save();
   // Saturation blending removes color while preserving the scene's luminance.
   ctx.globalCompositeOperation = 'saturation';

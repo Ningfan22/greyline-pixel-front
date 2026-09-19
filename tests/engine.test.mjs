@@ -180,15 +180,15 @@ check('干扰封锁主动抽牌，补给仍可使用', () => {
   assert.equal(p.drawIn, 0);
   assert(requestDraw(s, 0).ok);
 });
-check('弃牌在牌库抽空后重新洗入', () => {
+check('弃牌不会在牌库抽空后自动洗入', () => {
   const s = fresh(),
     p = s.players[0];
   p.hand = [];
   p.deck = [];
   p.discard = ['tank', 'jam'].map((id) => ({ id, uid: ++s.uid }));
-  assert.equal(draw(s, 0, 2), 2);
-  assert.equal(p.hand.length, 2);
-  assert.equal(p.discard.length, 0);
+  assert.equal(draw(s, 0, 2), 0);
+  assert.equal(p.hand.length, 0);
+  assert.equal(p.discard.length, 2);
 });
 check('每名士兵独立寻找目标、开火和受击', () => {
   const s = fresh();
@@ -265,7 +265,8 @@ check('驻守、推进、奔跑、蹲行、卧倒分别驱动独立姿态', () =
   setOrder(hold, 0, 'hold');
   setOrder(crouch, 0, 'crouch');
   setOrder(prone, 0, 'prone');
-  for (const s of [walk, run, hold, crouch, prone]) advance(s, 1);
+  // Let the 1.2s planted-foot posture transition finish before comparing gait.
+  for (const s of [walk, run, hold, crouch, prone]) advance(s, 3);
   assert.equal(hold.units[0].x, formationPositions(0, 'infantry', 175)[0]);
   assert.equal(hold.units[0].pose, 'idle');
   assert.equal(walk.units[0].pose, 'walk');
@@ -931,6 +932,9 @@ check('山地兵加快攀墙，工兵破墙而非原地卡住', () => {
     } else {
       advance(s, 2.5);
       assert.equal(s.walls[0].hp, 0);
+      // The work stance is now retained after breaching, rather than an
+      // instantaneous sprint. Still require crossing by an explicit deadline.
+      advance(s, 2);
       assert(s.units[0].x > 530);
     }
   }
@@ -971,7 +975,7 @@ check('受压制后自动低姿态前进，姿态与实际速度一致', () => {
   assert.equal(u.pose, 'prone');
   assert(u.x - x <= (CARDS.infantry.speed * u.pace * 0.25) / 60 + 0.001);
 });
-check('出牌、补给和循环重洗均保持双方20张卡牌守恒', () => {
+check('出牌、补给和耗尽牌库均保持双方20张卡牌守恒', () => {
   const s = createGame(710),
     originals = s.players.map((p) => [...p.loadout].sort());
   startGame(s);
@@ -3698,6 +3702,8 @@ check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪'
     ['crouch', 'crouch8'],
   ]) {
     u.pose = pose;
+    u.poseAnimSeen = pose === 'crouch' ? 'crouch' : 'stand';
+    u.poseAnimFrom = undefined;
     for (let step = 0; step < 16; step++) {
       u.walk = step + 0.1;
       assert.deepEqual(adultFrameChoice(u), { group, index: step % 8 });
@@ -3719,11 +3725,11 @@ check('成人步态按完整八帧循环，蹲行独立且停步后保持举枪'
   adultFrameChoice(u, 10);
   for (const fire of [0, 0.05, 0.2]) {
     u.fire = fire;
-    assert.deepEqual(adultFrameChoice(u, 11), { group: 'actions20', index: 0 });
+    assert.deepEqual(adultFrameChoice(u, 11.3), { group: 'actions20', index: 0 });
   }
   u.pose = 'prone';
   adultFrameChoice(u, 12);
-  assert.deepEqual(adultFrameChoice(u, 13), { group: 'actions20', index: 2 });
+  assert.deepEqual(adultFrameChoice(u, 13.3), { group: 'actions20', index: 2 });
 });
 check('成人四套服装的跳落、攀爬与终态不会退回旧图册', () => {
   for (const [id, identity] of [
@@ -3742,7 +3748,7 @@ check('成人四套服装的跳落、攀爬与终态不会退回旧图册', () =
     u.motion = 'ground';
     u.climbing = 0.25;
     u.climbDuration = 1;
-    assert.deepEqual(adultFrameChoice(u), { group: 'actions20', index: 11 });
+    assert.deepEqual(adultFrameChoice(u), { group: 'crouch8', index: 1 });
     u.surrendered = true;
     u.surrenderTime = 3;
     assert.deepEqual(adultFrameChoice(u), { group: 'reactions8', index: 3 });
@@ -5341,7 +5347,8 @@ check('低费观察兵保持远距视线，不会为打出微弱自卫火力冲�
     assert.equal(scout.pose, 'prone');
     setOrder(s, side, 'rush');
     advance(s, 0.5);
-    assert((scout.x - x(700)) * dir > 20);
+    assert.equal(scout.pose, 'prone', 'rush cannot break the ten-second stance commitment');
+    assert((scout.x - x(700)) * dir > 0, 'scout still moves toward the ordered direction');
   }
 });
 

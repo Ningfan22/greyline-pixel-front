@@ -1,0 +1,24 @@
+Use case: stylized-concept
+Asset type: one transparent 2D game animation atlas, STANDING RIFLE RELOAD ONLY.
+
+Paint ONE new detailed semi-realistic atlas containing exactly EIGHT full-body animation cels of the SAME adult infantry soldier. Use only the most recently displayed original adult-infantry-v13.png as the visual style reference: realistic slender adult proportions, olive helmet, protective eyewear, olive fatigues, tactical vest and pouches, compact backpack, gloves, knee pads, combat boots, and a dark modern rifle. The original image is a STYLE REFERENCE ONLY, not an edit target. Do not derive artwork from the earlier generated reload/grenade sheet. Newly paint each cel with fine fabric folds and military equipment detail, consistent subdued olive colors, crisp natural outlines and realistic anatomy. No chunky pixels, chibi proportions, toy-like bodies or oversized heads.
+
+OUTPUT AND LAYOUT:
+A square PNG canvas, ideally 1536 x 1536, with genuine transparent alpha background. Exactly FOUR equally spaced columns and TWO equally spaced rows: eight equal rectangular cells. Read chronologically left to right across the top row, then left to right across the bottom row. At 1536 square, each invisible cell is 384 pixels wide by 768 pixels tall. No drawn grid. Do not add extra figures or extra rows.
+Maintain generous transparent padding on every side of every cel. Keep all body parts, hands, rifle stock, muzzle, magazine and backpack safely inside the middle 74% of their own cell's WIDTH. Never cross a cell boundary. Keep the COMPLETE figure inside its own cell. The human silhouette should be approximately 55% of the cell HEIGHT, leaving abundant vertical padding. Place both boot soles on a common baseline at 90% of each cell's HEIGHT. Keep the same scale and horizontal body anchor in all eight cells. No ground plane or shadow.
+
+LOCKED CHARACTER AND POSE:
+The same soldier faces RIGHT in every cel, in a steady standing stance, with both boots planted and separated slightly front to back. Feet, legs, hips and helmet height are virtually identical throughout. No movement of boots, no raised knees, no stepping, no kneeling, no crouching, no climbing, no jumping. Exactly two complete arms and two complete legs in every frame. Animate the hands, forearms and rifle position only as needed for the reload.
+CRITICAL WEAPON CONTINUITY: The entire SAME RIFLE remains clearly visible and physically HELD throughout ALL EIGHT cels, including the spare-magazine frame. The RIGHT HAND continuously holds the rifle's pistol grip and supports it against the body; the LEFT HAND performs the magazine and charging-handle actions. Never remove, hide, replace, duplicate, shorten or disassemble the rifle. Keep the rifle muzzle pointing right, the stock near the right shoulder, with all components inside the cell.
+
+EIGHT DISTINCT SEQUENTIAL CELS:
+Top row, column 1 — Ready hold: right hand on pistol grip, left hand supports the fore-end, full rifle visible, boots planted.
+Top row, column 2 — Remove magazine: right hand still holds the full rifle; left hand draws the old magazine just below the magazine well. No falling loose parts.
+Top row, column 3 — Retrieve spare: right hand still visibly holds the FULL RIFLE at chest height, muzzle right; left hand takes a fresh magazine from a vest pouch. The rifle MUST remain fully present in this frame.
+Top row, column 4 — Insert spare: full rifle supported by the right hand; left hand guides the spare magazine into the magazine well.
+Bottom row, column 1 — Seat magazine: left palm taps upward against the inserted magazine base; right hand continues holding the full rifle.
+Bottom row, column 2 — Rack: left hand reaches to operate the upper receiver charging handle; right hand remains on the pistol grip, entire rifle visible.
+Bottom row, column 3 — Shoulder: left hand returns under the fore-end as the stock settles into the shoulder, full rifle visible.
+Bottom row, column 4 — Stable aim: both hands hold the complete rifle in a settled right-facing aim.
+
+No other actions. No grenade. No text, numbering, labels, scenery, background color, checkerboard pattern, borders, visible grid, watermarks, logos, motion blur or effect trails. Transparent gaps must remain clear between every neighboring cel. Prioritize full weapon and limb continuity, planted boots, consistent adult proportions, equal spacing, and readable chronological hand movements.

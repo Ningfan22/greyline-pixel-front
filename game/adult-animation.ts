@@ -8,6 +8,7 @@ export interface AdultSprites {
   reactions8: HTMLCanvasElement[];
   /** v121: dedicated hand-signal frames — point fwd, wave overhead, point back, fist. */
   signals4: HTMLCanvasElement[];
+  reload8: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -64,18 +65,14 @@ export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null 
   if (u.vacuum) {
     const phase = (time + u.uid * 3.91) % 4.6;
     if (phase < 1.1) return action(0);
-    if (phase < 2.0) return action(1);
+    if (phase < 2.0) return action(0);
     return null;
   }
-  // v114: a four-beat fidget cycle so holding position reads as living
-  // vigilance — alert stance, take a knee, lean forward to scan the sector,
-  // rise and glance over the shoulder — instead of two isolated poses. The
-  // period stretches with uid so neighbours drift out of phase over time.
+  // Idle vigilance can turn the soldier, but cannot change body height.
+  // All actual kneeling/standing decisions belong to the stance gate.
   const period = 9 + (u.uid % 5) * 1.3;
   const phase = (time + u.uid * 7.31) % period;
-  if (phase < 1.4) return action(0); // alert stance, rifle across chest
-  if (phase < 2.6) return action(1); // take a knee
-  if (phase < 3.3) return action(13); // lean forward to scan
+  if (phase < 3.3) return action(0);
   if (phase < 3.9) {
     // rise and glance over the shoulder toward the covered flank
     const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
@@ -103,7 +100,7 @@ export function crouchFidgetChoice(
   if ((u.fragThrow ?? 0) > 0) return null;
   const period = 10 + (u.uid % 4) * 0.9;
   const phase = (time + u.uid * 6.13) % period;
-  if (phase < 1.4) return action(17); // low crouch, weight shifted off the knee
+  if (phase < 1.4) return action(1); // action 17 is a running frame, not a crouch
   if (phase < 2.4) return action(13); // lean forward to scan the sector
   return null;
 }
@@ -164,8 +161,8 @@ export function sectorScanChoice(
   const rear = (front * -1) as 1 | -1;
   // Beat 1 (0.0–0.9 s): alert stance, eyes front.
   if (phase < 0.9) return { ...action(0), dir: front };
-  // Beat 2 (0.9–2.0 s): take a knee and check the covered flank/rear.
-  if (phase < 2.0) return { ...action(1), dir: rear };
+  // Beat 2 (0.9–2.0 s): check the flank without taking an unscheduled knee.
+  if (phase < 2.0) return { ...action(0), dir: rear };
   // Beat 3 (2.0–3.0 s): rise back to the alert stance, eyes front.
   return { ...action(0), dir: front };
 }
@@ -281,6 +278,10 @@ export function dugInTraceGlanceChoice(
  * should hold the default patrol idle frame.
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
+  // Do not let decorative layers replace a throw, reload, or an authored
+  // stance transition. They must never invent a different body height.
+  if ((u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
+      u.poseAnimFrom !== undefined || u.flash > 0 || u.tending) return null;
   return (
     heardContactGlanceChoice(u, time) ??
     blastGlanceChoice(u, time) ??
@@ -383,7 +384,7 @@ export function boundingRestChoice(
   if (u.moving || u.fire > 0) return null;
   if ((u.reloadingUntil ?? 0) > time) return null;
   if (u.pose !== 'idle') return null;
-  return action(1);
+  return action(0);
 }
 
 /**
@@ -404,7 +405,7 @@ export function magCheckChoice(
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
   if (u.vacuum) return null;
   if ((u.fragThrow ?? 0) > 0) return null;
-  if (u.pose !== 'idle') return null;
+  if (u.pose !== 'crouch') return null;
   const period = 21 + (u.uid % 5) * 1.3;
   const phase = (time + u.uid * 6.83) % period;
   if (phase >= 2.6) return null;
@@ -430,14 +431,13 @@ export function engineerFussChoice(
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
   if (u.vacuum) return null;
   if ((u.fragThrow ?? 0) > 0) return null;
-  if (u.pose !== 'idle') return null;
+  if (u.pose !== 'crouch') return null;
   const period = 16 + (u.uid % 4) * 1.2;
   const phase = (time + u.uid * 5.29) % period;
   if (phase >= 2.8) return null;
-  // v129: action(11) is actually a climb pose in the sheet — use the
-  // one-knee working frame (13) and the deep crouch (10) instead.
+  // Keep the work on one knee; bank/vault frames do not belong in this drill.
   if (phase < 1.2) return action(13); // kneeling, working the kit
-  if (phase < 2.0) return action(10); // hunch over the task
+  if (phase < 2.0) return action(1); // keep the established kneeling height
   return action(13); // back to the kneeling work
 }
 
@@ -469,7 +469,15 @@ const POSE_CHAINS: Record<
 };
 // v127: stance transitions play at half speed so stand/crouch/prone changes
 // read as deliberate movement instead of a snap.
-const POSE_FRAME_S = 0.3;
+const POSE_TRANSITION_S = 1.2;
+
+/** Work may move the arms, but never invent a new stance behind the AI's back. */
+function groundedWork(u: Unit, time: number): AdultFrameChoice {
+  if (u.pose === 'prone') return action(3);
+  if (u.pose === 'crouch' || u.pose === 'hunker')
+    return action(Math.floor(time * 1.5 + u.uid) % 2 ? 13 : 1);
+  return action(0);
+}
 
 /**
  * v113: reloads read as a four-beat drill instead of a static hunch. The
@@ -495,10 +503,9 @@ function reloadBeat(u: Unit, time: number): AdultFrameChoice {
   // beats instead — same hunch-and-reach read, no climb.
   // Crouched: hunch over the mag well, drop to a knee, hunch again, arm
   // forward to seat the fresh mag.
-  if (u.pose === 'crouch') return action([13, 1, 13, 1][beat]);
-  // Standing / hunkered: hunch, reach to the chest rig, hunch to seat the
-  // mag, settle back to alert.
-  return action([13, 1, 13, 0][beat]);
+  if (u.pose === 'crouch' || u.pose === 'hunker') return action([13, 1, 13, 1][beat]);
+  // Eight newly painted standing cels; no reused knee, command or rope poses.
+  return { group: 'reload8', index: Math.min(7, Math.floor(elapsed / duration * 8)) };
 }
 
 function poseHeightClass(
@@ -530,14 +537,15 @@ export function poseTransitionChoice(
   if (from === undefined || from === cls) return null;
   const chain = POSE_CHAINS[from]?.[cls];
   if (!chain) return null;
-  const window = chain.length * POSE_FRAME_S;
+  const window = POSE_TRANSITION_S;
   const elapsed = time - (u.poseAnimAt ?? time);
   if (elapsed >= window) {
     u.poseAnimFrom = undefined;
     return null;
   }
-  if (u.moving || (u.reloadingUntil ?? 0) > time || u.flash > 0.13) return null;
-  const idx = Math.min(chain.length - 1, Math.floor(elapsed / POSE_FRAME_S));
+  // A burst/reload cannot repeatedly hide the intermediate frames. Horizontal
+  // navigation remains independent so a pose animation cannot strand a mover.
+  const idx = Math.min(chain.length - 1, Math.floor(elapsed / window * chain.length));
   return action(chain[idx]);
 }
 
@@ -559,7 +567,6 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
             ? 2
             : 3,
     );
-  if (u.rappelling) return action(8 + (3 - cycle(u.walk, 4)));
   if (u.wounded) {
     if (u.crawling)
       return action(Math.floor(u.walk * 2) % 2 ? 12 : 2);
@@ -570,6 +577,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
       (low ? 5 : 4) + Math.min(low ? 2 : 3, Math.floor(u.woundedTime * 6)),
     );
   }
+  // Rope poses are only for healthy soldiers actively descending.
+  if (u.rappelling) return action(8 + cycle(u.walk / 2, 2));
+  const poseTransition = poseTransitionChoice(u, time);
+  if (poseTransition && u.motion === 'ground') return poseTransition;
   // Grenade throw is a 0.45s countdown. The projectile spawns at the start of
   // the animation, so the arm comes forward early and settles into a follow-through.
   if ((u.fragThrow ?? 0) > 0) {
@@ -584,10 +595,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // stays on the kneeling-work beat (13) and release on the plain kneel (1).
     const chain =
       u.pose === 'prone'
-        ? [3, 13, 2]
+        ? [3, 12, 2]
         : u.pose === 'crouch'
-          ? [13, 1, 10]
-          : [13, 1, 0];
+          ? [13, 1, 13]
+          : [0, 0, 0];
     if (t > 0.33) return action(chain[0]); // wind-up
     if (t > 0.17) return action(chain[1]); // release
     return action(chain[2]); // follow-through
@@ -595,11 +606,14 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Medics alternate between a kneeling pose and a low crouch while treating,
   // never the hit-reaction fall frames.
   if (u.tending)
-    return Math.floor((u.tendingTime ?? 0) * 2.5) % 2 ? action(17) : reaction(5);
+    return u.pose === 'prone' ? action(3)
+      : u.pose === 'crouch' || u.pose === 'hunker'
+        ? action(Math.floor((u.tendingTime ?? 0) * 2) % 2 ? 13 : 1)
+        : action(0);
   // While changing a cooked barrel the gunner drops to one knee and works the
   // weapon, alternating with a low crouch so the pause reads as urgent labour.
   if ((u.overheatedUntil ?? 0) > time && !u.moving)
-    return action(Math.floor(((u.overheatedUntil ?? 0) - time) * 2.2) % 2 ? 13 : 1);
+    return groundedWork(u, time);
   if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
   if (u.motion === 'land')
     return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);
@@ -611,7 +625,10 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.climbing > 0)
     return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
   if (u.motion === 'bank')
-    return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
+    return u.pose === 'prone' ? action(cycle(u.walk / 2, 2) ? 12 : 2)
+      : u.pose === 'crouch' || u.pose === 'hunker'
+        ? { group: 'crouch8', index: cycle(step, 8) }
+        : { group: 'walk8', index: cycle(step, 8) };
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)
@@ -619,15 +636,16 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // a pinned rifleman stays low and waits for a lull in the fire.
   if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
     // v128: giver extends an arm (sig point-forward) instead of the climb pose.
-    return (u.reloadingUntil ?? 0) > time ? action(13) : sig(0);
+    return u.pose === 'crouch' || u.pose === 'hunker' ? action(13) : action(0);
   // v83: looting a fallen comrade's kit — a knee-down rummage beat
   // alternating with the huddled work beat so the search reads as active.
   if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
-    return Math.floor(time * 2.5 + u.uid) % 2 ? action(1) : action(13);
+    return groundedWork(u, time);
   // v84: combat lifesaver working a tourniquet — the medic kneel / low-crouch
   // rhythm already used while tending, so the aid reads as skilled labour.
   if ((u.firstAidUntil ?? 0) > time && u.pose !== 'prone')
-    return Math.floor(time * 2.5 + u.uid) % 2 ? action(17) : reaction(5);
+    return u.pose === 'crouch' || u.pose === 'hunker'
+      ? action(Math.floor(time * 2 + u.uid) % 2 ? 13 : 1) : action(0);
   if (
     (u.ammoSignalUntil ?? 0) > time &&
     !u.moving &&
@@ -636,8 +654,9 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.reloadingUntil ?? 0) <= time &&
     (u.pose === 'idle' || u.pose === 'walk')
   ) {
-    const t = (u.ammoSignalUntil ?? 0) - time;
-    return Math.floor((1.4 - t) * 2.2) % 2 ? sig(1) : action(13);
+    // The ammunition UI already communicates this state. No raised-arm
+    // command animation, and no decorative drop to a knee.
+    return groundedWork(u, time);
   }
   // v119: weapon crews work the gun while emplacing. MG / AT gun / mortar
   // setup is 1.2s of labour — the crew alternates the bent-work beat with
@@ -650,20 +669,16 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     u.pose !== 'prone' &&
     u.pose !== 'hunker'
   )
-    return Math.floor(time * 3 + u.uid) % 2 ? action(13) : action(1);
-  // v110: stand↔crouch↔prone transitions. Placed after every action branch
-  // (throws, treatment, signals, reload drills) so a real action always
-  // interrupts the posture change, and before the pose branches below so the
-  // chain plays instead of snapping to the new idle frame.
-  const poseTransition = poseTransitionChoice(u, time);
-  if (poseTransition) return poseTransition;
+    return groundedWork(u, time);
+  // Stance transitions are resolved above the work actions, before arrival
+  // at the stable prone/crouch frames below.
   const reloading = (u.reloadingUntil ?? 0) > time;
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
     // Spotters periodically kneel to work the radio while observing.
     if (u.id === 'scouts') {
       const radioT = (time + u.uid * 1.37) % 4.4;
-      if (radioT < 1.2) return action(13);
+      if (radioT < 1.2) return action(3);
     }
     if (reloading) return reloadBeat(u, time);
     // v117: firing from the deck — alternate the lie with the prone-reload
@@ -712,14 +727,14 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // so a pinned squad doesn't cower in sync.
     if (u.suppression >= 80) {
       const cower = (time + u.uid * 3.31) % 5.2;
-      return reaction(cower < 3.4 ? 6 : 7);
+      return action(cower < 3.4 ? 13 : 1);
     }
     // Pinned behind cover: head down, stealing a brief glance over the rim
     // every few seconds to check whether the coast is clear. The phase is
     // offset by uid so a whole squad doesn't peek in unison.
     const glance = (time + u.uid * 5.17) % 6.5;
     if (glance < 0.5) return action(1);
-    return reaction(5);
+    return action(13);
   }
   if (u.moving)
     return u.pose === 'run' || u.tactic === 'retreat'
@@ -733,8 +748,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // burst reads as a live reaction chain — stagger, knee-soft, curl, squat —
   // rather than a single popped frame.
   if (u.flash > 0) {
-    const beat = Math.max(0, Math.floor((0.16 - u.flash) * 25));
-    return reaction(4 + ((u.uid + beat) % 4));
+    return reaction(4);
   }
   // A stationary rifleman keeps the aimed stance (action 0) while firing —
   // the renderer's patrol layer overlays the dedicated aimed-rifle pose
@@ -751,7 +765,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     (u.pose === 'idle' || u.pose === 'walk')
   )
     // v128: point-forward signal beat instead of the climb pose.
-    return sig(0);
+    return action(0);
   return action(0);
 }
 export function adultWreckChoice(

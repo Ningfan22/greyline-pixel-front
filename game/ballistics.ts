@@ -1,5 +1,6 @@
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
+import { drawSmokePuff } from './effect-atlas';
 function hexa(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
@@ -270,6 +271,7 @@ export function drawParticle(
   ctx: CanvasRenderingContext2D,
   p: Particle,
   impacts?: HTMLCanvasElement[][],
+  smokeFrames?: HTMLCanvasElement[],
 ) {
   const life = Math.max(0, p.life / p.maxLife),
     smoke =
@@ -358,6 +360,11 @@ export function drawParticle(
   const x = Math.round(p.x),
     y = Math.round(p.y);
   if (smoke) {
+    if (smokeFrames) {
+      drawSmokePuff(ctx, smokeFrames, 1 - life, x, y, size * 1.4, p.color, ctx.globalAlpha);
+      ctx.globalAlpha = 1;
+      return;
+    }
     ctx.fillRect(
       x - Math.floor(size / 2),
       y - Math.floor(size / 3),

@@ -1,4 +1,5 @@
 import { CARDS, W, ground, pointVisible, veteranTier, type DragMark, type GameState, type Scorch, type TreadMark, type Unit } from './engine';
+import { drawSmokePuff } from './effect-atlas';
 
 /** Deterministic hash → [0,1) */
 function hash(n: number): number {
@@ -120,6 +121,7 @@ export function drawWreckSmoke(
   s: GameState,
   camera: number,
   viewportWidth: number,
+  smokeFrames?: HTMLCanvasElement[],
 ) {
   const now = s.time;
   for (const w of s.wrecks) {
@@ -155,6 +157,11 @@ export function drawWreckSmoke(
       );
       const alpha = (1 - lifeT) * 0.3 * strength;
       if (alpha < 0.015) continue;
+
+      if (smokeFrames) {
+        drawSmokePuff(ctx, smokeFrames, lifeT, px, py, size * 2.2, '#44423c', alpha);
+        continue;
+      }
 
       ctx.fillStyle = `rgba(68,66,60,${alpha.toFixed(3)})`;
       // Two overlapping rects → soft blob, matching the particle style.

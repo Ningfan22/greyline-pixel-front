@@ -587,7 +587,7 @@ export function pointVisibleWith(
   if (
     s.flares.some(
       (f) =>
-        f.life > 0 && Math.hypot(f.x - x, (f.y - y) * 0.65) <= 260,
+        f.life > 0 && Math.hypot(f.x - x, (f.y - y) * 0.65) <= (f.radius ?? 260),
     )
   )
     return true;

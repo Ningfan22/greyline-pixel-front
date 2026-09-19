@@ -1,7 +1,7 @@
 import { transparentSheet } from './sprite-atlas';
 import type { AdultSprites } from './adult-animation';
 /** The packed reference already uses a 384px cell, 252px adult and a shared foot anchor. */
-export function adultAtlas(image: HTMLImageElement): AdultSprites {
+export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8'> {
   const source = transparentSheet(image),
     context = source.getContext('2d')!;
   const pixels = context.getImageData(0, 0, source.width, source.height);
@@ -35,6 +35,24 @@ export function adultAtlas(image: HTMLImageElement): AdultSprites {
     actions20: frames.slice(16, 36),
     reactions8: frames.slice(36, 44),
   };
+}
+
+/** Generated eight-cel standing reload, measured rather than square-grid fitted.
+ * Common scale retains the 63px adult and a fixed 95px boot anchor. */
+export function standingReloadFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image);
+  const cellW = source.width / 4, cellH = source.height / 2;
+  const scale = 63 / 454;
+  return Array.from({ length: 8 }, (_, i) => {
+    const row = Math.floor(i / 4), out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    const baseline = row === 0 ? 578 : 565;
+    ctx.drawImage(source, (i % 4) * cellW, row * cellH, cellW, cellH,
+      48 - 130 * scale, 95 - baseline * scale, cellW * scale, cellH * scale);
+    return out;
+  });
 }
 
 /**

@@ -1853,7 +1853,7 @@ export default function Battle({
                 <div className="empty-hand">
                   <Layers3 size={30} />
                   <p>手牌已用尽</p>
-                  <span>点击牌堆，消耗 2 点抽牌</span>
+                  <span>{p.deckCount ? '点击牌堆，消耗 2 点抽牌' : '牌库已耗尽，继续指挥场上部队'}</span>
                 </div>
               )}
             </div>
@@ -1868,7 +1868,7 @@ export default function Battle({
             p.hand.length >= 6 ||
             p.jam > 0 ||
             p.drawIn > 0 ||
-            p.deckCount + p.discardCount === 0
+            p.deckCount === 0
           }
           aria-label="消耗 2 点指挥点抽一张牌"
         >
@@ -1878,13 +1878,15 @@ export default function Battle({
             alt="牌堆"
             draggable={false}
           />
-          <span className="deck-label">抽牌 · 2 点</span>
+          <span className="deck-label">{p.deckCount ? '抽牌 · 2 点' : '牌库已耗尽'}</span>
           <strong>
             {p.deckCount}
             <small> 张</small>
           </strong>
           <span className="deck-sub">
-            {p.jam > 0
+            {p.deckCount === 0
+              ? '用过的牌不会自动洗回'
+              : p.jam > 0
               ? `受扰 ${Math.ceil(p.jam)}s`
               : p.drawIn > 0
                 ? `${Math.ceil(p.drawIn)}s 冷却`
@@ -1929,7 +1931,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · 演习版本 0.9
+          GREYLINE <i /> 林间前线 · v135
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -1959,7 +1961,7 @@ export default function Battle({
             {panel === 'card'
               ? inspectionCard?.tag
               : panel === 'deck'
-                ? `${playerDeck.length} 张自选循环牌库 · 双方独立抽牌 · 用过的牌在牌库抽空后重新洗入。`
+                ? `${playerDeck.length} 张自选牌库 · 双方独立抽牌 · 牌库耗尽后不再自动补充。`
                 : '灰线 / 林间前线 · 单线即时卡牌对战'}
           </DialogDescription>
           {panel === 'card' && inspectionCard ? (

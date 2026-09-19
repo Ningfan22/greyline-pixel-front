@@ -1,6 +1,7 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas, signalFrames } from './adult-atlas';
+import { adultAtlas, signalFrames, standingReloadFrames } from './adult-atlas';
+import { explosionAtlasV13, smokeAtlasV13 } from './effect-atlas';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import {
   adultIdentity,
@@ -40,6 +41,7 @@ export interface Art {
   explosions: HTMLCanvasElement[][];
   emplacements: Record<string, HTMLCanvasElement[]>;
   impacts: HTMLCanvasElement[][];
+  smoke: HTMLCanvasElement[];
   armor: Record<string, HTMLCanvasElement[]>;
   mobileVehicles: Record<string, HTMLCanvasElement[]>;
   combatExplosions: HTMLCanvasElement[][];
@@ -546,60 +548,6 @@ function atlasFrames(
     }),
   );
 }
-/**
- * v129: the explosions-v13 sheet has stray fire bands disconnected from the
- * main body at the top of many cells (authoring leftover). Drawn with a
- * near-bottom anchor they floated in the sky as a horizontal fire strip.
- * Keep only the bottom-connected alpha component so the anchor stays honest.
- */
-function trimToBottomComponent(frame: HTMLCanvasElement) {
-  const ctx = frame.getContext('2d')!;
-  const w = frame.width,
-    h = frame.height;
-  const img = ctx.getImageData(0, 0, w, h);
-  const d = img.data;
-  const alphaAt = (x: number, y: number) => d[(y * w + x) * 4 + 3];
-  let by = -1;
-  outer: for (let y = h - 1; y >= 0; y--)
-    for (let x = 0; x < w; x++)
-      if (alphaAt(x, y) > 16) {
-        by = y;
-        break outer;
-      }
-  if (by < 0) return frame;
-  const seen = new Uint8Array(w * h);
-  const stack: number[] = [];
-  for (let x = 0; x < w; x++)
-    if (alphaAt(x, by) > 16) {
-      seen[by * w + x] = 1;
-      stack.push(x, by);
-    }
-  while (stack.length) {
-    const y = stack.pop()!;
-    const x = stack.pop()!;
-    if (x > 0 && !seen[y * w + x - 1] && alphaAt(x - 1, y) > 16) {
-      seen[y * w + x - 1] = 1;
-      stack.push(x - 1, y);
-    }
-    if (x < w - 1 && !seen[y * w + x + 1] && alphaAt(x + 1, y) > 16) {
-      seen[y * w + x + 1] = 1;
-      stack.push(x + 1, y);
-    }
-    if (y > 0 && !seen[(y - 1) * w + x] && alphaAt(x, y - 1) > 16) {
-      seen[(y - 1) * w + x] = 1;
-      stack.push(x, y - 1);
-    }
-    if (y < h - 1 && !seen[(y + 1) * w + x] && alphaAt(x, y + 1) > 16) {
-      seen[(y + 1) * w + x] = 1;
-      stack.push(x, y + 1);
-    }
-  }
-  for (let y = 0; y < h; y++)
-    for (let x = 0; x < w; x++)
-      if (!seen[y * w + x]) d[(y * w + x) * 4 + 3] = 0;
-  ctx.putImageData(img, 0, 0);
-  return frame;
-}
 export function loadArt() {
   cached ??= Promise.all([
     Promise.all([
@@ -632,6 +580,7 @@ export function loadArt() {
       loadImage('/art/mobile-vehicles-v14.png'),
       loadImage('/art/support-vehicles-v14.png'),
       loadImage('/art/parachute-v1.png'),
+      loadImage('/art/standing-reload-v135.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -671,6 +620,7 @@ export function loadArt() {
         mobileVehicles,
         supportVehicles,
         parachuteSheet,
+        standingReload,
       ],
       extra,
       trees,
@@ -710,17 +660,15 @@ export function loadArt() {
         true,
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
-      const fx13 = atlasFrames(
-        transparentSheet(combatExplosionsV13),
-        8,
-        6,
-      ).map((row) => row.map(trimToBottomComponent));
+      const explosionSource = transparentSheet(combatExplosionsV13);
+      const fx13 = explosionAtlasV13(explosionSource);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
+      const reload8 = standingReloadFrames(standingReload);
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry) },
-        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines) },
-        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice) },
-        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia) },
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8 },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8 },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8 },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8 },
       };
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.
@@ -772,6 +720,7 @@ export function loadArt() {
         buildings: buildingFrames(buildings, collapse),
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
+        smoke: smokeAtlasV13(explosionSource),
         armor: Object.fromEntries(
           ['light_tank', 'tank', 'heavy_tank'].map((id, row) => [
             id,
