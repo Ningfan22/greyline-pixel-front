@@ -4,6 +4,7 @@ import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames }
 import { stanceAtlas } from './stance-art';
 import { packedWeaponStances } from './weapon-stance-art';
 import { packedMedicalFrames } from './medical-art';
+import { packedLowGrenades } from './low-grenade-art';
 import { lowReloadAtlas } from './low-reload-art';
 import { paintedBlastAtlas, paintedFootings } from './battlefield-effects-art';
 import { explosionAtlasV13, smokeAtlasV13, type PaintedBlasts } from './effect-atlas';
@@ -603,6 +604,7 @@ export function loadArt() {
       loadImage('/art/building-footings-v145.png'),
       loadImage('/art/weapon-stance-frames-v147.png'),
       loadImage('/art/medical-work-frames-v148.png'),
+      loadImage('/art/low-grenade-frames-v149.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -653,6 +655,7 @@ export function loadArt() {
         footingSheet,
         packedWeaponSheet,
         medicalSheet,
+        lowGrenadeSheet,
       ],
       extra,
       trees,
@@ -700,11 +703,12 @@ export function loadArt() {
       const stance16 = stanceAtlas(stanceSheet);
       const lowReload16 = lowReloadAtlas(lowReloadSheet);
       const medical24 = packedMedicalFrames(medicalSheet);
+      const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8, stance16, lowReload16, medical24 },
-        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8, stance16, lowReload16, medical24 },
-        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8, stance16, lowReload16, medical24 },
-        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8, stance16, lowReload16, medical24 },
+        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32 },
+        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32 },
+        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32 },
+        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32 },
       };
       // The settled posture is the last painted cel: no snap to a differently
       // proportioned legacy body at the exact end of the transition.

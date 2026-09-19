@@ -1,6 +1,6 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
-import { GRENADE_THROW_S, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive } from './infantry-action-timing';
+import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive } from './infantry-action-timing';
 import { isPrecisionObserver } from './precision-team';
 import { ammunition } from './ballistics';
 import { crouchTravelAmount } from './crouch-locomotion';
@@ -20,6 +20,8 @@ export interface AdultSprites {
   lowReload16: HTMLCanvasElement[];
   /** Eight medical-work cels at each of stand, knee and prone height. */
   medical24: HTMLCanvasElement[];
+  /** Sixteen fixed-knee and sixteen prone throwing cels. */
+  lowGrenade32: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -33,7 +35,7 @@ export interface AdultFrameChoice {
 }
 /** These are whole-body authored actions, not bases for a decorative torso. */
 export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
-  return !!choice && ['stance16','reload8','lowReload16','grenade8','reactions8','medical24'].includes(choice.group);
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24'].includes(choice.group);
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -556,22 +558,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // Brief traffic/aim stops freeze the last real footstep, not a lower body.
     return { group:'crouch8', index:cycle(step,8) };
   }
-  // Simulation and cels share a clock: the projectile leaves after cel five.
+  // Release at 5/8 of the shared drill: after five standing or ten low cels.
   if ((u.fragThrow ?? 0) > 0) {
-    const elapsed = GRENADE_THROW_S - (u.fragThrow ?? 0);
     if (stanceHeightClass(u.pose) === 'stand')
-      return { group: 'grenade8', index: Math.min(7, Math.max(0, Math.floor(elapsed / GRENADE_THROW_S * 8))) };
-    // Low throws retain the committed body until their own hand-work cels
-    // exist. The former "kneeling work" frame 13 is actually a crawl.
-    const chain =
-      u.pose === 'prone'
-        ? [3, 12, 2]
-        : u.pose === 'crouch' || u.pose === 'hunker'
-          ? [1, 1, 1]
-          : [0, 0, 0];
-    if (elapsed < GRENADE_THROW_S / 2) return action(chain[0]); // wind-up
-    if (elapsed < GRENADE_THROW_S * 0.75) return action(chain[1]); // release
-    return action(chain[2]); // follow-through
+      return { group: 'grenade8', index: grenadeCel(u, time, 8) };
+    return { group: 'lowGrenade32', index: (u.pose === 'prone' ? 16 : 0) + grenadeCel(u, time, 16) };
   }
   const medical = medicalWorkChoice(u, time);
   if (medical) return medical;

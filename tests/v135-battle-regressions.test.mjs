@@ -146,8 +146,13 @@ test('prone scouts and grenade throwers stay low throughout their action', () =>
   for (let t = 0; t < 10; t += 0.03) {
     u.fragThrow = t % 0.45;
     const f = adultFrameChoice(u, t);
-    assert.equal(f.group, 'actions20');
-    assert([2, 3, 12].includes(f.index));
+    if (u.fragThrow > 0) {
+      assert.equal(f.group, 'lowGrenade32');
+      assert(f.index >= 16 && f.index < 32);
+    } else {
+      assert.equal(f.group, 'actions20');
+      assert([2, 3, 12].includes(f.index));
+    }
   }
 });
 

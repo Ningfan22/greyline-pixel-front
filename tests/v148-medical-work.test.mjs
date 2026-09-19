@@ -141,7 +141,7 @@ test('repair has its own state and stops when the vehicle is fully repaired',()=
 
 test('nonmedical low work no longer borrows crawling frame 13',()=>{
   for(const patch of [{tending:true,tendingKind:'repair'},{scavengeUntil:30},{ammoShareUntil:30},
-    {overheatedUntil:30},{emplacementSetupUntil:30},{fragThrow:.5}]) {
+    {overheatedUntil:30},{emplacementSetupUntil:30}]) {
     const u=one(arena(),'infantry',patch);
     for(let t=0;t<10;t+=.1) {
       const f=adultFrameChoice(u,t);assert.deepEqual(f,{group:'actions20',index:1});

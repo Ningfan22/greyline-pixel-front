@@ -91,8 +91,8 @@ test('low stance remains committed during a hand throw, including hunker', () =>
     for(let i=0;i<65;i++) {
       tick(s,1/60);
       const f=adultFrameChoice(u,s.time);
-      assert.equal(f.group,'actions20');
-      assert((pose==='prone'?[2,3,12]:[1,13]).includes(f.index),`${pose}: ${f.index}`);
+      assert.equal(f.group,'lowGrenade32');
+      assert.equal(Math.floor(f.index/16),pose==='prone'?1:0,`${pose}: ${f.index}`);
       assert(pose==='prone'?u.pose==='prone':['crouch','hunker'].includes(u.pose));
     }
   }

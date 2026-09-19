@@ -1,10 +1,11 @@
 import { infantryGeometry } from './infantry-geometry';
+import { grenadeReleaseOrigin } from './grenade-geometry';
 import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
-import { GRENADE_THROW_S, GRENADE_RELEASE_S, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
+import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
 import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
@@ -3471,25 +3472,23 @@ function setStance(
  * The target is committed at wind-up, not magically tracked after release. */
 function stepHandGrenade(s: GameState, u: Unit): boolean {
   if ((u.fragThrow ?? 0) <= 0 || u.fragThrowStartedAt === undefined) return false;
-  const elapsed = s.time - u.fragThrowStartedAt;
+  const elapsed = grenadeElapsed(u, s.time);
   u.fragThrow = Math.max(0, GRENADE_THROW_S - elapsed);
   u.moving = false;
   u.fire = u.secondaryFire = 0;
   u.vx = u.vy = 0;
   u.y = ground(s, u.x);
-  if (elapsed >= GRENADE_RELEASE_S && u.fragAim) {
+  if (grenadeReleased(elapsed) && u.fragAim) {
     const aim = u.fragAim;
     u.fragAim = undefined;
     if ((u.fragLeft ?? 0) > 0) {
       u.fragLeft = (u.fragLeft ?? 0) - 1;
       const dir = Math.sign(aim.x - u.x) || u.facing;
-      const low = u.pose === 'prone', kneeling = u.pose === 'crouch' || u.pose === 'hunker';
-      const sx = u.x + dir * (low ? 37 : kneeling ? 28 : 21);
-      const sy = u.y - (low ? 12 : kneeling ? 27 : 51);
+      const {x: sx, y: sy} = grenadeReleaseOrigin(u, dir);
       const total = Math.max(0.65, Math.min(1.15, Math.hypot(aim.x - sx, aim.y - sy) / 210));
       s.projectiles.push({ uid: ++s.uid, ammunition: 'grenade', effect: 'grenade',
         damage: 42, radius: 40, arc: 70, life: total, total,
-        targetUid: null, base: null, side: u.side, sourceUid: u.uid,
+        targetUid: null, base: null, side: u.side, sourceUid: u.uid, startLane: u.lane,
         x: sx, y: sy, tx: aim.x, ty: aim.y, startX: sx, startY: sy });
     }
   }
