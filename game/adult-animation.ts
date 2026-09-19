@@ -4,6 +4,7 @@ import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHei
 import { isPrecisionObserver } from './precision-team';
 import { ammunition } from './ballistics';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { supportWorkSettled } from './support-work';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
   walk8: HTMLCanvasElement[];
@@ -22,6 +23,8 @@ export interface AdultSprites {
   medical24: HTMLCanvasElement[];
   /** Sixteen fixed-knee and sixteen prone throwing cels. */
   lowGrenade32: HTMLCanvasElement[];
+  /** Twelve standing/knee and ten prone tool-work cels. */
+  repair34: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -35,7 +38,7 @@ export interface AdultFrameChoice {
 }
 /** These are whole-body authored actions, not bases for a decorative torso. */
 export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
-  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24'].includes(choice.group);
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24','repair34'].includes(choice.group);
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -487,6 +490,15 @@ export function medicalWorkChoice(u: Unit, time: number): AdultFrameChoice | nul
   return { group: 'medical24', index: (pose === 'stand' ? 0 : pose === 'crouch' ? 8 : 16) + beat };
 }
 
+export function repairWorkChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (!u.tending || u.tendingKind !== 'repair' || CARDS[u.id].trait !== 'mechanic' ||
+      !supportWorkSettled(u,time)) return null;
+  const height = stanceHeightClass(u.pose);
+  const offset = height === 'stand' ? 0 : height === 'crouch' ? 12 : 24;
+  const count = height === 'prone' ? 10 : 12;
+  return { group:'repair34', index:offset + Math.floor((Math.max(0,u.tendingTime ?? 0)+1e-9)/2.4*count)%count };
+}
+
 /** One actual magazine clock, with authored cels at the committed height. */
 function reloadBeat(u: Unit, time: number): AdultFrameChoice {
   // Belt/launcher work must keep its own weapon, not become a rifle drill.
@@ -566,6 +578,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   }
   const medical = medicalWorkChoice(u, time);
   if (medical) return medical;
+  const repair = repairWorkChoice(u,time);
+  if (repair) return repair;
   // Repair is a different job. It must not borrow bandaging or crawl cels.
   if (u.tending && !u.moving && u.motion === 'ground') return groundedWork(u, time);
   // While changing a cooked barrel the gunner drops to one knee and works the

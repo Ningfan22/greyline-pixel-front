@@ -1,6 +1,7 @@
 import { infantryGeometry } from './infantry-geometry';
 import { grenadeReleaseOrigin } from './grenade-geometry';
 import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
+import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContact, REPAIR_CONTACT_TOLERANCE, REPAIR_FIRST_WORK_S } from './repair-work';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
@@ -467,6 +468,8 @@ export interface Unit {
   tendingTime?: number;
   tendingKind?: SupportWork;
   tendingTargetUid?: number;
+  repairTargetUid?: number;
+  repairSide?: -1 | 1;
   repairTime: number;
   recoverySupportUntil?: number;
   commandSupportUntil?: number;
@@ -7401,6 +7404,8 @@ export function tick(s: GameState, dt: number) {
   for (const u of s.units) {
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
     const previousWork = beginSupportTick(u);
+    if (!isCombatant(u) || u.rappelling || u.parachuting || u.tactic === 'retreat' ||
+        orderedWithdrawal(s,u) || localUnitOrder(s,u) === 'retreat') clearRepairAssignment(u);
     u.crouchMoveRequested = false;
     u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
@@ -8236,41 +8241,28 @@ export function tick(s: GameState, dt: number) {
       }
     }
     // v132: 维修工兵（mechanic）自动靠近受损己方装甲车辆进行抢修
-    if (c.trait === 'mechanic' && c.members) {
-      const vehicle = s.units
-        .filter(
-          (v) =>
-            v.side === u.side &&
-            v !== u &&
-            isCombatant(v) &&
-            CARDS[v.id].armored &&
-            !CARDS[v.id].air &&
-            !CARDS[v.id].vehicleSupport &&
-            v.hp < v.maxHp &&
-            Math.abs(v.x - u.x) <= 300,
-        )
-        .sort(
-          (a, b) =>
-            a.hp / a.maxHp - b.hp / b.maxHp ||
-            Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
-        )[0];
+    if (c.trait === 'mechanic' && c.members && !controlledNavigation &&
+        !orderedWithdrawal(s,u) && u.tactic !== 'retreat' && localUnitOrder(s,u) !== 'retreat') {
+      const vehicle = pickRepairVehicle(s,u);
       if (vehicle) {
         treating = true;
-        const dist = Math.abs(vehicle.x - u.x);
-        if (dist > 90) {
-          u.pose = setStance(u, s.time, 'walk');
+        const station = repairStation(u,vehicle), delta = station-u.x;
+        if (Math.abs(delta) > REPAIR_CONTACT_TOLERANCE) {
+          u.pose = setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'walk');
           moveSoldier(
             s,
             u,
-            Math.sign(vehicle.x - u.x),
-            c.speed! * u.pace * 0.85,
+            Math.sign(delta),
+            Math.min(c.speed! * u.pace * 0.85, Math.abs(delta)/Math.max(dt,.001)),
             dt,
           );
-        } else {
+        } else if (atRepairContact(u,vehicle)) {
           u.pose = setStance(u, s.time, u.pose === 'prone' ? 'prone' : 'crouch');
           continueSupportWork(u, previousWork, 'repair', vehicle.uid, s.time, dt);
           if (vehicle.x !== u.x) u.facing = Math.sign(vehicle.x - u.x);
-          if (u.supportCooldown <= 0) {
+          // A first tool stroke must actually happen: lowering, walking or a
+          // departing vehicle cannot repair armor while the drill is hidden.
+          if ((u.tendingTime ?? 0) >= REPAIR_FIRST_WORK_S && u.supportCooldown <= 0) {
             vehicle.hp = Math.min(vehicle.maxHp, vehicle.hp + 8);
             vehicle.healing = 0.6;
             u.healing = 0.6;

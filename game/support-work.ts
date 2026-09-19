@@ -5,6 +5,12 @@ import { crouchTravelAmount } from './crouch-locomotion';
 export type SupportWork = 'medical' | 'repair';
 type PreviousWork = Pick<Unit, 'tending' | 'tendingKind' | 'tendingTime' | 'tendingTargetUid'>;
 
+export function supportWorkSettled(u: Unit, time: number) {
+  return u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling && !u.parachuting &&
+    !u.moving && u.motion === 'ground' && u.climbing <= 0 &&
+    !stanceTransitionActive(u,time) && crouchTravelAmount(u) === 0;
+}
+
 /** Work is renewed by the actual service branch, never left latched by an early exit. */
 export function beginSupportTick(u: Unit): PreviousWork {
   const previous = {
@@ -29,7 +35,6 @@ export function continueSupportWork(
   u.tendingTargetUid = targetUid;
   // Finish the real lowering/rising drill before playing hand work. Keep
   // this clock independent of health pulses and how often the canvas draws.
-  const settled = !u.moving && u.motion === 'ground' &&
-    !stanceTransitionActive(u, time) && crouchTravelAmount(u) === 0;
+  const settled = supportWorkSettled(u, time);
   u.tendingTime = settled ? (sameTask ? previous.tendingTime ?? 0 : 0) + dt : 0;
 }

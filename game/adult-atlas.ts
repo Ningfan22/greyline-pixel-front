@@ -1,7 +1,7 @@
 import { transparentSheet } from './sprite-atlas';
 import type { AdultSprites } from './adult-animation';
 /** The packed reference already uses a 384px cell, 252px adult and a shared foot anchor. */
-export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8' | 'grenade8' | 'stance16' | 'lowReload16' | 'medical24' | 'lowGrenade32'> {
+export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8' | 'grenade8' | 'stance16' | 'lowReload16' | 'medical24' | 'lowGrenade32' | 'repair34'> {
   const source = transparentSheet(image),
     context = source.getContext('2d')!;
   const pixels = context.getImageData(0, 0, source.width, source.height);

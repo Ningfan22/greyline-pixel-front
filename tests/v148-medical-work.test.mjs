@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createGame, startGame, spawnUnit, tick, setOrder } from '../game/engine.ts';
 import { adultFrameChoice, medicalWorkChoice, ownsAdultBody, idlePoseChoice } from '../game/adult-animation.ts';
 import { beginSupportTick, continueSupportWork } from '../game/support-work.ts';
+import { repairStation } from '../game/repair-work.ts';
 import { createRequire } from 'node:module';
 import { medicalOriginalFrames } from '../scripts/bake-v148-medical-work.mjs';
 import { packedMedicalFrames } from '../game/medical-art.ts';
@@ -135,6 +136,7 @@ test('approaching a downed patient uses locomotion, not a moving bandaging body'
 
 test('repair has its own state and stops when the vehicle is fully repaired',()=>{
   const s=arena(),u=one(s,'combat_engineers'),v=one(s,'tank',{x:1040,hp:500,maxHp:600});
+  u.x=repairStation(u,v);
   tick(s,1/60);assert.equal(u.tendingKind,'repair');assert.notEqual(adultFrameChoice(u,s.time).group,'medical24');
   v.hp=v.maxHp;tick(s,1/60);assert.equal(u.tending,false);assert.equal(u.tendingTime,0);
 });
