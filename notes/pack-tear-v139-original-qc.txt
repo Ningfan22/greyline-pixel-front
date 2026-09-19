@@ -1,0 +1,24 @@
+GREYLINE 16-frame atlas: original generation QC
+Built-in image_gen calls for this bounded task: exactly 1. No retries, fallback, resampling, alpha cleanup, or project integration.
+PNG: /Users/bytedance/.codex/generated_images/01a0ba98-2b27-7a22-b12f-ea426d2d701f/exec-eac8ddd1-4de7-4a80-b34a-26d3855a8bb7.png
+Prompt: sibling exec-eac8ddd1-4de7-4a80-b34a-26d3855a8bb7.prompt.txt
+
+Actual dimensions: 1254 x 1254, RGBA.
+Visual grid: 4 columns x 4 rows, 16 visible frames. All 16 nominal crops have distinct pixel content.
+Requested 2048 x 2048 was not delivered. 1254 / 4 = 313.5, so there is no equal integer-pixel cel size.
+Proportional rounded crop boundaries on BOTH axes: 0, 314, 627, 940, 1254.
+This gives cell widths/heights of 314, 313, 313, 314 pixels, not 512.
+
+True alpha: present, range 0..255. 60.86946% of pixels have alpha exactly 0. 30.08300% have alpha >=250. Only 0.12490% have alpha 255; most packet pixels are near-opaque, especially alpha253. Faint nonzero-alpha noise reaches into nominal gutters and some crop boundaries, so strict clean contours/gutters fail.
+
+Body registration measured in the lower 40% of each proportional crop, using alpha>127:
+left edge local x84..85; right exclusive edge x238..239; bottom exclusive y289..290.
+Approximate lower-body width154px; registration varies by about1px horizontally and vertically. This is lower-body silhouette registration only, not proof of identical body texture or pixel-perfect consistency.
+The closed pouch occupies about156 x220px, larger and taller than the requested proportional body rectangle (approximately135 x156px). The body sits too low and headroom is insufficient for the later strip poses.
+
+No alpha>127 silhouette touches the proportional crop edge. Minimum solid edge clearances by frame1..16: 25,25,25,25,24,24,24,22,19,19,18,18,24,12,2,6 pixels.
+The detached strip comes within2px of frame15's right crop edge and7px of frame16's top edge (6px minimum clearance to another edge).
+Requested normalized safe rectangle x80..432,y80..450 (on a512 cel) is violated in all16 cels.
+
+Visual check: olive textured foil pouch, small GREYLINE label and printed star, no hands/table/cards/grid/labels. Sequence depicts an opening seam and strip curling then moving upper-right. Frame13's strip still appears to touch the right rim; clean separation begins later than requested. First three frames have small seam changes, but fully sealed preparation timing is not exact.
+Conclusion: one original candidate delivered for independent inspection, not a fully compliant atlas and not a completed UI animation.

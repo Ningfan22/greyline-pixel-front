@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S, POSE_TRANSITION_S } from './infantry-action-timing';
 import { localUnitOrder, stepUnitControl } from './unit-control';
@@ -310,6 +311,8 @@ export interface Unit {
   lastCombatShotAt?: number;
   stillFor?: number;
   ambushFor?: number;
+  camouflageFor?: number;
+  camouflageRevealedUntil?: number;
   rapidUntil?: number;
   smokeAssaultSpent?: boolean;
   assaultBurstUntil?: number;
@@ -2286,6 +2289,10 @@ function hitUnit(
           ? 0.7
           : 1);
   u.hp -= actual;
+  if (actual > 0 && u.id === 'ambush_squad') {
+    u.camouflageFor = 0;
+    u.camouflageRevealedUntil = s.time + AMBUSH_REVEAL;
+  }
   // v109: blast hits that chunk a squad spray blood and equipment
   // fragments off the impact point — bullets poke, blasts shred.
   if (c.members && source === 'blast' && actual > u.maxHp * 0.08) {
@@ -4513,6 +4520,8 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
   continueHeavyWithdrawal(s, u);
   const settled = !u.moving && u.motion === 'ground' && u.climbing <= 0;
   u.stillFor = settled ? (u.stillFor ?? 0) + dt : 0;
+  if (u.id === 'ambush_squad')
+    u.camouflageFor = canPrepareAmbush(u, s.time) ? (u.camouflageFor ?? 0) + dt : 0;
   u.ambushFor =
     settled && u.fire <= 0 && s.time - (u.lastCombatShotAt ?? -Infinity) > 0.3
       ? (u.ambushFor ?? 0) + dt
@@ -5868,8 +5877,20 @@ function updateAI(s: GameState) {
           const enemyFront = groundFoes.length
             ? Math.min(...groundFoes.map((u) => u.x))
             : defaultLanding(s, 1);
-          x = safeLanding(s, enemyFront - 140);
+          // Red advances left. A guide must land to the RIGHT of the nearest
+          // known enemy, not between two contacts spread across the front.
+          const guideFront = groundFoes.length ? Math.max(...groundFoes.map(u => u.x)) : enemyFront;
+          x = safeLanding(s, c.id === 'pathfinders' ? guideFront + 300 : enemyFront - 140);
           score = cohorts >= 2 && groundFoes.length ? 17 : -2;
+          if (c.id !== 'pathfinders') {
+            const guide = own.filter(u => pathfinderReady(s, u) &&
+              Math.abs(u.x - x!) <= 500 &&
+              groundFoes.every(v => Math.abs(v.x - u.x) >= 160))
+              .sort((a, b) => Math.abs(a.x - x!) - Math.abs(b.x - x!))[0];
+            if (guide) { x = safeLanding(s, guide.x); score += 5; }
+          } else if (p.hand.some(h => h.id !== c.id && CARDS[h.id].airdrop)) {
+            score += own.some(u => u.id === 'pathfinders') ? -6 : 6;
+          }
         }
         // v120: airborne AT hunts armour from the drop zone; rapid insertion
         // plugs a collapsing sector; recon jump fills a missing spotter.
@@ -7517,7 +7538,10 @@ export function tick(s: GameState, dt: number) {
       u.moving = true;
       u.pose = 'climb';
       u.walk += dt * 5;
-      u.y = Math.min(ground(s, u.x), u.y + 135 * dt);
+      // A live ground guide shortens exposure under the canopy. Recheck
+      // every tick: a dead, moving or jammed guide cannot finish the job.
+      const guide = landingGuide(s, u.side, u.x);
+      u.y = Math.min(ground(s, u.x), u.y + 135 * (guide ? 1.35 : 1) * dt);
       // v133: safety net — if the descent somehow never reaches ground
       // (terrain reshaped under the canopy, knockback over a pit), force
       // the landing after 12s so the flag can never stick for the battle.
@@ -7532,6 +7556,16 @@ export function tick(s: GameState, dt: number) {
         u.motionTime = 0;
         u.motionDuration = 0.3;
         u.rapidUntil = s.time + 8;
+        if (guide) {
+          u.suppression = Math.max(0, u.suppression - 30);
+          u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 12);
+          u.cooldown = 0;
+        }
+        if (u.id === 'pathfinders' && !u.squadOrder) {
+          u.squadOrder = 'watch';
+          u.squadOrderX = u.x;
+          u.squadOrderUntil = Infinity;
+        }
       }
       continue;
     }
@@ -9096,6 +9130,10 @@ export function tick(s: GameState, dt: number) {
       }
     } else u.boundStartedAt = undefined;
     const retreating = c.members && u.tactic === 'retreat';
+    // Prepared ambushers let distant patrols approach instead of revealing
+    // themselves at maximum rifle range. An explicit squad attack overrides it.
+    const ambushHold = ambushConcealed(u, s.time) && target &&
+      Math.abs(target.x - u.x) > AMBUSH_FIRE_RANGE && u.squadOrder !== 'attack' && order !== 'rush';
     // v120: shock_action — a shaken squad freezes for the duration.
     const shocked = c.members && (s.players[u.side].shockUntil ?? 0) > s.time;
     // v91: an armoured vehicle that has decided to reverse out of a kill zone.
@@ -9107,6 +9145,7 @@ export function tick(s: GameState, dt: number) {
       fireCoax(s, u);
     if (
       (c.damage ?? 0) > 0 &&
+      !ambushHold &&
       (!c.armorOnly || !!target) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
@@ -9256,6 +9295,10 @@ export function tick(s: GameState, dt: number) {
               ? c.burstPause!
               : c.rate! * (closeBurst ? 0.65 : 1) * (spotted ? 0.7 : 1);
           u.ambushFor = 0;
+          if (u.id === 'ambush_squad') {
+            u.camouflageFor = 0;
+            u.camouflageRevealedUntil = s.time + AMBUSH_REVEAL;
+          }
           u.rapidUntil = 0;
           u.fire = 0.25;
           // Slow-firing infantry (snipers, AT, riflemen) visibly work the

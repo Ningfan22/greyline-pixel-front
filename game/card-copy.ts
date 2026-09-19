@@ -596,14 +596,14 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'PATHFINDERS',
     typeLabel: '侦察空降',
     ability: '先导小组',
-    rule: '两人空降，超远视野。',
+    rule: '落地警戒，停步引导后续伞降。',
     flavor: '他们落地的时候，援军还在天上。',
   },
   ambush_squad: {
     en: 'AMBUSH SQUAD',
     typeLabel: '守备伏击',
     ability: '伏击小组',
-    rule: '停步蓄势，首射增伤八成。',
+    rule: '低姿态隐蔽，放近后伏击。',
     flavor: '他们等的人，从来没等到他们。',
   },
   sniper_team: {

@@ -5,6 +5,7 @@ import { treeBoxesV17 } from './tree-state-v17';
 import { STRIDE, terrainMinima } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
 import { weatherVisibility } from './weather';
+import { ambushConcealed, AMBUSH_REVEAL } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady } from './precision-team';
 export interface SceneryPart {
   id: number;
@@ -652,18 +653,35 @@ export function visibleToSide(s: GameState, side: Side, u: Unit) {
   }
   return lookup.ids.has(u.uid);
 }
+/** Camouflage conceals the enemy unit, never friendly art or map geometry. */
+function detectAmbusher(s: GameState, side: Side, u: Unit) {
+  if (!ambushConcealed(u, s.time)) return true;
+  const lit = s.flares.some(f => f.life > 0 &&
+    Math.hypot(f.x - u.x, (f.y - u.y) * 0.65) <= (f.radius ?? 260));
+  const detected = lit || s.players[side].recon > 0 || s.units.some(v => {
+    if (v.side !== side || v.hp <= 0 || v.wounded || v.surrendered) return false;
+    const observer = CARDS[v.id].trait === 'scout' || CARDS[v.id].observer || precisionObserverReady(v);
+    return Math.abs(v.x - u.x) <= (observer ? 520 : 180) &&
+      pointVisibleWith(s, side, u.x, u.y - 10, [v]);
+  });
+  if (detected) {
+    u.camouflageFor = 0;
+    u.camouflageRevealedUntil = s.time + AMBUSH_REVEAL;
+  }
+  return detected;
+}
 export function refreshVision(s: GameState) {
   for (const side of [0, 1] as Side[]) {
     s.visible[side] = s.units
       .filter(
         (u) =>
           u.side === side ||
-          pointVisible(
+          (pointVisible(
             s,
             side,
             u.x,
             u.y - (u.pose === 'prone' ? 8 : u.pose === 'hunker' ? 16 : 28),
-          ) ||
+          ) && detectAmbusher(s, side, u)) ||
           // Night: a muzzle flash betrays the shooter to anyone nearby.
           (s.night &&
             (u.flashUntil ?? 0) > s.time &&

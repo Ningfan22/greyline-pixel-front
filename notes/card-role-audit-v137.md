@@ -20,3 +20,7 @@ Next differentiation should change an actual decision (spotting versus shooting,
 ## Follow-up in v138
 
 The sniper/precision overlap is now implemented as dual rifles versus a rifle/observer pair. See `v138-verification.md` for loss-of-observer behavior, targeting, real shot/reload tests and remaining overlaps. Other unresolved rows above have not been silently marked complete.
+
+## Follow-up in v139
+
+Ambush/ranger overlap now has an actual defensive-concealment versus mobile-recon split. Concealment has preparation, exposure memory and real spotting counters; it never fades friendly art. Pathfinders now establish stationary landing guidance, while recon jump supplies cheaper forward sight without guidance. AI uses safe known friendly beacons and inserts pathfinders behind the nearest known enemy front. See `v139-verification.md` and the real shot/drop/AI tests. MG side-by-side trials and glider transport differentiation remain open.

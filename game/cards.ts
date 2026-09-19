@@ -1711,7 +1711,7 @@ export const CARDS: Record<CardId, Card> = {
     'pathfinders',
     '先导小组',
     3,
-    '2 名侦察兵空降，超远视野，落地伏击',
+    '2 人空降先导，落地警戒并引导附近后续伞降',
     {
       members: 2,
       hp: 120,
@@ -1722,12 +1722,12 @@ export const CARDS: Record<CardId, Card> = {
       discipline: 90,
       uniform: 'recon',
       trait: 'scout',
-      infantryAbility: 'ambush',
       airdrop: true,
       targetGround: true,
+      sight: 760,
       tag: '空降 · 侦察引导',
       detail:
-        '2人先导侦察小组空降到战场任意位置。侦察兵拥有超远视野，能提前点亮敌方纵深部署；落地后进入伏击状态，第一波齐射带伏击加成。适合为后续主力空降标记安全落点。',
+        '2人先导组，观察760。落地自动警戒，停稳2秒后引导220内后续伞兵：下降速度提升35%，落地降低30压制、恢复12士气并完成武器准备。引导员移动、受重压、伤亡、撤退或通讯受干扰时失效；可选中小组下令进攻或撤退。不再获得伏击首枪加成。',
     },
   ),
   ambush_squad: variant(
@@ -1735,7 +1735,7 @@ export const CARDS: Record<CardId, Card> = {
     'ambush_squad',
     '伏击小组',
     3,
-    '3 名伏击兵，静止蓄势 2 秒后下一发对步兵增伤 80%',
+    '3 人低姿态隐蔽伏击，放近敌人后打出强化首枪',
     {
       members: 3,
       hp: 165,
@@ -1748,7 +1748,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'elite',
       tag: '守备 · 以静制动',
       detail:
-        '3人伏击小组，静止且未开火蓄势2秒后，下一发对步兵伤害乘1.8。每人移动或射击都会重置自己的蓄势；连续交火不会每发都获得加成，且不能攻击未发现目标。',
+        '3人伏击组。低姿态静止3秒后隐蔽，普通敌军需靠近180才能发现；侦察单位在520内可识破，照明和侦察指令也能反制，均须满足实际视野。隐蔽时默认放敌人到300内再开火；射击、受伤或被发现后暴露8秒，随后重新准备。静止蓄势2秒的下一发对步兵增伤80%，移动或射击重置；不隐身穿墙，不攻击未发现目标。',
     },
   ),
   sniper_team: variant(
@@ -2099,6 +2099,7 @@ export const CARDS: Record<CardId, Card> = {
       damage: 24,
       range: 700,
       rate: 1.6,
+      sight: 850,
       speed: 88,
       airdrop: true,
       targetGround: true,
@@ -2108,7 +2109,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'recon',
       tag: '空降 · 前沿侦察',
       detail:
-        '2人空降侦察组直接跳降至前沿，700射程点射+超远视野。最便宜的空降单位，用于快速建立视野网或猎杀敌方侦察。',
+        '2人轻装侦察组直接跳降前沿，观察850、射程700。低费快速建立视野和点射敌方侦察，也为炮兵提供观察；不建立空降引导区，不享有先导组的后续投送能力。',
     },
   ),
   // ── v120 炮火支援流派 ─────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import { mapDefinition, type MapId } from './maps';
 import { isPrecisionObserver } from './precision-team';
 import { infantryGeometry } from './infantry-geometry';
+import { pathfinderReady, ambushConcealed } from './infantry-specialties';
 import { filteredSprite } from './render-cache';
 import { drawTerrainLayer } from './terrain-render';
 import {
@@ -882,6 +883,13 @@ export function render(
           ctx.stroke();
         }
       }
+    }
+    if (u.side === 0 && (pathfinderReady(s, u) || ambushConcealed(u, s.time))) {
+      ctx.fillStyle = '#b1c9b7';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(u.id === 'pathfinders' ? '引导就绪' : '隐蔽', u.x,
+        u.y + infantryDepth(u.lane) - infantryGeometry(u).bodyHeight - 16);
     }
     if (u.wounded) {
       const by = u.y - 25;

@@ -1,0 +1,22 @@
+Use case: stylized-concept.
+Asset type: ONE NEW game-animation sprite atlas, true transparent PNG. Create this fresh 16-cel atlas, not a revision or reuse of the earlier 32-cel sheet.
+
+CANVAS: Request exactly 2048 x 2048 pixels, square. EXACTLY 4 columns x 4 rows = 16 sequential animation frames, read left-to-right and top-to-bottom. Each equal invisible cell is 512 x 512. No cell outlines, grid lines, labels, numbering, captions or watermark.
+
+TRANSPARENCY: Genuine RGBA PNG with alpha=0 for ALL empty space; preserve transparent alpha. Hard clean cutout contour, opaque packet interior, no glow, no fuzzy matte. Do not paint a background, table, environment, floor, checkerboard, backdrop color, drop shadow outside the object, or simulated transparency.
+
+SUBJECT: One small vertical olive military trading-card foil pouch per cel. Painterly pixel-game artwork, rich weathered paper/foil texture, subtle crinkles and crimped seams, muted olive and dark khaki, small readable cream stencil label "GREYLINE" and one subdued star emblem. The star is a quiet printed emblem, not an oversized decorative medallion. Stable lighting and surface shadows. Exact label spelling G R E Y L I N E. No other text. No hands, people, tools, cards, or visible contents. The empty pouch mouth may be dark; no cards emerging, because real UI cards appear afterwards.
+
+CRITICAL CELL GEOMETRY: In EVERY 512x512 cell, the vertical bag body stays at local x=140..360, y=190..445: approximately 220px wide and255px high. The entire bag AND all portions of its tear-off strip must stay strictly within local x=80..432, y=80..450. Leave generous truly transparent headroom above the bag and clear padding around all four sides. Never clip a strip or let it approach/cross a cell boundary. Do not enlarge the bag to fill the cell. Do not substitute padding only around the outside of the sheet: EVERY cel needs its own empty padding. All coordinates repeat identically in each cell.
+
+REGISTRATION: Locked straight-on front camera. Use the IDENTICAL body artwork, exact scale and position in all16 frames. Body bottom fixed at local y=445, front label and star unmoving. No lift, set-down, translation, bounce, rotation, perspective change, swelling, texture flicker or shadow changes. The player handles whole-pouch motion externally. ONLY the TOP SEALED EDGE and its ONE thin tear-off ribbon animate. The body below the top seam remains unchanged.
+
+ACTION: TOP seal tears progressively from LEFT to RIGHT. The freed LEFT tip curls upward while the RIGHT end stays connected to the advancing tear point. The remaining unbroken seal to its right becomes progressively shorter. This is a thin strip from the TOP edge, not a front-panel flap, zipper, lid, or second packet. After it fully separates, the same thin strip arcs up and to the RIGHT within the cel. Keep its whole curved silhouette inside the safe rectangle. No shreds, extra strips or particles.
+
+EXACT CHRONOLOGY — the numbers below are instructions, never visible:
+Row1: Frame1 fully sealed and relaxed. Frame2 still sealed, small tension crease at the upper left. Frame3 still sealed/preparing, left notch tension increases. Frame4 initial tiny notch and 5% of the TOP seam torn from the left, attached free tip barely lifted.
+Row2: Frame5 tear reaches17% across; Frame6 reaches29%; Frame7 reaches41%; Frame8 reaches53%. The same attached thin ribbon curls smoothly higher as the tear moves right; different intermediate pose in every cel.
+Row3: Frame9 tear reaches65%; Frame10 reaches77%; Frame11 reaches89%; Frame12 reaches99%, still connected by one tiny fiber at the RIGHT edge. Left part open, right end visibly attached until the end of frame12. Curl changes smoothly with no discontinuity.
+Row4: Frame13 ribbon just detached, mouth fully open, ribbon floating just above the right corner. Frame14 same ribbon traveling up/right and gently rotating. Frame15 ribbon farther up/right with a soft curled shape. Frame16 open packet, strip clearly separated from and clear of the mouth in the upper-right headroom. Strip remains wholly visible and comfortably inside local x=80..432,y=80..450. The open mouth is a narrow dark empty slit with a torn upper rim. No cards or anything emerging.
+
+Sixteen genuinely distinct chronological drawings, same locked body, smooth tear progression and attached-strip curling, then clean separation and up-right arc. Return ONE true transparent PNG sprite sheet.

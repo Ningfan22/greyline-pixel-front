@@ -5877,13 +5877,22 @@ body:has(.game-shell.touch-battle) {
 .tear-player {
   position: relative;
   display: block;
-  width: min(420px, 100%, calc(max(220px, 100dvh - 230px) * 224 / 288));
+  width: min(640px, 100%, calc(max(220px, 100dvh - 230px) * 4 / 3));
   border: 0;
   background: transparent;
   padding: 0;
   cursor: pointer;
 }
 .tear-player:focus-visible { outline: 2px solid #d8cca0; outline-offset: 4px; }
+.tear-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #b9bea4;
+  font-size: 14px;
+  pointer-events: none;
+}
 .tear-canvas {
   display: block;
   width: 100%;
