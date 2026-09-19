@@ -483,12 +483,7 @@ export function render(
         : null;
       const wreckImage =
         adultWreck && wreckChoice
-          ? uniformFrame(
-              adultWreck[wreckChoice.group][wreckChoice.index],
-              c.uniform === 'recon' || c.uniform === 'assault'
-                ? c.uniform
-                : undefined,
-            )
+          ? uniformFrame(adultWreck[wreckChoice.group][wreckChoice.index], c.uniform)
           : unitFrame(art, w.cardId, 0);
       ctx.save();
       const bsd = w.id >>> 0;
@@ -698,12 +693,7 @@ export function render(
           })()
         : null;
     const img = body
-      ? uniformFrame(
-          digging ?? idleMicro ?? patrol ?? specialist?.image ?? body,
-          c.uniform === 'recon' || c.uniform === 'assault'
-            ? c.uniform
-            : undefined,
-        )
+      ? uniformFrame(digging ?? idleMicro ?? patrol ?? specialist?.image ?? body, c.uniform)
       : unitFrame(art, u.id, frame);
     const visualMuzzle = specialist?.muzzle
       ? {

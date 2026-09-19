@@ -378,8 +378,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   engineers: {
     en: 'COMBAT ENGINEERS',
     typeLabel: '工程步兵',
-    ability: '破障排雷',
-    rule: '双人拆墙，近身排雷。',
+    ability: '破障拆墙',
+    rule: '双人工具组，近身拆墙排雷。',
     flavor: '排雷这活，没有第二次。',
   },
   mountain: {

@@ -292,6 +292,8 @@ export interface Unit {
   stanceLockUntil?: number;
   /** v127: after a cover peek ends, the soldier rests behind cover this long. */
   peekRestUntil?: number;
+  /** v129: stable down-pose held between cover peeks (picked once per drop). */
+  peekDownPose?: string;
   /** True while the squad is in a command vacuum (leader down, no successor yet). */
   vacuum?: boolean;
   /** v120, animation-only: this unit is its squad's current leader. */
@@ -463,8 +465,12 @@ export interface Unit {
     squad?: number;
   };
   rappelling?: boolean;
+  /** Timestamp when rappel descent started — safety net forces a landing. */
+  rappellingStartAt?: number;
   /** Parachute insertion from an airdrop card: descending under canopy, no fire. */
   parachuting?: boolean;
+  /** Timestamp when parachute descent started — safety net forces a landing. */
+  parachutingStartAt?: number;
   /** Forced-march order: movement speed boosted while active. */
   forceMarchUntil?: number;
   slowedUntil: number;
@@ -1432,6 +1438,7 @@ export function playCard(
       for (let i = spawnedAt; i < s.units.length; i++) {
         const u = s.units[i];
         u.parachuting = true;
+        u.parachutingStartAt = s.time;
         u.y = ground(s, u.x) - 340;
       }
     if (c.sortie) s.units.at(-1)!.sortieCard = token;
@@ -1514,6 +1521,8 @@ export function playCard(
     if (c.effect === 'cyber_suppression' && !hopImmune) {
       foe.energy = Math.max(0, foe.energy - 3);
       foe.suppressedUntil = s.time + 6;
+      // v132: 点穴打击——截获的 2 点指挥点归己方所有
+      p.energy = Math.min(energyLimit(p), p.energy + 2);
     }
     if (c.effect === 'forage') draw(s, side, 2);
     if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
@@ -1525,12 +1534,17 @@ export function playCard(
     if (c.effect === 'entrench') {
       p.entrenchUntil = s.time + 8;
       for (const u of own) {
-        u.pose = 'prone';
+        u.pose = setStance(u, s.time, 'prone', { force: true });
         u.personalMorale = Math.min(100, u.personalMorale + 5);
       }
     }
     // ── v120 new effects ─────────────────────────────────────────────
     if (c.effect === 'lockout' && !hopImmune) foe.lockoutUntil = s.time + 3;
+    // v132: 全面静默——双方同时封锁出牌，双刃剑
+    if (c.effect === 'ceasefire') {
+      foe.lockoutUntil = s.time + 3;
+      p.lockoutUntil = s.time + 3;
+    }
     if (c.effect === 'salvage') {
       const pool = p.discard.filter((t) => {
         const cd = CARDS[t.id];
@@ -2356,7 +2370,7 @@ function hitUnit(
       u.climbing = 0;
       u.motion = 'ground';
       u.coverGoal = null;
-      u.pose = 'prone';
+      u.pose = setStance(u, s.time, 'prone', { force: true });
       u.y = ground(s, u.x);
       notify(
         s,
@@ -2544,13 +2558,16 @@ function settleSortie(s: GameState, u: Unit, success: boolean) {
       [u.side],
     );
 }
-function revive(u: Unit) {
+function revive(u: Unit, time: number) {
   u.wounded = false;
   u.woundedTime = 0;
   u.bleedOut = 0;
   u.rescueProgress = 0;
   u.stabilizedUntil = 0;
   u.firstAidByUid = undefined;
+  // v131: a revived soldier is on the ground, not on a rope.
+  u.rappelling = false;
+  u.parachuting = false;
   // The dragger notices his comrade is back on his feet and lets go.
   u.draggedByUid = undefined;
   u.injuryCooldown = 4;
@@ -2559,7 +2576,7 @@ function revive(u: Unit) {
   u.suppression = 20;
   u.cooldown = Math.max(1.2, u.cooldown);
   u.tactic = 'crouch';
-  u.pose = 'crouch';
+  u.pose = setStance(u, time, 'crouch', { force: true });
   u.decisionIn = 1.5;
   u.retreatUntil = 0;
 }
@@ -3332,6 +3349,48 @@ function applyStanceCooldown(
   return desired;
 }
 
+/**
+ * v129: the single gateway for cross-class stance writes. applyStanceCooldown
+ * only computed the gated pose; every other block in the engine still wrote
+ * u.pose directly, so flinch / bailout / peek / reload / movement logic kept
+ * snapping soldiers between stand and prone every frame — the "twitch" the
+ * player saw. setStance routes ALL of those through the same 10s lock.
+ *
+ * - motion poses (jump/land/climb) pass straight through, they're transient.
+ * - within-class changes (idle<->walk<->run, crouch<->hunker) are always free.
+ * - cross-class changes (stand<->crouch<->prone) are rate-limited to once per
+ *   STANCE_COOLDOWN_S; while locked the current pose is held.
+ * - force=true bypasses the lock for reactions (blast flinch, bailout, card
+ *   effects) but still arms a fresh lock, so a forced drop stays committed.
+ */
+function setStance(
+  u: Unit,
+  time: number,
+  desired: string,
+  opts?: { force?: boolean },
+): string {
+  // Already in the requested pose: never re-arm the lock on a re-asserted
+  // state. Continuous override blocks (observer hold, medic treatment,
+  // digging) run every frame; without this early return each frame would
+  // push stanceLockUntil another 10s into the future and pin the soldier
+  // long after the override ended.
+  if (u.pose === desired) return desired;
+  const curClass = stanceClass(u.pose);
+  if (curClass === 'motion' || curClass === stanceClass(desired)) {
+    u.pose = desired;
+    return desired;
+  }
+  if (
+    !opts?.force &&
+    u.stanceLockUntil !== undefined &&
+    time < u.stanceLockUntil
+  )
+    return u.pose;
+  u.pose = desired;
+  u.stanceLockUntil = time + STANCE_COOLDOWN_S;
+  return desired;
+}
+
 export function coveringMate(
   s: GameState,
   u: Unit,
@@ -3523,7 +3582,11 @@ function traverse(s: GameState, u: Unit, dt: number) {
     u.y = ground(s, u.x);
     if (u.motionTime >= u.motionDuration) u.motion = 'ground';
   } else {
-    u.pose = 'climb';
+    // v130: bank is a low crouch-shuffle up a ledge, never the swim-lane
+    // climb silhouette. The animation layer maps motion==='bank' to the
+    // crouch gait; keep the pose value consistent so nothing downstream
+    // (stanceClass, render layers) treats the unit as climbing.
+    u.pose = 'crouch';
     const t = Math.min(1, u.motionTime / u.motionDuration),
       ease = t * t * (3 - 2 * t);
     u.x = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
@@ -3583,7 +3646,15 @@ function moveSoldier(
     !preparedRamp &&
     u.stepCooldown <= 0 &&
     depth >= CLIMB_HEIGHT &&
-    y - ahead >= CLIMB_HEIGHT
+    y - ahead >= CLIMB_HEIGHT &&
+    // v129: only bank up a real ledge, not a continuing hillside. Sample the
+    // ground further out — a crater lip levels off near the original grade,
+    // while a slope keeps climbing past the 24px probe and would otherwise
+    // make flat-ground soldiers strike a climb pose on gentle terrain.
+    (() => {
+      const g36 = ground(s, u.x + dir * 36);
+      return Math.abs(g36 - ahead) < 6;
+    })()
   ) {
     if (!mayTraverse) return;
     let destination = u.x + dir * 12;
@@ -3607,7 +3678,7 @@ function moveSoldier(
     u.motionToX = destination;
     u.motionToY = ground(s, destination);
     u.motionLift = 4;
-    u.pose = 'climb';
+    u.pose = 'crouch'; // v130: bank = crouch-shuffle, not climb pose
     return;
   }
   const wall = s.walls.find(
@@ -3619,7 +3690,7 @@ function moveSoldier(
   if (wall) {
     if (!mayTraverse) return;
     if (CARDS[u.id].trait === 'engineer') {
-      u.pose = 'crouch';
+      u.pose = setStance(u, s.time, 'crouch');
       if (u.supportCooldown <= 0) {
         const wallHpBefore = wall.hp;
         wall.hp = Math.max(0, wall.hp - 70);
@@ -4377,7 +4448,7 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
     }
   }
   if (
-    c.trait === 'engineer' &&
+    (c.trait === 'engineer' || c.trait === 'mechanic') &&
     u.motion === 'ground' &&
     u.climbing <= 0 &&
     u.supportCooldown <= 0
@@ -4823,7 +4894,7 @@ function evadeArtillery(s: GameState, u: Unit, dt: number) {
   if (!noticed || eta(noticed) < 0.18 || localUnitOrder(s, u) === 'watch')
     u.evadeGoal = null;
   if (u.evadeGoal !== null && Math.abs(u.evadeGoal - u.x) > 4) {
-    u.pose = 'run';
+    u.pose = setStance(u, s.time, 'run', { force: true });
     moveSoldier(
       s,
       u,
@@ -4835,7 +4906,7 @@ function evadeArtillery(s: GameState, u: Unit, dt: number) {
     if (u.moving) return true;
   }
   u.evadeGoal = null;
-  u.pose = 'prone';
+  u.pose = setStance(u, s.time, 'prone', { force: true });
   u.moving = false;
   return true;
 }
@@ -5644,6 +5715,18 @@ function updateAI(s: GameState) {
             (w) => w.hp > 0 && Math.abs(w.x - front) < 500,
           );
           score = hasAssault && wallAhead ? 24 : wallAhead ? 12 : score;
+        }
+        // v132: 维修工兵——己方有受损装甲时才值得带
+        if (c.trait === 'mechanic') {
+          const damagedArmor = own.some(
+            (v) =>
+              isCombatant(v) &&
+              CARDS[v.id].armored &&
+              !CARDS[v.id].air &&
+              !CARDS[v.id].vehicleSupport &&
+              v.hp < v.maxHp * 0.85,
+          );
+          score = damagedArmor ? (armorDamage >= 120 ? 20 : 12) : -100;
         }
         if (c.deployDraw && p.hand.length <= 4) score += 3;
         // Supply run: a supply team keeps the AI's heavy weapon teams fed.
@@ -6573,7 +6656,7 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
     u.secondaryFire = 0;
     u.coverGoal = null;
     u.cover = 0;
-    u.pose = 'crouch';
+    u.pose = setStance(u, s.time, 'crouch', { force: true });
     u.facing = u.side === 0 ? 1 : -1;
     if (u.regroupProgress >= 1.2) {
       // member and id define the weapon: never overwrite them when joining.
@@ -6686,7 +6769,7 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
   }
   if (s.time < (u.conflictUntil ?? 0)) {
     u.moving = false;
-    u.pose = 'idle';
+    u.pose = setStance(u, s.time, 'idle');
     u.facing = Math.sign(former.x - u.x) || u.facing;
     return true;
   }
@@ -6837,6 +6920,7 @@ function flyTransport(s: GameState, u: Unit, dt: number) {
   flight.squad = soldier.squad;
   soldier.y = u.y + 58;
   soldier.rappelling = true;
+  soldier.rappellingStartAt = s.time;
   soldier.pose = 'climb';
   soldier.cooldown = 0.7;
   soldier.rapidUntil = 0;
@@ -7164,11 +7248,23 @@ export function tick(s: GameState, dt: number) {
       ? s.squadCommand?.[u.side * 1048576 + u.squad]?.leaderUid === u.uid
       : false;
     if (u.hp <= 0) {
+      // v131: a man hit on the rope stops being a rappeller — without this
+      // the flag stuck forever and the animation layer kept serving climb
+      // frames to a corpse (and to the same soldier after a medic revive).
+      u.rappelling = false;
+      u.parachuting = false;
       u.deadFor -= dt;
       u.y = Math.min(ground(s, u.x), u.y + 110 * dt);
       continue;
     }
     if (u.wounded) {
+      // v131: same hazard for casualties. The wounded branch `continue`s
+      // before the descent-clearing code below, so a rifleman hit on the
+      // rope kept rappelling=true through his whole casualty cycle — the
+      // animation dispatch checks rappelling BEFORE wounded, so he played
+      // the climb silhouette the whole time he lay on the stretcher.
+      u.rappelling = false;
+      u.parachuting = false;
       // A dragger who is himself hit releases his comrade before collapsing.
       if (u.draggingUid !== undefined) {
         const p = unitByUid(s, u.draggingUid);
@@ -7245,7 +7341,7 @@ export function tick(s: GameState, dt: number) {
         u.hp >= u.maxHp * 0.4 &&
         u.rescueProgress >= 1.6
       )
-        revive(u);
+        revive(u, s.time);
       else if (u.bleedOut <= 0) finishDeath(s, u, u.woundedBy);
       continue;
     }
@@ -7254,6 +7350,18 @@ export function tick(s: GameState, dt: number) {
       u.moving = false;
       u.fire = 0;
       u.secondaryFire = 0;
+      // v133: a soldier whose morale breaks mid-rope / mid-canopy used to
+      // keep the rappelling|parachuting flag forever (this branch ran before
+      // the descent loops and `continue`d past them). The animation dispatcher
+      // checks rappelling BEFORE surrendered, so he cycled the climb frames
+      // for the rest of the battle — whole helicopter squads froze in the
+      // swim-lane pose. Surrender happens on the ground, with hands up.
+      if (u.rappelling || u.parachuting) {
+        u.rappelling = false;
+        u.parachuting = false;
+        u.pose = 'idle';
+        u.motion = undefined;
+      }
       u.y = ground(s, u.x);
       continue;
     }
@@ -7304,7 +7412,14 @@ export function tick(s: GameState, dt: number) {
       u.pose = 'climb';
       u.walk += dt * 5;
       u.y = Math.min(ground(s, u.x), u.y + 135 * dt);
-      if (u.y >= ground(s, u.x)) {
+      // v133: safety net — if the descent somehow never reaches ground
+      // (terrain reshaped under the canopy, knockback over a pit), force
+      // the landing after 12s so the flag can never stick for the battle.
+      if (
+        u.y >= ground(s, u.x) ||
+        s.time - (u.parachutingStartAt ?? s.time) > 12
+      ) {
+        u.y = ground(s, u.x);
         u.parachuting = false;
         u.pose = 'land';
         u.motion = 'land';
@@ -7321,7 +7436,12 @@ export function tick(s: GameState, dt: number) {
       u.pose = 'climb';
       u.walk += dt * 6;
       u.y = Math.min(ground(s, u.x), u.y + 65 * dt);
-      if (u.y >= ground(s, u.x)) {
+      // v133: same safety net for rope descents.
+      if (
+        u.y >= ground(s, u.x) ||
+        s.time - (u.rappellingStartAt ?? s.time) > 12
+      ) {
+        u.y = ground(s, u.x);
         u.rappelling = false;
         u.pose = 'land';
         u.motion = 'land';
@@ -7369,7 +7489,7 @@ export function tick(s: GameState, dt: number) {
         u.fire = 0;
         u.secondaryFire = 0;
         u.moving = false;
-        u.pose = 'crouch';
+        u.pose = setStance(u, s.time, 'crouch');
         u.y = ground(s, u.x);
         continue;
       }
@@ -7397,7 +7517,7 @@ export function tick(s: GameState, dt: number) {
         u.fire = 0;
         u.secondaryFire = 0;
         u.moving = true;
-        u.pose = 'crouch';
+        u.pose = setStance(u, s.time, 'crouch');
         const gap = patient.x - u.x;
         if (Math.abs(gap) > 18) {
           moveSoldier(s, u, Math.sign(gap), c.speed! * u.pace * 0.85, dt);
@@ -7653,9 +7773,10 @@ export function tick(s: GameState, dt: number) {
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
-      ? applyStanceCooldown(u, s.time, desiredPose)
+      ? setStance(u, s.time, desiredPose)
       : desiredPose;
-    if (c.members && u.withdrawStandby) u.pose = 'crouch';
+    if (c.members && u.withdrawStandby)
+      u.pose = setStance(u, s.time, 'crouch', { force: true });
     // A blast that landed nearby pins the soldier: they drop low and stop
     // shooting until the flinch window passes.
     if (
@@ -7670,7 +7791,12 @@ export function tick(s: GameState, dt: number) {
       // it cannot freeze a retreat in place.
       const pinned =
         (u.withdrawUntil ?? 0) <= s.time || u.withdrawGoal === undefined;
-      u.pose = pinned && u.flinchProne ? 'prone' : 'crouch';
+      // v129: route the flinch drop through the stance gate with force, and
+      // never lift a man who's already on the deck back to a crouch — that
+      // snap-to-crouch-then-back was half the prone twitch.
+      let flinchWant = pinned && u.flinchProne ? 'prone' : 'crouch';
+      if (stanceClass(u.pose) === 'prone') flinchWant = 'prone';
+      u.pose = setStance(u, s.time, flinchWant, { force: true });
       u.fire = 0;
       u.secondaryFire = 0;
       if (pinned) {
@@ -7723,6 +7849,14 @@ export function tick(s: GameState, dt: number) {
     )
       beginDrop(u, dir, 0, true);
     if (c.members && traverse(s, u, dt)) continue;
+    // v129: ground-snap defense. A foot soldier on the ground never floats a
+    // pixel above the terrain — any residual offset from a finished bank or a
+    // deformed crater is corrected every frame so the sprite can't strike a
+    // climb pose in mid-air.
+    if (c.members && u.motion === 'ground' && u.climbing <= 0) {
+      const gy = ground(s, u.x);
+      if (Math.abs(u.y - gy) > 1) u.y = gy;
+    }
     if (c.members && !c.air && evadeArtillery(s, u, dt)) continue;
     // Bailing crew stumble away from their burning wreck, disoriented.
     if (c.members && u.bailoutUntil !== undefined && s.time < u.bailoutUntil) {
@@ -7731,8 +7865,13 @@ export function tick(s: GameState, dt: number) {
       u.cover = 0;
       u.coverGoal = null;
       u.suppression = Math.max(u.suppression, 55);
-      u.pose =
+      // v129: suppression jitters around the 78 threshold, which used to flip
+      // bailing crew between prone and hunker every frame. Gate it with
+      // force and keep a man on the deck once he's down.
+      let bailWant =
         u.suppression > 78 ? 'prone' : u.suppression > 55 ? 'hunker' : 'crouch';
+      if (stanceClass(u.pose) === 'prone') bailWant = 'prone';
+      u.pose = setStance(u, s.time, bailWant, { force: true });
       u.facing = -dir;
       moveSoldier(
         s,
@@ -7742,7 +7881,16 @@ export function tick(s: GameState, dt: number) {
         dt,
       );
       if (!u.moving && u.motion === 'ground')
-        u.pose = u.suppression > 55 ? 'hunker' : 'crouch';
+        u.pose = setStance(
+          u,
+          s.time,
+          stanceClass(u.pose) === 'prone'
+            ? 'prone'
+            : u.suppression > 55
+              ? 'hunker'
+              : 'crouch',
+          { force: true },
+        );
       continue;
     }
     if (c.members && u.tactic === 'retreat' && !orderedWithdrawal(s, u)) {
@@ -7750,10 +7898,11 @@ export function tick(s: GameState, dt: number) {
       u.cover = 0;
       u.coverGoal = null;
       u.fire = 0;
-      u.pose = 'run';
+      u.pose = setStance(u, s.time, 'run', { force: true });
       u.facing = -dir;
       moveSoldier(s, u, -dir, c.speed! * u.pace * 1.2 * (morale ? 1.2 : 1), dt);
-      if (!u.moving && u.motion === 'ground') u.pose = 'idle';
+      if (!u.moving && u.motion === 'ground')
+        u.pose = setStance(u, s.time, 'idle');
       continue;
     }
 
@@ -7803,11 +7952,11 @@ export function tick(s: GameState, dt: number) {
       const patient = pickMedicPatient(s, u);
       if (patient) {
         treating = true;
-        u.pose = 'crouch';
+        u.pose = setStance(u, s.time, 'crouch');
         const movingToPatient =
           patient.wounded && Math.abs(patient.x - u.x) > 64;
         if (movingToPatient) {
-          u.pose = 'walk';
+          u.pose = setStance(u, s.time, 'walk');
           moveSoldier(
             s,
             u,
@@ -7821,7 +7970,8 @@ export function tick(s: GameState, dt: number) {
           u.tending = true;
           u.tendingTime = (u.tendingTime ?? 0) + dt;
           if (patient.wounded) {
-            patient.rescueProgress += 0.8;
+            // v132: 治疗量越高的医疗单位扶起倒地伤员越快
+            patient.rescueProgress += 0.8 * Math.max(1, c.heal / 6);
             patient.rescuedAt = s.time;
           }
           patient.hp = Math.min(patient.maxHp, patient.hp + c.heal);
@@ -7852,7 +8002,7 @@ export function tick(s: GameState, dt: number) {
           // must not yank the medic off the blood trail mid-follow, exactly
           // like the move-to-patient branch above.
           treating = true;
-          u.pose = 'walk';
+          u.pose = setStance(u, s.time, 'walk');
           moveSoldier(
             s,
             u,
@@ -7860,6 +8010,51 @@ export function tick(s: GameState, dt: number) {
             c.speed! * u.pace * 0.8,
             dt,
           );
+        }
+      }
+    }
+    // v132: 维修工兵（mechanic）自动靠近受损己方装甲车辆进行抢修
+    if (c.trait === 'mechanic' && c.members) {
+      const vehicle = s.units
+        .filter(
+          (v) =>
+            v.side === u.side &&
+            v !== u &&
+            isCombatant(v) &&
+            CARDS[v.id].armored &&
+            !CARDS[v.id].air &&
+            !CARDS[v.id].vehicleSupport &&
+            v.hp < v.maxHp &&
+            Math.abs(v.x - u.x) <= 300,
+        )
+        .sort(
+          (a, b) =>
+            a.hp / a.maxHp - b.hp / b.maxHp ||
+            Math.abs(a.x - u.x) - Math.abs(b.x - u.x),
+        )[0];
+      if (vehicle) {
+        treating = true;
+        const dist = Math.abs(vehicle.x - u.x);
+        if (dist > 90) {
+          u.pose = setStance(u, s.time, 'walk');
+          moveSoldier(
+            s,
+            u,
+            Math.sign(vehicle.x - u.x),
+            c.speed! * u.pace * 0.85,
+            dt,
+          );
+          u.tending = false;
+        } else {
+          u.pose = setStance(u, s.time, 'crouch');
+          u.tending = true;
+          u.tendingTime = (u.tendingTime ?? 0) + dt;
+          if (u.supportCooldown <= 0) {
+            vehicle.hp = Math.min(vehicle.maxHp, vehicle.hp + 8);
+            vehicle.healing = 0.6;
+            u.healing = 0.6;
+            u.supportCooldown = 0.5;
+          }
         }
       }
     }
@@ -8624,7 +8819,7 @@ export function tick(s: GameState, dt: number) {
       (u.exposedUntil ?? 0) > s.time &&
       (u.observingHoldUntil ?? 0) <= s.time
     )
-      u.pose = 'idle';
+      u.pose = setStance(u, s.time, 'idle');
     if (threat && c.members) {
       if ((u.aimUntil ?? 0) <= s.time) u.readyAt = s.time;
       u.aimUntil = s.time + 2.5;
@@ -8644,7 +8839,7 @@ export function tick(s: GameState, dt: number) {
         s.time + 1.2,
       );
     if ((u.observingHoldUntil ?? 0) > s.time) {
-      u.pose = 'prone';
+      u.pose = setStance(u, s.time, 'prone', { force: true });
       // Spotters hold the radio pose on a timer the renderer can read.
       if (u.id === 'scouts') u.observingUntil = s.time + 0.25;
     }
@@ -8661,14 +8856,27 @@ export function tick(s: GameState, dt: number) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
       if (firingHeight(s, u, threat.x, threat.y - 20) === 47)
         peekShouldExpose(s, u);
-      u.pose =
-        (u.exposedUntil ?? 0) > s.time
-          ? 'idle'
-          : u.tactic === 'prone' || order === 'prone'
-            ? 'prone'
-            : u.suppression > 55
-              ? 'hunker'
-              : 'crouch';
+      const peekExposed = (u.exposedUntil ?? 0) > s.time;
+      if (peekExposed) {
+        // Peek-up is the cover-fire mechanic's internal state: a fast
+        // crouch→stand pop that bypasses the 10s stance lock, or the
+        // soldier could never rise to fire over cover. Direct write.
+        u.pose = 'idle';
+        u.peekDownPose = undefined;
+      } else {
+        // Down-pose: pick once when the peek ends, then hold it for the
+        // whole rest cycle. Recomputing from suppression every frame flipped
+        // crouch↔hunker on the 55 threshold and read as twitching.
+        if (u.peekDownPose === undefined) {
+          u.peekDownPose =
+            u.tactic === 'prone' || order === 'prone'
+              ? 'prone'
+              : u.suppression > 55
+                ? 'hunker'
+                : 'crouch';
+        }
+        u.pose = u.peekDownPose;
+      }
     }
     // v114: a soldier caught mid-reload while in contact stops advancing and
     // drops to a knee — or hunkers if pinned — so the mag swap reads as a
@@ -8688,7 +8896,11 @@ export function tick(s: GameState, dt: number) {
       u.tactic !== 'retreat' &&
       !withdrawalStep;
     if (reloadingUnderContact)
-      u.pose = u.suppression > 55 ? 'hunker' : 'crouch';
+      u.pose = setStance(
+        u,
+        s.time,
+        u.suppression > 55 ? 'hunker' : 'crouch',
+      );
     // v114: tactical reload — a soldier with a near-empty mag and cover to
     // hide behind tops up during a lull, so he doesn't meet the next contact
     // with three rounds left. Only when genuinely safe: under cover, not
@@ -8809,7 +9021,7 @@ export function tick(s: GameState, dt: number) {
       // v128: don't pop a pinned observer up to fire at cover — the
       // observer hold owns the pose while aircraft are overhead.
       if (coverShot && (u.observingHoldUntil ?? 0) <= s.time) {
-        u.pose = 'idle';
+        u.pose = setStance(u, s.time, 'idle');
         u.exposedUntil = s.time + 2.5;
       }
       let spotted = false;
@@ -8841,7 +9053,7 @@ export function tick(s: GameState, dt: number) {
         }
       }
       if (c.indirect && !c.vehicle && (u.observingHoldUntil ?? 0) <= s.time)
-        u.pose = 'crouch';
+        u.pose = setStance(u, s.time, 'crouch');
       if (
         u.cooldown <= 0 &&
         !overheated(s, u) &&
@@ -9150,28 +9362,54 @@ export function tick(s: GameState, dt: number) {
         (!c.members || order !== 'hold') &&
         !u.vehicleReverseHeld))
     ) {
-      if (c.members)
-        u.pose =
-          (u.assaultSurgeUntil ?? 0) > s.time && !withdrawing && !retreating
-            ? 'run'
-            : order === 'rush' || bounding || retreating || breachRun
-            ? 'run'
-            : order === 'crouch' ||
-                (withdrawing && withdrawalThreat && order !== 'prone')
-              ? u.suppression > 65
-                ? 'prone'
-                : 'crouch'
-              : order === 'prone'
-                ? 'prone'
-                : withdrawing || escortAhead
-                  ? 'walk'
-                  : u.tactic === 'prone'
-                    ? 'prone'
-                    : u.tactic === 'crouch' || u.tactic === 'cover'
-                      ? 'crouch'
-                      : 'walk';
+      if (c.members) {
+        // v129: route the movement pose through the stance gate and add
+        // hysteresis on the suppression threshold. The old direct write
+        // flipped prone↔crouch every frame near 65 suppression — the
+        // "rapidly prone and stand up" twitch.
+        let moveWant: string;
+        let moveForce = false;
+        if (
+          (u.assaultSurgeUntil ?? 0) > s.time &&
+          !withdrawing &&
+          !retreating
+        ) {
+          moveWant = 'run';
+          moveForce = true;
+        } else if (
+          order === 'rush' ||
+          bounding ||
+          retreating ||
+          breachRun
+        ) {
+          moveWant = 'run';
+          moveForce = order === 'rush' || retreating || breachRun;
+        } else if (
+          order === 'crouch' ||
+          (withdrawing && withdrawalThreat && order !== 'prone')
+        ) {
+          // Hysteresis: once pinned prone, stay prone until suppression
+          // eases well below the threshold.
+          const pinned =
+            u.pose === 'prone' ? u.suppression > 45 : u.suppression > 65;
+          moveWant = pinned ? 'prone' : 'crouch';
+          moveForce = order === 'crouch';
+        } else if (order === 'prone') {
+          moveWant = 'prone';
+          moveForce = true;
+        } else if (withdrawing || escortAhead) {
+          moveWant = 'walk';
+        } else if (u.tactic === 'prone') {
+          moveWant = 'prone';
+        } else if (u.tactic === 'crouch' || u.tactic === 'cover') {
+          moveWant = 'crouch';
+        } else {
+          moveWant = 'walk';
+        }
+        u.pose = setStance(u, s.time, moveWant, { force: moveForce });
+      }
       if (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time)
-        u.pose = 'prone';
+        u.pose = setStance(u, s.time, 'prone', { force: true });
       const orderSpeed = c.members
         ? u.pose === 'run'
           ? 1.7
@@ -9312,7 +9550,7 @@ export function tick(s: GameState, dt: number) {
       u.climbing <= 0 &&
       (u.pose === 'idle' || u.pose === 'walk' || u.pose === 'run')
     )
-      u.pose = 'crouch';
+      u.pose = setStance(u, s.time, 'crouch');
     if (
       worksite?.pending &&
       worksite.digTurn &&
@@ -9333,7 +9571,7 @@ export function tick(s: GameState, dt: number) {
       Math.abs(u.lane - worksite.lane) <= 0.5
     ) {
       u.digging = true;
-      u.pose = 'crouch';
+      u.pose = setStance(u, s.time, 'crouch');
       u.facing = dir;
     }
     if (c.armored && c.vehicleSupport !== 'mine_clear') {

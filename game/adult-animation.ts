@@ -282,9 +282,7 @@ export function dugInTraceGlanceChoice(
  */
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   return (
-    contactCalloutChoice(u, time) ??
     heardContactGlanceChoice(u, time) ??
-    leaderPointChoice(u, time) ??
     blastGlanceChoice(u, time) ??
     dugInBlastGlanceChoice(u, time) ??
     traceGlanceChoice(u, time) ??
@@ -436,9 +434,11 @@ export function engineerFussChoice(
   const period = 16 + (u.uid % 4) * 1.2;
   const phase = (time + u.uid * 5.29) % period;
   if (phase >= 2.8) return null;
-  if (phase < 1.2) return action(11); // kneeling, working the kit
-  if (phase < 2.0) return action(13); // hunch over the task
-  return action(11); // back to the kneeling work
+  // v129: action(11) is actually a climb pose in the sheet — use the
+  // one-knee working frame (13) and the deep crouch (10) instead.
+  if (phase < 1.2) return action(13); // kneeling, working the kit
+  if (phase < 2.0) return action(10); // hunch over the task
+  return action(13); // back to the kneeling work
 }
 
 /**
@@ -546,7 +546,9 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Reverse the existing raised-rifle gait while the body keeps facing contact.
   const step = u.backpedaling ? -Math.floor(u.walk) : u.walk;
   if (u.hp <= 0) return action(15);
-  if (u.rappelling) return action(8 + (3 - cycle(u.walk, 4)));
+  // v133: surrender is checked BEFORE the rope/parachute branch. A stuck
+  // rappelling flag (morale break mid-descent) must never override hands-up —
+  // that ordering was how whole squads froze in the swim-lane climb pose.
   if (u.surrendered)
     return reaction(
       u.surrenderTime < 0.35
@@ -557,6 +559,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
             ? 2
             : 3,
     );
+  if (u.rappelling) return action(8 + (3 - cycle(u.walk, 4)));
   if (u.wounded) {
     if (u.crawling)
       return action(Math.floor(u.walk * 2) % 2 ? 12 : 2);
@@ -576,11 +579,14 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     // v128: the middle beat used frame 9 (climb — raised knee + arm), which
     // read as the swim-lane pose. The kneeling-work frame (13) carries the
     // same arm-cocked release without the climb silhouette.
+    // v130: the crouch wind-up still used frame 11 — ALSO a climb frame —
+    // so every crouched grenadier flashed the swimmer pose. Wind-up now
+    // stays on the kneeling-work beat (13) and release on the plain kneel (1).
     const chain =
       u.pose === 'prone'
         ? [3, 13, 2]
         : u.pose === 'crouch'
-          ? [11, 13, 10]
+          ? [13, 1, 10]
           : [13, 1, 0];
     if (t > 0.33) return action(chain[0]); // wind-up
     if (t > 0.17) return action(chain[1]); // release
@@ -597,13 +603,15 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
   if (u.motion === 'land')
     return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);
-  if (u.climbing > 0 || u.motion === 'bank') {
-    const progress =
-      u.climbing > 0
-        ? 1 - u.climbing / Math.max(0.01, u.climbDuration)
-        : u.motionTime / Math.max(0.01, u.motionDuration);
-    return action(8 + Math.min(3, Math.max(0, Math.floor(progress * 4))));
-  }
+  // v130: walls were removed from the map generator (wallSites: []), so
+  // u.climbing is never set in normal play. The old branch returned the
+  // climb frames (8-11) which read as the swim-lane pose; if climbing ever
+  // comes back it must use a dedicated vault animation, never these frames.
+  // Until then, fall through to the crouch gait like a bank out of cover.
+  if (u.climbing > 0)
+    return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
+  if (u.motion === 'bank')
+    return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
   // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
   // receiver only, so during the handoff the pair splits into a giver (arm
   // extended with the magazine) and a receiver (hunched over the mag well)

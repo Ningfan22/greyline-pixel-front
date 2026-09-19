@@ -399,14 +399,38 @@ export function createMapLayout(
     actualSeed === definition.layoutSeed
       ? undefined
       : mulberry32(actualSeed ^ 0x9e3779b9);
+  const terrain = mapTerrain(mapId, width, actualSeed);
+  const scenerySites =
+    mapId === 'greyline'
+      ? villageScenerySites(width, sceneryRand)
+      : mirroredSites(mapId, width, sceneryRand);
+  // v130: houses are painted as a single rectangle whose base sits on one
+  // ground sample, but the authored terrain rolls ±13 px across a house
+  // footprint — the downhill corner floated in mid-air. Level a building
+  // pad under every house (with a smooth earthen ramp at the edges) so the
+  // masonry sits flat. Trees keep the raw grade.
+  for (const site of scenerySites) {
+    if (site.kind !== 'house') continue;
+    const cx = Math.max(0, Math.min(width - 1, Math.round(site.x)));
+    const halfW = 112; // widest house profile is 220 px across
+    const blend = 34;
+    const padY = terrain[cx];
+    for (let x = cx - halfW - blend; x <= cx + halfW + blend; x++) {
+      if (x < 0 || x >= width) continue;
+      const d = Math.abs(x - cx);
+      if (d <= halfW) terrain[x] = padY;
+      else {
+        const t = (d - halfW) / blend;
+        const s = t * t * (3 - 2 * t);
+        terrain[x] = Math.round(terrain[x] * s + padY * (1 - s));
+      }
+    }
+  }
   return {
     id: mapId,
     seed: actualSeed,
-    terrain: mapTerrain(mapId, width, actualSeed),
-    scenerySites:
-      mapId === 'greyline'
-        ? villageScenerySites(width, sceneryRand)
-        : mirroredSites(mapId, width, sceneryRand),
+    terrain,
+    scenerySites,
     // v99: low walls removed from all maps — the battlefield is now open
     // ground. The Wall type and vault/destruction mechanics remain in the
     // engine for scripted scenarios and future map designs.

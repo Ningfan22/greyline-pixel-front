@@ -275,13 +275,86 @@ export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
             ? [0.84, 1.04, 0.61]
             : uniform === 'assault'
               ? [0.73, 0.78, 0.7]
-              : [1.08, 1.02, 0.71];
+              : uniform === 'elite'
+                ? [0.58, 0.62, 0.58]
+                : uniform === 'militia'
+                  ? [1.22, 1.08, 0.82]
+                  : uniform === 'crew'
+                    ? [0.6, 0.66, 0.8]
+                    : uniform === 'medic'
+                      ? [1.07, 1.05, 0.97]
+                      : uniform === 'engineer'
+                        ? [1.02, 0.92, 0.68]
+                        : uniform === 'heavy'
+                          ? [0.82, 0.86, 0.62]
+                          : [1.08, 1.02, 0.71];
       for (let j = 0; j < 3; j++)
         px.data[i + j] = Math.min(255, Math.round(v * palette[j]));
     }
   }
   ctx.putImageData(px, 0, 0);
   variants.set(uniform, out);
+  return out;
+}
+
+/**
+ * v134: vehicle livery tints. The IFV and helicopter atlases are shared by
+ * many cards, so on the battlefield a mortar carrier, a command vehicle and
+ * a recovery vehicle all looked like the same truck. Each variant gets a
+ * cheap multiply tint on its paint so silhouettes read as distinct vehicles.
+ */
+const VEHICLE_TINTS: Record<string, [number, number, number]> = {
+  // IFV-family variants (share reinforcements[0])
+  pickup: [1.06, 0.86, 0.62], // rusty sand-primered technical
+  tow_ifv: [0.86, 0.9, 0.72], // lighter drab, missile carrier
+  mortar_carrier: [0.72, 0.74, 0.66], // dark grey-green
+  recovery_vehicle: [0.9, 0.82, 0.6], // tan engineering
+  command_vehicle: [0.78, 0.84, 0.92], // blue-grey comms
+  mine_clearer: [0.95, 0.88, 0.66], // desert mine-plough
+  aa_gun: [0.7, 0.74, 0.68], // dark air-defence
+  sam_vehicle: [0.66, 0.7, 0.78], // slate blue
+  // Helicopter-family variants (share aircraft atlases)
+  rocket_heli: [0.82, 0.78, 0.62], // desert attack
+  scout_drone: [0.8, 0.84, 0.88], // pale recon grey
+  attack_drone: [0.74, 0.76, 0.7], // gunmetal
+  loiter_drone: [0.88, 0.8, 0.6], // sand loitering munition
+  interceptor: [0.7, 0.76, 0.86], // air-superiority grey-blue
+  fpv_drone: [0.9, 0.72, 0.6], // burnt-orange FPV
+  strike_jet: [0.76, 0.78, 0.82], // strike grey
+  bomber: [0.68, 0.7, 0.66], // dark night bomber
+  air_assault: [0.84, 0.86, 0.74], // drab assault
+};
+const vehicleTintCache = new WeakMap<
+  HTMLCanvasElement,
+  Map<string, HTMLCanvasElement>
+>();
+export function vehicleTint(frame: HTMLCanvasElement, id: string) {
+  const palette = VEHICLE_TINTS[id];
+  if (!palette) return frame;
+  let variants = vehicleTintCache.get(frame);
+  if (!variants) {
+    variants = new Map();
+    vehicleTintCache.set(frame, variants);
+  }
+  if (variants.has(id)) return variants.get(id)!;
+  const out = surface(frame.width, frame.height),
+    ctx = out.getContext('2d')!;
+  ctx.drawImage(frame, 0, 0);
+  const px = ctx.getImageData(0, 0, out.width, out.height);
+  for (let i = 0; i < px.data.length; i += 4) {
+    if (px.data[i + 3] < 8) continue;
+    // Tint only the mid-tone vehicle paint; leave dark tracks, glass and
+    // bright markings alone so the livery shift reads as paint, not a wash.
+    const r = px.data[i],
+      g = px.data[i + 1],
+      b = px.data[i + 2];
+    const v = (r + g + b) / 3;
+    if (v < 30 || v > 225) continue;
+    for (let j = 0; j < 3; j++)
+      px.data[i + j] = Math.min(255, Math.round(v * palette[j]));
+  }
+  ctx.putImageData(px, 0, 0);
+  variants.set(id, out);
   return out;
 }
 function stableTracks(list: HTMLCanvasElement[], height: number) {
@@ -473,6 +546,60 @@ function atlasFrames(
     }),
   );
 }
+/**
+ * v129: the explosions-v13 sheet has stray fire bands disconnected from the
+ * main body at the top of many cells (authoring leftover). Drawn with a
+ * near-bottom anchor they floated in the sky as a horizontal fire strip.
+ * Keep only the bottom-connected alpha component so the anchor stays honest.
+ */
+function trimToBottomComponent(frame: HTMLCanvasElement) {
+  const ctx = frame.getContext('2d')!;
+  const w = frame.width,
+    h = frame.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const alphaAt = (x: number, y: number) => d[(y * w + x) * 4 + 3];
+  let by = -1;
+  outer: for (let y = h - 1; y >= 0; y--)
+    for (let x = 0; x < w; x++)
+      if (alphaAt(x, y) > 16) {
+        by = y;
+        break outer;
+      }
+  if (by < 0) return frame;
+  const seen = new Uint8Array(w * h);
+  const stack: number[] = [];
+  for (let x = 0; x < w; x++)
+    if (alphaAt(x, by) > 16) {
+      seen[by * w + x] = 1;
+      stack.push(x, by);
+    }
+  while (stack.length) {
+    const y = stack.pop()!;
+    const x = stack.pop()!;
+    if (x > 0 && !seen[y * w + x - 1] && alphaAt(x - 1, y) > 16) {
+      seen[y * w + x - 1] = 1;
+      stack.push(x - 1, y);
+    }
+    if (x < w - 1 && !seen[y * w + x + 1] && alphaAt(x + 1, y) > 16) {
+      seen[y * w + x + 1] = 1;
+      stack.push(x + 1, y);
+    }
+    if (y > 0 && !seen[(y - 1) * w + x] && alphaAt(x, y - 1) > 16) {
+      seen[(y - 1) * w + x] = 1;
+      stack.push(x, y - 1);
+    }
+    if (y < h - 1 && !seen[(y + 1) * w + x] && alphaAt(x, y + 1) > 16) {
+      seen[(y + 1) * w + x] = 1;
+      stack.push(x, y + 1);
+    }
+  }
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (!seen[y * w + x]) d[(y * w + x) * 4 + 3] = 0;
+  ctx.putImageData(img, 0, 0);
+  return frame;
+}
 export function loadArt() {
   cached ??= Promise.all([
     Promise.all([
@@ -583,7 +710,11 @@ export function loadArt() {
         true,
       );
       const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
-      const fx13 = atlasFrames(transparentSheet(combatExplosionsV13), 8, 6);
+      const fx13 = atlasFrames(
+        transparentSheet(combatExplosionsV13),
+        8,
+        6,
+      ).map((row) => row.map(trimToBottomComponent));
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const adults = {
         infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry) },
@@ -757,27 +888,24 @@ export function cardFrame(art: Art, index: number) {
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
   if (c.members)
-    return uniformFrame(
-      art.adults[adultIdentity(id)].actions20[0],
-      c.uniform === 'recon' || c.uniform === 'assault' ? c.uniform : undefined,
-    );
+    return uniformFrame(art.adults[adultIdentity(id)].actions20[0], c.uniform);
   const mobile = art.mobileVehicles?.[id];
   if (mobile) return mobile[frame % mobile.length];
   if (c.emplacement) return art.emplacements[c.emplacement][frame];
   if (c.airlift) return art.aircraft.medevac[frame % 4];
   if (art.aircraft[id])
-    return art.aircraft[id][
+    return vehicleTint(art.aircraft[id][
       c.airframe === 'scout_drone' ||
       c.airframe === 'fpv_drone' ||
       c.airframe === 'rocket_heli' ||
       id === 'helicopter'
         ? frame
         : 0
-    ];
-  if (c.airframe) return art.aircraft[c.airframe][frame];
+    ], id);
+  if (c.airframe) return vehicleTint(art.aircraft[c.airframe][frame], id);
   if (c.air) return art.vehicles[1][frame];
   if (modelOf(id) === 'tank') return (art.armor[id] ?? art.armor.tank)[frame];
-  if (modelOf(id) === 'ifv') return art.reinforcements[0][frame];
+  if (modelOf(id) === 'ifv') return vehicleTint(art.reinforcements[0][frame], id);
   return cardFrame(art, c.atlas);
 }
 export function unitSize(id: CardId): [number, number] {

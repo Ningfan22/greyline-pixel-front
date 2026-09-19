@@ -209,10 +209,26 @@ export interface Card {
     | 'mountain_fire'
     | 'buddy_rally'
     | 'elite';
-  trait?: 'close_assault' | 'armor_vest' | 'engineer' | 'mountain' | 'scout';
+  trait?:
+    | 'close_assault'
+    | 'armor_vest'
+    | 'engineer'
+    | 'mechanic'
+    | 'mountain'
+    | 'scout';
   armorMultiplier?: number;
   airOnly?: boolean;
-  uniform?: 'marine' | 'police' | 'recon' | 'assault';
+  uniform?:
+    | 'marine'
+    | 'police'
+    | 'recon'
+    | 'assault'
+    | 'elite'
+    | 'militia'
+    | 'crew'
+    | 'medic'
+    | 'engineer'
+    | 'heavy';
   effect?:
     | 'rally'
     | 'ammo'
@@ -242,7 +258,9 @@ export interface Card {
     | 'smoke_screen'
     | 'illumination'
     | 'minefield'
-    | 'fallback';
+    | 'fallback'
+    // ── v132 差异化 ─────────────────────────────────────────
+    | 'ceasefire';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
   infantry: {
@@ -281,6 +299,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     rate: 0.22,
     antiAir: true,
     members: 5,
+    uniform: 'crew',
   },
   rocket: {
     id: 'rocket',
@@ -301,6 +320,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     radius: 34,
     antiAir: true,
     members: 5,
+    uniform: 'heavy',
   },
   tank: {
     id: 'tank',
@@ -355,6 +375,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     rate: 2.4,
     range: 780,
     speed: 52,
+    uniform: 'elite',
   },
   medic: {
     id: 'medic',
@@ -374,6 +395,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     range: 260,
     speed: 64,
     heal: 4,
+    uniform: 'medic',
   },
   mortar: {
     id: 'mortar',
@@ -395,6 +417,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     speed: 42,
     radius: 30,
     indirect: true,
+    uniform: 'crew',
   },
   ifv: {
     id: 'ifv',
@@ -629,15 +652,15 @@ export const CARDS: Record<CardId, Card> = {
   cyber_suppression: variant(
     'jam',
     'cyber_suppression',
-    '电子压制',
+    '点穴打击',
     3,
-    '敌方立即损失3点指挥点，6秒内回点减半',
+    '敌方立即损失3点指挥点，己方获得2点，6秒内敌方回点减半',
     {
       en: 'CYBER SUPPRESSION',
       effect: 'cyber_suppression',
       tag: '干扰 · 经济压制',
       detail:
-        '网络攻击使敌方立即损失3点指挥点，且6秒内指挥点回复速度减半。封锁流的核心经济压制牌，拖慢对手的节奏。',
+        '网络攻击直取敌方指挥节点：敌方立即损失3点指挥点，其中2点被己方截获，且6秒内敌方指挥点回复速度减半。快攻流的节奏发动机——用对手的资源打对手的时间差。',
     },
   ),
   ...BASE_CARDS,
@@ -888,6 +911,7 @@ export const CARDS: Record<CardId, Card> = {
       radius: 8,
       guided: true,
       antiAir: false,
+      uniform: 'crew',
       armorMultiplier: 2.4,
       infantryMultiplier: 0.3,
       baseMultiplier: 0.2,
@@ -994,6 +1018,7 @@ export const CARDS: Record<CardId, Card> = {
       speed: 60,
       neverSurrender: true,
       discipline: 100,
+      uniform: 'elite',
       doctrine: 'defensive',
       tag: '精锐 · 永不投降',
       detail: '4 人，240 生命。永远不会投降；仍会受伤、被压制或战术撤退。',
@@ -1161,6 +1186,7 @@ export const CARDS: Record<CardId, Card> = {
       range: 300,
       doctrine: 'irregular',
       discipline: 60,
+      uniform: 'militia',
       tag: '低费 · 士气脆弱',
     },
   ),
@@ -1186,7 +1212,7 @@ export const CARDS: Record<CardId, Card> = {
   engineers: variant(
     'infantry',
     'engineers',
-    '战斗工兵',
+    '破障工兵',
     3,
     '4 人工兵组，接近完整矮墙时使用爆破工具拆除障碍。',
     {
@@ -1197,6 +1223,7 @@ export const CARDS: Record<CardId, Card> = {
       doctrine: 'support',
       discipline: 86,
       trait: 'engineer',
+      uniform: 'engineer',
       tag: '工程 · 拆除障碍',
     },
   ),
@@ -1271,6 +1298,7 @@ export const CARDS: Record<CardId, Card> = {
       rate: 2.4,
       range: 420,
       antiAir: false,
+      uniform: 'heavy',
       doctrine: 'support',
       discipline: 78,
       tag: '榴弹 · 区域压制',
@@ -1291,6 +1319,7 @@ export const CARDS: Record<CardId, Card> = {
       rate: 3,
       antiAir: false,
       armorMultiplier: 1.6,
+      uniform: 'crew',
       doctrine: 'recon',
       discipline: 88,
       tag: '反甲 · 伏击',
@@ -1311,6 +1340,7 @@ export const CARDS: Record<CardId, Card> = {
       rate: 2.6,
       antiAir: true,
       airOnly: true,
+      uniform: 'crew',
       doctrine: 'support',
       discipline: 86,
       tag: '防空 · 专职拦截',
@@ -1329,6 +1359,7 @@ export const CARDS: Record<CardId, Card> = {
       rate: 0.2,
       range: 620,
       speed: 34,
+      uniform: 'crew',
       doctrine: 'defensive',
       discipline: 84,
       tag: '重机枪 · 火力封锁',
@@ -1708,6 +1739,7 @@ export const CARDS: Record<CardId, Card> = {
       doctrine: 'defensive',
       discipline: 88,
       infantryAbility: 'ambush',
+      uniform: 'elite',
       tag: '守备 · 以静制动',
       detail:
         '3人伏击小组，静止2秒后进入伏击状态，开火首波齐射造成双倍伤害。蹲在掩体或草丛里等对手撞上来，是防守反击流派的核心单位。',
@@ -1716,7 +1748,7 @@ export const CARDS: Record<CardId, Card> = {
   sniper_team: variant(
     'sniper',
     'sniper_team',
-    '狙击小组',
+    '精确射手组',
     4,
     '2 名狙击手，880 超远射程，优先点杀步兵',
     {
@@ -1726,6 +1758,7 @@ export const CARDS: Record<CardId, Card> = {
       rate: 2.6,
       range: 880,
       speed: 50,
+      uniform: 'elite',
       tag: '远距 · 精确点杀',
       detail:
         '2人狙击小组，射程880，优先攻击步兵。比基础狙击小组伤害更高、射程更远，能在对手视野外逐一点杀敌方步兵和班组武器。',
@@ -1746,6 +1779,7 @@ export const CARDS: Record<CardId, Card> = {
       doctrine: 'assault',
       discipline: 96,
       infantryAbility: 'elite',
+      uniform: 'elite',
       tag: '前线 · 精锐主力',
       detail:
         '6名久经沙场的老兵。96点纪律让他们在炮火压制下仍能保持射击，精英训练让他们快速进入伏击状态。比基础步兵班贵一倍，但战线稳定性完全不是一个级别。',
@@ -1765,6 +1799,7 @@ export const CARDS: Record<CardId, Card> = {
       range: 260,
       speed: 66,
       heal: 6,
+      uniform: 'medic',
       tag: '救治 · 持续恢复',
       detail:
         '3人医疗小组，每人每0.8秒治疗附近步兵6点生命。比基础医疗组治疗量高50%，站在主力班组身后能让整条战线的续航大幅提升。',
@@ -1773,21 +1808,22 @@ export const CARDS: Record<CardId, Card> = {
   combat_engineers: variant(
     'infantry',
     'combat_engineers',
-    '战斗工兵',
-    3,
-    '4 名工兵，可爆破矮墙、清除地雷',
+    '维修工兵',
+    2,
+    '3 名机械工兵，随车抢修装甲、清除地雷',
     {
-      members: 4,
+      members: 3,
       hp: 200,
       damage: 26,
       range: 360,
       speed: 66,
       doctrine: 'assault',
       discipline: 85,
-      trait: 'engineer',
-      tag: '攻坚 · 破障排雷',
+      trait: 'mechanic',
+      uniform: 'engineer',
+      tag: '支援 · 修车排雷',
       detail:
-        '4人战斗工兵班，能对矮墙造成大量爆破伤害（破墙时附近突击步兵会趁机涌入缺口），并自动清除行进路线上的敌方地雷。攻坚流派打开正面缺口的关键单位。',
+        '3人机械工兵班，自动靠近受损的己方装甲车辆进行战地抢修（每0.5秒恢复8点装甲值），并清除行进路线上的敌方地雷。装甲流派的持续作战保障，让冲过火线的坦克不至于趴窝。',
     },
   ),
   // ── v108 炮火支援流派 ─────────────────────────────────────────────
@@ -1861,15 +1897,15 @@ export const CARDS: Record<CardId, Card> = {
   command_lockdown: variant(
     'jam',
     'command_lockdown',
-    '指挥静默',
+    '全面静默',
     1,
-    '敌方 3 秒内无法打出任何卡牌',
+    '双方 3 秒内都无法打出任何卡牌',
     {
       en: 'COMMAND LOCKDOWN',
-      effect: 'lockout',
-      tag: '快攻 · 出牌封锁',
+      effect: 'ceasefire',
+      tag: '双向 · 出牌封锁',
       detail:
-        '发射定向干扰脉冲切断敌方指挥链路，3秒内敌方无法打出任何卡牌。快攻流派在铺场高潮前打出，能让对手眼睁睁看着你的部队冲过开阔地。',
+        '全频段电磁静默覆盖整个战场，3秒内双方都无法打出任何卡牌。与只锁敌方的电磁干扰不同，这是一张双刃剑——在己方铺场完毕、对手正要反扑时打出，能让对手的反制牌烂在手里。适合打时间差的控制流。',
     },
   ),
   emergency_levy: variant(
@@ -2032,6 +2068,7 @@ export const CARDS: Record<CardId, Card> = {
       speed: 64,
       trait: 'engineer',
       armorMultiplier: 1.5,
+      uniform: 'engineer',
       doctrine: 'assault',
       discipline: 88,
       tag: '步兵 · 破障突击',
@@ -2137,20 +2174,21 @@ export const CARDS: Record<CardId, Card> = {
     'medic',
     'field_hospital',
     '野战医院',
-    3,
-    '3 名军医，治疗量 +75%，自带减伤',
+    4,
+    '3 名军医，治疗量 +125%，扶起倒地更快，自带减伤',
     {
       members: 3,
       hp: 160,
       damage: 9,
       rate: 1.2,
-      range: 300,
-      speed: 60,
-      heal: 7,
-      armorMultiplier: 1.3,
+      range: 340,
+      speed: 40,
+      heal: 9,
+      armorMultiplier: 1.4,
+      uniform: 'medic',
       tag: '守备 · 持续治疗',
       detail:
-        '3名军医组成的野战医院，每人每0.8秒治疗附近步兵7生命（比基础医疗组+75%），自带减伤30%。防线的持续作战保障。',
+        '3名军医组成的野战医院，每人每0.8秒治疗附近步兵9生命（比基础医疗组+125%），抢救倒地伤员的速度快50%，自带减伤40%。移动较慢但治疗范围更大，是防线的持续作战保障。与随队机动的医疗小组不同，野战医院适合钉在关键阵地后方撑起一片回血区。',
     },
   ),
   fallback: variant(
@@ -2200,6 +2238,7 @@ export const CARDS: Record<CardId, Card> = {
       speed: 70,
       frags: 3,
       trait: 'close_assault',
+      uniform: 'heavy',
       doctrine: 'assault',
       discipline: 88,
       tag: '步兵 · 手雷突击',
@@ -2221,6 +2260,7 @@ export const CARDS: Record<CardId, Card> = {
       range: 460,
       speed: 60,
       antiAir: true,
+      uniform: 'crew',
       tag: '步兵 · 机动压制',
       detail:
         '2人轻机枪组，比基础机枪班人少但保持机动性。高射速压制火力，可对空，适合伴随步兵推进。',
