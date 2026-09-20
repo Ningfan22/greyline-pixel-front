@@ -85,6 +85,22 @@ cohesion.
   - seed 19: red victory at 206.2s (0:1000)
   - seed 20: blue victory at 469.6s (1000:0)
 
+### Extended scan (seeds 21-60)
+
+A broader regression run covering seeds 21-60 (40 seeds) confirms no new
+stalemates or draws:
+
+- All 40 seeds finish with decisive results (0 or 1, no draws).
+- 170 gameplay checks passed in the same run.
+- Three seeds (29, 32, 46) reach the 600.0s deadline but resolve as
+  legitimate HP-comparison victories (red 1000 vs blue 238/140/572), not
+  draws — the game's time-limit HP rule is working as designed.
+
+### Known draw seeds (71, 84) — no regression
+
+- seed 71: blue victory at 214.7s (1000:0) — unchanged from v172.
+- seed 84: blue victory at 262.0s (1000:0) — unchanged from v172.
+
 ## Known limits
 
 - The 60px exemption is a fixed distance, not scaled to weapon type. A
