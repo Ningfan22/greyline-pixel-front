@@ -25,7 +25,8 @@ function single(s, side, id, x, pose = 'idle') {
 }
 function grenadeScene(side = 0) {
   const s = arena(), dir = side ? -1 : 1;
-  const u = single(s, side, 'assault_grenadiers', 1800);
+  // Generic hand-throw animation, independent of the grenadiers' team drill.
+  const u = single(s, side, 'assault', 1800);
   const e = single(s, 1-side, 'infantry', u.x + dir * 170);
   const e2 = single(s, 1-side, 'infantry', e.x + dir * 20);
   setOrder(s, 0, 'hold'); setOrder(s, 1, 'hold');

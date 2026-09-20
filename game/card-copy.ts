@@ -818,7 +818,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ASSAULT GRENADIERS',
     typeLabel: '手雷突击',
     ability: '突击掷弹兵',
-    rule: '四人掷弹班，近战专精。',
+    rule: '队友掩护，逐个投雷。',
     flavor: '拉环声最提神。',
   },
   lmg_team: {

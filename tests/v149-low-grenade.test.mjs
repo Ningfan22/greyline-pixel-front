@@ -20,7 +20,8 @@ function scene(pose='crouch',side=0) {
       stanceLockUntil:100,tactic:'advance',decisionIn:1e9,cooldown:100,hp:1000,maxHp:1000,
       personalMorale:100,suppression:0,readyAt:-100,moving:false,motion:'ground',climbing:0,
       fire:0,secondaryFire:0,flash:0,aimUntil:0});return u;};
-  const u=one(side,'assault_grenadiers',1800),dir=side?-1:1;
+  // Isolate the shared painted throw from card-specific covering requirements.
+  const u=one(side,'assault',1800),dir=side?-1:1;
   one(1-side,'infantry',u.x+dir*170);one(1-side,'infantry',u.x+dir*190);
   setOrder(s,0,'hold');setOrder(s,1,'hold');refreshVision(s);return {s,u,dir};
 }

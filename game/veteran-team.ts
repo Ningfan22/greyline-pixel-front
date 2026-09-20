@@ -2,21 +2,9 @@ import type {GameState,Unit} from './engine';
 import {CARDS} from './cards';
 import {magazine} from './ballistics';
 import {squadMates} from './spatial';
-import {magazineReloadActive,stanceTransitionActive} from './infantry-action-timing';
-import {crouchTravelAmount,startMagazineDrill} from './crouch-locomotion';
-
-/** A loaded weapon is not covering fire if its operator is doing another job. */
-export function veteranAtPost(u: Unit, time: number) {
-  return u.hp>0 && !u.wounded && !u.surrendered && !u.moving &&
-    !u.parachuting && !u.rappelling && u.motion==='ground' && u.climbing<=0 &&
-    !stanceTransitionActive(u,time) && crouchTravelAmount(u)===0 &&
-    (u.stillFor??0)>=.65 && u.suppression<55 && u.personalMorale>=40 &&
-    (u.coverGoal==null || Math.abs(u.coverGoal-u.x)<=.5) &&
-    (u.firingGoal==null || Math.abs(u.firingGoal-u.x)<=.5) &&
-    u.tactic!=='retreat' && u.squadOrder!=='retreat' && (u.withdrawUntil??0)<=time &&
-    !u.withdrawStandby && !u.tending && !u.digging && u.draggingUid===undefined &&
-    (u.firstAidUntil??0)<=time && (u.fragThrow??0)<=0 && (u.evadeUntil??0)<=time;
-}
+import {magazineReloadActive} from './infantry-action-timing';
+import {startMagazineDrill} from './crouch-locomotion';
+import {infantryAtFirePost as veteranAtPost} from './infantry-fire-post';
 
 /** One voluntary magazine at a time. Geometry/visibility is checked by caller. */
 export function tryVeteranReload(s:GameState,u:Unit,canCover:(v:Unit)=>boolean) {

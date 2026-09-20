@@ -2,6 +2,7 @@ import { infantryGeometry } from './infantry-geometry';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
+import { grenadePriorityTarget, grenadeRelayReady } from './grenade-team';
 import { grenadeReleaseOrigin } from './grenade-geometry';
 import { beginSupportTick, continueSupportWork, digWorkSettled, type SupportWork } from './support-work';
 import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContact, REPAIR_CONTACT_TOLERANCE, REPAIR_FIRST_WORK_S } from './repair-work';
@@ -5905,6 +5906,7 @@ function updateAI(s: GameState) {
         if (c.id === 'mortar_carrier' && knownEnemyBattery) score += 7;
         if (c.id === 'mortar' && !knownEnemyBattery && foot.length >= 4) score += 4;
         score += tankPurchaseBonus(c.id, groundFoes);
+        if (c.id === 'assault_grenadiers' && groundFoes.some(grenadePriorityTarget)) score += 6;
         if (
           c.indirect &&
           own.some((u) => weaponCard(u).antiAir && isCombatant(u))
@@ -8638,8 +8640,12 @@ export function tick(s: GameState, dt: number) {
     }
     if (c.frags) {
       // Hand grenades can arc over cover even if the rifle has no firing ray.
-      const fragTarget = candidates.find(v => !CARDS[v.id].air &&
-        Math.abs(v.x - u.x) >= 70 && Math.abs(v.x - u.x) <= 220);
+      const relay = u.id === 'assault_grenadiers';
+      const inFragRange = (v: Unit) => !CARDS[v.id].air &&
+        (!relay || (!CARDS[v.id].armored && !CARDS[v.id].vehicle)) &&
+        Math.abs(v.x - u.x) >= 70 && Math.abs(v.x - u.x) <= 220;
+      const fragTarget = (relay ? candidates.find(v => inFragRange(v) && grenadePriorityTarget(v)) : undefined)
+        ?? candidates.find(inFragRange);
       if (
         (u.fragLeft ?? 0) > 0 &&
         (u.fragCooldown ?? 0) <= 0 &&
@@ -8652,7 +8658,11 @@ export function tick(s: GameState, dt: number) {
         (u.withdrawUntil ?? 0) <= s.time &&
         (u.reloadingUntil ?? 0) <= s.time &&
         !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && crouchTravelAmount(u) === 0 &&
-        fragTarget
+        fragTarget &&
+        (!relay || grenadeRelayReady(s,u,mate =>
+          Math.abs(mate.x-fragTarget.x)<=unitRange(s,mate) &&
+          visibleToSide(s,u.side,fragTarget) &&
+          firingHeight(s,mate,fragTarget.x,fragTarget.y-bodyHeight(fragTarget))!==null))
       ) {
         const clusterNear = nearUnits(s, fragTarget.x, 40, scanNearScratch);
         let clusterCount = 0;
@@ -8662,6 +8672,7 @@ export function tick(s: GameState, dt: number) {
             v.side !== u.side &&
             isCombatant(v) &&
             !CARDS[v.id].air &&
+            (!relay || (!CARDS[v.id].armored && !CARDS[v.id].vehicle)) &&
             visibleToSide(s, u.side, v) &&
             Math.abs(v.x - fragTarget.x) <= 40 &&
             Math.abs(v.x - u.x) <= 220
@@ -8671,17 +8682,24 @@ export function tick(s: GameState, dt: number) {
           }
         }
         // Never lob a blast into an ally already contesting that position.
-        if (clusterCount >= 2 && !s.units.some(v => v.side === u.side &&
+        if ((clusterCount >= 2 || (relay && clusterCount === 1 && grenadePriorityTarget(fragTarget))) &&
+            !s.units.some(v => v.side === u.side &&
             v.hp > 0 && !CARDS[v.id].air && Math.abs(v.x - clusterSumX / clusterCount) < 55)) {
           const cx = clusterSumX / clusterCount;
           const cy = ground(s, cx);
-          u.fragThrow = GRENADE_THROW_S;
-          u.fragThrowStartedAt = s.time;
-          u.fragAim = { x: cx, y: cy };
-          u.fragCooldown = 6;
-          u.facing = Math.sign(cx - u.x) || dir;
-          stepHandGrenade(s, u);
-          continue;
+          const origin = grenadeReleaseOrigin(u,Math.sign(cx-u.x)||dir);
+          const hit = relay ? directShotIntercept(s,'grenade',origin.x,origin.y,cx,cy) : null;
+          // Soil contact at the intended landing point is allowed, an early
+          // roof/bank collision is not. Actual flight still uses normal collision.
+          if (!hit || Math.hypot(hit.x-cx,hit.y-cy)<=8) {
+            u.fragThrow = GRENADE_THROW_S;
+            u.fragThrowStartedAt = s.time;
+            u.fragAim = { x: cx, y: cy };
+            u.fragCooldown = 6;
+            u.facing = Math.sign(cx - u.x) || dir;
+            stepHandGrenade(s, u);
+            continue;
+          }
        }
      }
    }
