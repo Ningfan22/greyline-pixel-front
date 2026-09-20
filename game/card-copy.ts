@@ -133,8 +133,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   tank: {
     en: 'MAIN BATTLE TANK',
     typeLabel: '主战坦克',
-    ability: '双重火力',
-    rule: '主炮四点八秒，同轴点射。',
+    ability: '优先猎甲',
+    rule: '主炮优先猎甲，同轴压制步兵。',
     flavor: '外面打不穿，里面伸不直。',
   },
   helicopter: {
@@ -434,15 +434,15 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   light_tank: {
     en: 'LIGHT TANK',
     typeLabel: '轻型装甲',
-    ability: '机动炮击',
-    rule: '主炮三点八秒，机动支援。',
+    ability: '支援猎杀',
+    rule: '优先反甲手与轻车，近敌自卫。',
     flavor: '速度是它唯一的装甲。',
   },
   heavy_tank: {
     en: 'HEAVY ASSAULT TANK',
     typeLabel: '重型装甲',
-    ability: '重装突破',
-    rule: '主炮六点四秒，近卫点射。',
+    ability: '阵地压制',
+    rule: '优先炮位与密集步兵。',
     flavor: '它碾过的地方，不用挖战壕了。',
   },
   rocket_heli: {

@@ -10,6 +10,7 @@ import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBo
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady, finishInfantryInsertion } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
+import { isBattleTank, infantryConcentrations, tankTargetPriority, tankPurchaseBonus } from './tank-doctrine';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { advanceLauncherDrill, launcherDrillBusy } from './launcher-drill';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
@@ -5868,6 +5869,7 @@ function updateAI(s: GameState) {
         // observed artillery or our own still-fresh sound-ranging reports.
         if (c.id === 'mortar_carrier' && knownEnemyBattery) score += 7;
         if (c.id === 'mortar' && !knownEnemyBattery && foot.length >= 4) score += 4;
+        score += tankPurchaseBonus(c.id, groundFoes);
         if (
           c.indirect &&
           own.some((u) => weaponCard(u).antiAir && isCombatant(u))
@@ -6568,9 +6570,14 @@ function updateAI(s: GameState) {
               : 0,
             seekAir ? counterPower(choice.h.id, 'air') : 0,
           );
+        const rolePreference = (choice: typeof a) =>
+          cardCost(choice.h) <= p.energy ? tankPurchaseBonus(choice.h.id, groundFoes) : 0;
         return (
           importance(b) - importance(a) ||
           quality(b) - quality(a) ||
+          // One scalar per option keeps this ordering transitive even when
+          // tanks, cheaper launchers and unaffordable cards share the hand.
+          rolePreference(b) - rolePreference(a) ||
           cardCost(a.h) - cardCost(b.h) ||
           a.h.uid - b.h.uid
         );
@@ -8404,7 +8411,10 @@ export function tick(s: GameState, dt: number) {
     // sort, so precompute a numeric key per candidate instead of recomputing
     // ammunition/model lookups on every comparator call.
     const coverAmmo = isCoverBullet(primaryAmmo);
-    const sortMode: 'soft' | 'sniper' | 'crew' | 'armor' | 'none' =
+    const tankDoctrine = isBattleTank(u.id);
+    const concentrations = u.id === 'heavy_tank' ? infantryConcentrations(candOutScratch) : undefined;
+    const sortMode: 'soft' | 'sniper' | 'crew' | 'armor' | 'tank' | 'none' =
+      tankDoctrine ? 'tank' :
       u.id === 'sniper_team' && u.member === 0 ? 'crew' :
       c.attackRun === 'strafe' ||
       softTargetWeapon ||
@@ -8417,6 +8427,7 @@ export function tick(s: GameState, dt: number) {
             : 'none';
     for (const v of candOutScratch) {
       const rank =
+        sortMode === 'tank' ? tankTargetPriority(u, v, concentrations) :
         sortMode === 'crew'
           ? !CARDS[v.id].members ? 3
             : ['machinegun', 'mortar', 'rocket'].includes(weaponCard(v).model ?? modelOf(v.id)) ? 0
@@ -8433,7 +8444,7 @@ export function tick(s: GameState, dt: number) {
         rank * 10_000 +
         // AT teams concentrate on the most damaged armoured vehicle: a
         // crippled tank still shoots, so finishing it beats splitting fire.
-        (sortMode === 'armor' && CARDS[v.id].armored
+        ((sortMode === 'armor' || u.id === 'tank') && CARDS[v.id].armored
           ? Math.floor((v.hp / v.maxHp) * 8) * 300
           : 0) +
         Math.abs(v.x - u.x);
