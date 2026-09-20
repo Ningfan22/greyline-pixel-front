@@ -1,10 +1,21 @@
 import type { GameState, Side, Unit } from './engine';
+import { CARDS } from './cards';
 import { nearUnits } from './spatial';
 
 export const AMBUSH_SETUP = 3;
 export const AMBUSH_REVEAL = 8;
 export const AMBUSH_FIRE_RANGE = 300;
 export const GUIDE_RADIUS = 220;
+
+/** Touchdown restores each card's own ground role, not a shared super-sprint. */
+export function finishInfantryInsertion(u: Unit, time: number) {
+  u.rapidUntil = CARDS[u.id].infantryAbility === 'rapid' ? time + 8 : 0;
+  if ((u.id === 'pathfinders' || u.id === 'recon_jump') && !u.squadOrder) {
+    u.squadOrder = 'watch';
+    u.squadOrderX = u.x;
+    u.squadOrderUntil = Infinity;
+  }
+}
 
 function available(u: Unit) {
   return u.hp > 0 && !u.wounded && !u.surrendered && !u.moving &&

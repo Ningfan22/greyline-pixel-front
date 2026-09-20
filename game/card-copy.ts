@@ -741,7 +741,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'RAPID INSERTION',
     typeLabel: '空降穿插',
     ability: '高速穿插',
-    rule: '三人高速空降穿插。',
+    rule: '落地冲刺八秒，首枪结束。',
     flavor: '他们的退路，是自己打出来的。',
   },
   sapper_assault: {
@@ -755,7 +755,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'RECON JUMP',
     typeLabel: '空降侦察',
     ability: '侦察跳降',
-    rule: '双人空降前沿侦察。',
+    rule: '双人空降，落地警戒不追击。',
     flavor: '先落地的先看见明天。',
   },
   creeping_barrage: {

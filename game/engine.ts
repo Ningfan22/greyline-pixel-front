@@ -7,7 +7,7 @@ import { beginSupportTick, continueSupportWork, type SupportWork } from './suppo
 import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContact, REPAIR_CONTACT_TOLERANCE, REPAIR_FIRST_WORK_S } from './repair-work';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
-import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
+import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady, finishInfantryInsertion } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
@@ -1085,7 +1085,7 @@ export function spawnUnit(
       secondaryAngle: 0,
       member: i,
       personalMorale: c.discipline ?? 80,
-      rapidUntil: c.infantryAbility === 'rapid' ? s.time + 8 : undefined,
+      rapidUntil: c.infantryAbility === 'rapid' && !c.airdrop ? s.time + 8 : undefined,
       suppression: 0,
       decisionIn: i * 0.08,
       tactic: 'advance',
@@ -1326,6 +1326,11 @@ function defaultLanding(s: GameState, side: Side) {
     : W / 2;
   return rear + dir * 220;
 }
+function landingFootprintClear(s: GameState, x: number, boxes=obstacleBoxes(s)) {
+  return !boxes.some(b => b.x < x+110 && b.x+b.w > x-110 &&
+    ground(s,b.x+b.w/2)-b.y > 26) &&
+    !s.walls.some(w=>w.hp>0 && Math.abs(w.x-x)<130);
+}
 function safeLanding(s: GameState, requested: number) {
   const center = Math.max(480, Math.min(W - 480, requested));
   const boxes = obstacleBoxes(s);
@@ -1334,19 +1339,23 @@ function safeLanding(s: GameState, requested: number) {
     for (const sign of [1, -1]) {
       const x = center + distance * sign;
       if (x < 480 || x > W - 480) continue;
-      if (
-        !boxes.some(
-          (b) =>
-            b.x < x + 110 &&
-            b.x + b.w > x - 110 &&
-            ground(s, b.x + b.w / 2) - b.y > 26,
-        ) &&
-        !s.walls.some((w) => w.hp > 0 && Math.abs(w.x - x) < 130)
-      )
-        return x;
+      if (landingFootprintClear(s,x,boxes)) return x;
     }
   }
   return center;
+}
+/** AI reserve/recon insertions must stay on their own side of EVERY observed
+ * contact. Recheck after obstacle relocation; clamping can otherwise put a
+ * supposedly defensive drop back inside the enemy line. No hidden units. */
+function friendlyDropPosition(s: GameState, side: Side, seen: Unit[], setback: number): number | null {
+  if (!seen.length) return null;
+  const dir = side === 0 ? 1 : -1;
+  const front = side === 0 ? Math.min(...seen.map(u=>u.x)) : Math.max(...seen.map(u=>u.x));
+  for (let extra = 0; extra <= 480; extra += 48) {
+    const x = safeLanding(s,front-dir*(setback+extra));
+    if (seen.every(u=>(u.x-x)*dir>=160) && landingFootprintClear(s,x)) return x;
+  }
+  return null;
 }
 export function launchFlare(s: GameState, side: Side, x: number, life = 10, radius = 260) {
   const tx = Math.max(40, Math.min(W - 40, x));
@@ -5936,19 +5945,31 @@ function updateAI(s: GameState) {
           // Red advances left. A guide must land to the RIGHT of the nearest
           // known enemy, not between two contacts spread across the front.
           const guideFront = groundFoes.length ? Math.max(...groundFoes.map(u => u.x)) : enemyFront;
-          x = safeLanding(s, c.id === 'pathfinders' ? guideFront + 300 : enemyFront - 140);
+          const friendlyInsertion = c.id === 'rapid_insertion' || c.id === 'recon_jump';
+          x = friendlyInsertion
+            ? groundFoes.length
+              ? friendlyDropPosition(s,1,groundFoes,c.id==='rapid_insertion'?260:560) ?? undefined
+              : c.id==='recon_jump' && cohorts>=2 ? safeLanding(s,front-300) : undefined
+            : safeLanding(s, c.id === 'pathfinders' ? guideFront + 300 : enemyFront - 140);
           score = cohorts >= 2 && groundFoes.length ? 17 : -2;
+          if (c.id==='rapid_insertion' && emergency && x!==undefined) score = 36;
           if (c.id !== 'pathfinders' && !c.insertion) {
             const guide = own.filter(u => pathfinderReady(s, u) &&
-              Math.abs(u.x - x!) <= 500 &&
+              x!==undefined && Math.abs(u.x - x) <= 500 &&
+              (!friendlyInsertion || groundFoes.every(v=>u.x-v.x>=160)) &&
               groundFoes.every(v => Math.abs(v.x - u.x) >= 160))
               .sort((a, b) => Math.abs(a.x - x!) - Math.abs(b.x - x!))[0];
-            if (guide) { x = safeLanding(s, guide.x); score += 5; }
+            if (guide) {
+              const guided = safeLanding(s, guide.x);
+              if (!friendlyInsertion || (groundFoes.every(v=>guided-v.x>=160) && landingFootprintClear(s,guided))) {
+                x = guided; score += 5;
+              }
+            }
           } else if (c.id==='pathfinders' && p.hand.some(h => h.id !== c.id && CARDS[h.id].airdrop)) {
             score += own.some(u => u.id === 'pathfinders') ? -6 : 6;
           }
           if(c.insertion==='glider'){
-            const lz=gliderLanding(s,x,1);
+            const lz=gliderLanding(s,x!,1);
             if(lz===null)score=-100;
             else {x=lz;score-=foes.filter(v=>weaponCard(v).antiAir&&v.x>x!-500).length*9;}
           }
@@ -6499,11 +6520,13 @@ function updateAI(s: GameState) {
     const counterChoices = p.hand
       .filter((h) => cardReadyIn(s, h) <= 0)
       .flatMap((h) => {
+        const targetOption = options.find(o=>o.h.uid===h.uid);
         if (
           ((seekArmor && armorRole(h.id)) || (seekAir && airRole(h.id))) &&
-          (!CARDS[h.id].emplacement || options.some((o) => o.h.uid === h.uid))
+          (!CARDS[h.id].emplacement || targetOption) &&
+          (!CARDS[h.id].targetGround || targetOption?.x !== undefined)
         )
-          return [{ h, x: undefined as number | undefined }];
+          return [{ h, x: CARDS[h.id].targetGround ? targetOption!.x : undefined }];
         const mine =
           seekArmor && h.id === 'antitank_mine'
             ? options.find((o) => o.h.uid === h.uid)
@@ -7622,16 +7645,11 @@ export function tick(s: GameState, dt: number) {
         u.motion = 'land';
         u.motionTime = 0;
         u.motionDuration = 0.3;
-        u.rapidUntil = s.time + 8;
+        finishInfantryInsertion(u,s.time);
         if (guide) {
           u.suppression = Math.max(0, u.suppression - 30);
           u.personalMorale = Math.min(c.discipline ?? 80, u.personalMorale + 12);
           u.cooldown = 0;
-        }
-        if (u.id === 'pathfinders' && !u.squadOrder) {
-          u.squadOrder = 'watch';
-          u.squadOrderX = u.x;
-          u.squadOrderUntil = Infinity;
         }
       }
       continue;
@@ -7654,7 +7672,7 @@ export function tick(s: GameState, dt: number) {
         u.motion = 'land';
         u.motionTime = 0;
         u.motionDuration = 0.3;
-        u.rapidUntil = s.time + 8;
+        finishInfantryInsertion(u,s.time);
       }
       continue;
     }
