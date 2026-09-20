@@ -104,6 +104,7 @@ import {
   sceneryIntercept,
   sceneryCoverHits,
   damageScenery,
+  contactIsStale,
   type Scenery,
   type GroundContact,
   type Wreck,
@@ -156,6 +157,10 @@ export const DRAW_COST = 2,
 export const AIR_ALTITUDE = 232,
   DROP_HEIGHT = 26,
   CLIMB_HEIGHT = 28;
+/** v172: seconds of ineffective close-range fire before a unit breaks off to maneuver. */
+const STALEMATE_BREAK_S = 35;
+/** v172: a stalemated unit closes to this gap before resuming fire from the new angle. */
+const STALEMATE_CLOSE_GAP = 30;
 export interface HandCard {
   uid: number;
   id: CardId;
@@ -349,6 +354,16 @@ export interface Unit {
   breachShots?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
+  /** v172: stalemate detection — uid of the target tracked for ineffective fire. */
+  stalemateTargetUid?: number;
+  /** v172: last observed hp of the tracked stalemate target. */
+  stalemateTargetHp?: number;
+  /** v172: when the current no-damage streak against the tracked target began. */
+  stalemateSince?: number;
+  /** v172: unit x when the stalemate began, so a maneuver resets the clock. */
+  stalemateStartX?: number;
+  /** v172: until this time, contactSafeX uses the reduced stalemate close gap. */
+  stalemateCloseUntil?: number;
   /** Shoot-and-scoot: indirect-fire teams displace to this x once the enemy
    * sound rangers have refined a fix on their current position. */
   displaceGoal?: number | null;
@@ -3794,8 +3809,17 @@ function orderedWithdrawal(s: GameState, u: Unit) {
 export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   const dir = u.side === 0 ? 1 : -1;
   if (CARDS[u.id].air || (proposedX - u.x) * dir <= 0) return proposedX;
+  // v172: a stalemated unit (ineffective close-range fire against a dug-in
+  // target) closes the distance to gain a flatter trajectory that clears the
+  // terrain lip intercepting its shots. The reduced gap persists briefly so
+  // the unit is not pushed back when it stops to try firing from the new angle.
+  const stalemateClose = (u.stalemateCloseUntil ?? 0) > s.time;
+  const gap = stalemateClose
+    ? STALEMATE_CLOSE_GAP
+    : CARDS[u.id].members
+      ? 105
+      : 150;
   let limit = proposedX;
-  const gap = CARDS[u.id].members ? 105 : 150;
   for (const enemy of s.units) {
     if (enemy.side === u.side || !isCombatant(enemy) || CARDS[enemy.id].air ||
         enemy.rappelling || enemy.parachuting || (enemy.x - u.x) * dir < 0 ||
@@ -3806,8 +3830,10 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   }
   // Only last OBSERVED coordinates may constrain travel through lost contact.
   // Never read a hidden unit's current position, health or continued existence.
+  // A snapshot older than CONTACT_STALE_S is too stale to be a hard barrier:
+  // the unit probes forward and either reacquires the threat or clears ground.
   for (const contact of s.groundContacts?.[u.side] ?? []) {
-    if (visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
+    if (contactIsStale(s.time, contact) || visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
         (contact.x-u.x)*dir > Math.abs(proposedX-u.x)+gap) continue;
     const stop = contact.x-dir*gap;
     if ((stop-limit)*dir < 0) limit = stop;
@@ -5713,7 +5739,7 @@ function updateAI(s: GameState) {
     .filter((u) => !CARDS[u.id].air)
     .reduce((x, u) => Math.min(x, u.x), W - 112);
   const unclearedFront = (s.groundContacts?.[1] ?? [])
-    .filter(c => !visibleToSide(s,1,c) && c.clearSince === undefined &&
+    .filter(c => !contactIsStale(s.time,c) && !visibleToSide(s,1,c) && c.clearSince === undefined &&
       front-c.x >= -120 && front-c.x < 800)
     .sort((a,b) => Math.abs(front-a.x)-Math.abs(front-b.x))[0];
 
@@ -5788,6 +5814,15 @@ function updateAI(s: GameState) {
     !battle &&
     cohorts < 2 &&
     s.time < (s.aiWaveUntil ?? 0);
+  // A quiet front: no visible foe and no fresh remembered contact. Once the
+  // enemy is wiped (or every contact has gone stale), survivors must push to
+  // the enemy base instead of staging forever — a lone surviving squad (e.g.
+  // scouts, who don't count as a cohort) otherwise refreshes the staging
+  // window every frame and holds until the 600s draw.
+  const rememberedThreat = (s.groundContacts?.[1] ?? []).some(
+    (c) => !contactIsStale(s.time, c) && !visibleToSide(s, 1, c),
+  );
+  const frontQuiet = foes.length === 0 && !rememberedThreat;
   // Armor assault: when the AI has an active armor_assault synergy (armored
   // vehicle + infantry within 170px) and contact is made, push the advantage
   // instead of settling into a static firefight.
@@ -5808,9 +5843,9 @@ function updateAI(s: GameState) {
     );
   // Double-time only between contacts. Once a threat is close, normal advance
   // gives each squad its own firing/cover decisions instead of a global rush.
-  p.order = staging
+  p.order = staging && !frontQuiet
     ? 'hold'
-    : (!battle && cohorts >= 2) ||
+    : frontQuiet || (!battle && cohorts >= 2) ||
         (pushing && battle && !emergency) ||
         armorAssault
       ? 'rush'
@@ -9413,11 +9448,66 @@ export function tick(s: GameState, dt: number) {
     if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
+    // v172: stalemate break — a unit pinned in a static firefight against a
+    // close, dug-in target it cannot damage (terrain intercepts every round)
+    // breaks off and maneuvers instead of burning the clock until the draw.
+    // Once the unit has closed to point-blank range it resumes fire: the
+    // flatter trajectory may clear the terrain that blocked long-range shots.
+   let stalemated = false;
+   if (
+     target &&
+     c.members &&
+     !c.indirect &&
+     !breachRun &&
+     order !== 'rush' &&
+     u.ammo !== 0 &&
+     Math.abs(target.x - u.x) <= range * 0.62
+   ) {
+     if (u.stalemateTargetUid !== target.uid) {
+       u.stalemateTargetUid = target.uid;
+       u.stalemateTargetHp = target.hp;
+       u.stalemateSince = s.time;
+     } else if (target.hp < (u.stalemateTargetHp ?? target.hp) - 0.01) {
+       // Fire is effective — reset the clock.
+       u.stalemateTargetHp = target.hp;
+       u.stalemateSince = s.time;
+     } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
+       if (Math.abs(target.x - u.x) > STALEMATE_CLOSE_GAP) {
+         stalemated = true;
+         u.stalemateCloseUntil = s.time + 2;
+       }
+     }
+   } else if (
+     blockedContact &&
+     c.members &&
+     !c.indirect &&
+     !breachRun &&
+     threat
+   ) {
+      // v172b: blocked-contact stalemate — the unit has a threat it cannot
+      // acquire as a target (terrain blocks the firing ray) and the
+      // blockedContact drill cannot find a firing position. After the
+      // grace period it maneuvers to close the distance, where the flatter
+      // trajectory may clear the obstacle.
+      if (u.stalemateTargetUid !== threat.uid) {
+        u.stalemateTargetUid = threat.uid;
+        u.stalemateSince = s.time;
+      } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
+        if (Math.abs(threat.x - u.x) > STALEMATE_CLOSE_GAP) {
+          stalemated = true;
+          u.stalemateCloseUntil = s.time + 2;
+        }
+      }
+    } else {
+     u.stalemateTargetUid = undefined;
+     u.stalemateSince = undefined;
+   }
     if (
       (c.damage ?? 0) > 0 &&
       !relayReloadActive(u,s.time) &&
       !ambushHold &&
       !mobileBurstStep &&
+      !stalemated &&
       (!c.armorOnly || !!target) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
@@ -9828,10 +9918,10 @@ export function tick(s: GameState, dt: number) {
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
           !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
-          (!target || breachRun) &&
-          !baseInRange &&
-          !blockedContact &&
-          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
+         (!target || breachRun || stalemated) &&
+         !baseInRange &&
+          (!blockedContact || stalemated) &&
+         (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
         (!c.members || order !== 'hold') &&
         !u.vehicleReverseHeld))
     ) {

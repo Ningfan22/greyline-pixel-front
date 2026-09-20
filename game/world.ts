@@ -28,6 +28,15 @@ export interface GroundContact {
   clearSince?: number;
 }
 export const CONTACT_CLEAR_CONFIRM_S = 1.5;
+/** A contact older than this without reacquisition stops being a hard barrier.
+ * Hidden enemy motion, death or removal must never clear the record (that
+ * would leak information), so expiry is purely time-based: past this window
+ * the snapshot is too stale to trust, and units probe forward to reacquire or
+ * clear the sector. Must exceed the 30s memory contract in v168 tests. */
+export const CONTACT_STALE_S = 60;
+export function contactIsStale(time: number, c: GroundContact): boolean {
+  return time - c.seenAt > CONTACT_STALE_S;
+}
 export interface Scenery {
   id: number;
   kind: 'house' | 'tree';

@@ -477,6 +477,7 @@ export function updateSquadOrders(s: GameState, dt: number) {
       u.squadOrder = 'watch';
       u.withdrawUntil = 0;
       u.decisionIn = 0;
+      u.squadOrderUntil = s.time + 15;
     }
   }
   for (const trench of s.entrenchments ?? []) {
