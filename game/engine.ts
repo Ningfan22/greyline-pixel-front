@@ -184,6 +184,7 @@ export interface Unit {
   withdrawHeavyRange?: number;
   withdrawUnderFireUntil?: number;
   withdrawStandby?: boolean;
+  withdrawStandbySince?: number;
   holdLane?: number;
   digging?: boolean;
   digElapsed?: number;
@@ -3838,6 +3839,11 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
     const stop = contact.x-dir*gap;
     if ((stop-limit)*dir < 0) limit = stop;
   }
+  // v173: don't overrun the enemy base — stop 35px short so the structure
+  // stays in range and wrecks near the base footprint don't trap the unit.
+  const enemyBaseX = u.side === 0 ? W - 70 : 70;
+  const baseStop = enemyBaseX - dir * 35;
+  if ((baseStop - limit) * dir < 0) limit = baseStop;
   return (limit - u.x) * dir < 0 ? u.x : limit;
 }
 function moveSoldier(
@@ -4262,6 +4268,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   const clear = () => {
     u.withdrawHeavyUid = undefined;
     u.withdrawStandby = false;
+    u.withdrawStandbySince = undefined;
     u.withdrawUntil = 0;
     u.withdrawGoal = undefined;
     u.passingLane = undefined;
@@ -4297,6 +4304,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     if (tacticalReach(s, foe, u, 24)) {
       const away = Math.sign(u.x - foe.x) || (u.side === 0 ? -1 : 1);
       u.withdrawStandby = false;
+      u.withdrawStandbySince = undefined;
       u.withdrawUntil = s.time + 1.5;
       if (
         u.withdrawGoal === undefined ||
@@ -4335,11 +4343,23 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   }
   if (u.withdrawGoal !== undefined && Math.abs(u.withdrawGoal - u.x) > 4) {
     u.withdrawStandby = false;
+    u.withdrawStandbySince = undefined;
     u.withdrawUntil = s.time + 1.5;
+    return;
+  }
+  // v173: if the squad has been pinned in standby long enough, resume the
+  // advance instead of standing forever. Staying pinned hands the initiative
+  // to the enemy; the withdrawal logic re-evaluates on next contact, and AT
+  // support that has since closed distance will hold. Uses a standby-local
+  // timestamp because side-level vision keeps the heavy "seen" via a
+  // distant spotter even when this squad cannot engage it.
+  if (s.time - (u.withdrawStandbySince ?? s.time) > 30) {
+    clear();
     return;
   }
   // Once outside its firing lane, observe rather than walking straight back into it.
   u.withdrawStandby = true;
+  u.withdrawStandbySince ??= s.time;
   u.withdrawUntil = 0;
   u.withdrawGoal = undefined;
   u.coverGoal = null;
@@ -4617,6 +4637,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       ? unsupportedHeavy.foe.y - bodyHeight(unsupportedHeavy.foe)
       : undefined;
     mate.withdrawStandby = false;
+    mate.withdrawStandbySince = undefined;
     mate.withdrawStartedAt = s.time;
     mate.withdrawUntil = s.time + 4.8;
     mate.withdrawNextAt = s.time + 11;
@@ -8749,15 +8770,16 @@ export function tick(s: GameState, dt: number) {
        }
      }
    }
-   const baseInRange =
-     !target &&
-     !c.airOnly &&
-     !c.armorOnly &&
-     (c.attackRun !== 'strafe' ||
-       (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
-     Math.abs(baseX - u.x) <= range &&
-     Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
-     firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
+  const baseInRange =
+    !target &&
+    !c.airOnly &&
+    !c.armorOnly &&
+    (c.attackRun !== 'strafe' ||
+      (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
+    Math.abs(baseX - u.x) <= range &&
+    Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
+    (Math.abs(baseX - u.x) < 60 ||
+      firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null);
     // Counter-battery: a howitzer with no visible target can fire at a
     // fresh sound-ranging fix on an enemy battery position.
     let counterBattery: BatteryReport | null = null;
@@ -9499,11 +9521,11 @@ export function tick(s: GameState, dt: number) {
         }
       }
     } else {
-     u.stalemateTargetUid = undefined;
-     u.stalemateSince = undefined;
-   }
-    if (
-      (c.damage ?? 0) > 0 &&
+    u.stalemateTargetUid = undefined;
+    u.stalemateSince = undefined;
+  }
+   if (
+     (c.damage ?? 0) > 0 &&
       !relayReloadActive(u,s.time) &&
       !ambushHold &&
       !mobileBurstStep &&
