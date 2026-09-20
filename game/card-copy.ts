@@ -85,7 +85,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MORTAR CARRIER',
     typeLabel: '机动炮兵',
     ability: '曲射转移',
-    rule: '八秒曲射，近敌后撤转移。',
+    rule: '炮后倒车换位，驻守不转移。',
     flavor: '打完就跑，茶杯都不带洒的。',
   },
   recovery_vehicle: {

@@ -9,6 +9,7 @@ import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, t
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady, finishInfantryInsertion } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
+import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
 import { blastDuration } from './blast-animation';
@@ -348,6 +349,10 @@ export interface Unit {
    * sound rangers have refined a fix on their current position. */
   displaceGoal?: number | null;
   displaceUntil?: number;
+  /** The mobile mortar must stop its tracks and settle before another shell. */
+  carrierSettleUntil?: number;
+  /** Own rounds at this firing position, not neighboring crew members' reports. */
+  mortarSiteShots?: number;
   withdrawStartedAt?: number;
   withdrawUntil?: number;
   withdrawGoal?: number;
@@ -5526,6 +5531,8 @@ function updateAI(s: GameState) {
   );
   const air = foes.filter((u) => CARDS[u.id].air);
   const foot = groundFoes.filter((u) => CARDS[u.id].members);
+  const knownEnemyBattery = groundFoes.some(v => weaponCard(v).indirect) ||
+    s.batteryReports.some(r => r.side === 1 && r.life > 3);
   const groups = (list: Unit[]) => new Set(list.map((u) => u.squad)).size;
   const fighters = own.filter(
     (u) => !CARDS[u.id].observer && u.id !== 'scouts' && u.tactic !== 'retreat',
@@ -5855,6 +5862,11 @@ function updateAI(s: GameState) {
           score += 6;
         // Forward observer: indirect fire is faster and tighter with a spotter.
         if (c.indirect && hasSpotter) score += 5;
+        // Mobile tubes trade a denser infantry mortar salvo for the ability
+        // to leave their launch position. Value that trade only against
+        // observed artillery or our own still-fresh sound-ranging reports.
+        if (c.id === 'mortar_carrier' && knownEnemyBattery) score += 7;
+        if (c.id === 'mortar' && !knownEnemyBattery && foot.length >= 4) score += 4;
         if (
           c.indirect &&
           own.some((u) => weaponCard(u).antiAir && isCombatant(u))
@@ -7964,12 +7976,17 @@ export function tick(s: GameState, dt: number) {
     }
     u.flash = Math.max(0, u.flash - dt);
     u.fire = Math.max(0, u.fire - dt);
+    if (u.id === 'mortar' && u.moving) u.mortarSiteShots = 0;
     u.moving = false;
     if(u.glider){
       stepGlider(s,u,dt,{spawn:spawnUnit,crash:v=>finishDeath(s,v,v.side,'bullet')});
       continue;
     }
     const controlledNavigation = stepUnitControl(s, u, dt);
+    if (u.id === 'mortar_carrier' && controlledNavigation) {
+      u.displaceGoal = null;
+      if (u.moving) u.carrierSettleUntil = s.time + CARRIER_SETTLE;
+    }
     const localOrder = localUnitOrder(s, u);
     const order = c.members
       ? infantryOrder(s, u)
@@ -9051,6 +9068,9 @@ export function tick(s: GameState, dt: number) {
     const seeking =
       !withdrawing &&
       (!!holdTravel || (moveGoal !== null && Math.abs(moveGoal - u.x) > 0.5));
+    // A new hold order cancels the vehicle's automatic firing-position change.
+    // Otherwise a stopped vehicle would retain a goal that also blocks firing.
+    if (u.id === 'mortar_carrier' && order === 'hold') u.displaceGoal = null;
     if (u.displaceGoal != null && Math.abs(u.displaceGoal - u.x) <= 2)
       u.displaceGoal = null;
     const displacing = u.displaceGoal != null;
@@ -9270,6 +9290,7 @@ export function tick(s: GameState, dt: number) {
       !retreating &&
       !reversing &&
       !breachRun &&
+      (u.carrierSettleUntil ?? 0) <= s.time &&
       u.ammo !== 0
     ) {
       // v114: a tactical top-up is dropped the instant the soldier commits
@@ -9492,12 +9513,17 @@ export function tick(s: GameState, dt: number) {
           // their launch points are off-board or already obvious).
           if (c.indirect && !c.air && !c.sortie)
             detectBattery(s, u, sx, sy);
+          if (u.id === 'mortar') u.mortarSiteShots = (u.mortarSiteShots ?? 0) + 1;
+          if (u.id === 'mortar_carrier' && !controlledNavigation)
+            u.displaceGoal = carrierScootGoal(u, target?.x ?? tx, order, W);
           // Shoot-and-scoot: once the enemy's sound rangers have refined a
           // fix on this battery, displace to a fresh firing position before
           // their counter-battery fire arrives. The stale report on the old
           // position decays while the team limbers up and moves.
           if (
             c.indirect &&
+            u.id !== 'mortar_carrier' &&
+            (u.id !== 'mortar' || (u.mortarSiteShots ?? 0) >= 2) &&
             !c.air &&
             !c.sortie &&
             !c.static &&
@@ -9641,6 +9667,9 @@ export function tick(s: GameState, dt: number) {
       !treating &&
       !reloadingUnderContact &&
       !shocked &&
+      // Let the real barrel recoil finish before moving; an immediate danger
+      // withdrawal still takes priority over this short firing dwell.
+      !(u.id === 'mortar_carrier' && displacing && u.fire > 0 && !closeThreat && !reversing) &&
       (withdrawalStep ||
         mobileBurstStep ||
         seeking ||
@@ -9655,6 +9684,10 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
+          // A battery that lost sight while backing out waits out its reload
+          // at the new position instead of instantly driving back into the
+          // muzzle-flash location. It still needs genuine vision to fire.
+          !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
           (!target || breachRun) &&
           !baseInRange &&
           !blockedContact &&
@@ -9804,11 +9837,14 @@ export function tick(s: GameState, dt: number) {
         (!c.vehicle || order !== 'hold' || reversing)
       ) {
         const before = u.x;
-        u.x = contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * speed * dt)));
+        const scooting = u.id === 'mortar_carrier' && displacing && !closeThreat && !reversing;
+        const distance = scooting ? Math.min(speed * dt, Math.abs(u.displaceGoal! - u.x)) : speed * dt;
+        u.x = contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * distance)));
         u.moving = Math.abs(u.x - before) > 0.001;
         // A reversing vehicle keeps its hull aimed at the threat it is
         // backing away from — only the tracks carry it out of the kill zone.
-        if (u.moving) u.facing = reversing ? dir : moveDir;
+        if (u.moving) u.facing = reversing || scooting ? dir : moveDir;
+        if (u.moving && u.id === 'mortar_carrier') u.carrierSettleUntil = s.time + CARRIER_SETTLE;
         if (u.moving && (c.armored || c.vehicle)) {
           u.stepDust = (u.stepDust ?? 0) + Math.abs(u.x - before);
           if (u.stepDust >= 12) {
