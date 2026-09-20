@@ -26,9 +26,12 @@ export function requestCrouchStep(u: Unit, time?: number) {
 /** Called once after all navigation branches, including early-return work. */
 export function stepCrouchLocomotion(u: Unit, time: number, dt: number) {
   if (u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
-      u.climbing > 0 || u.motion !== 'ground' || !['crouch','hunker'].includes(u.pose)) {
+      u.climbing > 0 || (u.motion !== 'ground' && u.motion !== 'bank') || !['crouch','hunker'].includes(u.pose)) {
     u.crouchTravel = undefined; u.crouchStoppedFor = 0; u.crouchStepCommittedUntil = 0; return;
   }
+  // Entry already waits for a full low step. A bank is supported travel,
+  // not an airborne interruption: retain its height through the exit frame.
+  if (u.motion === 'bank') { u.crouchStoppedFor = 0; return; }
   if (stanceTransitionActive(u, time)) {
     u.crouchTravel = u.poseAnimToTravel ?? 0; u.crouchStoppedFor = 0; return;
   }

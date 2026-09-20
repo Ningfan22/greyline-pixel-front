@@ -3,6 +3,7 @@ import { unitSelectionBounds } from './selection-render';
 import { fixedWingUnit } from './unit-control';
 import { obstacleBoxes, pointVisible } from './world';
 import type { GameState, Side, Unit } from './engine';
+import { digWorkSettled } from './support-work';
 
 export type SquadOrder = 'hold' | 'retreat' | 'attack' | 'watch' | 'escort';
 export interface Entrenchment {
@@ -482,6 +483,7 @@ export function updateSquadOrders(s: GameState, dt: number) {
         living(u) &&
         u.squadOrder === 'hold' &&
         u.digging &&
+        digWorkSettled(u,s.time) &&
         u.squadOrderX !== undefined &&
         Math.abs(u.x - u.squadOrderX) <= 1 &&
         Math.abs(u.lane - (u.holdLane ?? u.lane)) <= 0.5 &&

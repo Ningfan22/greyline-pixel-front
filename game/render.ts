@@ -22,6 +22,7 @@ import { heavyMGSprite } from './heavy-mg-art';
 import { grenadeLauncherSprite } from './grenade-launcher-art';
 import { patrolFrameV17 } from './patrol-art-v17';
 import { digFrameV18 } from './dig-art-v18';
+import { digWorkSettled } from './support-work';
 import { drawMineV18 } from './mine-art-v18';
 import { drawToxicCloudV18 } from './comeback-art-v18';
 import {
@@ -655,7 +656,7 @@ export function render(
           )
         : null;
     const digging =
-      u.digging && !authoredBody && crouchTravelAmount(u) === 0 && !u.moving && !isDead && !u.wounded && u.fire <= 0
+      u.digging && !authoredBody && digWorkSettled(u,s.time)
         ? digFrameV18(
             art.digging,
             adultIdentity(u.id),

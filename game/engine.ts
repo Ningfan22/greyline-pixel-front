@@ -3,7 +3,7 @@ import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
 import { grenadeReleaseOrigin } from './grenade-geometry';
-import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
+import { beginSupportTick, continueSupportWork, digWorkSettled, type SupportWork } from './support-work';
 import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContact, REPAIR_CONTACT_TOLERANCE, REPAIR_FIRST_WORK_S } from './repair-work';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
@@ -3472,6 +3472,9 @@ function setStance(
     u.pose = desired;
     return desired;
   }
+  // A grounded bank step keeps its existing gait. Queue a newly requested
+  // height until support is restored; never run a hidden drill underneath it.
+  if (u.motion === 'bank') return u.pose;
   // Finish a magazine drill before starting another whole-body action.
   if (!u.wounded && magazineReloadActive(u, time)) return u.pose;
   if (
@@ -3714,18 +3717,20 @@ function traverse(s: GameState, u: Unit, dt: number) {
     u.y = ground(s, u.x);
     if (u.motionTime >= u.motionDuration) u.motion = 'ground';
   } else {
-    // v130: bank is a low crouch-shuffle up a ledge, never the swim-lane
-    // climb silhouette. The animation layer maps motion==='bank' to the
-    // crouch gait; keep the pose value consistent so nothing downstream
-    // (stanceClass, render layers) treats the unit as climbing.
-    u.pose = setStance(u, s.time, 'crouch');
+    // A bank follows the ground in the committed gait, not a forced crouch
+    // or rope climb. Keep real footwork and recheck newly observed contacts.
     const t = Math.min(1, u.motionTime / u.motionDuration),
       ease = t * t * (3 - 2 * t);
-    u.x = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
-    u.y = ground(s, u.x) - Math.sin(t * Math.PI) * (u.motionLift ?? 4);
-    if (t >= 1) {
+    const previousX = u.x;
+    const proposed = u.motionFromX + (u.motionToX - u.motionFromX) * ease;
+    u.x = contactSafeX(s,u,proposed);
+    const blocked = Math.abs(u.x-proposed) > 1e-6;
+    const distance = Math.abs(u.x-previousX);
+    u.walk += distance / (u.pose === 'prone' ? 4 : 6);
+    u.moving = distance > 1e-6;
+    u.y = ground(s, u.x);
+    if (t >= 1 || blocked) {
       u.motion = 'ground';
-      u.y = ground(s, u.x);
       u.stepCooldown = 0.6;
       u.motionLift = 0;
     }
@@ -3832,8 +3837,7 @@ function moveSoldier(
     u.motionFromY = u.y;
     u.motionToX = destination;
     u.motionToY = ground(s, destination);
-    u.motionLift = 4;
-    u.pose = setStance(u, s.time, 'crouch');
+    u.motionLift = 0;
     return;
   }
   const wall = s.walls.find(
@@ -7990,6 +7994,7 @@ export function tick(s: GameState, dt: number) {
     }
     u.stepCooldown = Math.max(0, u.stepCooldown - dt);
     u.coverSearch -= dt;
+    const worksite = c.members ? trenchWorksite(s, u) : null;
     let desiredPose: Unit['pose'] = c.members
       ? order === 'crouch'
         ? 'crouch'
@@ -8008,6 +8013,11 @@ export function tick(s: GameState, dt: number) {
     // make a treating medic stand up and immediately ask to kneel again.
     if (previousWork.tending && c.members && order !== 'prone')
       desiredPose = u.pose === 'prone' ? 'prone' : 'crouch';
+    // Choose the real work height before the generic stance gate. Otherwise
+    // a prone worker first stands up, locks for ten seconds, then kneels.
+    if (worksite?.pending && (u.contactUntil ?? 0) <= s.time && u.suppression < 35 &&
+        Math.abs(u.x-worksite.x)<=1 && Math.abs(u.lane-worksite.lane)<=.5 &&
+        order !== 'prone') desiredPose = 'crouch';
     // A tripod is worked from a low position; this request still passes the
     // shared ten-second posture gate and the authored transition below.
     if (isHeavyGunner(u) && ((u.contactUntil ?? 0) > s.time ||
@@ -8836,7 +8846,6 @@ export function tick(s: GameState, dt: number) {
       (u.dispersionGoal !== undefined && Math.abs(u.dispersionGoal - u.x) <= 1)
     )
       u.dispersionGoal = undefined;
-    const worksite = c.members ? trenchWorksite(s, u) : null;
     const holdTravel =
       worksite &&
       !target &&
@@ -9861,8 +9870,8 @@ export function tick(s: GameState, dt: number) {
       Math.abs(u.x - worksite.x) <= 1 &&
       Math.abs(u.lane - worksite.lane) <= 0.5
     ) {
-      u.digging = true;
       u.pose = setStance(u, s.time, 'crouch');
+      u.digging = digWorkSettled(u,s.time);
       u.facing = dir;
     }
     if (c.armored && c.vehicleSupport !== 'mine_clear') {

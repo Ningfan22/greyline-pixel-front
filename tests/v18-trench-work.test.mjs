@@ -155,7 +155,10 @@ for (const side of [0, 1]) {
       }
       s.players[1 - side].order = 'hold';
       let climbs = 0;
-      run(s, 5, () => {
+      // The requested ten-second stance commitment still applies after
+      // digging. Allow it and the authored rise before requiring every man
+      // to fire over the 36px parapet; do not bypass that gate in production.
+      run(s, 12, () => {
         climbs += us.filter(
           (u) => u.climbing > 0 || u.motion === 'bank',
         ).length;
