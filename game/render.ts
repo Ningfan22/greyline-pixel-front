@@ -727,19 +727,8 @@ export function render(
       ctx.save();
       ctx.filter = 'grayscale(1) brightness(.5)';
     }
-    // Idle infantry breathe: a 1px slow bob keeps held positions alive without drawing anatomy.
-    const breathe =
-      c.members &&
-      !authoredBody &&
-      !u.moving &&
-      !isDead &&
-      !u.wounded &&
-      !u.surrendered &&
-      u.motion === 'ground' &&
-      !u.climbing &&
-      u.pose === 'idle'
-        ? Math.round(Math.sin(s.time * 2.1 + u.uid * 1.7))
-        : 0;
+    // Breathing must be painted torso motion, never translating planted
+    // boots (and separating the visible barrel from its ballistic origin).
     // Authored posture cels already contain their vertical motion. Do not
     // translate the whole body a second time or fade it when walking stops.
     const showProp = !!c.members && !isDead && u.cover > 0.2 && !u.moving;
@@ -811,7 +800,6 @@ export function render(
       u.y +
       infantryDepth(u.lane) +
       (u.glider ? 8 : isTank ? 0 : 3) +
-      breathe +
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);

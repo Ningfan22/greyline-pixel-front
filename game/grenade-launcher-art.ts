@@ -2,14 +2,11 @@ import type { Unit } from './engine';
 import type { SpecialistSprite, AdultSpecialistArt, SpecialistFrame } from './adult-specialists';
 import { stanceTransitionActive } from './infantry-action-timing';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { LAUNCHER_CEL_FEET as feet, LAUNCHER_CEL_MUZZLES as muzzle, WEAPON_POSES } from './weapon-pose-data';
 
 // The generated rows are unequal. Measured crops, fixed anatomical scale,
 // and foot anchors keep planted feet still while the hands cycle the breech.
 const xs = [0,222,444,666,888,1110,1329,1554,1774];
-const feet = [[91,326,533,756,981,1198,1418,1636],
-  [99,330,537,763,988,1204,1418,1644]];
-const muzzle = [[201,81],[430,73],[1520,113],[1749,77],
-  [202,489],[430,487],[1524,525],[1747,489]];
 export function grenadeLauncherAtlas(source: HTMLImageElement): SpecialistSprite[] {
   return Array.from({length:16},(_,i)=>{
     const row=Math.floor(i/8),col=i%8,top=row?425:0,bottom=row?730:425;
@@ -38,11 +35,11 @@ export function packedGrenadeLauncher(source: HTMLImageElement): {
   });
   const stance16:SpecialistFrame[]=images.slice(16).map(image=>({image,waist:[64,80],muzzle:null}));
   // Exactly the same whole-body endpoints during firing, resting and transitions.
-  for(const [i,cel,waist] of [[0,0,[64,65]],[7,8,[64,76]]] as const){
-    const f=cycle[cel];stance16[i]={image:f.image,waist,muzzle:f.muzzle?[64+f.muzzle.x,96-f.muzzle.height]:null};
+  for(const [i,cel,pose] of [[0,0,'stand'],[7,8,'crouch']] as const){
+    stance16[i]={image:cycle[cel].image,...WEAPON_POSES.grenade[pose]};
   }
   stance16[8]=stance16[7];
-  stance16[15].waist=[64,89];stance16[15].muzzle=[107.5,86];
+  Object.assign(stance16[15],WEAPON_POSES.grenade.prone);
   return {cycle,stances:{standing:stance16[0],crouch:stance16[7],prone:stance16[15],stance16}};
 }
 /** Pure presentation of the actual single-shot cooldown. Never restarts a

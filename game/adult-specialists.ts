@@ -4,6 +4,7 @@ import type { AdultFrameChoice } from './adult-animation';
 import { SPECIALIST_LANDMARKS } from './specialist-landmarks';
 import { isHeavyGunner } from './machinegun-team';
 import { isPrecisionObserver } from './precision-team';
+import { specialistLegWaist, specialistBodyOffset } from './weapon-pose-data';
 export type SpecialistRole =
   | 'machinegun'
   | 'rocket'
@@ -140,25 +141,11 @@ export function specialistSprite(
   }
   const found = variants.get(part);
   if (found) return found;
-  const waist = prone
-    ? choice.index === 12
-      ? [43, 92]
-      : [40, 92]
-    : low
-      ? [45, 68]
-      : running
-        ? [
-            [45, 60],
-            [44, 58],
-            [45, 59],
-            [44, 58],
-          ][choice.index - 16]
-        : [48, 63];
+  const waist = specialistLegWaist(choice.group,choice.index);
   const image = canvas(),
     ctx = image.getContext('2d')!;
   ctx.imageSmoothingEnabled = false;
-  const dx = Math.round(16 + waist[0] - part.waist[0]),
-    dy = Math.round(waist[1] - part.waist[1]);
+  const {x:dx,y:dy}=specialistBodyOffset(choice.group,choice.index,part);
   const targetX = 16 + waist[0],
     targetY = waist[1];
   ctx.save();

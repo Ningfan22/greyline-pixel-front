@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
 import { grenadeReleaseOrigin } from './grenade-geometry';
@@ -2971,11 +2972,11 @@ function retreatingFriendlyHit(
 type MuzzleBody = Pick<
   Unit,
   'id' | 'x' | 'y' | 'pose' | 'moving' | 'hullAngle'
->;
+> & Partial<InfantryWeaponBody>;
 type FiringBody = MuzzleBody & Pick<Unit, 'side' | 'member'>;
 export function muzzleOffset(u: MuzzleBody) {
   if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
-    return infantryGeometry(u).muzzleX;
+    return infantryWeaponMuzzle(u)?.x ?? infantryGeometry(u).muzzleX;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleX;
   if (CARDS[u.id].emplacement)
@@ -2998,7 +2999,7 @@ export function muzzleOffset(u: MuzzleBody) {
 }
 export function muzzleHeight(u: MuzzleBody) {
   if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
-    return infantryGeometry(u).muzzleHeight;
+    return infantryWeaponMuzzle(u)?.height ?? infantryGeometry(u).muzzleHeight;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleY;
   if (CARDS[u.id].emplacement)
@@ -3161,6 +3162,13 @@ function aaUmbrella(s: GameState, side: Side, x: number): boolean {
   }
   return false;
 }
+/** A forecast is a fresh settled body, never the current lowering clock. */
+function standingBody(u: MuzzleBody): MuzzleBody {
+  return {id:u.id,member:u.member,x:u.x,y:u.y,hullAngle:u.hullAngle,pose:'idle',moving:false};
+}
+function standingMuzzleHeight(u: MuzzleBody) {
+  return muzzleHeight(standingBody(u));
+}
 function firingHeight(
   s: GameState,
   u: FiringBody,
@@ -3191,22 +3199,10 @@ function firingHeight(
   // Only the stance planner may test a hypothetical standing shot. Target
   // selection must use the actual body: accepting a shot that needs a locked
   // stance made the soldier neither shoot nor look for a firing position.
-  if (
-    planStanding &&
-    c.members &&
-    clear(
-      {
-        id: u.id,
-        x: u.x,
-        y: u.y,
-        hullAngle: u.hullAngle,
-        pose: 'idle',
-        moving: false,
-      },
-      47,
-    )
-  )
-    return 47;
+  if (planStanding && c.members) {
+    const standing=standingBody(u),standingHeight=muzzleHeight(standing);
+    if(clear(standing,standingHeight))return standingHeight;
+  }
   return null;
 }
 
@@ -8011,7 +8007,7 @@ export function tick(s: GameState, dt: number) {
           [0, 12, 24].some(step => {
             const x = u.x + dir * step;
             return firingHeight(s, { ...lowBody, x, y: ground(s, x) },
-              enemy.x, enemy.y - bodyHeight(enemy), true) === 47;
+              enemy.x, enemy.y - bodyHeight(enemy), true) === standingMuzzleHeight(u);
           }))) {
         desiredPose = 'idle';
         setStance(u, s.time, 'idle');
@@ -9098,7 +9094,7 @@ export function tick(s: GameState, dt: number) {
     ) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
       if (!isHeavyGunner(u) && s.time >= (u.stanceLockUntil ?? 0) &&
-          firingHeight(s, u, threat.x, threat.y - 20, true) === 47)
+          firingHeight(s, u, threat.x, threat.y - 20, true) === standingMuzzleHeight(u))
         peekShouldExpose(s, u);
       const peekExposed = !isHeavyGunner(u) && (u.exposedUntil ?? 0) > s.time;
       if (peekExposed) {
@@ -9338,7 +9334,7 @@ export function tick(s: GameState, dt: number) {
         // A deliberate breach round is meant to collide with this surface.
         (coverShot || firingHeight(s, u, tx, ty) !== null)
       ) {
-        if (firingHeight(s, u, tx, ty) === 47) {
+        if (c.members && !c.indirect && firingHeight(s, u, tx, ty) === standingMuzzleHeight(u)) {
           // v128: never snap the pose per shot — the peek/cover block owns
           // stance. Keep the exposure window alive across the whole burst and
           // push the reload rest past the last shot, so a soldier fires a

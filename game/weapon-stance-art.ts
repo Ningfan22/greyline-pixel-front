@@ -1,4 +1,5 @@
 import type { AdultSpecialistArt, SpecialistFrame } from './adult-specialists';
+import { WEAPON_POSES } from './weapon-pose-data';
 
 /** Bounds and body anchors are measured in original pixels. A single scale
  * preserves anatomy through the complete drill; weapon length never fits or
@@ -51,16 +52,13 @@ export const UPPER_WEAPON_CELS = {
 
 export const UPPER_WEAPON_ENDPOINTS = {
   machinegun: [
-    { waist: [62.1, 66.2], muzzle: [96.1, 42.0] },
-    { waist: [59.8, 75.6], muzzle: [102.6, 60.3] },
+    WEAPON_POSES.machinegun.stand, WEAPON_POSES.machinegun.crouch,
   ],
   rocket: [
-    { waist: [62.1, 66.2], muzzle: [96.6, 41.8] },
-    { waist: [59.8, 75.6], muzzle: [103.9, 61.0] },
+    WEAPON_POSES.rocket.stand, WEAPON_POSES.rocket.crouch,
   ],
   sniper: [
-    { waist: [62.1, 66.2], muzzle: [104.1, 41.8] },
-    { waist: [59.8, 75.6], muzzle: [108.5, 61.6] },
+    WEAPON_POSES.sniper.stand, WEAPON_POSES.sniper.crouch,
   ],
 } as const;
 
@@ -82,7 +80,7 @@ export const LOWER_WEAPON_CELS: Record<
       [524, 409, 768, 475, 619],
       [779, 409, 1017, 475, 869],
     ],
-    endpoints: [{ waist: [63.0, 89.6], muzzle: [111.4, 83.2] }],
+    endpoints: [WEAPON_POSES.machinegun.prone],
   },
   rocket: {
     scale: 0.32,
@@ -96,7 +94,7 @@ export const LOWER_WEAPON_CELS: Record<
       [527, 889, 766, 955, 619],
       [773, 890, 1022, 955, 869],
     ],
-    endpoints: [{ waist: [63.0, 90.2], muzzle: [112.6, 83.8] }],
+    endpoints: [WEAPON_POSES.rocket.prone],
   },
   sniper: {
     scale: 0.32,
@@ -110,7 +108,7 @@ export const LOWER_WEAPON_CELS: Record<
       [525, 1364, 770, 1432, 619],
       [777, 1376, 1019, 1437, 869],
     ],
-    endpoints: [{ waist: [63.0, 91.2], muzzle: [112.0, 85.4] }],
+    endpoints: [WEAPON_POSES.sniper.prone],
   },
 };
 

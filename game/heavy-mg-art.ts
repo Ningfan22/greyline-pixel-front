@@ -3,6 +3,7 @@ import type { SpecialistSprite } from './adult-specialists';
 import { isHeavyGunner } from './machinegun-team';
 import { POSE_TRANSITION_S, stanceTransitionActive } from './infantry-action-timing';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { HEAVY_MG_MUZZLE } from './weapon-pose-data';
 
 // Measured cells of the original transparent image, not assumed 512px tiles.
 // Preserve authored pixels/alpha, one scale and a shared knee/foot baseline.
@@ -19,8 +20,8 @@ export function heavyMGAtlas(source: HTMLImageElement): SpecialistSprite[] {
     const dy = 93 - (row ? 395 : 396) * scale;
     ctx.drawImage(source, xs[col], ys[row], xs[col+1]-xs[col], ys[row+1]-ys[row],
       dx, dy, (xs[col+1]-xs[col])*scale, (ys[row+1]-ys[row])*scale);
-    return { image, muzzle: { x: dx + (421 + offsets[col])*scale - 64,
-      height: 96 - (dy + 185*scale) } };
+    return { image, muzzle: { x: HEAVY_MG_MUZZLE.x,
+      height: HEAVY_MG_MUZZLE.height-(row ? .14 : 0) } };
   });
 }
 
