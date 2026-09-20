@@ -1,7 +1,6 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
 import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive, magazineReloadCel } from './infantry-action-timing';
-import { isPrecisionObserver } from './precision-team';
 import { ammunition } from './ballistics';
 import { crouchTravelAmount } from './crouch-locomotion';
 import { supportWorkSettled } from './support-work';
@@ -25,6 +24,8 @@ export interface AdultSprites {
   lowGrenade32: HTMLCanvasElement[];
   /** Twelve standing/knee and ten prone tool-work cels. */
   repair34: HTMLCanvasElement[];
+  /** Subtle whole-body prone observation; never a raised crawling silhouette. */
+  proneIdle8: HTMLCanvasElement[];
 }
 export interface AdultFrameChoice {
   group: keyof AdultSprites;
@@ -38,7 +39,7 @@ export interface AdultFrameChoice {
 }
 /** These are whole-body authored actions, not bases for a decorative torso. */
 export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
-  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24','repair34'].includes(choice.group);
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24','repair34','proneIdle8'].includes(choice.group);
 }
 export function adultIdentity(id: CardId): AdultIdentity {
   if (id === 'militia') return 'militia';
@@ -126,10 +127,8 @@ export function crouchFidgetChoice(
 }
 
 /**
- * v118: prone idle fidget — the deck-level counterpart of
- * {@link crouchFidgetChoice}. A prone defender stirs between working the
- * ground and a low crawl posture so a held line reads as living vigilance
- * instead of a row of corpses. Same busy-gates as the crouch fidget.
+ * Quiet observation stays at the committed prone height. The legacy
+ * radio/crawl cels raise the torso by 6–8px and cannot be idle substitutes.
  */
 export function proneFidgetChoice(
   u: Unit,
@@ -141,11 +140,7 @@ export function proneFidgetChoice(
   if (u.digging || u.tending || u.draggingUid !== undefined) return null;
   if (u.vacuum) return null;
   if ((u.fragThrow ?? 0) > 0) return null;
-  const period = 11 + (u.uid % 4) * 1.1;
-  const phase = (time + u.uid * 5.47) % period;
-  if (phase < 1.5) return action(3); // prone, working the weapon/ground
-  if (phase < 2.6) return action(12); // low crawl posture, shifting position
-  return null;
+  return {group:'proneIdle8',index:Math.floor((time+u.uid*.73)/.6)%8};
 }
 
 /**
@@ -234,7 +229,8 @@ export function dugInBlastGlanceChoice(
   if (u.vacuum) return null;
   if ((u.fragThrow ?? 0) > 0) return null;
   if (u.pose === 'crouch') return { ...action(1), dir: u.blastGlanceDir ?? 1 };
-  if (u.pose === 'prone') return { ...action(2), dir: u.blastGlanceDir ?? 1 };
+  // A head glance is not an instantaneous 180° turn of a prone body/rifle.
+  if (u.pose === 'prone') return action(2);
   return null;
 }
 
@@ -282,8 +278,7 @@ export function dugInTraceGlanceChoice(
   if ((u.fragThrow ?? 0) > 0) return null;
   if (u.pose === 'crouch')
     return { ...action(1), dir: u.traceGlanceDir ?? 1 };
-  if (u.pose === 'prone')
-    return { ...action(2), dir: u.traceGlanceDir ?? 1 };
+  if (u.pose === 'prone') return action(2);
   return null;
 }
 
@@ -300,7 +295,9 @@ export function dugInTraceGlanceChoice(
 export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
   // Do not let decorative layers replace a throw, reload, or an authored
   // stance transition. They must never invent a different body height.
-  if ((u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
+  if (u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
+      u.climbing > 0 || u.motion !== 'ground' || u.secondaryFire > 0 ||
+      (u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
       stanceTransitionActive(u, time) || u.flash > 0 || u.tending ||
       (u.firstAidUntil ?? 0) > time) return null;
   return (
@@ -640,11 +637,8 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // at the stable prone/crouch frames below.
   if (u.pose === 'prone') {
     if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
-    // Work the radio from prone; observation never raises the silhouette.
-    if (u.id === 'scouts' || isPrecisionObserver(u)) {
-      const radioT = (time + u.uid * 1.37) % 4.4;
-      if (radioT < 1.2) return action(3);
-    }
+    // Observation uses the same grounded body as ordinary prone infantry.
+    // The old periodic radio cel was 6–8px taller and bypassed stance timing.
     // Keep the aimed torso planted; discharge effects carry weapon recoil.
     if (u.fire > 0 || u.secondaryFire > 0) return action(2);
     if ((u.aimUntil ?? 0) > time) return action(2);

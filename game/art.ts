@@ -26,6 +26,7 @@ import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
 import { wreckVariants } from './wreck-variants';
 import { paintedTankWrecks } from './tank-wreck-art';
+import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
@@ -610,6 +611,7 @@ export function loadArt() {
       loadImage('/art/grenade-launcher-frames-v159.png'),
       loadImage('/art/powder-smoke-frames-v161.png'),
       loadImage('/art/tank-wreck-frames-v162.png'),
+      loadImage('/art/prone-watch-frames-v163.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -661,6 +663,7 @@ export function loadArt() {
         grenadeLauncherSheet,
         smokeSheet,
         tankWreckSheet,
+        proneWatchSheet,
       ],
       extra,
       trees,
@@ -710,14 +713,15 @@ export function loadArt() {
       const medical24 = packedMedicalFrames(medicalSheet);
       const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
       const repair34 = packedRepairFrames(repairSheet);
+      const proneIdle8 = packedProneWatch(proneWatchSheet);
       // Command gestures were removed from all live selectors. Keep the
       // legacy field empty; do not fetch/decode four unused 1254px sheets.
       const signals4: HTMLCanvasElement[] = [];
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        marines: { ...adultAtlas(adultMarines), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        police: { ...adultAtlas(adultPolice), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        militia: { ...adultAtlas(adultMilitia), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
+        infantry: { ...adultAtlas(adultInfantry), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
+        marines: { ...adultAtlas(adultMarines), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
+        police: { ...adultAtlas(adultPolice), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
+        militia: { ...adultAtlas(adultMilitia), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
       };
       // The settled posture is the last painted cel: no snap to a differently
       // proportioned legacy body at the exact end of the transition.
