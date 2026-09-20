@@ -1,6 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas, signalFrames, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
+import { adultAtlas, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
 import { stanceAtlas } from './stance-art';
 import { packedWeaponStances } from './weapon-stance-art';
 import { packedMedicalFrames } from './medical-art';
@@ -586,10 +586,6 @@ export function loadArt() {
       loadImage('/art/adult-marines-v13.png'),
       loadImage('/art/adult-police-v13.png'),
       loadImage('/art/adult-militia-v13.png'),
-      loadImage('/art/adult-signals-infantry.webp'),
-      loadImage('/art/adult-signals-marines.webp'),
-      loadImage('/art/adult-signals-police.webp'),
-      loadImage('/art/adult-signals-militia.webp'),
       loadImage('/art/adult-specialists-v13.png'),
       loadImage('/art/ground-wrecks-v14.png'),
       loadImage('/art/air-wrecks-v14.png'),
@@ -639,10 +635,6 @@ export function loadArt() {
         adultMarines,
         adultPolice,
         adultMilitia,
-        signalInfantry,
-        signalMarines,
-        signalPolice,
-        signalMilitia,
         specialists,
         groundWrecks,
         airWrecks,
@@ -712,11 +704,14 @@ export function loadArt() {
       const medical24 = packedMedicalFrames(medicalSheet);
       const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
       const repair34 = packedRepairFrames(repairSheet);
+      // Command gestures were removed from all live selectors. Keep the
+      // legacy field empty; do not fetch/decode four unused 1254px sheets.
+      const signals4: HTMLCanvasElement[] = [];
       const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4: signalFrames(signalInfantry), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        marines: { ...adultAtlas(adultMarines), signals4: signalFrames(signalMarines), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        police: { ...adultAtlas(adultPolice), signals4: signalFrames(signalPolice), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
-        militia: { ...adultAtlas(adultMilitia), signals4: signalFrames(signalMilitia), reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
+        infantry: { ...adultAtlas(adultInfantry), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
+        marines: { ...adultAtlas(adultMarines), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
+        police: { ...adultAtlas(adultPolice), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
+        militia: { ...adultAtlas(adultMilitia), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34 },
       };
       // The settled posture is the last painted cel: no snap to a differently
       // proportioned legacy body at the exact end of the transition.
