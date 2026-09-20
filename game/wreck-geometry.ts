@@ -1,6 +1,7 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
 import { VEHICLE_SCALE } from './vehicle-geometry';
+import { paintedTankWreckGeometry } from './tank-wreck-geometry';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
@@ -408,8 +409,9 @@ export function wreckKind(id: CardId): WreckKind {
   if (Object.hasOwn(WRECKS, id)) return id as WreckKind;
   return modelOf(id) === 'tank' ? 'tank' : c.air ? 'helicopter' : 'ifv';
 }
-export function wreckGeometry(id: CardId) {
-  return WRECKS[wreckKind(id)];
+export function wreckGeometry(id: CardId,cause: 'bullet'|'blast'|'burn'='bullet') {
+  const kind=wreckKind(id);
+  return paintedTankWreckGeometry(kind,cause) ?? WRECKS[kind];
 }
 type Placement = {
   cardId: CardId;
@@ -418,13 +420,14 @@ type Placement = {
   angle: number;
   side: number;
   facing?: number;
+  cause?: 'bullet'|'blast'|'burn';
 };
 function facing(w: Pick<Placement, 'side' | 'facing'>) {
   return w.facing ?? (w.side === 0 ? 1 : -1);
 }
 /** Solid pieces only: holes between fuselage sections and empty rotor space remain passable. */
 export function wreckObstacles(w: Placement) {
-  const g = wreckGeometry(w.cardId),
+  const g = wreckGeometry(w.cardId,w.cause),
     dir = facing(w),
     cos = Math.cos(w.angle),
     sin = Math.sin(w.angle);
@@ -452,9 +455,9 @@ export function wreckObstacles(w: Placement) {
 /** Sample the main tracks/fuselage support span so a wide wreck can bridge a crater. */
 export function wreckContact(
   groundAt: (x: number) => number,
-  w: Pick<Placement, 'cardId' | 'side' | 'facing' | 'x'>,
+  w: Pick<Placement, 'cardId' | 'side' | 'facing' | 'x' | 'cause'>,
 ) {
-  const g = wreckGeometry(w.cardId),
+  const g = wreckGeometry(w.cardId,w.cause),
     dir = facing(w);
   const ends = g.support
     .slice(0, 2)

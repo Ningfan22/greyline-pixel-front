@@ -42,7 +42,13 @@ export function clearGliderLanding(s: GameState,x: number,side: Side) {
     if(parts.some(p=>p.x<right&&p.x+p.w>left&&p.h>10))return false;
   }
   for(const wall of s.walls)if(wall.hp>0&&wall.height>10&&wall.x-wall.width/2<right&&wall.x+wall.width/2>left)return false;
-  return !s.wrecks.some(w=>!w.falling&&!CARDS[w.cardId].members&&wreckObstacles(w).some(b=>b.x<right&&b.x+b.w>left&&b.h>10));
+  return !s.wrecks.some(w=>{
+    if(w.falling||CARDS[w.cardId].members)return false;
+    const parts=wreckObstacles(w).filter(b=>b.x<right&&b.x+b.w>left);
+    // A detailed wreck can be many thin contour bands; their individual
+    // rectangle height is not the height of the obstruction on the runway.
+    return parts.length>0&&Math.max(...parts.map(b=>b.y+b.h))-Math.min(...parts.map(b=>b.y))>10;
+  });
 }
 export function gliderLanding(s: GameState,request: number,side: Side): number | null {
   const desired=Math.max(650,Math.min(s.terrain.length-650,request));

@@ -421,39 +421,21 @@ export function render(
           continue;
         }
         ctx.save();
-        // v105: wrecks of the same card no longer look identical — three
-        // burn conditions plus stable per-wreck tilt/scale jitter and a
-        // scorch mark baked into the ground under the hulk.
         const wsd = w.id >>> 0;
-        const condition = wsd % 3;
-        // v109: pick the structural-state family by what killed the
-        // vehicle — blast kills blow apart, bullet kills riddle and
-        // breach, burn kills gut the interior — then layer the burn
-        // condition on top. Same-card wrecks now differ structurally.
+        // Damage is painted into whole alternative wrecks. Random black
+        // patches and strong darkening hid the metal detail and filled sky.
         const cause = w.cause ?? 'bullet';
         const family = art.wreckVariants[wreckKind(w.cardId)][cause];
-        const frame = filteredSprite(
-          family[wsd % family.length],
-          condition === 0
-            ? 'grayscale(1) brightness(.72)'
-            : condition === 1
-              ? 'grayscale(1) brightness(.55) contrast(1.12)'
-              : 'grayscale(.85) brightness(.64) sepia(.25)',
-        );
-        const shape = wreckGeometry(w.cardId);
-        // v112: structural variants carry the visual variety now — jitter
-        // is kept subtle so same-card wrecks don't look procedurally noisy.
-        const scaleJ = 0.97 + (wsd % 4) * 0.015;
-        const tiltJ = ((wsd >>> 3) % 3 - 1) * 0.015;
-        const dx = ((wsd >>> 5) % 3 - 1);
+        const frame = family[wsd % family.length];
+        const shape = wreckGeometry(w.cardId,w.cause);
         const scorch = Math.max(
           18,
-          Math.round(shape.width * (0.55 + (wsd % 4) * 0.12)),
+          Math.round((shape.support[1]-shape.support[0])*shape.width * (0.65 + (wsd % 4) * 0.1)),
         );
         ctx.fillStyle = `rgba(12,10,8,${0.22 + (wsd % 3) * 0.07})`;
         ctx.beginPath();
         ctx.ellipse(
-          Math.round(w.x + dx),
+          Math.round(w.x),
           Math.round(w.y + 2),
           scorch,
           Math.max(4, Math.round(scorch * 0.16)),
@@ -468,13 +450,13 @@ export function render(
         drawSprite(
           ctx,
           frame,
-          w.x + dx + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
+          w.x + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
           w.y + Math.sin(w.angle) * offset + Math.cos(w.angle) * inset,
-          frame.width * scaleJ,
-          frame.height * scaleJ,
+          frame.width,
+          frame.height,
           (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
           1,
-          w.angle + tiltJ,
+          w.angle,
         );
         ctx.restore();
         continue;

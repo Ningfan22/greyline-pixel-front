@@ -25,6 +25,7 @@ import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
 import { wreckVariants } from './wreck-variants';
+import { paintedTankWrecks } from './tank-wreck-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
@@ -608,6 +609,7 @@ export function loadArt() {
       loadImage('/art/repair-work-frames-v150.png'),
       loadImage('/art/grenade-launcher-frames-v159.png'),
       loadImage('/art/powder-smoke-frames-v161.png'),
+      loadImage('/art/tank-wreck-frames-v162.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -658,6 +660,7 @@ export function loadArt() {
         repairSheet,
         grenadeLauncherSheet,
         smokeSheet,
+        tankWreckSheet,
       ],
       extra,
       trees,
@@ -753,7 +756,7 @@ export function loadArt() {
         grenadeLauncher: grenadeLauncher.cycle,
         glider,
         wrecks: wreckFramesMap,
-        wreckVariants: {...wreckVariants(wreckFramesMap),
+        wreckVariants: {...wreckVariants(wreckFramesMap,paintedTankWrecks(tankWreckSheet)),
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),
         background,
