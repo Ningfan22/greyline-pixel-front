@@ -12,6 +12,7 @@ import { explosionAtlasV13, smokeAtlasV13, type PaintedBlasts } from './effect-a
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
 import { heavyMGAtlas } from './heavy-mg-art';
+import { packedGrenadeLauncher } from './grenade-launcher-art';
 import { gliderAtlas } from './glider-art';
 import {
   adultIdentity,
@@ -42,6 +43,7 @@ export interface Art {
   adultSpecialists?: AdultSpecialists;
   weaponStances?: AdultSpecialists;
   heavyMG?: SpecialistSprite[];
+  grenadeLauncher?: SpecialistSprite[];
   glider: HTMLCanvasElement[];
   background: HTMLCanvasElement;
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
@@ -607,6 +609,7 @@ export function loadArt() {
       loadImage('/art/medical-work-frames-v148.png'),
       loadImage('/art/low-grenade-frames-v149.png'),
       loadImage('/art/repair-work-frames-v150.png'),
+      loadImage('/art/grenade-launcher-frames-v152.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -659,6 +662,7 @@ export function loadArt() {
         medicalSheet,
         lowGrenadeSheet,
         repairSheet,
+        grenadeLauncherSheet,
       ],
       extra,
       trees,
@@ -728,6 +732,7 @@ export function loadArt() {
       for (const id of Object.keys(adults) as AdultIdentity[])
         patrol[id].raise3[2] = adults[id].actions20[0];
       const glider=gliderAtlas(gliderSheet);
+      const grenadeLauncher=packedGrenadeLauncher(grenadeLauncherSheet);
       const wreckFramesMap = wreckFrames(
         groundWrecks,
         airWrecks,
@@ -745,8 +750,9 @@ export function loadArt() {
         parachute,
         adults,
         adultSpecialists: specialistAtlas(specialists),
-        weaponStances: packedWeaponStances(packedWeaponSheet),
+        weaponStances: {...packedWeaponStances(packedWeaponSheet),grenade:grenadeLauncher.stances},
         heavyMG: heavyMGAtlas(heavyMG),
+        grenadeLauncher: grenadeLauncher.cycle,
         glider,
         wrecks: wreckFramesMap,
         wreckVariants: {...wreckVariants(wreckFramesMap),

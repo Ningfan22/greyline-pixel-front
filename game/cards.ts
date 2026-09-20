@@ -1301,7 +1301,7 @@ export const CARDS: Record<CardId, Card> = {
     'grenadiers',
     '榴弹支援组',
     4,
-    '4 人榴弹组，中距离范围压制，不具备对空能力。',
+    '4 人榴弹组，低弧线越过矮掩体压制地面。仍需确认目标，高墙和山体会拦截；无法对空。',
     {
       members: 4,
       hp: 220,

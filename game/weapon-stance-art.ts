@@ -114,7 +114,7 @@ export const LOWER_WEAPON_CELS: Record<
   },
 };
 
-function isolateFigure(
+export function isolateFigure(
   source: HTMLImageElement,
   left: number,
   top: number,

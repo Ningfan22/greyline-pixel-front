@@ -7,6 +7,7 @@ import { isPrecisionObserver } from './precision-team';
 export type SpecialistRole =
   | 'machinegun'
   | 'rocket'
+  | 'grenade'
   | 'sniper'
   | 'medic'
   | 'mortar';
@@ -79,7 +80,7 @@ export function specialistSprite(
   sets?: AdultSpecialists,
   weaponStances?: AdultSpecialists,
 ): SpecialistSprite | null {
-  const model = weaponModel(u) as SpecialistRole,
+  const model = (u.id === 'grenadiers' ? 'grenade' : weaponModel(u)) as SpecialistRole,
     // A portable LMG is not the heavy tripod gun. The precision observer
     // carries ordinary kit/radio, not a second sniper rifle.
     set =

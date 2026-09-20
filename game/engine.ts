@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
 import { grenadeReleaseOrigin } from './grenade-geometry';
 import { beginSupportTick, continueSupportWork, type SupportWork } from './support-work';
@@ -319,6 +320,9 @@ export interface Unit {
   artilleryChecks?: number[];
   artilleryReactAt?: number;
   lastCombatShotAt?: number;
+  /** Single-shot launcher drill advances with the real weapon cooldown. */
+  launcherCycleRemaining?: number;
+  launcherCycleDuration?: number;
   /** A real, completed magazine drill covered by the veteran's squad. */
   relayReload?: boolean;
   stillFor?: number;
@@ -2889,6 +2893,19 @@ function smallArmsRayIntercept(
   const soil = terrainIntercept(s, sx, sy, mx, my, true, true);
   return soil ?? (split < 1 ? terrainIntercept(s, mx, my, tx, ty, true) : null);
 }
+/** Aim with the same path the round will fly. A grenade is lobbed, not a
+ * mortar: it still collides with scenery on both ascent and descent. */
+export function directShotIntercept(
+  s: GameState, kind: ReturnType<typeof ammunition>,
+  sx: number, sy: number, tx: number, ty: number,
+) {
+  if (kind === 'grenade')
+    return lobIntercept(sx, sy, tx, ty, FLIGHT.grenade.arc,
+      (x0, y0, x1, y1) => terrainIntercept(s, x0, y0, x1, y1));
+  return isCoverBullet(kind)
+    ? smallArmsRayIntercept(s, sx, sy, tx, ty)
+    : terrainIntercept(s, sx, sy, tx, ty);
+}
 function retreatingFriendlyHit(
   s: GameState,
   p: Projectile,
@@ -3167,8 +3184,7 @@ function firingHeight(
       return false;
     return (
       u.id === 'javelin' ||
-      !(softCover ? smallArmsRayIntercept(s, point.x, point.y, tx, ty)
-        : terrainIntercept(s, point.x, point.y, tx, ty))
+      !directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty)
     );
   };
   if (clear(u, height)) return height;
@@ -7870,8 +7886,10 @@ export function tick(s: GameState, dt: number) {
     const morale = s.players[u.side].morale > 0;
     const syn = unitSynergy(s, u, s.time);
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
-    u.cooldown -=
-      dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
+    const weaponStep = dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
+    u.cooldown -= weaponStep;
+    if ((u.launcherCycleRemaining ?? 0) > 0)
+      u.launcherCycleRemaining = Math.max(0, u.launcherCycleRemaining! - weaponStep);
     // Small-arms magazines: lazy-init on first tick, then seat a fresh mag
     // once the reload window closes. A dry reserve leaves the weapon silent.
     if (u.ammo === undefined) {
@@ -9344,9 +9362,7 @@ export function tick(s: GameState, dt: number) {
           coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
-          !(isCoverBullet(ammunition(u.id, u.member))
-            ? smallArmsRayIntercept(s, sx, sy, tx, ty)
-            : terrainIntercept(s, sx, sy, tx, ty))
+          !directShotIntercept(s, ammunition(u.id, u.member), sx, sy, tx, ty)
         ) {
           const closeBurst =
             (u.assaultBurstUntil ?? 0) > s.time &&
@@ -9368,6 +9384,10 @@ export function tick(s: GameState, dt: number) {
               ? c.burstPause!
               : c.rate! * (closeBurst ? 0.65 : 1) * (spotted ? 0.7 : 1);
           const gunBurst = machinegunBurst(u);
+          if (u.id === 'grenadiers') {
+            u.launcherCycleDuration = u.cooldown;
+            u.launcherCycleRemaining = u.cooldown;
+          }
           if (gunBurst && (u.shots + 1) % gunBurst.rounds === 0) {
             u.cooldown = gunBurst.pause;
             u.mgBurstRestUntil = s.time + gunBurst.pause;
@@ -9897,7 +9917,7 @@ export function tick(s: GameState, dt: number) {
     } else {
       const t = 1 - Math.max(0, p.life) / p.total;
       p.x = p.startX + (p.tx - p.startX) * t;
-      p.y = p.startY + (p.ty - p.startY) * t - 4 * t * (1 - t) * (p.arc ?? 0);
+      p.y = lobY(p.startY, p.ty, p.arc ?? 0, t);
     }
     if (p.ammunition === 'rocket') {
       p.trailIn = (p.trailIn ?? 0) - dt;

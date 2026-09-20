@@ -19,6 +19,7 @@ import { treeBoxesV17 } from './tree-state-v17';
 import { blastVisible } from './impact-fx';
 import { specialistSprite } from './adult-specialists';
 import { heavyMGSprite } from './heavy-mg-art';
+import { grenadeLauncherSprite } from './grenade-launcher-art';
 import { patrolFrameV17 } from './patrol-art-v17';
 import { digFrameV18 } from './dig-art-v18';
 import { drawMineV18 } from './mine-art-v18';
@@ -609,7 +610,7 @@ export function render(
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
       body && choice && (!authoredBody || choice.group === 'stance16')
-        ? (!authoredBody ? heavyMGSprite(u, s.time, art.heavyMG) : null) ??
+        ? (!authoredBody ? grenadeLauncherSprite(u, s.time, art.grenadeLauncher) ?? heavyMGSprite(u, s.time, art.heavyMG) : null) ??
           specialistSprite(body, choice, u, art.adultSpecialists, art.weaponStances)
         : null;
     // v117: the patrol overlay only covers "plain" frames — the walk cycle

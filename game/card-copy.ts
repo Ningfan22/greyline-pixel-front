@@ -407,7 +407,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'GRENADIER TEAM',
     typeLabel: '榴弹班组',
     ability: '区域压制',
-    rule: '榴弹压制地面，无法对空。',
+    rule: '低弧越过矮掩体，无法对空。',
     flavor: '扔远了炸敌人，扔近了炸自己。',
   },
   antiarmor: {
