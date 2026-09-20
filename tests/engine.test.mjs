@@ -1,4 +1,5 @@
 import { terrainDepthLimit } from '../game/squad-orders.ts';
+import { PRONE_STEP_S } from '../game/prone-locomotion.ts';
 import { comebackBlock } from '../game/comeback.ts';
 import { AI_DECKS, DECK_PRESETS } from '../game/deck-presets.ts';
 import { CARD_COPY } from '../game/card-copy.ts';
@@ -1961,6 +1962,14 @@ check('三局完整模拟均可结算，资源与地形始终有效', () => {
         );
     }
     assert.equal(s.status, 'finished');
+    if (process.env.MATCH_DIAGNOSTICS) console.log(JSON.stringify({seed,time:s.time,
+      players:s.players.map(p=>({hp:p.hp,deck:p.deck.length,hand:p.hand.map(h=>h.id)})),
+      contacts:s.groundContacts,
+      units:s.units.map(u=>({id:u.id,uid:u.uid,side:u.side,x:u.x,hp:u.hp,wounded:u.wounded,
+        surrendered:u.surrendered,pose:u.pose,tactic:u.tactic,moving:u.moving,ammo:u.ammo,
+        reserve:u.ammoReserve,shots:u.shots,proneTravel:u.proneTravel,
+        proneMoveRequested:u.proneMoveRequested,reloadingUntil:u.reloadingUntil,
+        firingGoal:u.firingGoal,coverGoal:u.coverGoal,motion:u.motion}))}));
     for (const p of s.players) {
       assert(p.energy >= 0 && p.energy <= energyLimit(p));
       assert(p.hp >= 0 && p.hp <= 1000);
@@ -3098,7 +3107,9 @@ check('三条友军队列同时停火时，后排两侧均可绕行进入射程'
     // This is a pathing test, not a morale test: a lone 'advance' dummy 1v6
     // drains nerve and retreats off its marker. Hold order keeps it planted.
     target.tactic = 'hold';
-    advance(s, 12);
+    // Prepare the elbows before travel, then settle the body before sustained
+    // aimed fire. Keep the original path/range/shot requirements intact.
+    advance(s, 12 + 2 * PRONE_STEP_S);
     for (const u of rifles) {
       assert(u.shots >= 3, `side ${side}: blocked rifle did not engage`);
       assert(Math.abs(target.x - u.x) <= unitRange(s, u) + 0.1);
@@ -4792,6 +4803,9 @@ check('烟幕后不可见的优势敌军不触发后撤，观察到它们后才�
     const before = new Map(own.map((u) => [u.uid, u.x])),
       dir = side === 0 ? 1 : -1;
     advance(s, 1.5);
+    assert(own.some((u) => (u.withdrawUntil ?? 0) > s.time),
+      'observed superiority is recognised before the movement drill finishes');
+    advance(s, PRONE_STEP_S);
     assert(
       own.some((u) => (u.x - before.get(u.uid)) * dir < -5),
       'observed superiority causes controlled fallback',

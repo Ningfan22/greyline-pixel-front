@@ -49,6 +49,7 @@ export function pauseMagazineDrill(u: Unit, time: number, dt: number): void {
     stanceTransitionActive(u,previous) ||
     ((u.pose === 'crouch' || u.pose === 'hunker') &&
       (u.crouchTravel ?? 0) > 0 && (u.crouchTravel ?? 0) < 1) ||
+    (u.pose === 'prone' && (u.proneTravel ?? 0) > 0 && (u.proneTravel ?? 0) < 1) ||
     (u.fragThrow ?? 0) > 0 || u.tending || u.draggingUid !== undefined ||
     (u.firstAidUntil ?? 0) > previous;
   if (!busy) return;

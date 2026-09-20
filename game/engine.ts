@@ -15,6 +15,7 @@ import { isBattleTank, infantryConcentrations, tankTargetPriority, tankPurchaseB
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { advanceLauncherDrill, launcherDrillBusy } from './launcher-drill';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
+import { proneStartDelay, proneTravelAmount, proneTravelApplies, proneMotionActive, requestProneStep, stepProneLocomotion } from './prone-locomotion';
 import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
@@ -462,6 +463,11 @@ export interface Unit {
   crouchMoveRequested?: boolean;
   crouchStoppedFor?: number;
   crouchStepCommittedUntil?: number;
+  /** Settled aim=0, supported elbow crawl=1; simulation-owned start/stop. */
+  proneTravel?: number;
+  proneMoveRequested?: boolean;
+  proneStoppedFor?: number;
+  proneStepCommittedUntil?: number;
   motion: 'ground' | 'jump' | 'land' | 'bank';
   motionTime: number;
   motionDuration: number;
@@ -3512,15 +3518,16 @@ function setStance(
     time < u.stanceLockUntil
   )
     return u.pose;
-  const fromTravel = crouchTravelAmount(u);
+  const fromTravel = curClass === 'prone' ? proneTravelAmount(u) : crouchTravelAmount(u);
   u.pose = desired;
   u.stanceLockUntil = time + STANCE_COOLDOWN_S;
   const nextClass = stanceClass(desired);
   if (nextClass !== 'motion') {
     u.poseAnimFrom = curClass;
     u.poseAnimSeen = nextClass;
-    u.poseAnimFromTravel = curClass === 'crouch' ? fromTravel : 0;
-    u.poseAnimToTravel = nextClass === 'crouch' && options?.travel ? 1 : 0;
+    u.poseAnimFromTravel = curClass === 'crouch' || curClass === 'prone' ? fromTravel : 0;
+    u.poseAnimToTravel = options?.travel && (nextClass === 'crouch' ||
+      (nextClass === 'prone' && proneTravelApplies(u))) ? 1 : 0;
     u.poseAnimAt = time;
     u.poseAnimProgress = 0;
   }
@@ -3579,7 +3586,7 @@ export function coveringMate(
       (!c.members && !airThreat) ||
       c.indirect ||
       v.moving ||
-      stanceTransitionActive(v,s.time) || crouchMotionActive(v) ||
+      stanceTransitionActive(v,s.time) || crouchMotionActive(v) || proneMotionActive(v) ||
       v.motion !== 'ground' ||
       v.climbing > 0 ||
       v.tactic === 'retreat' ||
@@ -3820,7 +3827,7 @@ function moveSoldier(
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
-  if (!requestCrouchStep(u,s.time)) return;
+  if (!requestCrouchStep(u,s.time) || !requestProneStep(u,s.time)) return;
   u.facing = dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
@@ -3834,7 +3841,10 @@ function moveSoldier(
     u.stepCooldown <= 0 &&
     aheadDepth >= DROP_HEIGHT &&
     ahead - y >= DROP_HEIGHT &&
-    depth < 12
+    // A distant ledge is not yet a fall. Reach the supported edge first;
+    // otherwise a slow crawl repeatedly hops and lands on the same flat lip.
+    ground(s, u.x + dir * 2) - y > 3 &&
+    depth < 3
   ) {
     if (mayTraverse) beginDrop(u, dir, speed);
     return;
@@ -4615,7 +4625,7 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
     u.dispersionGoal = undefined;
   }
   continueHeavyWithdrawal(s, u);
-  const settled = !u.moving && !crouchMotionActive(u) && !stanceTransitionActive(u,s.time) && u.motion === 'ground' && u.climbing <= 0;
+  const settled = !u.moving && !crouchMotionActive(u) && !proneMotionActive(u) && !stanceTransitionActive(u,s.time) && u.motion === 'ground' && u.climbing <= 0;
   u.stillFor = settled ? (u.stillFor ?? 0) + dt : 0;
   if (isHeavyGunner(u))
     u.emplacementSetupUntil = s.time + Math.max(0, HEAVY_MG_SETUP - (u.stillFor ?? 0));
@@ -7566,6 +7576,7 @@ export function tick(s: GameState, dt: number) {
     if (!isCombatant(u) || u.rappelling || u.parachuting || u.tactic === 'retreat' ||
         orderedWithdrawal(s,u) || localUnitOrder(s,u) === 'retreat') clearRepairAssignment(u);
     u.crouchMoveRequested = false;
+    u.proneMoveRequested = false;
     u.fragCooldown = Math.max(0, (u.fragCooldown ?? 0) - dt);
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
       // Incapacitation before release cancels preparation; no delayed throw
@@ -8173,7 +8184,7 @@ export function tick(s: GameState, dt: number) {
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
-      ? setStance(u, s.time, desiredPose, { travel: order === 'crouch' && (u.contactUntil ?? 0) <= s.time && !previousWork.tending })
+      ? setStance(u, s.time, desiredPose, { travel: (order === 'crouch' || order === 'prone') && (u.contactUntil ?? 0) <= s.time && !previousWork.tending })
       : desiredPose;
     if (c.members && u.withdrawStandby)
       u.pose = setStance(u, s.time, 'crouch', { force: true });
@@ -8657,7 +8668,7 @@ export function tick(s: GameState, dt: number) {
         u.squadOrder !== 'retreat' &&
         (u.withdrawUntil ?? 0) <= s.time &&
         (u.reloadingUntil ?? 0) <= s.time &&
-        !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && crouchTravelAmount(u) === 0 &&
+        !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && crouchTravelAmount(u) === 0 && proneTravelAmount(u) === 0 &&
         fragTarget &&
         (!relay || grenadeRelayReady(s,u,mate =>
           Math.abs(mate.x-fragTarget.x)<=unitRange(s,mate) &&
@@ -9215,7 +9226,7 @@ export function tick(s: GameState, dt: number) {
       target &&
       // A safe cover/withdrawal move owns its initial rise and first step.
       // Cooldown expiry cannot cancel it halfway and restart it next frame.
-      !((u.crouchStepCommittedUntil ?? 0) > s.time &&
+      !(Math.max(u.crouchStepCommittedUntil ?? 0,u.proneStepCommittedUntil ?? 0) > s.time &&
         (seeking || displacing || withdrawing || u.tactic === 'bound')) &&
       !dispersionStep &&
       !(escortAhead && s.time - (u.lastCombatShotAt ?? -100) < 0.8) &&
@@ -9369,7 +9380,7 @@ export function tick(s: GameState, dt: number) {
       coveringMate(s, u, target) &&
       s.time >= (u.boundRestUntil ?? 0);
     if (bounding) {
-      if (!stanceTransitionActive(u,s.time) && crouchStartDelay(u) === 0)
+      if (!stanceTransitionActive(u,s.time) && crouchStartDelay(u)+proneStartDelay(u) === 0)
         u.boundStartedAt ??= s.time;
       if (u.boundStartedAt !== undefined && s.time - u.boundStartedAt >= 0.55 + (u.uid % 3) * 0.08) {
         bounding = false;
@@ -9385,7 +9396,7 @@ export function tick(s: GameState, dt: number) {
       u.mgBoundGoal = u.x + dir * 24;
       // A covering bound includes the real time needed to rise off the knee.
       // Only a chosen covered move extends the burst rest, not ordinary fire.
-      u.mgBurstRestUntil = (u.mgBurstRestUntil ?? s.time) + crouchStartDelay(u);
+      u.mgBurstRestUntil = (u.mgBurstRestUntil ?? s.time) + crouchStartDelay(u)+proneStartDelay(u);
     }
     const mobileBurstStep = mobileBurstCover && Math.abs(u.mgBoundGoal! - u.x) > 1;
     // Prepared ambushers let distant patrols approach instead of revealing
@@ -9399,7 +9410,7 @@ export function tick(s: GameState, dt: number) {
     // — but the hull keeps its face toward the enemy.
     const reversing =
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
-    if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u))) &&
+    if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
     if (
@@ -9499,7 +9510,7 @@ export function tick(s: GameState, dt: number) {
       if (
         u.cooldown <= 0 &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
-        (!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u))) &&
+        (!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&
         !(
@@ -9925,7 +9936,7 @@ export function tick(s: GameState, dt: number) {
               : undefined;
         const laneChange =
           desiredLane !== undefined && !stanceTransitionActive(u, s.time) &&
-            (Math.abs(desiredLane-u.lane) <= .001 || requestCrouchStep(u,s.time))
+            (Math.abs(desiredLane-u.lane) <= .001 || (requestCrouchStep(u,s.time) && requestProneStep(u,s.time)))
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
             : 0;
         u.lane += laneChange;
@@ -10055,7 +10066,10 @@ export function tick(s: GameState, dt: number) {
     } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
   }
-  for (const u of s.units) if (CARDS[u.id].members) stepCrouchLocomotion(u,s.time,dt);
+  for (const u of s.units) if (CARDS[u.id].members) {
+    stepCrouchLocomotion(u,s.time,dt);
+    stepProneLocomotion(u,s.time,dt);
+  }
   if (airPositions)
     for (const u of s.units) {
       const previous = airPositions.get(u.uid);

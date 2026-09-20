@@ -3,6 +3,7 @@ import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { infantryGeometry } from './infantry-geometry';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { proneTravelAmount } from './prone-locomotion';
 import { pathfinderReady, ambushConcealed } from './infantry-specialties';
 import { filteredSprite } from './render-cache';
 import {
@@ -656,7 +657,7 @@ export function render(
     // ground. Specialist sprites, climbers, rappellers and casualties keep
     // their own animation path.
     const heldPose =
-      c.members && !authoredBody && crouchTravelAmount(u) === 0 &&
+      c.members && !authoredBody && crouchTravelAmount(u) === 0 && proneTravelAmount(u) === 0 &&
       !isDead &&
       !u.wounded &&
       !u.surrendered &&

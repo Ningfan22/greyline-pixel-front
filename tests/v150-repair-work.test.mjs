@@ -62,9 +62,11 @@ test('both armies approach the real hull end and perform steady work without sta
       tick(s,1/60);const f=adultFrameChoice(u,s.time);
       if(u.tendingKind==='repair'){
         assert(atRepairContact(u,v));assert.equal(u.pose,pose);assert.equal(u.moving,false);
-        if(!stanceTransitionActive(u,s.time)&&(u.crouchTravel??0)===0){
+        if(!stanceTransitionActive(u,s.time)&&(u.crouchTravel??0)===0&&(u.proneTravel??0)===0){
           assert.equal(f.group,'repair34');seen.add(f.index);workTicks++;firstWorkX??=u.x;
           assert.equal(u.x,firstWorkX);
+        } else if((u.proneTravel??0)>0) {
+          assert.equal(f.group,'stance16');assert.equal(u.tendingTime,0);assert.equal(v.hp,lastHealth);
         }
       } else assert.notEqual(f.group,'repair34');
       if(v.hp>lastHealth){assert(u.tendingTime>=REPAIR_FIRST_WORK_S);assert(atRepairContact(u,v));}

@@ -1,5 +1,6 @@
 import type { Unit } from './engine';
 import { magazineReloadActive, stanceTransitionActive } from './infantry-action-timing';
+import {proneTravelAmount,PRONE_STEP_S} from './prone-locomotion';
 
 export const CROUCH_STEP_S = .9;
 export const CROUCH_STOP_GRACE_S = 1.25;
@@ -53,7 +54,7 @@ export function stepCrouchLocomotion(u: Unit, time: number, dt: number) {
 }
 /** Finish lowering before the first magazine cel; preserve all eight beats. */
 export function startMagazineDrill(u: Unit, time: number, duration: number) {
-  const settle = !u.moving ? crouchTravelAmount(u) * CROUCH_STEP_S : 0;
+  const settle = !u.moving ? crouchTravelAmount(u) * CROUCH_STEP_S + proneTravelAmount(u)*PRONE_STEP_S : 0;
   u.reloadingStartAt = time + settle;
   u.reloadingUntil = u.reloadingStartAt + duration;
 }

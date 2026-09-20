@@ -3,6 +3,7 @@ import type { Unit } from './engine';
 import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive, magazineReloadCel } from './infantry-action-timing';
 import { ammunition } from './ballistics';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { proneTravelAmount } from './prone-locomotion';
 import { supportWorkSettled } from './support-work';
 export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
 export interface AdultSprites {
@@ -524,6 +525,14 @@ export function poseTransitionChoice(
     const end = u.poseAnimSeen === 'stand' ? 0 : u.poseAnimSeen === 'prone' ? 15 : low;
     if (low < 7) chain = Array.from({length:Math.abs(end-start)+1},(_,i)=>start+i*Math.sign(end-start));
   }
+  // Leaving a supported crawl starts at its real low torso, not the flat
+  // aim endpoint. Reuse only the authored prone tail, never a knee/climb cel.
+  if ((u.poseAnimFrom === 'prone' && (u.poseAnimFromTravel ?? 0)>0) ||
+      (u.poseAnimSeen === 'prone' && (u.poseAnimToTravel ?? 0)>0)) {
+    const start=u.poseAnimFrom==='prone' ? 15-Math.round((u.poseAnimFromTravel??0)*4) : chain[0];
+    const end=u.poseAnimSeen==='prone' ? 15-Math.round((u.poseAnimToTravel??0)*4) : chain[chain.length-1];
+    chain=Array.from({length:Math.abs(end-start)+1},(_,i)=>start+i*Math.sign(end-start));
+  }
   return { group: 'stance16', index: chain[Math.min(chain.length - 1, Math.floor(progress * chain.length))] };
 }
 
@@ -559,6 +568,11 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.rappelling) return action(8 + cycle(u.walk / 2, 2));
   const poseTransition = poseTransitionChoice(u, time);
   if (poseTransition && u.motion === 'ground') return poseTransition;
+  const proneTravel=proneTravelAmount(u);
+  if(proneTravel>0 && (u.motion==='ground'||u.motion==='bank') && u.climbing<=0) {
+    if(proneTravel<1)return {group:'stance16',index:15-Math.round(proneTravel*4)};
+    return {group:'crawl2',index:cycle(u.walk/2,2)};
+  }
   const lowTravel = crouchTravelAmount(u);
   if (lowTravel > 0 && u.motion === 'ground' && u.climbing <= 0) {
     if (lowTravel < 1) return { group:'stance16', index:7-Math.round(lowTravel*5) };

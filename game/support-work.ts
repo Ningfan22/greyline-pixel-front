@@ -1,6 +1,7 @@
 import type { Unit } from './engine';
 import { magazineReloadActive, stanceTransitionActive } from './infantry-action-timing';
 import { crouchTravelAmount } from './crouch-locomotion';
+import { proneTravelAmount } from './prone-locomotion';
 
 export type SupportWork = 'medical' | 'repair';
 type PreviousWork = Pick<Unit, 'tending' | 'tendingKind' | 'tendingTime' | 'tendingTargetUid'>;
@@ -8,7 +9,7 @@ type PreviousWork = Pick<Unit, 'tending' | 'tendingKind' | 'tendingTime' | 'tend
 export function supportWorkSettled(u: Unit, time: number) {
   return u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling && !u.parachuting &&
     !u.moving && u.motion === 'ground' && u.climbing <= 0 &&
-    !stanceTransitionActive(u,time) && crouchTravelAmount(u) === 0;
+    !stanceTransitionActive(u,time) && crouchTravelAmount(u) === 0 && proneTravelAmount(u) === 0;
 }
 
 /** The shovel artwork is kneeling work, never an alternate standing/prone
