@@ -7,8 +7,8 @@ import { packedMedicalFrames } from './medical-art';
 import { packedLowGrenades } from './low-grenade-art';
 import { lowReloadAtlas } from './low-reload-art';
 import { packedRepairFrames } from './repair-art';
-import { paintedBlastAtlas, paintedFootings } from './battlefield-effects-art';
-import { explosionAtlasV13, type PaintedBlasts } from './effect-atlas';
+import { paintedFootings } from './battlefield-effects-art';
+import { packedBlastFrames, type PaintedBlasts } from './effect-atlas';
 import { packedSmokeFrames } from './smoke-art';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
@@ -581,8 +581,8 @@ export function loadArt() {
       loadImage('/art/fixed-wing-v12.png'),
       loadImage('/art/rotorcraft-v12.png'),
       loadImage('/art/tanks-v12.png'),
-      loadImage('/art/explosions-v12.png'),
-      loadImage('/art/explosions-v13.png'),
+      loadImage('/art/blast-he-frames-v165.png'),
+      loadImage('/art/blast-grenade-frames-v165.png'),
       loadImage('/art/buildings-v13.png'),
       loadImage('/art/building-collapse-v13.png'),
       loadImage('/art/adult-infantry-v13.png'),
@@ -601,8 +601,8 @@ export function loadArt() {
       loadImage('/art/glider-v141.png'),
       loadImage('/art/infantry-stance-v142.png'),
       loadImage('/art/infantry-reload-v143.png'),
-      loadImage('/art/fuel-blast-v145.png'),
-      loadImage('/art/earth-blast-v145.png'),
+      loadImage('/art/blast-fuel-frames-v165.png'),
+      loadImage('/art/blast-earth-frames-v165.png'),
       loadImage('/art/building-footings-v145.png'),
       loadImage('/art/weapon-stance-frames-v147.png'),
       loadImage('/art/medical-work-frames-v148.png'),
@@ -612,6 +612,7 @@ export function loadArt() {
       loadImage('/art/powder-smoke-frames-v161.png'),
       loadImage('/art/tank-wreck-frames-v162.png'),
       loadImage('/art/prone-watch-frames-v163.png'),
+      loadImage('/art/blast-air-frames-v165.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -633,8 +634,8 @@ export function loadArt() {
         fixedWing,
         rotorcraft,
         tanks,
-        combatExplosions,
-        combatExplosionsV13,
+        heBlastSheet,
+        grenadeBlastSheet,
         buildings,
         collapse,
         adultInfantry,
@@ -664,6 +665,7 @@ export function loadArt() {
         smokeSheet,
         tankWreckSheet,
         proneWatchSheet,
+        airBlastSheet,
       ],
       extra,
       trees,
@@ -702,9 +704,11 @@ export function loadArt() {
         [0, 249, 475, 768],
         true,
       );
-      const fx = atlasFrames(transparentSheet(combatExplosions), 8, 6);
-      const explosionSource = transparentSheet(combatExplosionsV13);
-      const fx13 = explosionAtlasV13(explosionSource);
+      const heFrames = packedBlastFrames(heBlastSheet),
+        grenadeFrames = packedBlastFrames(grenadeBlastSheet),
+        airFrames = packedBlastFrames(airBlastSheet),
+        fuelFrames = packedBlastFrames(fuelBlastSheet),
+        earthFrames = packedBlastFrames(earthBlastSheet);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const reload8 = standingReloadFrames(standingReload);
       const grenade8 = standingGrenadeFrames(standingGrenade);
@@ -788,7 +792,7 @@ export function loadArt() {
         emplacements: buildEmplacements(emplacements),
         scenery: sceneryFrames(scenery),
         buildings: {...buildingFrames(buildings, collapse),footings:paintedFootings(footingSheet)},
-        paintedBlasts: {fuel:paintedBlastAtlas(fuelBlastSheet,'fuel'),earth:paintedBlastAtlas(earthBlastSheet,'earth')},
+        paintedBlasts: {fuel:fuelFrames,earth:earthFrames,he:heFrames,grenade:grenadeFrames,air:airFrames},
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
         smoke: packedSmokeFrames(smokeSheet),
@@ -798,12 +802,10 @@ export function loadArt() {
             stableTracks(tankArt[row], 10),
           ]),
         ),
-        // Read each authored sequence once in chronological order. Interleaving
-        // the decay row with earlier fire cels made dying blasts ignite again.
-        combatExplosions: [fx[0].concat(fx[1]), fx[2].concat(fx[3]), fx[4].concat(fx[5])],
-        // v13 authored families: A fuel-air vehicle blast, B vertical artillery
-        // column, C sharp grenade flash — each 16 frames over two atlas rows.
-        combatExplosionsV13: [fx13[0].concat(fx13[1]), fx13[2].concat(fx13[3]), fx13[4].concat(fx13[5])],
+        // Legacy API aliases share the new cels; do not download/key/cut the
+        // old touching-plume sheets just to populate compatibility fields.
+        combatExplosions: [heFrames, fuelFrames, airFrames],
+        combatExplosionsV13: [fuelFrames, earthFrames, grenadeFrames],
       };
     },
   );

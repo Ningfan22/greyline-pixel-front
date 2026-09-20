@@ -13,6 +13,20 @@ export const EXPLOSION_BANDS = [
 export interface PaintedBlasts {
   fuel: HTMLCanvasElement[];
   earth: HTMLCanvasElement[];
+  he?: HTMLCanvasElement[];
+  grenade?: HTMLCanvasElement[];
+  air?: HTMLCanvasElement[];
+}
+
+/** Prepared, isolated cels; every family shares scale/origin within its strip.
+ * Never key out neutral pixels here: pale flash and grey smoke are real paint. */
+export function packedBlastFrames(image: HTMLImageElement) {
+  return Array.from({length:16},(_,i)=>{
+    const frame=document.createElement('canvas');frame.width=144;frame.height=160;
+    const ctx=frame.getContext('2d')!;ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(image,(i%4)*144,Math.floor(i/4)*160,144,160,0,0,144,160);
+    return frame;
+  });
 }
 const COLUMN_CUTS = [
   [0, 180, 370, 559, 750, 943, 1132, 1320, 1448],

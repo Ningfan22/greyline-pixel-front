@@ -401,7 +401,9 @@ export function drawBlast(
     grenade = b.kind === 'grenade';
   const air = b.kind === 'air',
     crash = b.kind === 'crash';
-  const authored = painted && (crash || b.kind === 'wreck' ? painted.fuel : b.kind === 'artillery' ? painted.earth : undefined);
+  const authored = painted && (crash || b.kind === 'wreck' ? painted.fuel :
+    b.kind === 'artillery' ? painted.earth : grenade ? painted.grenade : air ? painted.air :
+    b.kind === 'he' ? painted.he : undefined);
   const frames = authored ?? (penetration
     ? legacy[0]
     : !generated
@@ -432,7 +434,7 @@ export function drawBlast(
             : b.kind === 'artillery'
               ? Math.max(210, Math.min(320, b.radius * 6))
               : Math.max(90, Math.min(250, b.radius * 5))) * scaleJ;
-  const anchor = authored ? 154/160 : penetration
+  const anchor = authored ? (air ? .5 : 154/160) : penetration
     ? 268 / 300
     : air
       ? 0.6
