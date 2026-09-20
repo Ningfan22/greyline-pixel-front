@@ -18,6 +18,16 @@ export interface SceneryPart {
   kind: 'wall' | 'roof' | 'trunk' | 'crown';
   brokenAt: number;
 }
+/** Last confirmed ground contact, never a reference to a hidden live unit. */
+export interface GroundContact {
+  uid: number;
+  side: Side;
+  x: number;
+  y: number;
+  seenAt: number;
+  clearSince?: number;
+}
+export const CONTACT_CLEAR_CONFIRM_S = 1.5;
 export interface Scenery {
   id: number;
   kind: 'house' | 'tree';
@@ -647,7 +657,7 @@ const visibleLookup = new WeakMap<
   number[],
   { length: number; ids: Set<number> }
 >();
-export function visibleToSide(s: GameState, side: Side, u: Unit) {
+export function visibleToSide(s: GameState, side: Side, u: Pick<Unit, 'uid' | 'side'>) {
   if (u.side === side) return true;
   const ids = s.visible[side];
   let lookup = visibleLookup.get(ids);
@@ -720,7 +730,34 @@ export function refreshVision(s: GameState) {
         pointVisible(s, side, prop.x, prop.y - 12)
       )
         s.knownScenery[side][prop.id] = structuredClone(prop);
+    rememberGroundContacts(s, side);
   }
+}
+/** A disappearing silhouette is not proof that its sector has been cleared.
+ * Update only from observed units; hidden movement/death must not leak into
+ * the record. Clear an absent contact after a sustained look at ground level,
+ * not at its old head height (which can remain visible above a fresh crater). */
+function rememberGroundContacts(s: GameState, side: Side) {
+  const reports = s.groundContacts ??= [[], []];
+  const remembered = new Map(reports[side].map(c => [c.uid, c]));
+  for (const u of s.units) {
+    if (u.side === side) { remembered.delete(u.uid); continue; }
+    if (!visibleToSide(s, side, u)) continue;
+    if (CARDS[u.id].air || u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting) {
+      remembered.delete(u.uid);
+      continue;
+    }
+    remembered.set(u.uid, {uid:u.uid, side:u.side, x:u.x, y:u.y, seenAt:s.time});
+  }
+  for (const c of remembered.values()) {
+    if (visibleToSide(s, side, c)) continue;
+    const knownY = s.knownTerrain[side][Math.max(0,Math.min(s.terrain.length-1,Math.floor(c.x)))] ?? c.y;
+    if (pointVisible(s, side, c.x, Math.max(c.y, knownY)-6)) {
+      c.clearSince ??= s.time;
+      if (s.time-c.clearSince >= CONTACT_CLEAR_CONFIRM_S) remembered.delete(c.uid);
+    } else c.clearSince = undefined;
+  }
+  reports[side] = [...remembered.values()];
 }
 export function damageScenery(
   s: GameState,

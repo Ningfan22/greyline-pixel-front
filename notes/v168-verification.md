@@ -1,0 +1,28 @@
+# v168 — do not mistake lost sight for a cleared front
+
+## Reproduced failure
+
+`contactSafeX` constrained ground travel only against currently visible living enemies. A previously observed prone enemy dropping into a normal 28px crater disappeared behind the lip, removing the entire stop line. In a flat diagnostic with friendly x1000 and enemy x1160, the old infantry closed to96.42px and the tank to116px, inside their respective105/150px safety margins. This uses real `refreshVision` and the normal crater function, not forced visibility ids. The test pre-settles the enemy at the crater floor to isolate the post-impact visibility problem from falling animation.
+
+## Changes
+
+- Each side keeps value snapshots of ground contacts it actually observed. A snapshot contains uid, side, position and observation/clearance times; it is not a live hidden-unit reference.
+- Losing sight preserves the last known stop line. Hidden movement, death, removal, surrender or injury cannot silently update or delete it. Rearward travel and aircraft remain unrestricted; unseen units that were never reported create no phantom barrier.
+- A visible incapacitated enemy clears its report immediately. An absent contact is cleared only after1.5 seconds of continuous ground-level observation at its last known site. The check uses known terrain and the lower of the old/current-known footing, so seeing above a newly dug crater is insufficient. Interrupted inspection resets confirmation. There is deliberately no expiry that blindly declares an unobserved sector safe.
+- The existing AI illumination branch searched its visible-only enemy list for invisible enemies, an impossible condition. It now uses the last reported nearby sector, including for a single isolated squad, and pays normal card/CP costs. Recon, spotter and illumination-round priorities also account for this sector. No targeting or damage gains access to live hidden coordinates.
+- Towed artillery stopped by the line now advances its animation by actual travelled distance, rather than the rejected requested movement. No in-place marching when blocked.
+
+## Verification
+
+-49 focused checks:10 new contact/clearance/AI/towing cases,16 v135 battle regressions,6 v156 bank cases,10 v155 insertion-role cases and7 v160 tank-role cases. The new cases cover both directions, infantry/armor, support units, genuine visibility loss/reacquisition, interrupted inspection, unknown units, airborne exclusions, snapshot isolation, paid/affordable/ready-card gates, and advance after a cleared sector. The first flare-coordinate assertion was corrected to account for the ordinary same-tick flare drift; launch position is reconstructed exactly, not accepted with a wide positional tolerance.
+-The foundational engine suite passed all170 gameplay checks, including three complete seeded games ending in actual headquarters destruction (seeds13/71/102 at337.3/392.0/287.0 seconds). This is not a claim that every game has a decisive result.
+-Native-canvas QA output: `/var/folders/mt/w9779b795sddhd14ddd3ty9r0000gn/T/greyline-v168-contact-uNO9Er`.943 production renders with normal visibility; renderer leaves units and contact memory unchanged. Both infantry and tank stop at exact x1055/x1010, then resume after a real paid flare and sustained empty-ground inspection. The owner inspected holding/cleared views and an autonomous desert battle capture.
+-Four additional complete map-seeded games use an intentionally simple human-side driver that spends only actual hand cards and CP; the opponent runs its normal AI. Greyline/jungle/mountains reach600 seconds with intact headquarters; desert ends at416.03 seconds with an AI victory. Both sides play19–20 cards; peak62–69 units and30–41 stored reports per side. Reports include current visible contacts, not just unresolved ghosts. These four runs happened to use no flares, so the flare claim is supported by the explicit paid-card tests, not these match samples.
+-The same greyline driver/seed against the committed pre-change `be5e74e` baseline also draws at600 seconds with1000:1000 headquarters and20/19 cards played. Kills change from48:17 before to21:44 after. This verifies the observed draw existed before; it does not prove balance neutrality or that the new policy cannot stall another match. Baseline source exported read-only to `/var/folders/mt/w9779b795sddhd14ddd3ty9r0000gn/T/greyline-v168-baseline-FEtuYY`; no checkout reset or user edits overwritten.
+-Collected native tick medians1.38–3.48ms and p954.01–9.44ms are diagnostic only: runs overlapped the core regression/baseline processes and include large scheduling spikes. They are not a performance improvement claim or browser/device FPS evidence.
+
+## Scope and release
+
+No art, card identities/copy, unit stats, ammunition, collection/shop behavior, ten-second stance rules or hosting provider changed. Existing unrelated untracked work remains untouched. TypeScript and Pages production build pass; active JS823.12kB/gzip279.60kB, with the existing >500kB bundle advisory. Exact public-byte verification follows the established GitHub Pages route; visible version168. Sites maintenance/publishing and submit-code guidance were used without switching away from the user's explicit GitHub destination.
+
+The prior turn is verified progress (v167 deployed and matching public files). This turn advances the uncleared-front and opponent-AI requirements, but the full goal is still active: high-frame-count movement/reload, remaining duplicated roles, wider terrain/effect review, match pacing and browser/device performance remain incomplete. Background work does not open a browser or claim every screenshot defect is resolved.

@@ -103,6 +103,7 @@ import {
   sceneryCoverHits,
   damageScenery,
   type Scenery,
+  type GroundContact,
   type Wreck,
   type Mine,
 } from './world';
@@ -111,7 +112,6 @@ import {
   createWeather,
   smokeDecayMultiplier,
   updateWeather,
-  weatherDegradesVision,
   type WeatherState,
 } from './weather';
 import {
@@ -762,6 +762,8 @@ export interface GameState {
   knownTerrain: [number[], number[]];
   knownWalls: [Record<number, Wall>, Record<number, Wall>];
   knownScenery: [Record<number, Scenery>, Record<number, Scenery>];
+  /** Observed ground positions remain uncleared until that sector is checked. */
+  groundContacts?: [GroundContact[], GroundContact[]];
   visionIn: number;
   audibleExplosions: [number, number];
   status: Status;
@@ -3794,6 +3796,14 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
     const stop = enemy.x - dir * gap;
     if ((stop - limit) * dir < 0) limit = stop;
   }
+  // Only last OBSERVED coordinates may constrain travel through lost contact.
+  // Never read a hidden unit's current position, health or continued existence.
+  for (const contact of s.groundContacts?.[u.side] ?? []) {
+    if (visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
+        (contact.x-u.x)*dir > Math.abs(proposedX-u.x)+gap) continue;
+    const stop = contact.x-dir*gap;
+    if ((stop-limit)*dir < 0) limit = stop;
+  }
   return (limit - u.x) * dir < 0 ? u.x : limit;
 }
 function moveSoldier(
@@ -5345,11 +5355,12 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
   }
   if (s.players[u.side].order === 'hold' || Math.abs(delta) < 1) return false;
   const change = Math.sign(delta) * Math.min(Math.abs(delta), 28 * dt);
+  const before = u.x;
   u.x = contactSafeX(s, u, u.x + change);
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
-  u.moving = true;
-  u.walk += Math.abs(change) / 6;
+  u.moving = Math.abs(u.x-before) > .001;
+  u.walk += Math.abs(u.x-before) / 6;
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -5379,11 +5390,12 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
     delta = goal - u.x;
   if (Math.abs(delta) < 1) return false;
   const change = Math.sign(delta) * Math.min(Math.abs(delta), 28 * dt);
+  const before = u.x;
   u.x = contactSafeX(s, u, u.x + change);
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
-  u.moving = true;
-  u.walk += Math.abs(change) / 6;
+  u.moving = Math.abs(u.x-before) > .001;
+  u.walk += Math.abs(u.x-before) / 6;
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -5689,6 +5701,10 @@ function updateAI(s: GameState) {
   const front = fighters
     .filter((u) => !CARDS[u.id].air)
     .reduce((x, u) => Math.min(x, u.x), W - 112);
+  const unclearedFront = (s.groundContacts?.[1] ?? [])
+    .filter(c => !visibleToSide(s,1,c) && c.clearSince === undefined &&
+      front-c.x >= -120 && front-c.x < 800)
+    .sort((a,b) => Math.abs(front-a.x)-Math.abs(front-b.x))[0];
 
   // v79: enemy blood on the ground is proof of contact in that sector — the
   // player is hauling wounded, so the line there is shifting. The director
@@ -5847,7 +5863,7 @@ function updateAI(s: GameState) {
           );
           score = own.some((u) => observerUnit(u))
             ? -100
-            : needsSpotter
+            : needsSpotter || unclearedFront
               ? 34
               : screens >= 1
                 ? 19
@@ -6168,7 +6184,8 @@ function updateAI(s: GameState) {
         )
           score = -100;
       } else if (c.id === 'recon') {
-        if (p.recon <= 0 && cohorts && (battle || front < W - 900))
+        if (p.recon <= 0 && cohorts && unclearedFront) score = 23;
+        else if (p.recon <= 0 && cohorts && (battle || front < W - 900))
           score = fighters.some((u) => (CARDS[u.id].range ?? 0) >= 650)
             ? 19
             : 9;
@@ -6375,7 +6392,8 @@ function updateAI(s: GameState) {
         )
           score = -100;
       } else if (c.effect === 'illumination') {
-        if (s.night && cohorts) score = 10;
+        if (unclearedFront && cohorts) { x = unclearedFront.x; score = 20; }
+        else if (s.night && cohorts) score = 10;
       } else if (c.effect === 'minefield') {
         x = armor
           .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
@@ -6698,7 +6716,7 @@ function updateAI(s: GameState) {
   }
 
   // Proactive tactics: fight the next battle on the AI's terms, not just react.
-  if (!emergency && cohorts >= 2) {
+  if (!emergency && (cohorts >= 2 || (cohorts >= 1 && unclearedFront))) {
     // Smoke-contact: blind the enemy line so shock troops can close the gap.
     const smokeX = Math.max(100, Math.min(W - 100, front - 170));
     const smokeCovered = s.smokes.some(
@@ -6736,7 +6754,7 @@ function updateAI(s: GameState) {
         cardCost(h) <= p.energy + 1e-6,
     );
     if (
-      readySmoke &&
+      cohorts >= 2 && readySmoke &&
       !smokeCovered &&
       contactAhead &&
       (shockTroops.length > 0 ||
@@ -6750,8 +6768,7 @@ function updateAI(s: GameState) {
         return;
       }
     }
-    // Illumination: enemy smoke blinding the line, or a strike card held
-    // with nothing visible to hit — light the front so both sides show.
+    // Illuminate hostile smoke or a previously observed but uncleared sector.
     const readyFlare = p.hand.find(
       (h) =>
         h.id === 'flare' &&
@@ -6766,21 +6783,10 @@ function updateAI(s: GameState) {
           front - m.x > -120 &&
           front - m.x < 800,
       );
-      const strikeHeld = p.hand.some(
-        (h) =>
-          (h.id === 'artillery' || h.id === 'precision') &&
-          cardReadyIn(s, h) <= 0 &&
-          cardCost(h) <= p.energy + 1e-6,
-      );
-      const hiddenFoes = groundFoes.some((v) => !visibleToSide(s, 1, v));
-      // Foul weather blinds the line as surely as smoke: when the rain or
-      // fog closes in and foes vanish, the AI lights the front (v62).
-      const weatherBlinds =
-        weatherDegradesVision(s) && hiddenFoes && p.energy >= 4;
-      if (enemySmokeAhead || (strikeHeld && hiddenFoes) || weatherBlinds) {
-        const flareX = enemySmokeAhead
-          ? enemySmokeAhead.x
-          : Math.max(100, Math.min(W - 100, front - 220));
+      // groundFoes is already visible-only: looking for hidden foes inside
+      // it could never succeed. Search the last reported sector instead.
+      if (enemySmokeAhead || unclearedFront) {
+        const flareX = unclearedFront?.x ?? enemySmokeAhead!.x;
         if (playCard(s, 1, readyFlare.uid, flareX).ok) return;
       }
     }
