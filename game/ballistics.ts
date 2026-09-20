@@ -339,7 +339,7 @@ export function drawParticle(
   }
   ctx.globalAlpha = smoke
     ? life *
-      (p.kind === 'smoke'
+      (p.opacity ?? (p.kind === 'smoke'
         ? 0.22
         : p.kind === 'cloud'
           ? 0.3
@@ -347,7 +347,7 @@ export function drawParticle(
             ? 0.12
             : p.kind === 'haze'
               ? 0.13
-              : 0.46)
+              : 0.46))
     : Math.min(1, life * 2);
   ctx.fillStyle = p.color;
   const size = smoke

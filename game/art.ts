@@ -8,7 +8,8 @@ import { packedLowGrenades } from './low-grenade-art';
 import { lowReloadAtlas } from './low-reload-art';
 import { packedRepairFrames } from './repair-art';
 import { paintedBlastAtlas, paintedFootings } from './battlefield-effects-art';
-import { explosionAtlasV13, smokeAtlasV13, type PaintedBlasts } from './effect-atlas';
+import { explosionAtlasV13, type PaintedBlasts } from './effect-atlas';
+import { packedSmokeFrames } from './smoke-art';
 import { specialistAtlas, type AdultSpecialists } from './adult-specialists';
 import type { SpecialistSprite } from './adult-specialists';
 import { heavyMGAtlas } from './heavy-mg-art';
@@ -606,6 +607,7 @@ export function loadArt() {
       loadImage('/art/low-grenade-frames-v149.png'),
       loadImage('/art/repair-work-frames-v150.png'),
       loadImage('/art/grenade-launcher-frames-v159.png'),
+      loadImage('/art/powder-smoke-frames-v161.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -655,6 +657,7 @@ export function loadArt() {
         lowGrenadeSheet,
         repairSheet,
         grenadeLauncherSheet,
+        smokeSheet,
       ],
       extra,
       trees,
@@ -781,7 +784,7 @@ export function loadArt() {
         paintedBlasts: {fuel:paintedBlastAtlas(fuelBlastSheet,'fuel'),earth:paintedBlastAtlas(earthBlastSheet,'earth')},
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
-        smoke: smokeAtlasV13(explosionSource),
+        smoke: packedSmokeFrames(smokeSheet),
         armor: Object.fromEntries(
           ['light_tank', 'tank', 'heavy_tank'].map((id, row) => [
             id,

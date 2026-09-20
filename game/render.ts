@@ -964,36 +964,8 @@ export function render(
         u.lastAmmo ?? ammunition(u.id, u.member),
         0.25 - u.fire,
       );
-    // Heavy guns belch a smoke cloud at the muzzle that blooms and lingers
-    // after the flash dies away — cannon and AP rounds get the biggest puff.
-    if (u.fire > 0 && u.motion === 'ground' && !u.climbing) {
-      const ammo = u.lastAmmo ?? ammunition(u.id, u.member);
-      if (ammo !== 'machinegun' && ammo !== 'rifle' && ammo !== 'drone') {
-        const age = 0.25 - u.fire;
-        const heavy = ammo === 'cannon' || ammo === 'ap';
-        const smokeAge = age - (heavy ? 0.05 : 0.02);
-        if (smokeAge > 0 && smokeAge < 0.42) {
-          const mx = visualMuzzle?.x ?? u.muzzleX;
-          const my =
-            (visualMuzzle?.y ?? u.muzzleY) +
-            (c.members ? infantryDepth(u.lane) : 0);
-          const grow = smokeAge / 0.42;
-          const r = (heavy ? 11 : 7) * (0.35 + grow * 0.9);
-          ctx.save();
-          ctx.globalAlpha = (heavy ? 0.55 : 0.38) * (1 - grow * 0.7);
-          ctx.fillStyle = '#c3c2b2';
-          ctx.beginPath();
-          ctx.arc(mx + u.facing * r * 0.55, my - 2, r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalAlpha = (heavy ? 0.35 : 0.22) * (1 - grow);
-          ctx.fillStyle = '#8f9085';
-          ctx.beginPath();
-          ctx.arc(mx + u.facing * r * 1.0, my - 4, r * 0.65, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-      }
-    }
+    // Muzzle smoke is emitted once by the shot, then drifts on its own particle
+    // clock. Do not add circles attached to the gun or cut smoke at fire === 0.
     if (u.healing > 0 || u.repairTime > 0) {
       ctx.fillStyle = '#e9e6b6';
       ctx.fillRect(u.x - 1, u.y - h - 15, 2, 8);

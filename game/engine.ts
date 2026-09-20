@@ -564,6 +564,8 @@ export interface Projectile {
   fromAir?: boolean;
 }
 export interface Particle {
+  /** Optional starting opacity for authored puffs; life still fades it out. */
+  opacity?: number;
   kind?:
     | 'smoke'
     | 'dust'
@@ -2014,6 +2016,7 @@ export function emitParticle(s: GameState, init: Particle): void {
     p.endX = init.endX;
     p.endY = init.endY;
     p.variant = init.variant;
+    p.opacity = init.opacity;
   }
   s.particles.push(p);
 }
@@ -2049,34 +2052,43 @@ function muzzleParticles(
   secondary = false,
 ) {
   if (kind === 'drone') return;
-  const heavy = kind === 'cannon';
+  // AP leaves the same tank/AT-gun barrel as HE. Its muzzle discharge must
+  // not fall through to the tiny rifle puff just because the target is armor.
+  const heavy = kind === 'cannon' || kind === 'ap';
+  const angle = secondary ? u.secondaryAngle : u.shotAngle;
+  const dx = Math.cos(angle), dy = Math.sin(angle);
   emitParticle(s, {
     kind: 'smoke',
     x: sx,
     y: sy,
-    vx: u.side === 0 ? 9 : -9,
-    vy: -7,
+    vx: dx * 9,
+    vy: dy * 9 - 7,
     life: heavy ? 0.42 : 0.22,
     maxLife: heavy ? 0.42 : 0.22,
     color: '#a7aa98',
     size: heavy ? 8 : 3,
+    opacity: heavy ? 0.55 : undefined,
   });
   // v109: a cannon shot belches a rolling smoke jet and a star of hot
   // sparks from the muzzle — the blast reads as an event, not a puff.
   if (heavy) {
-    const dir = u.side === 0 ? 1 : -1;
     for (let i = 0; i < 5; i++) {
       const life = 0.5 + fxRnd(s) * 0.5;
+      const offset = 4 + fxRnd(s) * 6;
+      const lift = fxRnd(s) * 4;
+      const speed = 14 + fxRnd(s) * 22;
+      const rise = 6 + fxRnd(s) * 12;
       emitParticle(s, {
         kind: 'smoke',
-        x: sx + dir * (4 + fxRnd(s) * 6),
-        y: sy - fxRnd(s) * 4,
-        vx: dir * (14 + fxRnd(s) * 22),
-        vy: -6 - fxRnd(s) * 12,
+        x: sx + dx * offset,
+        y: sy + dy * offset - lift,
+        vx: dx * speed,
+        vy: dy * speed - rise,
         life,
         maxLife: life,
         color: fxRnd(s) < 0.5 ? '#b8b3a2' : '#8f8c7c',
         size: 6 + fxRnd(s) * 7,
+        opacity: 0.55,
       });
     }
     for (let i = 0; i < 7; i++) {
