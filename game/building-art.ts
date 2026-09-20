@@ -7,20 +7,46 @@ export interface BuildingArt {
   footings?: HTMLCanvasElement[];
 }
 
+const footingSpans = new WeakMap<HTMLCanvasElement, readonly [number, number] | null>();
+/** The damaged facade/rubble can extend beyond the nominal intact footprint.
+ * Measure its painted bottom once, not the roof overhang or isolated specks. */
+export function paintedBuildingFootprint(frame: HTMLCanvasElement): readonly [number, number] | null {
+  if (footingSpans.has(frame)) return footingSpans.get(frame)!;
+  const {width,height}=frame, pixels=frame.getContext('2d')!.getImageData(0,0,width,height).data;
+  let left=width,right=-1;
+  for(let x=0;x<width;x++)for(let y=height-1;y>=Math.max(1,height-14);y--){
+    if(pixels[(y*width+x)*4+3]>=160&&pixels[((y-1)*width+x)*4+3]>=160){
+      left=Math.min(left,x);right=Math.max(right,x);break;
+    }
+  }
+  // One source pixel covers the soft masonry edge; bounds are right-exclusive.
+  const span: readonly [number,number] | null=right<left?null:[Math.max(0,left-1),Math.min(width,right+2)];
+  footingSpans.set(frame,span);return span;
+}
+
 /** Painted masonry remains at the original floor level when adjacent soil is
  * excavated. Clip to the terrain silhouette, never extend a flat colour block. */
 export function drawBuildingFooting(
   ctx: CanvasRenderingContext2D, p: Scenery, row: number, base: number,
   texture: HTMLCanvasElement, groundAt: (x: number) => number,
+  frame?: HTMLCanvasElement,
 ) {
   const half=HOUSE_PROFILES[row].width/2;
-  const left=Math.floor(p.x-half),right=Math.ceil(p.x+half),top=Math.round(base-7);
+  const span=frame?paintedBuildingFootprint(frame):null;
+  const origin=frame?Math.round(p.x-frame.width):0;
+  const left=span?origin+span[0]*2:Math.floor(p.x-half),
+    right=span?origin+span[1]*2:Math.ceil(p.x+half),top=Math.round(base-7);
   let bottom=base+7;
   ctx.save();ctx.beginPath();ctx.moveTo(left,top);ctx.lineTo(right,top);
   for(let x=right;x>=left;x-=2){const y=Math.max(base+7,groundAt(x)+3);bottom=Math.max(bottom,y);ctx.lineTo(x,y);}
   ctx.lineTo(left,Math.max(base+7,groundAt(left)+3));ctx.closePath();ctx.clip();
   const tileHeight=48;
-  for(let y=top;y<bottom;y+=tileHeight)ctx.drawImage(texture,left,y,right-left,tileHeight);
+  // Damage can widen support without stretching the bricks or sliding their
+  // pattern. Keep the same world origin and material scale across all stages.
+  const tileWidth=HOUSE_PROFILES[row].width,tileOrigin=Math.floor(p.x-half);
+  const firstTile=tileOrigin+Math.floor((left-tileOrigin)/tileWidth)*tileWidth;
+  for(let y=top;y<bottom;y+=tileHeight)for(let x=firstTile;x<right;x+=tileWidth)
+    ctx.drawImage(texture,x,y,tileWidth,tileHeight);
   ctx.restore();
 }
 

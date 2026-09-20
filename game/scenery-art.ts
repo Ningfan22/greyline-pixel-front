@@ -51,7 +51,7 @@ export function drawScenery(
         : 0;
     const base = p.y + (groundAt(p.x) - p.y) * settle;
     const footing=buildings.footings?.[row];
-    if(stage<3&&footing)drawBuildingFooting(ctx,p,row,base,footing,groundAt);
+    if(stage<3&&footing)drawBuildingFooting(ctx,p,row,base,footing,groundAt,frame);
     // Use complete painted structural states: no floating roofs made from clips.
     // The same state drives the remaining masonry collision in buildingHull.
     ctx.drawImage(
