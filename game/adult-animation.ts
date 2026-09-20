@@ -9,6 +9,8 @@ export interface AdultSprites {
   walk8: HTMLCanvasElement[];
   crouch8: HTMLCanvasElement[];
   actions20: HTMLCanvasElement[];
+  /** Original matched low-crawl pair, independent of the new settled poses. */
+  crawl2: HTMLCanvasElement[];
   reactions8: HTMLCanvasElement[];
   /** v121: dedicated hand-signal frames — point fwd, wave overhead, point back, fist. */
   signals4: HTMLCanvasElement[];
@@ -545,7 +547,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
     );
   if (u.wounded) {
     if (u.crawling)
-      return action(Math.floor(u.walk * 2) % 2 ? 12 : 2);
+      return { group: 'crawl2', index: cycle(u.walk * 2, 2) };
     if (u.woundedFromPose === 'prone' || u.woundedTime >= 0.7)
       return action(14);
     const low = u.woundedFromPose === 'crouch' || u.woundedFromPose === 'land';
@@ -590,7 +592,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   if (u.climbing > 0)
     return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
   if (u.motion === 'bank')
-    return u.pose === 'prone' ? action(cycle(u.walk / 2, 2) ? 12 : 2)
+    return u.pose === 'prone' ? { group: 'crawl2', index: cycle(u.walk / 2, 2) }
       : u.pose === 'crouch' || u.pose === 'hunker'
         ? { group: 'crouch8', index: cycle(step, 8) }
         : { group: 'walk8', index: cycle(step, 8) };
@@ -636,7 +638,7 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // Stance transitions are resolved above the work actions, before arrival
   // at the stable prone/crouch frames below.
   if (u.pose === 'prone') {
-    if (u.moving) return action(cycle(u.walk / 2, 2) ? 12 : 2);
+    if (u.moving) return { group: 'crawl2', index: cycle(u.walk / 2, 2) };
     // Observation uses the same grounded body as ordinary prone infantry.
     // The old periodic radio cel was 6–8px taller and bypassed stance timing.
     // Keep the aimed torso planted; discharge effects carry weapon recoil.

@@ -108,7 +108,8 @@ export function specialistSprite(
         }
       : null;
   }
-  const prone = choice.group === 'actions20' && [2, 12].includes(choice.index);
+  const prone = choice.group === 'crawl2' ||
+    choice.group === 'actions20' && [2, 12].includes(choice.index);
   const low =
     choice.group === 'crouch8' ||
     (choice.group === 'actions20' && choice.index === 1);

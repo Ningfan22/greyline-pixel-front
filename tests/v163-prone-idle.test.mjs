@@ -58,8 +58,8 @@ test('prone observation has eight slow beats, no render mutation, and yields to 
     const busy=Object.assign(soldier(),patch);assert.notEqual(idlePoseChoice(busy,1)?.group,'proneIdle8',JSON.stringify(patch));
   }
   const moving=Object.assign(soldier(),{moving:true});const crawl=new Set();
-  for(let walk=0;walk<8;walk++){moving.walk=walk;const f=adultFrameChoice(moving,1);assert.equal(f.group,'actions20');crawl.add(f.index);}
-  assert.deepEqual([...crawl],[2,12],'real crawling is not disabled to hide the idle error');
+  for(let walk=0;walk<8;walk++){moving.walk=walk;const f=adultFrameChoice(moving,1);assert.equal(f.group,'crawl2');crawl.add(f.index);}
+  assert.deepEqual([...crawl],[0,1],'real crawling is not disabled to hide the idle error');
 });
 
 test('all eight painted cels keep a fixed baseline, tiny height range and clear frame margins',async()=>{

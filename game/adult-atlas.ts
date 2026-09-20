@@ -33,6 +33,10 @@ export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals
     walk8: frames.slice(0, 8),
     crouch8: frames.slice(8, 16),
     actions20: frames.slice(16, 36),
+    // Save the authored pair BEFORE loadArt replaces actions20[2] with the
+    // new, lower settled stance. Mixing that 17px body into this 23–25px
+    // crawl made every step visibly flatten and spring up again.
+    crawl2: [frames[18], frames[28]],
     reactions8: frames.slice(36, 44),
   };
 }

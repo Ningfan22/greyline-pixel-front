@@ -38,6 +38,7 @@ export const HEAVY_MG_MUZZLE = {x:273*.14,height:3+211*.14};
 
 /** The existing painted-leg composition, shared with its ballistic origin. */
 export function specialistLegWaist(group: string,index: number): readonly number[] {
+  if(group==='crawl2')return index===1?[43,92]:[40,92];
   if(group==='actions20'&&(index===2||index===12))return index===12?[43,92]:[40,92];
   if(group==='crouch8'||group==='actions20'&&index===1)return [45,68];
   if(group==='actions20'&&index>=16&&index<=19)return [[45,60],[44,58],[45,59],[44,58]][index-16];
