@@ -469,8 +469,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   loiter_drone: {
     en: 'LOITERING MUNITION',
     typeLabel: '巡飞弹药',
-    ability: '俯冲突击',
-    rule: '优先俯冲装甲，自毁范围爆炸。',
+    ability: '巡飞猎炮',
+    rule: '待机六十秒，确认炮位后俯冲。',
     flavor: '它不回来，也不需要回来。',
   },
   interceptor: {

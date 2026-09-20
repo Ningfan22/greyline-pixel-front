@@ -812,7 +812,7 @@ export function render(
           ? (microDir ?? choice?.dir ?? u.facing) < 0
           : u.side === 1,
         alpha,
-        c.armored || geometry || u.glider || u.id === 'fpv_drone' ? u.hullAngle : 0,
+        c.armored || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
       );
     }
     if (!c.members && isDead) ctx.restore();

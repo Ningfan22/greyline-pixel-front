@@ -48,6 +48,8 @@ export function buildingStage(p: Scenery) {
 export interface Wreck {
   /** Empty unpowered transport, not a destroyed/burning vehicle. */
   abandoned?: boolean;
+  /** Its one-use warhead has already detonated; landing only raises dust. */
+  spentWarhead?: boolean;
   /** Preserve the casualty's final presentation; old serialized wrecks can omit these. */
   pose?: Unit['pose'];
   facing?: number;

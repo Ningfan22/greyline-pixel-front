@@ -1682,7 +1682,7 @@ check('友军炮弹、伤员、装甲和空军不会触发步兵分散动作', (
       .every((u) => !u.evadeUntil),
   );
 });
-check('航空单位可部署且高度固定，AI编队保留反甲、防空和空中支援', () => {
+check('航空单位可部署，巡飞弹平滑调整巡逻高度，AI编队保留反甲、防空和空中支援', () => {
   for (const id of [
     'rocket_heli',
     'scout_drone',
@@ -1696,7 +1696,10 @@ check('航空单位可部署且高度固定，AI编队保留反甲、防空和�
     const u = s.units[0];
     assert.equal(u.y, CARDS[id].altitude);
     advance(s, 1);
-    assert.equal(u.y, CARDS[id].altitude);
+    if (id === 'loiter_drone') {
+      assert(Math.abs(u.y - CARDS[id].altitude) <= CARDS[id].speed);
+      assert(u.loiterFlight && !u.loiterFlight.lock);
+    } else assert.equal(u.y, CARDS[id].altitude);
     assert.equal(u.motion, 'ground');
     assert.equal(u.climbing, 0);
   }
@@ -1839,16 +1842,21 @@ check('察打与反甲直升机发射导弹，巡飞弹只俯冲一次且自身�
     tank.cooldown = tank.secondaryCooldown = 100;
     tick(s, 1 / 60);
     const p = s.projectiles.find((p) => p.sourceUid === u.uid);
-    assert(p);
-    assert(p.radius > 0);
-    assert.equal(p.ammunition, id === 'loiter_drone' ? 'drone' : 'rocket');
-    assert(p.armorMultiplier > 1);
     if (id === 'loiter_drone') {
+      assert(!p, '巡飞弹保留实体，不能瞬间替换成弹体');
+      assert(s.units.includes(u));
+      advance(s, 1.8);
+      assert(!u.loiterFlight?.lock, '需要持续确认两秒');
+      advance(s, 4);
       assert(!s.units.includes(u));
       assert.equal(s.players[1].kills, 0);
-      advance(s, 2);
       assert.equal(s.explosions, 1);
       assert(tank.hp < tank.maxHp);
+    } else {
+      assert(p);
+      assert(p.radius > 0);
+      assert.equal(p.ammunition, 'rocket');
+      assert(p.armorMultiplier > 1);
     }
   }
 });

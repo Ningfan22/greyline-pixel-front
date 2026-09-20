@@ -53,6 +53,11 @@ export function ordersForUnit(id: CardId) {
   if(c.internal)return [];
   if (c.members) return SQUAD_ORDERS;
   if (c.static) return SQUAD_ORDERS.filter((o) => o.id === 'watch');
+  if (id === 'loiter_drone') return [
+    {id: 'attack' as const, label: '继续搜索', description: '在当前巡飞区搜索载具和炮位，持续确认两秒后俯冲'},
+    {id: 'retreat' as const, label: '后撤巡飞', description: '后撤期间停止锁定，到达后恢复巡飞；已开始的俯冲无法撤销'},
+    {id: 'watch' as const, label: '就地盘旋', description: '以当前位置为中心往返搜索，不悬停；已开始的俯冲无法撤销'},
+  ];
   if (fixedWingUnit({ id }))
     return [
       {

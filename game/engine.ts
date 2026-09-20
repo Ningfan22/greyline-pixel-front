@@ -498,6 +498,13 @@ export interface Unit {
   flightUntil?: number;
   patrolExiting?: boolean;
   fpvLock?: { uid: number; x: number; y: number };
+  loiterFlight?: {
+    anchor: number;
+    scanAt: number;
+    candidateUid?: number;
+    confirmAt?: number;
+    lock?: { uid: number; x: number; y: number };
+  };
   airlift?: {
     x: number;
     phase: 'approach' | 'unload' | 'exit';
@@ -5965,6 +5972,9 @@ function updateAI(s: GameState) {
         if (c.sortie && !c.patrolTime && !foes.length) score = -100;
         if (c.id === 'fpv_drone')
           score += armor.length ? 10 : foot.length ? -2 : -8;
+        if (c.id === 'loiter_drone')
+          score = groundFoes.some(v => CARDS[v.id].emplacement)
+            ? 22 : armor.length ? 14 : -100;
         if (c.airlift) {
           x = safeLanding(s, defaultLanding(s, 1));
           score = cohorts >= 2 && groundFoes.length ? 18 : -2;
@@ -7166,7 +7176,7 @@ function flyTransport(s: GameState, u: Unit, dt: number) {
   flight.dropped++;
   flight.nextAt = s.time + 0.85;
 }
-function detonateFpv(s: GameState, u: Unit, x: number, y: number) {
+function detonateMunition(s: GameState, u: Unit, x: number, y: number) {
   const c = CARDS[u.id];
   u.hp = 0;
   u.destroyed = true;
@@ -7185,6 +7195,7 @@ function detonateFpv(s: GameState, u: Unit, x: number, y: number) {
     vx: u.facing * 12,
     vy: 0,
     cause: 'blast',
+    spentWarhead: true,
   };
   if (!wreck.falling)
     Object.assign(
@@ -7273,7 +7284,26 @@ function flyFpv(s: GameState, u: Unit, dt: number) {
       };
   }
   if (u.fpvLock) {
-    const lock = u.fpvLock;
+    flyMunitionDive(s, u, u.fpvLock, dt);
+    return;
+  }
+  const nextX = Math.max(420, Math.min(W - 420, u.x + dir * c.speed! * dt));
+  // Do not snap a newly launched drone to the forward patrol boundary.
+  const x =
+    (nextX - u.x) * dir > c.speed! * dt + 1 ? u.x + dir * c.speed! * dt : nextX;
+  let height = ground(s, x) - 130;
+  for (const box of obstacleBoxes(s))
+    if (box.x < x + 130 && box.x + box.w > x - 55)
+      height = Math.min(height, box.y - 34);
+  const y = u.y + Math.max(-80 * dt, Math.min(80 * dt, height - u.y));
+  u.facing = dir;
+  u.moving = Math.abs(x - u.x) > 0.01;
+  u.x = x;
+  u.y = y;
+  u.hullAngle = 0;
+}
+/** The aircraft itself strikes the scene; never replace it with a remote projectile. */
+function flyMunitionDive(s: GameState, u: Unit, lock: {uid: number; x: number; y: number}, dt: number) {
     const target = s.units.find((v) => v.uid === lock.uid && isCombatant(v));
     if (target && visibleToSide(s, u.side, target)) {
       lock.x = target.x;
@@ -7308,24 +7338,69 @@ function flyFpv(s: GameState, u: Unit, dt: number) {
           y: oldY + (u.y - oldY) * t,
         };
     }
-    if (hit) detonateFpv(s, u, hit.x, hit.y);
-    else if (u.y >= ground(s, u.x) - 3) detonateFpv(s, u, u.x, ground(s, u.x));
-    else if (arrived) detonateFpv(s, u, lock.x, lock.y);
+    if (hit) detonateMunition(s, u, hit.x, hit.y);
+    else if (u.y >= ground(s, u.x) - 3) detonateMunition(s, u, u.x, ground(s, u.x));
+    else if (arrived) detonateMunition(s, u, lock.x, lock.y);
+}
+function flyLoiterMunition(s: GameState, u: Unit, dt: number) {
+  const c = CARDS[u.id], dir = u.side === 0 ? 1 : -1;
+  if (s.time >= (u.flightUntil ?? Infinity)) {
+    finishDeath(s, u, u.side);
     return;
   }
-  const nextX = Math.max(420, Math.min(W - 420, u.x + dir * c.speed! * dt));
-  // Do not snap a newly launched drone to the forward patrol boundary.
-  const x =
-    (nextX - u.x) * dir > c.speed! * dt + 1 ? u.x + dir * c.speed! * dt : nextX;
-  let height = ground(s, x) - 130;
+  if (!u.loiterFlight) {
+    let front = 680;
+    for (const v of s.units)
+      if (v.side === u.side && isCombatant(v) && !CARDS[v.id].air)
+        front = Math.max(front, u.side === 0 ? v.x : W - v.x);
+    const local = Math.max(800, Math.min(W - 650, front + 160));
+    u.loiterFlight = {anchor: u.side === 0 ? local : W - local, scanAt: 0};
+  }
+  const flight = u.loiterFlight;
+  if (flight.lock) {
+    // Once committed, a terminal dive cannot teleport back to a watch order.
+    flyMunitionDive(s, u, flight.lock, dt);
+    return;
+  }
+  const order = localUnitOrder(s, u);
+  if (order === 'watch' || order === 'retreat')
+    flight.anchor = Math.max(100, Math.min(W - 100, u.squadOrderX ?? u.x));
+  const valid = (v: Unit) => v.side !== u.side && isCombatant(v) &&
+    !CARDS[v.id].air && !!(CARDS[v.id].vehicle || CARDS[v.id].armored || CARDS[v.id].emplacement) &&
+    Math.abs(v.x - u.x) <= c.range! && visibleToSide(s, u.side, v);
+  let target = flight.candidateUid === undefined ? undefined : s.units.find(v => v.uid === flight.candidateUid);
+  if (order === 'retreat' || u.cooldown > 0 || !target || !valid(target)) {
+    target = undefined;
+    flight.candidateUid = undefined;
+    flight.confirmAt = undefined;
+  }
+  if (!target && order !== 'retreat' && u.cooldown <= 0 && s.time >= flight.scanAt) {
+    flight.scanAt = s.time + 0.2;
+    let best = Infinity;
+    // No candidate array/sort per simulation step. Ignore infantry bait entirely.
+    for (const v of s.units) {
+      if (!valid(v)) continue;
+      const vc = CARDS[v.id];
+      const rank = (vc.emplacement ? 0 : vc.armored ? 1 : 2) * W + Math.abs(v.x - u.x);
+      if (rank < best) { best = rank; target = v; }
+    }
+    if (target) { flight.candidateUid = target.uid; flight.confirmAt = s.time + 2; }
+  }
+  if (target && s.time >= flight.confirmAt!) {
+    flight.lock = {uid: target.uid, x: target.x, y: target.y - bodyHeight(target)};
+    flyMunitionDive(s, u, flight.lock, dt);
+    return;
+  }
+  const left = Math.max(60, flight.anchor - 120), right = Math.min(W - 60, flight.anchor + 120);
+  if (u.x >= right) u.patrolDir = -1;
+  else if (u.x <= left) u.patrolDir = 1;
+  const goal = (u.patrolDir || dir) > 0 ? right : left;
+  let height = Math.min(ground(s, u.x), ground(s, goal)) - 210;
   for (const box of obstacleBoxes(s))
-    if (box.x < x + 130 && box.x + box.w > x - 55)
-      height = Math.min(height, box.y - 34);
-  const y = u.y + Math.max(-80 * dt, Math.min(80 * dt, height - u.y));
-  u.facing = dir;
-  u.moving = Math.abs(x - u.x) > 0.01;
-  u.x = x;
-  u.y = y;
+    if (box.x < Math.max(u.x, goal) + 90 && box.x + box.w > Math.min(u.x, goal) - 90)
+      height = Math.min(height, box.y - 65);
+  moveAirTo(u, goal, height, c.speed!, dt);
+  u.moving = true;
   u.hullAngle = 0;
 }
 // Reused per-unit scratch buffers for spatial candidate queries. The game is
@@ -8001,6 +8076,10 @@ export function tick(s: GameState, dt: number) {
     u.moving = false;
     if(u.glider){
       stepGlider(s,u,dt,{spawn:spawnUnit,crash:v=>finishDeath(s,v,v.side,'bullet')});
+      continue;
+    }
+    if (u.id === 'loiter_drone') {
+      flyLoiterMunition(s, u, dt);
       continue;
     }
     const controlledNavigation = stepUnitControl(s, u, dt);
@@ -10302,7 +10381,7 @@ export function tick(s: GameState, dt: number) {
           }
         } else {
           Object.assign(w, wreckContact((x) => ground(s, x), w));
-          if(w.cardId==='glider_transport')gliderDust(s,w.x,w.y,18);
+          if(w.cardId==='glider_transport' || w.spentWarhead)gliderDust(s,w.x,w.y,w.spentWarhead ? 5 : 18);
           else burst(s, w.x, w.y, CARDS[w.cardId].oneWay ? 18 : 30, 'crash');
         }
         s.visionIn = 0;
