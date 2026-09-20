@@ -11,6 +11,7 @@ import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, la
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
+import { advanceLauncherDrill, launcherDrillBusy } from './launcher-drill';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
 import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
@@ -7457,6 +7458,7 @@ export function tick(s: GameState, dt: number) {
   updateSquadCommand(s);
   for (const u of s.units) {
     if (CARDS[u.id].members) pauseMagazineDrill(u,s.time,dt);
+    const launcherBusy = u.id === 'grenadiers' && launcherDrillBusy(u, s.time - dt);
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
     const previousWork = beginSupportTick(u);
     if (!isCombatant(u) || u.rappelling || u.parachuting || u.tactic === 'retreat' ||
@@ -7919,8 +7921,8 @@ export function tick(s: GameState, dt: number) {
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
     const weaponStep = dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
     u.cooldown -= weaponStep;
-    if ((u.launcherCycleRemaining ?? 0) > 0)
-      u.launcherCycleRemaining = Math.max(0, u.launcherCycleRemaining! - weaponStep);
+    // Work flags are reset at tick start; retain last tick's occupied hands.
+    if (!launcherBusy) advanceLauncherDrill(u, s.time, weaponStep);
     // Small-arms magazines: lazy-init on first tick, then seat a fresh mag
     // once the reload window closes. A dry reserve leaves the weapon silent.
     if (u.ammo === undefined) {
@@ -9370,6 +9372,7 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       if (
         u.cooldown <= 0 &&
+        (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
         (!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u))) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&

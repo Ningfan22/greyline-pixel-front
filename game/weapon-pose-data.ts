@@ -31,7 +31,7 @@ export const WEAPON_POSES = {
   },
   grenade: {
     stand:launcherReady(0),crouch:launcherReady(1),
-    prone:{waist:[64,89],muzzle:[107.5,86]},
+    prone:{waist:[64,89],muzzle:[64+(684-354)*.12,96-(269-154)*.12]},
   },
 } satisfies Record<string,Record<'stand'|'crouch'|'prone',WeaponPose>>;
 export const HEAVY_MG_MUZZLE = {x:273*.14,height:3+211*.14};

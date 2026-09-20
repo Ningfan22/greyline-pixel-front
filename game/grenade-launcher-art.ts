@@ -1,7 +1,6 @@
 import type { Unit } from './engine';
 import type { SpecialistSprite, AdultSpecialistArt, SpecialistFrame } from './adult-specialists';
-import { stanceTransitionActive } from './infantry-action-timing';
-import { crouchTravelAmount } from './crouch-locomotion';
+import { launcherDrillBusy, launcherDrillCel } from './launcher-drill';
 import { LAUNCHER_CEL_FEET as feet, LAUNCHER_CEL_MUZZLES as muzzle, WEAPON_POSES } from './weapon-pose-data';
 
 // The generated rows are unequal. Measured crops, fixed anatomical scale,
@@ -22,18 +21,20 @@ export function grenadeLauncherAtlas(source: HTMLImageElement): SpecialistSprite
 export function packedGrenadeLauncher(source: HTMLImageElement): {
   cycle: SpecialistSprite[]; stances: AdultSpecialistArt;
 } {
-  const images=Array.from({length:32},(_,i)=>{
+  const images=Array.from({length:40},(_,i)=>{
     const image=document.createElement('canvas');image.width=128;image.height=96;
     const c=image.getContext('2d')!;c.imageSmoothingEnabled=false;
     c.drawImage(source,i%16*128,Math.floor(i/16)*96,128,96,0,0,128,96);return image;
   });
-  const cycle=images.slice(0,16).map((image,i)=>{
+  const cycle=[...images.slice(0,16),...images.slice(32,40)].map((image,i)=>{
+    if(i>=16)return {image,muzzle:i===16||i===17||i===23?
+      {x:WEAPON_POSES.grenade.prone.muzzle[0]-64,height:96-WEAPON_POSES.grenade.prone.muzzle[1]}:null};
     const row=Math.floor(i/8),col=i%8,ready=[0,1,6,7].indexOf(col);
     const p=ready>=0?muzzle[row*4+ready]:null;
     return {image,muzzle:p?{x:(p[0]-feet[row][col])*.195,
       height:((row?697:387)-p[1])*.195}:null};
   });
-  const stance16:SpecialistFrame[]=images.slice(16).map(image=>({image,waist:[64,80],muzzle:null}));
+  const stance16:SpecialistFrame[]=images.slice(16,32).map(image=>({image,waist:[64,80],muzzle:null}));
   // Exactly the same whole-body endpoints during firing, resting and transitions.
   for(const [i,cel,pose] of [[0,0,'stand'],[7,8,'crouch']] as const){
     stance16[i]={image:cycle[cel].image,...WEAPON_POSES.grenade[pose]};
@@ -45,14 +46,9 @@ export function packedGrenadeLauncher(source: HTMLImageElement): {
 /** Pure presentation of the actual single-shot cooldown. Never restarts a
  * reload from wall-clock modulo, pose changes, hits, or idle decoration. */
 export function grenadeLauncherFrame(u: Unit,time: number): number | null {
-  if(u.id!=='grenadiers'||u.hp<=0||u.wounded||u.surrendered||u.moving||
-    u.pose==='prone'||u.motion!=='ground'||u.climbing>0||u.parachuting||u.rappelling||
-    u.digging||u.tending||u.flash>0||u.draggingUid!==undefined||(u.fragThrow??0)>0||
-    stanceTransitionActive(u,time)||crouchTravelAmount(u)>0)return null;
-  const remaining=u.launcherCycleRemaining??0,duration=u.launcherCycleDuration??0;
-  const p=duration>0?Math.max(0,Math.min(1,1-remaining/duration)):1;
-  const cel=remaining<=0?0:p<.04?1:Math.min(7,2+Math.floor((p-.04)/.96*6));
-  return (u.pose==='crouch'||u.pose==='hunker'?8:0)+cel;
+  if(u.id!=='grenadiers'||launcherDrillBusy(u,time))return null;
+  const cel=launcherDrillCel(u);
+  return (u.pose==='prone'?16:u.pose==='crouch'||u.pose==='hunker'?8:0)+cel;
 }
 export function grenadeLauncherSprite(u: Unit,time: number,frames?: SpecialistSprite[]) {
   const i=grenadeLauncherFrame(u,time);return i===null?null:frames?.[i]??null;

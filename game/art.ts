@@ -605,7 +605,7 @@ export function loadArt() {
       loadImage('/art/medical-work-frames-v148.png'),
       loadImage('/art/low-grenade-frames-v149.png'),
       loadImage('/art/repair-work-frames-v150.png'),
-      loadImage('/art/grenade-launcher-frames-v152.png'),
+      loadImage('/art/grenade-launcher-frames-v159.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
