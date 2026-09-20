@@ -1,6 +1,6 @@
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
-import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive } from './infantry-action-timing';
+import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive, magazineReloadCel } from './infantry-action-timing';
 import { isPrecisionObserver } from './precision-team';
 import { ammunition } from './ballistics';
 import { crouchTravelAmount } from './crouch-locomotion';
@@ -505,11 +505,7 @@ function reloadBeat(u: Unit, time: number): AdultFrameChoice {
   // The heavy gun's dedicated belt cels are applied by its renderer.
   if (ammunition(u.id, u.member) !== 'rifle')
     return action(u.pose === 'prone' ? 2 : stanceHeightClass(u.pose) === 'crouch' ? 1 : 0);
-  const until = u.reloadingUntil ?? 0;
-  const startedAt = u.reloadingStartAt ?? until - 1.4;
-  const duration = Math.max(0.001, until - startedAt);
-  const elapsed = Math.min(duration, Math.max(0, time - startedAt));
-  const beat = Math.min(7, Math.floor(elapsed / duration * 8));
+  const beat = magazineReloadCel(u,time);
   if (u.pose === 'prone') return { group: 'lowReload16', index: 8 + beat };
   if (stanceHeightClass(u.pose) === 'crouch') return { group: 'lowReload16', index: beat };
   return { group: 'reload8', index: beat };

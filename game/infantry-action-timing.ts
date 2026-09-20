@@ -28,6 +28,36 @@ export function magazineReloadActive(
 ): boolean {
   return (u.ammo === 0 || !!u.tacticalReload) && (u.reloadingUntil ?? 0) > time;
 }
+/** Magazine work has one clock even when the soldier starts or stops walking. */
+export function magazineReloadCel(
+  u: Partial<Pick<Unit, 'reloadingStartAt' | 'reloadingUntil'>>, time: number,
+): number {
+  const until = u.reloadingUntil ?? 0;
+  const start = u.reloadingStartAt ?? until - 1.4;
+  const duration = Math.max(.001, until - start);
+  return Math.min(7, Math.floor(Math.max(0, time - start) / duration * 8));
+}
+/** Advance only the deadline, not the work, while another action owns the body.
+ * Run once in simulation before casualty/descent branches can return early.
+ * Walking is not an interruption; this does not freeze retreat or its refill.
+ * A pre-booked knee-settling delay is not charged a second time. */
+export function pauseMagazineDrill(u: Unit, time: number, dt: number): void {
+  const previous = time - dt;
+  if (!magazineReloadActive(u,previous)) return;
+  const busy = u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
+    u.climbing > 0 || (u.motion !== 'ground' && u.motion !== 'bank') ||
+    stanceTransitionActive(u,previous) ||
+    ((u.pose === 'crouch' || u.pose === 'hunker') &&
+      (u.crouchTravel ?? 0) > 0 && (u.crouchTravel ?? 0) < 1) ||
+    (u.fragThrow ?? 0) > 0 || u.tending || u.draggingUid !== undefined ||
+    (u.firstAidUntil ?? 0) > previous;
+  if (!busy) return;
+  const start = u.reloadingStartAt ?? u.reloadingUntil! - 1.4;
+  const delay = Math.max(0, time - Math.max(previous,start));
+  if (delay === 0) return;
+  u.reloadingStartAt = start + delay;
+  u.reloadingUntil! += delay;
+}
 export const GRENADE_THROW_S = 1.1;
 // Cel five still paints the grenade at the fingertips; cel six is empty.
 export const GRENADE_RELEASE_S = GRENADE_THROW_S * 5 / 8;

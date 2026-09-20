@@ -9,7 +9,7 @@ import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, t
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
 import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
-import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive } from './infantry-action-timing';
+import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
 import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
@@ -7417,6 +7417,7 @@ export function tick(s: GameState, dt: number) {
   s.frontX = [front0, front1];
   updateSquadCommand(s);
   for (const u of s.units) {
+    if (CARDS[u.id].members) pauseMagazineDrill(u,s.time,dt);
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
     const previousWork = beginSupportTick(u);
     if (!isCombatant(u) || u.rappelling || u.parachuting || u.tactic === 'retreat' ||
