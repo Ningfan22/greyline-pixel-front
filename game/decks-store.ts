@@ -140,6 +140,18 @@ export function renameDeck(store: DeckStore, name: string): DeckStore {
   return next;
 }
 
+/** Rename any slot by id (not just the active one). */
+export function renameDeckById(store: DeckStore, id: string, name: string): DeckStore {
+  const trimmed = name.trim().slice(0, 12);
+  if (!trimmed) return store;
+  const decks = store.decks.map((d) =>
+    d.id === id ? { ...d, name: trimmed } : d,
+  );
+  const next = { ...store, decks };
+  saveDeckStore(next);
+  return next;
+}
+
 export function addDeck(store: DeckStore, name?: string): DeckStore | null {
   if (store.decks.length >= MAX_DECKS) return null;
   const id = newDeckId();

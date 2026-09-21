@@ -1,0 +1,23 @@
+{
+  "projectname": "greyline-pixel-front",
+  "appid": "touristappid",
+  "type": "miniGame",
+  "setting": {
+    "es6": true,
+    "minified": true,
+    "postcss": false,
+    "uglifyFileName": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "compileType": "miniGame",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "src" },
+      { "type": "file", "value": "vite.config.ts" }
+    ]
+  }
+}
