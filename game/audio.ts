@@ -44,10 +44,15 @@ const clamp = (n: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, n));
 const ENGINE_BASE_LEVEL = 0.13;
 /** Nominal oscillator frequency (Hz) for each engine family at pitch 1. */
 const ENGINE_BASE_FREQ = { tank: 58, ifv: 84 } as const;
+/** Diesel cylinder-firing chuff rate (Hz): idle floor and full-rpm span. */
+const ENGINE_FIRE_RATE = {
+  tank: { idle: 9, span: 32 },
+  ifv: { idle: 13, span: 46 },
+} as const;
 
 interface EngineVoiceNodes {
   osc: OscillatorNode;
-  sub: OscillatorNode;
+  lfo: OscillatorNode;
   noise: AudioBufferSourceNode;
   gain: GainNode;
   pan: StereoPannerNode;
@@ -804,39 +809,45 @@ export class BattleAudio {
     if (!ctx || !this.effectsGain) return;
     const now = ctx.currentTime,
       base = ENGINE_BASE_FREQ[spec.model],
+      fire = ENGINE_FIRE_RATE[spec.model],
       osc = ctx.createOscillator(),
-      sub = ctx.createOscillator(),
+      lfo = ctx.createOscillator(),
+      lfoDepth = ctx.createGain(),
       noise = ctx.createBufferSource(),
       oscGain = ctx.createGain(),
-      subGain = ctx.createGain(),
       noiseGain = ctx.createGain(),
       filter = ctx.createBiquadFilter(),
       noiseFilter = ctx.createBiquadFilter(),
       gain = ctx.createGain(),
       pan = ctx.createStereoPanner();
-    osc.type = 'sawtooth';
-    sub.type = 'square';
+    // Sines, not saw/square: a diesel's body is low-frequency pressure pulses,
+    // not buzzy harmonics. The old saw+square stack read as a mosquito hum.
+    osc.type = 'sine';
+    lfo.type = 'sine';
     noise.buffer = this.engineNoiseBuffer();
     noise.loop = true;
-    oscGain.gain.value = 0.5;
-    subGain.gain.value = 0.28;
-    noiseGain.gain.value = 0.3;
+    oscGain.gain.value = 0.2;
+    noiseGain.gain.value = 0.6;
+    // The chuff: the LFO amplitude-modulates the noise at the cylinder firing
+    // rate, so the voice pulses like a diesel instead of droning flat.
+    lfoDepth.gain.value = 0.38;
     filter.type = 'lowpass';
     noiseFilter.type = 'lowpass';
     const t0 =
       now + soundDelay(listenerDistance(spec.x, this.camera, this.width));
     const pitch = base * spec.pitch;
+    const fireRate = fire.idle + spec.rpm * fire.span;
     osc.frequency.setValueAtTime(pitch, t0);
-    sub.frequency.setValueAtTime(pitch * 0.5, t0);
-    filter.frequency.setValueAtTime(280 + spec.rpm * 700, t0);
-    noiseFilter.frequency.setValueAtTime(320 + spec.rpm * 500, t0);
+    lfo.frequency.setValueAtTime(fireRate, t0);
+    filter.frequency.setValueAtTime(140 + spec.rpm * 160, t0);
+    noiseFilter.frequency.setValueAtTime(300 + spec.rpm * 450, t0);
     gain.gain.setValueAtTime(0, t0);
     gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, t0, 0.2);
     pan.pan.setValueAtTime(spec.pan, t0);
     osc.connect(oscGain);
     oscGain.connect(filter);
-    sub.connect(subGain);
-    subGain.connect(filter);
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(noiseGain.gain);
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(filter);
@@ -846,10 +857,10 @@ export class BattleAudio {
     osc.onended = () => {
       for (const node of [
         osc,
-        sub,
+        lfo,
         noise,
         oscGain,
-        subGain,
+        lfoDepth,
         noiseGain,
         filter,
         noiseFilter,
@@ -864,11 +875,11 @@ export class BattleAudio {
       }
     };
     osc.start(t0);
-    sub.start(t0);
+    lfo.start(t0);
     noise.start(t0);
     this.engineVoices.set(uid, {
       osc,
-      sub,
+      lfo,
       noise,
       gain,
       pan,
@@ -881,11 +892,13 @@ export class BattleAudio {
     const ctx = this.context;
     if (!ctx) return;
     const now = ctx.currentTime,
-      pitch = ENGINE_BASE_FREQ[spec.model] * spec.pitch;
+      pitch = ENGINE_BASE_FREQ[spec.model] * spec.pitch,
+      fire = ENGINE_FIRE_RATE[spec.model],
+      fireRate = fire.idle + spec.rpm * fire.span;
     nodes.osc.frequency.setTargetAtTime(pitch, now, 0.08);
-    nodes.sub.frequency.setTargetAtTime(pitch * 0.5, now, 0.08);
-    nodes.filter.frequency.setTargetAtTime(280 + spec.rpm * 700, now, 0.1);
-    nodes.noiseFilter.frequency.setTargetAtTime(320 + spec.rpm * 500, now, 0.1);
+    nodes.lfo.frequency.setTargetAtTime(fireRate, now, 0.1);
+    nodes.filter.frequency.setTargetAtTime(140 + spec.rpm * 160, now, 0.1);
+    nodes.noiseFilter.frequency.setTargetAtTime(300 + spec.rpm * 450, now, 0.1);
     nodes.gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, now, 0.1);
     nodes.pan.pan.setTargetAtTime(spec.pan, now, 0.1);
   }
@@ -901,7 +914,7 @@ export class BattleAudio {
       nodes.gain.gain.cancelScheduledValues(now);
       nodes.gain.gain.setTargetAtTime(0, now, 0.05);
       nodes.osc.stop(now + 0.3);
-      nodes.sub.stop(now + 0.3);
+      nodes.lfo.stop(now + 0.3);
       nodes.noise.stop(now + 0.3);
     } catch {
       /* Already stopped. */

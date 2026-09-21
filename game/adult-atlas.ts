@@ -109,3 +109,28 @@ export function signalFrames(image: HTMLImageElement): HTMLCanvasElement[] {
     return out;
   });
 }
+
+/**
+ * v174: per-identity pose chain built from the soldier's OWN pixel atlas, so
+ * a yellow marine or militia fighter never snaps to the shared green realistic
+ * stance sheet when aiming or dropping to a knee. Index semantics match the
+ * legacy painted stance16: 0 standing aim, 7 kneeling aim, 15 prone aim,
+ * 8 = 7 handoff. Intermediate indices reuse the closest authored height from
+ * the same atlas (crouch-walk for the stand->knee descent, prone-rise and
+ * crawl for the knee->prone descent), and the travel endpoints hand off
+ * seamlessly to the crouch8 / crawl2 gait cycles.
+ */
+export function ownStance16(
+  adult: ReturnType<typeof adultAtlas>,
+): HTMLCanvasElement[] {
+  const stand = adult.actions20[0];
+  const knee = adult.actions20[1];
+  const prone = adult.actions20[2];
+  const crouchWalk = adult.crouch8[0];
+  const crawlAlt = adult.crawl2[1];
+  const proneRise = adult.actions20[13];
+  return [
+    stand, stand, crouchWalk, crouchWalk, knee, knee, knee, knee,
+    knee, proneRise, proneRise, crawlAlt, prone, prone, prone, prone,
+  ];
+}
