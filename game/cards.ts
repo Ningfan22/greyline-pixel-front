@@ -120,7 +120,13 @@ export type CardId =
   | 'fire_team'
   | 'assault_grenadiers'
   | 'lmg_team'
-  | 'glider_transport';
+  | 'glider_transport'
+  // ── v176 特异化扩充 ─────────────────────────────────────────
+  | 'flame_team'
+  | 'mlrs'
+  | 'scout_car'
+  | 'flame_tank'
+  | 'light_mortar';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -1072,7 +1078,7 @@ export const CARDS: Record<CardId, Card> = {
     '快速通场连续扫射，每架次最多 16 发，返航后低费再次派遣。',
     {
       hp: 170,
-      damage: 38,
+      damage: 26,
       rate: 0.08,
       range: 630,
       speed: 560,
@@ -1084,13 +1090,13 @@ export const CARDS: Record<CardId, Card> = {
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
-      infantryMultiplier: 2.5,
+      infantryMultiplier: 1.7,
       armorMultiplier: 0.35,
       baseMultiplier: 0.15,
       radius: 30,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×2.5，一轮扫射可重创但难以全歼整支班组，弹着点掀起爆炸级烟尘。每架次最多 16 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 26 伤机炮弹，对步兵 ×1.7，一轮扫射可压制并重创聚集的步兵，但已不足以单轮全歼成建制班组，弹着点掀起爆炸级烟尘。每架次最多 16 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(
@@ -2320,6 +2326,119 @@ export const CARDS: Record<CardId, Card> = {
       tag: '步兵 · 机动压制',
       detail:
         '2费1名轻机枪手与1名步枪护卫。机枪每4发短点射后停顿0.8秒，60发弹带、装填2.8秒，可对空。推进命令下，附近180内有友军持续开火掩护、敌人仍在220外时，可利用点射间隙向前换位最多24；无掩护、受压或驻守时留在原位。不需要重机枪的展开，适合跟随突击步兵，而不是单独顶住战线。',
+    },
+  ),
+  flame_team: variant(
+    'infantry',
+    'flame_team',
+    '喷火班组',
+    3,
+    '近距离烈焰清扫掩体与壕沟，无视掩体减伤',
+    {
+      members: 2,
+      hp: 130,
+      damage: 26,
+      rate: 0.28,
+      range: 170,
+      speed: 52,
+      trait: 'close_assault',
+      infantryAbility: 'flusher',
+      uniform: 'heavy',
+      doctrine: 'assault',
+      discipline: 78,
+      tag: '步兵 · 近距焚壕',
+      detail:
+        '2人喷火组，130生命。射程仅170，但每秒伤害极高且无视掩体减伤——蹲在矮墙、弹坑和建筑里的敌人照样被烧。近距离接敌时获得突击加成。适合紧跟装甲推进，清扫壕沟与建筑据点；射程极短，被拉开距离后几乎无力还手。',
+    },
+  ),
+  mlrs: variant(
+    'ifv',
+    'mlrs',
+    '自行火箭炮',
+    7,
+    '远程大面积覆盖轰击，有最小射程，车体脆弱',
+    {
+      en: 'MLRS',
+      vehicle: true,
+      antiAir: false,
+      hp: 180,
+      damage: 48,
+      rate: 7.5,
+      range: 1050,
+      minRange: 350,
+      speed: 42,
+      radius: 65,
+      indirect: true,
+      baseMultiplier: 0.15,
+      sight: 460,
+      tag: '炮兵 · 远程覆盖',
+      detail:
+        '180生命无装甲。每7.5秒齐射一轮48伤害、半径65的远程火箭弹，射程350–1050，曲射越障。覆盖面积极大，适合轰击敌方集结区与阵地；但有350最小射程，被近身时无法还击，且车体脆弱，一发反甲火力即可瘫痪。被声测定位两轮后自动转移。',
+    },
+  ),
+  scout_car: variant(
+    'ifv',
+    'scout_car',
+    '装甲侦察车',
+    3,
+    '快速前出侦察，共享视野引导炮兵，自卫火力弱',
+    {
+      en: 'SCOUT CAR',
+      vehicle: true,
+      antiAir: false,
+      hp: 200,
+      damage: 3,
+      rate: 0.5,
+      range: 350,
+      speed: 82,
+      observer: true,
+      sight: 950,
+      tag: '侦察 · 视野共享',
+      detail:
+        '200生命。速度82，是最快的装甲车辆；950超远视野并为友军共享，可引导迫击炮、火箭炮与炮兵进行超视距打击。自卫机枪仅3伤害，几乎无法独立作战。适合开局抢占视野、持续监视敌方动向，被敌方装甲或空中力量盯上时需迅速撤离。',
+    },
+  ),
+  flame_tank: variant(
+    'tank',
+    'flame_tank',
+    '喷火坦克',
+    6,
+    '近距烈焰焚扫步兵，对装甲几乎无效',
+    {
+      hp: 560,
+      damage: 30,
+      rate: 0.22,
+      range: 210,
+      speed: 42,
+      radius: 18,
+      infantryMultiplier: 3.0,
+      armorMultiplier: 0.08,
+      baseMultiplier: 0.1,
+      tag: '装甲 · 近距焚扫',
+      detail:
+        '560生命装甲。拆除主炮换装喷火器：射程仅210，但对步兵伤害×3.0、附带范围灼烧，一轮喷射可清空整片壕沟；对装甲伤害×0.08，几乎无法击穿坦克。适合伴随步兵推进、清扫筑垒地带，被敌方坦克贴脸时毫无还手之力。',
+    },
+  ),
+  light_mortar: variant(
+    'mortar',
+    'light_mortar',
+    '轻迫击炮班',
+    2,
+    '低费曲射支援，射程近、伤害低',
+    {
+      members: 2,
+      hp: 100,
+      damage: 26,
+      rate: 3.6,
+      range: 580,
+      minRange: 100,
+      speed: 48,
+      radius: 22,
+      indirect: true,
+      uniform: 'crew',
+      tag: '炮兵 · 低费曲射',
+      detail:
+        '2人炮手，100生命。每3.6秒一发26范围伤害，射程100–580，曲射越障。费用仅2，是最便宜的曲射火力，适合早期压制敌方步兵集结点与轻阵地；伤害和射程都远不如重型迫击炮，被近身时同样后撤。',
     },
   ),
 };

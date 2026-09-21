@@ -333,6 +333,8 @@ const VEHICLE_TINTS: Record<string, [number, number, number]> = {
   mine_clearer: [0.95, 0.88, 0.66], // desert mine-plough
   aa_gun: [0.7, 0.74, 0.68], // dark air-defence
   sam_vehicle: [0.66, 0.7, 0.78], // slate blue
+  mlrs: [0.74, 0.7, 0.58], // olive-drab rocket launcher
+  scout_car: [0.82, 0.86, 0.8], // pale recon grey-green
   // Helicopter-family variants (share aircraft atlases)
   rocket_heli: [0.82, 0.78, 0.62], // desert attack
   scout_drone: [0.8, 0.84, 0.88], // pale recon grey

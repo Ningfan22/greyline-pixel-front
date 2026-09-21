@@ -3792,7 +3792,10 @@ function traverse(s: GameState, u: Unit, dt: number) {
     u.x = contactSafeX(s,u,proposed);
     const blocked = Math.abs(u.x-proposed) > 1e-6;
     const distance = Math.abs(u.x-previousX);
-    u.walk += distance / (u.pose === 'prone' ? 4 : 6);
+    // v175: divisor 8 (was 6) so the passing cels stay on screen long enough
+    // to read; clamp 0.95 so a lag spike or stacked speed buffs can never skip
+    // a cel and teleport the rear leg to the front.
+    u.walk += Math.min(distance / (u.pose === 'prone' ? 4 : 8), 0.95);
     u.moving = distance > 1e-6;
     u.y = ground(s, u.x);
     if (t >= 1 || blocked) {
@@ -4124,7 +4127,9 @@ function moveSoldier(
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
   const distance = Math.hypot(u.x - beforeX, u.lane - beforeLane);
   // Gait advances by travelled distance so feet stop when the soldier stops.
-  u.walk += distance / (u.pose === 'prone' ? 4 : 6);
+  // v175: divisor 8 + clamp keeps the passing cels visible and prevents
+  // frame-skipping at high speed or on lag spikes.
+  u.walk += Math.min(distance / (u.pose === 'prone' ? 4 : 8), 0.95);
   u.y = ground(s, u.x);
   u.moving = distance > 0.001;
   if (distance > 0.001 && u.motion === 'ground' && !u.climbing) {
@@ -5434,7 +5439,7 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = Math.abs(u.x-before) > .001;
-  u.walk += Math.abs(u.x-before) / 6;
+  u.walk += Math.min(Math.abs(u.x-before) / 8, 0.95);
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -5469,7 +5474,7 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = Math.abs(u.x-before) > .001;
-  u.walk += Math.abs(u.x-before) / 6;
+  u.walk += Math.min(Math.abs(u.x-before) / 8, 0.95);
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -10074,7 +10079,7 @@ export function tick(s: GameState, dt: number) {
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
             : 0;
         u.lane += laneChange;
-        u.walk += Math.abs(laneChange) / 6;
+        u.walk += Math.min(Math.abs(laneChange) / 8, 0.95);
         const beforeMove = u.x;
           moveSoldier(
             s,

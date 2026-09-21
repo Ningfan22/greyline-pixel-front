@@ -428,6 +428,19 @@ export function render(
         const cause = w.cause ?? 'bullet';
         const family = art.wreckVariants[wreckKind(w.cardId)][cause];
         const frame = family[wsd % family.length];
+        // v176: a fresh wreck keeps its paint and desaturates into a burnt
+        // grey-black hulk over the first seconds, so a killed vehicle never
+        // reads as a still-live one. Coarse 0.1 decay steps keep the
+        // filteredSprite cache small (vehicle bitmaps are large).
+        const wdecay = Math.min(1, Math.round((w.age / 5) * 10) / 10);
+        const wshade = 0.45 + (wsd % 3) * 0.05;
+        const wreckFrame = filteredSprite(
+          frame,
+          `grayscale(${wdecay.toFixed(1)}) brightness(${(
+            wshade +
+            (1 - wdecay) * (1 - wshade)
+          ).toFixed(2)})`,
+        );
         const shape = wreckGeometry(w.cardId,w.cause);
         const scorch = Math.max(
           18,
@@ -450,11 +463,11 @@ export function render(
           shape.spriteOffset * (w.facing ?? (w.side === 0 ? 1 : -1));
         drawSprite(
           ctx,
-          frame,
+          wreckFrame,
           w.x + Math.cos(w.angle) * offset - Math.sin(w.angle) * inset,
           w.y + Math.sin(w.angle) * offset + Math.cos(w.angle) * inset,
-          frame.width,
-          frame.height,
+          wreckFrame.width,
+          wreckFrame.height,
           (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
           1,
           w.angle,

@@ -687,8 +687,8 @@ check('卧姿狙击手有真实射线时保持卧姿开火，不为每枪起立'
   assert.equal(u.pose, 'prone');
   assert.equal(u.muzzleY, muzzlePoint(u, s.units[1].x).y);
 });
-check('116种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 116);
+check('121种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
+  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 121);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
