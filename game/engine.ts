@@ -2360,6 +2360,11 @@ function hitUnit(
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
+  const attacker =
+    attackerUid !== undefined
+      ? s.units.find((q) => q.uid === attackerUid)
+      : undefined;
+  const attackerCard = attacker ? CARDS[attacker.id] : undefined;
   const protection =
     u.pose === 'prone'
       ? 0.7
@@ -2373,9 +2378,13 @@ function hitUnit(
       ? damage
       : damage *
         protection *
-        (1 - cover) *
+        (attackerCard?.infantryAbility === 'flusher' ? 1 : 1 - cover) *
         (source === 'blast' ? (c.blastProtection ?? 1) : 1) *
         (c.trait === 'armor_vest' ? 0.88 : 1) *
+        (attackerCard?.infantryAbility === 'anti_materiel' &&
+        (c.armored || c.vehicle)
+          ? 2.5
+          : 1) *
         (c.members && !u.moving && s.players[u.side].fortify > 0 ? 0.7 : 1) *
         (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time
           ? 0.7
@@ -2429,6 +2438,9 @@ function hitUnit(
     const resolve = supported || c.infantryAbility === 'elite' || c.infantryAbility === 'fire_discipline' ? 0.65 : 1;
     const umbrella = aaUmbrella(s, u.side, u.x) ? 0.7 : 1;
     const firebase = unitSynergy(s, u, s.time).fire_base ? 0.65 : 1;
+    const suppressiveFire =
+      attackerCard?.infantryAbility === 'suppressive' ? 1.5 : 1;
+    const swarmNerves = c.infantryAbility === 'swarm' ? 0.75 : 1;
     u.suppression = Math.min(
       100,
       u.suppression +
@@ -2436,6 +2448,8 @@ function hitUnit(
           resolve *
           umbrella *
           firebase *
+          suppressiveFire *
+          swarmNerves *
           veteranSuppression(u),
     );
     u.personalMorale = Math.max(
@@ -3116,7 +3130,7 @@ function bodyHeight(
 }
 export function unitRange(s: GameState, u: Unit) {
   return (
-    (pairedPrecisionRange(s, u) ? 880 : weaponCard(u).range!) *
+    (pairedPrecisionRange(s, u) ? 930 : weaponCard(u).range!) *
     (CARDS[u.id].infantryAbility === 'mountain_fire' &&
     !u.moving &&
     u.motion === 'ground' &&
@@ -3931,7 +3945,9 @@ function moveSoldier(
       u.pose = setStance(u, s.time, 'crouch');
       if (u.supportCooldown <= 0) {
         const wallHpBefore = wall.hp;
-        wall.hp = Math.max(0, wall.hp - 70);
+        const breachDamage =
+          CARDS[u.id].infantryAbility === 'demolition' ? 70 * 3 : 70;
+        wall.hp = Math.max(0, wall.hp - breachDamage);
         u.supportCooldown = 1.2;
         burst(s, wall.x, ground(s, wall.x) - 8, 10);
         // Breach! Nearby assault troops surge through the gap.
@@ -8131,6 +8147,7 @@ export function tick(s: GameState, dt: number) {
           (syn.armor_assault ? 1.6 : 1) *
           (syn.smoke_screen ? 1.5 : 1) *
           (syn.overwatch ? 1.35 : 1) *
+          (c.infantryAbility === 'swarm' ? 1.8 : 1) *
           vacuumSuppressionFactor(s, u),
     );
     if (stepHandGrenade(s, u)) continue;
@@ -9846,6 +9863,11 @@ export function tick(s: GameState, dt: number) {
             damage:
               ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               openingDamage *
+              (c.infantryAbility === 'entrenched' &&
+              !u.moving &&
+              (u.stillFor ?? 0) >= 2
+                ? 1.35
+                : 1) *
               (smallArmsAir ? 0.12 : 1) *
               (morale ? 1.35 : 1) *
               (c.trait === 'close_assault' && Math.abs(tx - u.x) < 200
