@@ -1,11 +1,8 @@
-灰线像素前线游戏软件  V1.0    第 1/60 页
-------------------------------------------------------------
-// === 文件: minigame/src/main.ts ===
+灰线像素前线游戏软件 V1.0  第1/60页
 /**
  * Mini-game entry point: boots the adapter, sets up the main canvas,
  * routes touch events into the UI framework, and runs the main loop.
  */
-
 import { initAdapter, loadPixelFont, getMainCanvas } from './adapter';
 import { Router, type TouchEvent, type TouchPoint } from './ui/framework';
 import { lobbyState } from './lobby-state';
@@ -14,9 +11,7 @@ import { DeckBuilderScreen } from './ui/deck-builder';
 import { ShopScreen } from './ui/shop';
 import { BattleScreen } from './ui/battle';
 import { preloadAllCardArt } from './ui/card-render';
-
 declare const tt: any;
-
 /**
  * CDN base URL for art assets.
  *
@@ -27,7 +22,11 @@ declare const tt: any;
  * 留空则从本地包内加载（仅开发调试用，需要把 art 目录也放进包）。
  */
 const ART_CDN_BASE = 'https://cdn.example.com/pixel-frontline/';
-
+/**
+ * BGM 等大音频文件的 CDN 地址。与美术资源同一个 CDN 即可，
+ * 把 minigame-cdn/audio/ 目录上传到 CDN 后自动生效。
+ */
+const AUDIO_CDN_BASE = ART_CDN_BASE;
 function toPoints(list: any): TouchPoint[] {
   if (!list) return [];
   const out: TouchPoint[] = [];
@@ -40,50 +39,42 @@ function toPoints(list: any): TouchPoint[] {
   }
   return out;
 }
-
 export function boot(): void {
   initAdapter();
-
   // Route art loads to the CDN (WebP versions).
   if (ART_CDN_BASE) {
-    (globalThis as { __ART_CDN_BASE__?: string }).__ART_CDN_BASE__ = ART_CDN_BAS
+    (globalThis as { __ART_CDN_BASE__?: string }).__ART_CDN_BASE__ = ART_CDN_BASE;
   }
-
+  if (AUDIO_CDN_BASE) {
+    (globalThis as { __AUDIO_CDN_BASE__?: string }).__AUDIO_CDN_BASE__ = AUDIO_CDN_BASE;
+  }
   const fontFamily = loadPixelFont();
-
+
+灰线像素前线游戏软件 V1.0  第2/60页
   const canvas = getMainCanvas();
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   const info = tt.getSystemInfoSync();
   const screenW = info.windowWidth;
-
-灰线像素前线游戏软件  V1.0    第 2/60 页
-------------------------------------------------------------
   const screenH = info.windowHeight;
   const pixelRatio = info.pixelRatio || 1;
   ctx.scale(pixelRatio, pixelRatio);
-
   // ── Router + screens ──
   const router = new Router();
   const lobby = new LobbyScreen(screenW, screenH, router);
   const builder = new DeckBuilderScreen(screenW, screenH, router);
   const shop = new ShopScreen(screenW, screenH, router);
   const battle = new BattleScreen(screenW, screenH, router);
-
   router.register('lobby', lobby);
   router.register('deck-builder', builder);
   router.register('shop', shop);
   router.register('battle', battle);
-
   lobbyState.onBattle = () => {
     battle.configure(lobbyState.match!);
     router.navigate('battle');
   };
-
   router.navigate('lobby');
-
   // ── Touch routing ──
   const activeTouches = new Map<number, TouchPoint>();
-
   const dispatch = (type: TouchEvent['type'], raw: any) => {
     const changed = toPoints(raw.changedTouches ?? raw.touches);
     if (type === 'down') {
@@ -95,12 +86,10 @@ export function boot(): void {
       for (const p of changed) activeTouches.delete(p.id);
     }
   };
-
   tt.onTouchStart((e: any) => dispatch('down', e));
   tt.onTouchMove((e: any) => dispatch('move', e));
   tt.onTouchEnd((e: any) => dispatch('up', e));
   tt.onTouchCancel((e: any) => dispatch('up', e));
-
   // ── Main loop ──
   let last = Date.now();
   const loop = () => {
@@ -112,14 +101,11 @@ export function boot(): void {
     router.draw(ctx);
     requestAnimationFrame(loop);
   };
+
+灰线像素前线游戏软件 V1.0  第3/60页
   requestAnimationFrame(loop);
-
-灰线像素前线游戏软件  V1.0    第 3/60 页
-------------------------------------------------------------
-
   // ── Background preload of card art ──
   preloadAllCardArt();
-
   // ── Lifecycle: pause on hide ──
   if (typeof tt.onHide === 'function') {
     tt.onHide(() => {
@@ -141,1216 +127,2738 @@ export function boot(): void {
       battle.onAudioInterrupt(false);
     });
   }
-
   // Keep a reference so the font family is not tree-shaken away.
   void fontFamily;
 }
-
 boot();
-
-// === 文件: minigame/src/adapter.ts ===
 /**
- * Platform adapter: shims Web APIs for the Douyin mini-game environment.
- * Installs document/Image/localStorage/fetch/AudioContext on the global object
- * so the existing game engine code runs unmodified.
+ * Speed-of-sound model for battlefield audio.
+ *
+ * In a real firefight the muzzle flash arrives before the shot, and the
+ * brain reads that gap as distance. Every positional sound goes through
+ * `soundDelay` so distant booms lag behind their visuals, which is what
+ * makes a wide front *feel* wide.
  */
-
-declare const tt: any;
-declare const GameGlobal: any;
-
-let mainCanvas: any = null;
-
-export function getMainCanvas(): any {
-  return mainCanvas;
+/** Pixels per second (1 px ≈ 0.13 m, so this is roughly 340 m/s). */
+export const SOUND_SPEED = 2600;
+/** Inside this radius (px) the sound is effectively instantaneous. */
+export const NEAR_FIELD = 220;
+/** Longest lag (s) we allow — beyond this it stops sounding like distance. */
+export const MAX_DELAY = 0.8;
+/** Horizontal distance from a sound source to the listener (screen centre). */
+export function listenerDistance(
+  x: number,
+  camera: number,
+  width: number,
+): number {
+  return Math.abs(x - (camera + width / 2));
 }
-
-export function initAdapter(): void {
-  const g: any =
-    typeof GameGlobal !== 'undefined' ? GameGlobal : globalThis;
-
-  // ── Main on-screen canvas (first tt.createCanvas call) ──
-  mainCanvas = tt.createCanvas();
-  const info = tt.getSystemInfoSync();
-
-灰线像素前线游戏软件  V1.0    第 4/60 页
-------------------------------------------------------------
-  mainCanvas.width = info.windowWidth * info.pixelRatio;
-  mainCanvas.height = info.windowHeight * info.pixelRatio;
-
-  // ── document shim ──
-  g.document = {
-    createElement(tag: string): any {
-      if (tag === 'canvas') return tt.createCanvas();
-      return {
-        style: {},
-        appendChild() {},
-        removeChild() {},
-        addEventListener() {},
-        removeEventListener() {},
-        getContext() {
-          return null;
-        },
-      };
-    },
-    getElementById() {
-      return null;
-    },
-    addEventListener() {},
-    removeEventListener() {},
-    hidden: false,
-    body: { appendChild() {}, style: {}, clientWidth: info.windowWidth, clientHe
-    documentElement: { clientWidth: info.windowWidth, clientHeight: info.windowH
-  };
-
-  // ── Image shim ──
-  g.Image = class ImageShim {
-    private _img: any;
-    onload: (() => void) | null = null;
-    onerror: ((e: any) => void) | null = null;
-    private _src = '';
-    constructor() {
-      this._img = tt.createImage();
-      this._img.onload = () => {
-        if (this.onload) this.onload();
-      };
-      this._img.onerror = (e: any) => {
-        if (this.onerror) this.onerror(e);
-      };
-    }
-    get src(): string {
-      return this._src;
-    }
-    set src(v: string) {
-      this._src = v;
-      this._img.src = v;
-    }
-    get width(): number {
-      return this._img.width;
-    }
-    set width(v: number) {
-      this._img.width = v;
-
-灰线像素前线游戏软件  V1.0    第 5/60 页
-------------------------------------------------------------
-    }
-    get height(): number {
-      return this._img.height;
-    }
-    set height(v: number) {
-      this._img.height = v;
-    }
-    get naturalWidth(): number {
-      return this._img.width;
-    }
-    get naturalHeight(): number {
-      return this._img.height;
-    }
-    get complete(): boolean {
-      return this._img.complete ?? false;
-    }
-  };
-
-  // ── localStorage shim ──
-  g.localStorage = {
-    getItem(key: string): string | null {
-      try {
-        const v = tt.getStorageSync(key);
-        if (v === '' || v === undefined || v === null) return null;
-        return typeof v === 'string' ? v : JSON.stringify(v);
-      } catch {
-        return null;
-      }
-    },
-    setItem(key: string, value: string): void {
-      try {
-        tt.setStorageSync(key, value);
-      } catch {}
-    },
-    removeItem(key: string): void {
-      try {
-        tt.removeStorageSync(key);
-      } catch {}
-    },
-  };
-
-  // ── fetch shim (XMLHttpRequest is available in mini-game) ──
-  if (typeof g.fetch !== 'function') {
-    g.fetch = (url: string, _options?: any) =>
-      new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = () => {
-          resolve({
-            ok: xhr.status >= 200 && xhr.status < 300,
-            status: xhr.status,
-            arrayBuffer: () => Promise.resolve(xhr.response),
-            text: () =>
-              Promise.resolve(
-
-灰线像素前线游戏软件  V1.0    第 6/60 页
-------------------------------------------------------------
-                typeof xhr.response === 'string'
-                  ? xhr.response
-                  : new TextDecoder().decode(xhr.response),
-              ),
-          });
-        };
-        xhr.onerror = () => reject(new Error(`fetch failed: ${url}`));
-        xhr.send();
-      });
-  }
-
-  // ── AudioContext shim ──
-  const AC: any =
-    (typeof tt.createWebAudioContext === 'function' && tt.createWebAudioContext(
-    g.AudioContext ||
-    g.webkitAudioContext ||
-    null;
-
-  // ── window shim ──
-  g.window = {
-    AudioContext: AC,
-    webkitAudioContext: AC,
-    devicePixelRatio: info.pixelRatio,
-    innerWidth: info.windowWidth,
-    innerHeight: info.windowHeight,
-    addEventListener() {},
-    removeEventListener() {},
-  };
-  if (AC) {
-    g.AudioContext = AC.constructor || AC;
-    g.webkitAudioContext = AC.constructor || AC;
-  }
-
-  // ── requestAnimationFrame (already global in mini-game, ensure) ──
-  if (typeof g.requestAnimationFrame !== 'function') {
-    g.requestAnimationFrame = (cb: (t: number) => void) =>
-      setTimeout(() => cb(Date.now()), 16);
-    g.cancelAnimationFrame = (id: any) => clearTimeout(id);
-  }
-
-  // ── Prevent default scroll/zoom ──
-  tt.onTouchStart(() => {}, { passive: true });
-  tt.onTouchMove(() => {}, { passive: true });
+
+灰线像素前线游戏软件 V1.0  第4/60页
+/** Travel time (s) for a sound at `distance` px, clamped to the near field. */
+export function soundDelay(distance: number): number {
+  return Math.min(
+    Math.max((distance - NEAR_FIELD) / SOUND_SPEED, 0),
+    MAX_DELAY,
+  );
 }
-
-/** Load the pixel font for Canvas text rendering. */
-export function loadPixelFont(): string | null {
-  try {
-    const family = tt.loadFont('fonts/fusion-pixel-12px-monospaced-zh_hans.otf.w
-    return family || 'monospace';
-  } catch {
-    return 'monospace';
-  }
+import { CARDS, type CardId } from './cards';
+import type { Unit } from './engine';
+import { grenadeCel, stanceTransitionActive, stanceTransitionProgress, stanceHeightClass, magazineReloadActive, magazineReloadCel } from './infantry-action-timing';
+import { ammunition } from './ballistics';
+import { crouchTravelAmount } from './crouch-locomotion';
+import { proneTravelAmount } from './prone-locomotion';
+import { supportWorkSettled } from './support-work';
+export type AdultIdentity = 'infantry' | 'marines' | 'police' | 'militia';
+export interface AdultSprites {
+  walk8: HTMLCanvasElement[];
+  crouch8: HTMLCanvasElement[];
+  actions20: HTMLCanvasElement[];
+  /** Original matched low-crawl pair, independent of the new settled poses. */
+  crawl2: HTMLCanvasElement[];
+  reactions8: HTMLCanvasElement[];
+  /** v121: dedicated hand-signal frames — point fwd, wave overhead, point back, fist. */
+  signals4: HTMLCanvasElement[];
+  reload8: HTMLCanvasElement[];
+  grenade8: HTMLCanvasElement[];
+  /** Painted stand→knee→prone cels, played backwards when rising. */
+  stance16: HTMLCanvasElement[];
+  /** Eight fixed-knee and eight prone magazine drills. */
+  lowReload16: HTMLCanvasElement[];
+  /** Eight medical-work cels at each of stand, knee and prone height. */
+  medical24: HTMLCanvasElement[];
+  /** Sixteen fixed-knee and sixteen prone throwing cels. */
+  lowGrenade32: HTMLCanvasElement[];
+  /** Twelve standing/knee and ten prone tool-work cels. */
+  repair34: HTMLCanvasElement[];
+  /** Subtle whole-body prone observation; never a raised crawling silhouette. */
+  proneIdle8: HTMLCanvasElement[];
 }
-
-
-灰线像素前线游戏软件  V1.0    第 7/60 页
-------------------------------------------------------------
-// === 文件: minigame/src/lobby-state.ts ===
+export interface AdultFrameChoice {
+  group: keyof AdultSprites;
+  index: number;
+  /**
+   * Visual facing override for the renderer's sprite flip. Sector scans set
+   * this so the soldier visibly glances toward a flank without touching the
+   * unit's real facing, which keeps driving muzzle direction and movement.
+   */
+  dir?: 1 | -1;
+}
+/** These are whole-body authored actions, not bases for a decorative torso. */
+
+灰线像素前线游戏软件 V1.0  第5/60页
+export function ownsAdultBody(choice: AdultFrameChoice | null): boolean {
+  return !!choice && ['stance16','reload8','lowReload16','grenade8','lowGrenade32','reactions8','medical24','repair34','proneIdle8'].includes(choice.group);
+}
+export function adultIdentity(id: CardId): AdultIdentity {
+  if (id === 'militia') return 'militia';
+  if (CARDS[id].uniform === 'police') return 'police';
+  if (
+    CARDS[id].uniform === 'marine' ||
+    ['marines', 'paratroopers', 'rangers'].includes(id)
+  )
+    return 'marines';
+  return 'infantry';
+}
+const action = (index: number): AdultFrameChoice => ({
+  group: 'actions20',
+  index,
+});
+const reaction = (index: number): AdultFrameChoice => ({
+  group: 'reactions8',
+  index,
+});
+const sig = (index: number): AdultFrameChoice => ({
+  group: 'signals4',
+  index,
+});
+const cycle = (walk: number, length: number) =>
+  ((Math.floor(walk) % length) + length) % length;
 /**
- * Lobby state singleton: holds collection, decks, map/difficulty/night
- * preferences, campaign progress, and the pending match configuration.
- * Replaces the React state in app/page.tsx.
+ * Idle micro-motion: a soldier holding position briefly shifts to an alert
+ * stance or takes a knee to scan, so the front line never freezes into
+ * statues. Returns null most of the time; the caller falls back to the
+ * normal idle frame. Phase is offset by uid so squads don't move in sync.
  */
-
-import {
-  DECK,
-  chooseAiDeck,
-  type CardId,
-} from '@/game/engine';
-import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
-import {
-  DEFAULT_DIFFICULTY,
-  type Difficulty,
-} from '@/game/economy';
-import { isMissionId, MISSIONS, type MissionId } from '@/game/campaign';
-import {
-  loadCollection,
-  saveCollection,
-  validDeckWithCollection,
-  type CollectionState,
-} from '@/game/collection';
-import {
-  loadDeckStore,
-  saveDeckStore,
-  activeDeck,
-  withActiveDeck,
-  addDeck as addDeckSlot,
-  deleteDeck as deleteDeckSlot,
-  renameDeckById as renameDeckSlot,
-  selectDeck as selectDeckSlot,
-  type DeckStore,
-} from '@/game/decks-store';
-
-export interface MatchConfig {
-  seed: number;
-  player: CardId[];
-  ai: CardId[];
-  mapId: MapId;
-  missionId?: MissionId;
-  difficulty: Difficulty;
-  night: boolean;
-}
-
-type Listener = () => void;
-
-class LobbyState {
-  collection: CollectionState;
-  deckStore: DeckStore;
-  mapId: MapId = DEFAULT_MAP;
-  difficulty: Difficulty = DEFAULT_DIFFICULTY;
-  night = false;
-  completed: MissionId[] = [];
-
-灰线像素前线游戏软件  V1.0    第 8/60 页
-------------------------------------------------------------
-  match: MatchConfig | null = null;
-
-  /** Called when a battle should start (wired to router.navigate). */
-  onBattle: ((match: MatchConfig) => void) | null = null;
-  /** Called when returning to lobby from battle. */
-  onExitBattle: (() => void) | null = null;
-
-  private listeners = new Set<Listener>();
-
-  constructor() {
-    this.collection = loadCollection();
-    this.deckStore = loadDeckStore(this.collection);
-    this.loadPrefs();
-  }
-
-  subscribe(fn: Listener): () => void {
-    this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
-  }
-
-  private emit(): void {
-    for (const fn of this.listeners) fn();
-  }
-
-  private loadPrefs(): void {
-    try {
-      const savedMap = localStorage.getItem('greyline-map');
-      if (isMapId(savedMap)) this.mapId = savedMap;
-      const savedDifficulty = localStorage.getItem('greyline-difficulty-v21');
-      if (
-        savedDifficulty === 'standard' ||
-        savedDifficulty === 'veteran' ||
-        savedDifficulty === 'elite'
-      )
-        this.difficulty = savedDifficulty;
-      if (localStorage.getItem('greyline-night') === '1') this.night = true;
-      const progress = JSON.parse(
-        localStorage.getItem('greyline-campaign-v21') ?? '[]',
-      );
-      if (Array.isArray(progress))
-        this.completed = progress.filter(isMissionId);
-    } catch {
-      /* defaults */
-    }
-  }
-
-  get deck(): CardId[] {
-    return [...activeDeck(this.deckStore).cards];
-  }
-
-  setMap(id: MapId): void {
-    this.mapId = id;
-    localStorage.setItem('greyline-map', id);
-    this.emit();
-  }
-
-灰线像素前线游戏软件  V1.0    第 9/60 页
-------------------------------------------------------------
-
-  setDifficulty(d: Difficulty): void {
-    this.difficulty = d;
-    localStorage.setItem('greyline-difficulty-v21', d);
-    this.emit();
-  }
-
-  setNight(v: boolean): void {
-    this.night = v;
-    localStorage.setItem('greyline-night', v ? '1' : '0');
-    this.emit();
-  }
-
-  /** Save the active deck. Returns error message or null on success. */
-  saveDeck(cards: CardId[]): string | null {
-    if (!validDeckWithCollection(cards, this.collection))
-      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
-    this.deckStore = withActiveDeck(this.deckStore, cards);
-    saveDeckStore(this.deckStore);
-    this.emit();
+export function idleMicroChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  // v118: standing-only. A crouched or prone soldier who popped back to the
+  // standing alert frame every few seconds read as a jack-in-the-box; the
+  // low poses have their own fidget layers below.
+  if (u.pose !== 'idle') return null;
+  // Command vacuum: leaderless soldiers glance around nervously, cycling
+  // between alert stance and a knee-scan on a short, irregular cadence so
+  // the disorganisation reads visually without any UI hint.
+  if (u.vacuum) {
+    const phase = (time + u.uid * 3.91) % 4.6;
+    if (phase < 1.1) return action(0);
+    if (phase < 2.0) return action(0);
     return null;
   }
-
-  saveDeckAs(cards: CardId[], name?: string): boolean {
-    if (!validDeckWithCollection(cards, this.collection)) return false;
-    const created = addDeckSlot(this.deckStore, name);
-    if (!created) return false;
-    this.deckStore = withActiveDeck(created, cards);
-    saveDeckStore(this.deckStore);
-    this.emit();
-    return true;
+
+灰线像素前线游戏软件 V1.0  第6/60页
+  // Idle vigilance can turn the soldier, but cannot change body height.
+  // All actual kneeling/standing decisions belong to the stance gate.
+  const period = 9 + (u.uid % 5) * 1.3;
+  const phase = (time + u.uid * 7.31) % period;
+  if (phase < 3.3) return action(0);
+  if (phase < 3.9) {
+    // rise and glance over the shoulder toward the covered flank
+    const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
+    return { ...action(0), dir: (front * -1) as 1 | -1 };
   }
-
-  addDeckSlot(): boolean {
-    const created = addDeckSlot(this.deckStore);
-    if (!created) return false;
-    this.deckStore = created;
-    saveDeckStore(this.deckStore);
-    this.emit();
-    return true;
+  return null;
+}
+/**
+ * v118: crouch idle fidget — a soldier holding a knee periodically shifts
+ * into a low crouch or leans forward to work the sector, so a dug-in line
+ * doesn't freeze into identical statues. Returns null most of the time; the
+ * caller falls back to the static kneel. Animation-only, like the other
+ * idle layers. The period drifts with uid so neighbours desynchronise.
+ */
+export function crouchFidgetChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.pose !== 'crouch') return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  const period = 10 + (u.uid % 4) * 0.9;
+  const phase = (time + u.uid * 6.13) % period;
+  if (phase < 1.4) return action(1); // action 17 is a running frame, not a crouch
+  if (phase < 2.4) return action(1); // 13 is crawling on hands/knees, not a knee scan
+  return null;
+}
+/**
+ * Quiet observation stays at the committed prone height. The legacy
+ * radio/crawl cels raise the torso by 6–8px and cannot be idle substitutes.
+ */
+export function proneFidgetChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.pose !== 'prone') return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  return {group:'proneIdle8',index:Math.floor((time+u.uid*.73)/.6)%8};
+
+灰线像素前线游戏软件 V1.0  第7/60页
+}
+/**
+ * Sector scan: a soldier holding a position works through a structured scan
+ * cycle — alert check to the front, take a knee and glance over the shoulder
+ * toward the covered flank, then rise back to the alert stance. The scan is
+ * animation-only: the returned `dir` overrides the sprite flip in the
+ * renderer while the unit's real facing (muzzle direction, movement) is
+ * untouched, and the omni-directional sight system means the scan never
+ * changes what the soldier can actually see. Pure O(1) arithmetic; the phase
+ * is offset by uid so a squad's scans interleave instead of rippling in
+ * sync, and the period stretches slightly with uid so neighbours drift out
+ * of phase over time.
+ */
+export function sectorScanChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  // Scanning is a deliberate hold behaviour: only from a standing idle pose.
+  // Crouch/prone/hunker poses have their own glance cycles.
+  if (u.pose !== 'idle') return null;
+  // 23 s + up to ~8.5 s, so a six-man squad never locks into a shared rhythm.
+  const period = 23 + (u.uid % 6) * 1.7;
+  const phase = (time + u.uid * 5.77) % period;
+  if (phase >= 3.0) return null;
+  const front = (u.facing < 0 ? -1 : 1) as 1 | -1;
+  const rear = (front * -1) as 1 | -1;
+  // Beat 1 (0.0–0.9 s): alert stance, eyes front.
+  if (phase < 0.9) return { ...action(0), dir: front };
+  // Beat 2 (0.9–2.0 s): check the flank without taking an unscheduled knee.
+  if (phase < 2.0) return { ...action(0), dir: rear };
+  // Beat 3 (2.0–3.0 s): rise back to the alert stance, eyes front.
+  return { ...action(0), dir: front };
+}
+/**
+ * Blast glance: a distant explosion snags a holding soldier's attention —
+ * they snap to the alert stance and look toward the impact for a beat. Like
+ * the sector scan this is animation-only: the returned `dir` flips the sprite
+ * while the unit's real facing (muzzle direction, movement) is untouched, and
+ * the omni-directional sight system means the glance never changes what the
+ * soldier can see. Takes priority over the routine sector scan because a
+ * fresh blast is far more salient than a scheduled sweep.
+ */
+export function blastGlanceChoice(
+  u: Unit,
+
+灰线像素前线游戏软件 V1.0  第8/60页
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.blastGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  return { ...action(0), dir: u.blastGlanceDir ?? 1 };
+}
+/**
+ * Dug-in blast glance: the same distant-blast awareness as
+ * {@link blastGlanceChoice}, but for soldiers holding a low crouch or prone
+ * position. They keep their profile down — a crouching defender stays on one
+ * knee, a prone defender stays on the deck — and only turn to track the
+ * impact. Animation-only, exactly like the standing glance: the returned
+ * `dir` flips the sprite while the real facing and the omni-directional
+ * sight system are untouched. Heavily suppressed soldiers (hunker pose) are
+ * gated out by the suppression check, so a pinned defender keeps their head
+ * down instead of looking up at the shellburst.
+ */
+export function dugInBlastGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.blastGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose === 'crouch') return { ...action(1), dir: u.blastGlanceDir ?? 1 };
+  // A head glance is not an instantaneous 180° turn of a prone body/rifle.
+  if (u.pose === 'prone') return action(2);
+  return null;
+}
+/**
+ * Trace glance: fresh drag marks on the ground — blood left by a casualty
+ * hauled across the dirt — snag a holding soldier's attention for a beat.
+ * Animation-only, exactly like the blast glance: the returned `dir` flips
+ * the sprite toward the trace while the unit's real facing and the
+ * omni-directional sight system are untouched. Ranks below the blast glance
+ * because an explosion is more salient than a blood smear, but above the
+ * routine sector scan because a fresh trail means recent contact nearby.
+ */
+export function traceGlanceChoice(
+  u: Unit,
+
+灰线像素前线游戏软件 V1.0  第9/60页
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.traceGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'idle') return null;
+  return { ...action(0), dir: u.traceGlanceDir ?? 1 };
+}
+/**
+ * Dug-in trace glance: the same blood-trail awareness as
+ * {@link traceGlanceChoice}, but for soldiers holding a low crouch or prone
+ * position. They keep their profile down and only turn to track the trace.
+ * Animation-only, with the same gating as the dug-in blast glance — pinned
+ * defenders keep their heads down instead of looking at the blood.
+ */
+export function dugInTraceGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.traceGlanceUntil ?? 0) <= time) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose === 'crouch')
+    return { ...action(1), dir: u.traceGlanceDir ?? 1 };
+  if (u.pose === 'prone') return action(2);
+  return null;
+}
+/**
+ * Composed idle pose for the renderer: a structured sector scan takes
+ * precedence over the random idle micro-motion, so the two never fight over
+ * the same frame. A fresh blast glance outranks both — an explosion always
+ * interrupts a routine scan. Dug-in defenders (crouch/prone) get their own
+ * glance layer between the standing glance and the routine scan. A fresh
+ * blood-trail glance ranks just below the blast glance — the trail means
+ * recent contact, but a shellburst is louder. Returns null when the soldier
+ * should hold the default patrol idle frame.
+ */
+export function idlePoseChoice(u: Unit, time: number): AdultFrameChoice | null {
+  // Do not let decorative layers replace a throw, reload, or an authored
+  // stance transition. They must never invent a different body height.
+  if (u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
+      u.climbing > 0 || u.motion !== 'ground' || u.secondaryFire > 0 ||
+
+灰线像素前线游戏软件 V1.0  第10/60页
+      (u.fragThrow ?? 0) > 0 || (u.reloadingUntil ?? 0) > time ||
+      stanceTransitionActive(u, time) || u.flash > 0 || u.tending ||
+      (u.firstAidUntil ?? 0) > time) return null;
+  return (
+    heardContactGlanceChoice(u, time) ??
+    blastGlanceChoice(u, time) ??
+    dugInBlastGlanceChoice(u, time) ??
+    traceGlanceChoice(u, time) ??
+    dugInTraceGlanceChoice(u, time) ??
+    boundingRestChoice(u, time) ??
+    crouchFidgetChoice(u, time) ??
+    proneFidgetChoice(u, time) ??
+    // Legacy decorative checks reused a hands-and-knees crawl. Only actual
+    // reload/treatment actions may use their work cels; idle cannot fake one.
+    sectorScanChoice(u, time) ??
+    idleMicroChoice(u, time)
+  );
+}
+/**
+ * Contact callout: the beat after a soldier spots the enemy, they shout the
+ * contact to their squad — arm up and pointing at the threat, alternating
+ * with the alert stand so the shout reads as a wave, not a statue.
+ * Animation-only, exactly like the glance layers: the returned `dir` points
+ * the shout at the contact without touching the unit's real facing. Only
+ * upright, unengaged soldiers call out — a man already firing, aiming or
+ * reloading keeps the weapon on the threat instead of waving.
+ */
+export function contactCalloutChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.calloutUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.aimUntil ?? 0) > time) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+  if (u.pose !== 'idle' && u.pose !== 'walk') return null;
+  const dir = u.calloutDir ?? 1;
+  const wave = Math.floor(((u.calloutUntil ?? 0) - time) * 6) % 2;
+  // v128: dedicated hand-signal frames — the old action(9) is the climb
+  // pose (arm up + knee raised), so a contact shout read as a man scaling
+  // a wall in the middle of a field. sig(1) waves overhead, sig(0) points.
+  return wave ? { ...sig(1), dir } : { ...sig(0), dir };
+}
+/**
+ * v118: leader point-out — while in contact, a squad leader periodically
+ * points an arm at the threat so the squad orients on the right target.
+ * Animation-only, exactly like the callout: the returned `dir` points the
+ * gesture without touching the unit's real facing. Only upright, unengaged
+ * leaders point — a man already firing, aiming or reloading keeps the
+ * weapon on the threat instead of waving.
+
+灰线像素前线游戏软件 V1.0  第11/60页
+ */
+export function leaderPointChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.pointUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.pose !== 'idle' && u.pose !== 'walk') return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  // v128: sig(0) point-forward instead of the climb pose (see above).
+  return { ...sig(0), dir: u.pointDir ?? 1 };
+}
+/**
+ * Heard-contact glance: a squad mate's shout travels faster than the threat.
+ * For a beat after `heardContactAt`, a soldier who hasn't spotted the enemy
+ * themselves snaps to the alert stand and looks toward the shouted bearing,
+ * so a platoon reacts as one when contact is called. Animation-only: the
+ * `dir` flip never changes the unit's real facing or what the omni-sight
+ * system can see. Suppressed once the soldier has made their own contact —
+ * a man in the fight has no attention left for second-hand shouts.
+ */
+export function heardContactGlanceChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.heardContactAt === undefined) return null;
+  if (time - u.heardContactAt >= 0.7) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+  if (u.pose !== 'idle') return null;
+  if ((u.contactUntil ?? 0) > time) return null;
+  return { ...action(0), dir: u.heardContactDir ?? 1 };
+}
+/**
+ * Bounding rest: after a fireteam finishes a bound, the lead element drops to
+ * a knee for a beat to catch its breath while the overwatch element moves.
+ * The engine sets `boundRestUntil` at the end of a bound; the soldier holds
+ * the single-knee frame until it expires, so the fireteam-manoeuvre rhythm
+ * reads on the field instead of every man standing tall the whole time.
+ */
+export function boundingRestChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if ((u.boundRestUntil ?? 0) <= time) return null;
+  if (u.moving || u.fire > 0) return null;
+  if ((u.reloadingUntil ?? 0) > time) return null;
+
+灰线像素前线游戏软件 V1.0  第12/60页
+  if (u.pose !== 'idle') return null;
+  return action(0);
+}
+/**
+ * v120: magazine check — a rifleman holding position periodically hunches
+ * over the mag well and seats/checks the magazine, so a held line reads as
+ * professionals maintaining their kit instead of statues. Animation-only.
+ * Only for units with magazine-managed ammo (ammo >= 0); crews and energy
+ * weapons have no mag to check.
+ */
+export function magCheckChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (u.ammo === undefined || u.ammo < 0) return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'crouch') return null;
+  const period = 21 + (u.uid % 5) * 1.3;
+  const phase = (time + u.uid * 6.83) % period;
+  if (phase >= 2.6) return null;
+  return action(1); // no dedicated kit-check drill yet: retain the planted knee
+}
+/**
+ * v120: engineer fuss — a sapper holding position periodically drops to a
+ * knee and fusses with his kit (detonator, charges, tools), so the squad's
+ * technical specialist reads as a man with a job to do even when idle.
+ * Animation-only. Only for engineer-trait cards.
+ */
+export function engineerFussChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  if (CARDS[u.id].trait !== 'engineer') return null;
+  if (u.hp <= 0 || u.wounded || u.surrendered) return null;
+  if (u.moving || u.fire > 0 || (u.aimUntil ?? 0) > time) return null;
+  if (u.suppression > 0.4) return null;
+  if (u.digging || u.tending || u.draggingUid !== undefined) return null;
+  if (u.vacuum) return null;
+  if ((u.fragThrow ?? 0) > 0) return null;
+  if (u.pose !== 'crouch') return null;
+  const period = 16 + (u.uid % 4) * 1.2;
+  const phase = (time + u.uid * 5.29) % period;
+  if (phase >= 2.8) return null;
+  return action(1); // frame 13 is crawling, not kneeling kit work
+}
+
+灰线像素前线游戏软件 V1.0  第13/60页
+/** Dedicated painted progression, using the simulation's posture clock.
+ * Reload/fire/decoration cannot replace these cels midway through a drill. */
+const POSE_CHAINS: Record<
+  'stand' | 'crouch' | 'prone',
+  Partial<Record<'stand' | 'crouch' | 'prone', number[]>>
+> = {
+  stand: { crouch: [0,1,2,3,4,5,6,7], prone: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15] },
+  crouch: { stand: [7,6,5,4,3,2,1,0], prone: [8,9,10,11,12,13,14,15] },
+  prone: { stand: [15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0], crouch: [15,14,13,12,11,10,9,8] },
+};
+/** Work may move the arms, but never invent a new stance behind the AI's back. */
+function groundedWork(u: Unit, _time: number): AdultFrameChoice {
+  if (u.pose === 'prone') return action(2);
+  if (u.pose === 'crouch' || u.pose === 'hunker')
+    return action(1);
+  return action(0);
+}
+/** Only a real treatment task may own the painted medical body. */
+export function medicalWorkChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (u.hp <= 0 || u.wounded || u.surrendered || u.rappelling || u.parachuting ||
+      u.moving || u.motion !== 'ground' || u.climbing > 0 ||
+      stanceTransitionActive(u, time) || crouchTravelAmount(u) > 0) return null;
+  const aid = (u.firstAidUntil ?? 0) > time;
+  const medical = u.tending && u.tendingKind === 'medical';
+  if (!aid && !medical) return null;
+  const pose = stanceHeightClass(u.pose);
+  const elapsed = aid ? Math.max(0, time - (u.firstAidUntil! - 1.5)) : u.tendingTime ?? 0;
+  const beat = aid ? Math.min(7, Math.floor(elapsed / 1.5 * 8))
+    : Math.floor(Math.max(0, elapsed) / .3) % 8;
+  return { group: 'medical24', index: (pose === 'stand' ? 0 : pose === 'crouch' ? 8 : 16) + beat };
+}
+export function repairWorkChoice(u: Unit, time: number): AdultFrameChoice | null {
+  if (!u.tending || u.tendingKind !== 'repair' || CARDS[u.id].trait !== 'mechanic' ||
+      !supportWorkSettled(u,time)) return null;
+  const height = stanceHeightClass(u.pose);
+  const offset = height === 'stand' ? 0 : height === 'crouch' ? 12 : 24;
+  const count = height === 'prone' ? 10 : 12;
+  return { group:'repair34', index:offset + Math.floor((Math.max(0,u.tendingTime ?? 0)+1e-9)/2.4*count)%count };
+}
+/** One actual magazine clock, with authored cels at the committed height. */
+function reloadBeat(u: Unit, time: number): AdultFrameChoice {
+  // Belt/launcher work must keep its own weapon, not become a rifle drill.
+  // The heavy gun's dedicated belt cels are applied by its renderer.
+  if (ammunition(u.id, u.member) !== 'rifle')
+    return action(u.pose === 'prone' ? 2 : stanceHeightClass(u.pose) === 'crouch' ? 1 : 0);
+  const beat = magazineReloadCel(u,time);
+  if (u.pose === 'prone') return { group: 'lowReload16', index: 8 + beat };
+  if (stanceHeightClass(u.pose) === 'crouch') return { group: 'lowReload16', index: beat };
+  return { group: 'reload8', index: beat };
+}
+
+灰线像素前线游戏软件 V1.0  第14/60页
+export function poseTransitionChoice(
+  u: Unit,
+  time: number,
+): AdultFrameChoice | null {
+  const progress = stanceTransitionProgress(u, time);
+  if (progress === null || !u.poseAnimFrom || !u.poseAnimSeen) return null;
+  let chain = POSE_CHAINS[u.poseAnimFrom]?.[u.poseAnimSeen];
+  if (!chain) return null;
+  if (u.poseAnimFrom === 'crouch' || u.poseAnimSeen === 'crouch') {
+    const low = 7-Math.round((u.poseAnimFrom === 'crouch' ? u.poseAnimFromTravel ?? 0 : u.poseAnimToTravel ?? 0)*5);
+    const start = u.poseAnimFrom === 'stand' ? 0 : u.poseAnimFrom === 'prone' ? 15 : low;
+    const end = u.poseAnimSeen === 'stand' ? 0 : u.poseAnimSeen === 'prone' ? 15 : low;
+    if (low < 7) chain = Array.from({length:Math.abs(end-start)+1},(_,i)=>start+i*Math.sign(end-start));
   }
-
-  deleteDeckSlot(id: string): void {
-    const next = deleteDeckSlot(this.deckStore, id);
-    if (!next) return;
-    this.deckStore = next;
-    saveDeckStore(this.deckStore);
-    this.emit();
+  // Leaving a supported crawl starts at its real low torso, not the flat
+  // aim endpoint. Reuse only the authored prone tail, never a knee/climb cel.
+  if ((u.poseAnimFrom === 'prone' && (u.poseAnimFromTravel ?? 0)>0) ||
+      (u.poseAnimSeen === 'prone' && (u.poseAnimToTravel ?? 0)>0)) {
+    const start=u.poseAnimFrom==='prone' ? 15-Math.round((u.poseAnimFromTravel??0)*4) : chain[0];
+    const end=u.poseAnimSeen==='prone' ? 15-Math.round((u.poseAnimToTravel??0)*4) : chain[chain.length-1];
+    chain=Array.from({length:Math.abs(end-start)+1},(_,i)=>start+i*Math.sign(end-start));
   }
-
-  renameDeckSlot(id: string, name: string): void {
-    this.deckStore = renameDeckSlot(this.deckStore, id, name);
-    saveDeckStore(this.deckStore);
-    this.emit();
+  return { group: 'stance16', index: chain[Math.min(chain.length - 1, Math.floor(progress * chain.length))] };
+}
+/** Every living, casualty and surrender state uses the same adult anatomy. */
+export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
+  // Reverse the existing raised-rifle gait while the body keeps facing contact.
+  const step = u.backpedaling ? -Math.floor(u.walk) : u.walk;
+  if (u.hp <= 0) return action(15);
+  // v133: surrender is checked BEFORE the rope/parachute branch. A stuck
+  // rappelling flag (morale break mid-descent) must never override hands-up —
+  // that ordering was how whole squads froze in the swim-lane climb pose.
+  if (u.surrendered)
+    return reaction(
+      u.surrenderTime < 0.35
+        ? 0
+        : u.surrenderTime < 0.75
+          ? 1
+          : u.surrenderTime < 2.5
+            ? 2
+            : 3,
+    );
+  if (u.wounded) {
+    if (u.crawling)
+      return { group: 'crawl2', index: cycle(u.walk * 2, 2) };
+    if (u.woundedFromPose === 'prone' || u.woundedTime >= 0.7)
+      return action(14);
+    const low = u.woundedFromPose === 'crouch' || u.woundedFromPose === 'land';
+    return reaction(
+      (low ? 5 : 4) + Math.min(low ? 2 : 3, Math.floor(u.woundedTime * 6)),
+
+灰线像素前线游戏软件 V1.0  第15/60页
+    );
   }
-
-灰线像素前线游戏软件  V1.0    第 10/60 页
-------------------------------------------------------------
-
-  selectDeckSlot(id: string): void {
-    this.deckStore = selectDeckSlot(this.deckStore, id);
-    saveDeckStore(this.deckStore);
-    this.emit();
+  // Rope poses are only for healthy soldiers actively descending.
+  if (u.rappelling) return action(8 + cycle(u.walk / 2, 2));
+  const poseTransition = poseTransitionChoice(u, time);
+  if (poseTransition && u.motion === 'ground') return poseTransition;
+  const proneTravel=proneTravelAmount(u);
+  if(proneTravel>0 && (u.motion==='ground'||u.motion==='bank') && u.climbing<=0) {
+    if(proneTravel<1)return {group:'stance16',index:15-Math.round(proneTravel*4)};
+    return {group:'crawl2',index:cycle(u.walk/2,2)};
   }
-
-  updateCollection(next: CollectionState): void {
-    this.collection = next;
-    saveCollection(next);
-    this.emit();
+  const lowTravel = crouchTravelAmount(u);
+  if (lowTravel > 0 && u.motion === 'ground' && u.climbing <= 0) {
+    if (lowTravel < 1) return { group:'stance16', index:7-Math.round(lowTravel*5) };
+    // Brief traffic/aim stops freeze the last real footstep, not a lower body.
+    return { group:'crouch8', index:cycle(step,8) };
   }
-
-  /** Start a battle with the given deck (defaults to active deck). */
-  begin(chosen?: CardId[], missionId?: MissionId): string | null {
-    const cards = chosen ?? this.deck;
-    if (!validDeckWithCollection(cards, this.collection))
-      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
-    const seed = Date.now();
-    this.match = {
-      seed,
-      player: [...cards],
-      ai: chooseAiDeck(seed),
-      mapId: this.mapId,
-      missionId,
-      difficulty: this.difficulty,
-      night: this.night,
-    };
-    this.onBattle?.(this.match);
+  // Release at 5/8 of the shared drill: after five standing or ten low cels.
+  if ((u.fragThrow ?? 0) > 0) {
+    if (stanceHeightClass(u.pose) === 'stand')
+      return { group: 'grenade8', index: grenadeCel(u, time, 8) };
+    return { group: 'lowGrenade32', index: (u.pose === 'prone' ? 16 : 0) + grenadeCel(u, time, 16) };
+  }
+  const medical = medicalWorkChoice(u, time);
+  if (medical) return medical;
+  const repair = repairWorkChoice(u,time);
+  if (repair) return repair;
+  // Repair is a different job. It must not borrow bandaging or crawl cels.
+  if (u.tending && !u.moving && u.motion === 'ground') return groundedWork(u, time);
+  // While changing a cooked barrel the gunner drops to one knee and works the
+  // weapon, alternating with a low crouch so the pause reads as urgent labour.
+  if ((u.overheatedUntil ?? 0) > time && !u.moving)
+    return groundedWork(u, time);
+  if (u.motion === 'jump') return action(u.motionTime < 0.12 ? 4 : 5);
+  if (u.motion === 'land')
+    return action(u.motionTime < u.motionDuration * 0.5 ? 6 : 7);
+  // v130: walls were removed from the map generator (wallSites: []), so
+  // u.climbing is never set in normal play. The old branch returned the
+  // climb frames (8-11) which read as the swim-lane pose; if climbing ever
+  // comes back it must use a dedicated vault animation, never these frames.
+  // Until then, fall through to the crouch gait like a bank out of cover.
+  if (u.climbing > 0)
+    return { group: 'crouch8', index: cycle(Math.floor(u.motionTime * 8), 8) };
+  if (u.motion === 'bank')
+    return u.pose === 'prone' ? { group: 'crawl2', index: cycle(u.walk / 2, 2) }
+      : u.pose === 'crouch' || u.pose === 'hunker'
+        ? { group: 'crouch8', index: cycle(step, 8) }
+        : { group: 'walk8', index: cycle(step, 8) };
+  // A receiving soldier actually replaces the magazine. Sharing/observing
+  // must not hide the drill, nor may a decorative task restart its clock.
+
+灰线像素前线游戏软件 V1.0  第16/60页
+  if (!u.moving && magazineReloadActive(u, time)) return reloadBeat(u, time);
+  // v81: dry-ammo battle drill. The engine sets reloadingUntil on the dry
+  // receiver only, so during the handoff the pair splits into a giver (arm
+  // extended with the magazine) and a receiver (hunched over the mag well)
+  // instead of two identical hunches. Only upright soldiers run the drill —
+  // a pinned rifleman stays low and waits for a lull in the fire.
+  if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
+    // v128: giver extends an arm (sig point-forward) instead of the climb pose.
+    return u.pose === 'crouch' || u.pose === 'hunker' ? action(1) : action(0);
+  // v83: looting a fallen comrade's kit — a knee-down rummage beat
+  // alternating with the huddled work beat so the search reads as active.
+  if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
+    return groundedWork(u, time);
+  if (
+    (u.ammoSignalUntil ?? 0) > time &&
+    !u.moving &&
+    u.fire <= 0 &&
+    (u.aimUntil ?? 0) <= time &&
+    (u.reloadingUntil ?? 0) <= time &&
+    (u.pose === 'idle' || u.pose === 'walk')
+  ) {
+    // The ammunition UI already communicates this state. No raised-arm
+    // command animation, and no decorative drop to a knee.
+    return groundedWork(u, time);
+  }
+  // v119: weapon crews work the gun while emplacing. MG / AT gun / mortar
+  // setup is 1.2s of labour — the crew alternates the bent-work beat with
+  // the kneel so they read as hauling the weapon into position instead of
+  // standing frozen beside it. Prone/hunker crews stay low (they're pinned,
+  // not emplacing), and moving crews are handled by the gait branches below.
+  if (
+    (u.emplacementSetupUntil ?? 0) > time &&
+    !u.moving &&
+    u.pose !== 'prone' &&
+    u.pose !== 'hunker'
+  )
+    return groundedWork(u, time);
+  // Stance transitions are resolved above the work actions, before arrival
+  // at the stable prone/crouch frames below.
+  if (u.pose === 'prone') {
+    if (u.moving) return { group: 'crawl2', index: cycle(u.walk / 2, 2) };
+    // Observation uses the same grounded body as ordinary prone infantry.
+    // The old periodic radio cel was 6–8px taller and bypassed stance timing.
+    // Keep the aimed torso planted; discharge effects carry weapon recoil.
+    if (u.fire > 0 || u.secondaryFire > 0) return action(2);
+    if ((u.aimUntil ?? 0) > time) return action(2);
+    return action(2);
+  }
+  if (u.pose === 'crouch') {
+    if (u.moving) {
+
+灰线像素前线游戏软件 V1.0  第17/60页
+      // Hauling a casualty: a slow, heavy gait at half the cadence of a
+      // normal crouch-walk so the drag reads as effort, not patrol.
+      const gait = u.draggingUid !== undefined ? u.walk / 2 : step;
+      return { group: 'crouch8', index: cycle(gait, 8) };
+    }
+    // Frame 13 is a crawl, not a recoil cel. Do not swap the entire body.
+    if (u.fire > 0 || u.secondaryFire > 0) return action(1);
+    if ((u.aimUntil ?? 0) > time) return action(1);
+    return action(1);
+  }
+  if (u.pose === 'hunker') {
+    if (u.moving) return { group: 'crouch8', index: cycle(step, 8) };
+    // Hunker is the same committed knee-height class, not periodic crawling.
+    return action(1);
+  }
+  if (u.moving)
+    return u.pose === 'run' || u.tactic === 'retreat'
+      ? action(16 + cycle(u.walk / 2, 4))
+      : { group: 'walk8', index: cycle(step, 8) };
+  // v105: hit flinches — a tall stagger, a knee-buck and a deep cower-flinch
+  // — so a burst walking across a squad doesn't pop the identical frame on
+  // every man. v116 widened the spread from two to three variants, v118 to
+  // four — the deep curl joins the rotation. v120: the flinch now cycles
+  // across the full 0.16s hit window instead of flashing for 0.03s, so a
+  // burst reads as a live reaction chain — stagger, knee-soft, curl, squat —
+  // rather than a single popped frame.
+  if (u.flash > 0) {
+    return reaction(4);
+  }
+  // A stationary rifleman keeps the aimed stance (action 0) while firing —
+  // the renderer's patrol layer overlays the dedicated aimed-rifle pose
+  // (raise3[2]) for the whole burst, so the weapon reads as shouldered and
+  // on target between shots instead of rocking through gait frames.
+  // v117: underslung / personal secondary discharge — the arm-forward frame
+  // for the 0.09s window so a GL or pistol shot reads as its own beat
+  // instead of vanishing under the patrol idle. Non-plain on purpose: it
+  // makes the patrol layer yield so the frame actually shows.
+  if (
+    u.secondaryFire > 0 &&
+    !u.moving &&
+    (u.pose === 'idle' || u.pose === 'walk')
+  )
+    // v128: point-forward signal beat instead of the climb pose.
+    return action(0);
+  return action(0);
+}
+export function adultWreckChoice(
+  age: number,
+  pose?: Unit['pose'],
+  seed = 0,
+
+灰线像素前线游戏软件 V1.0  第18/60页
+): AdultFrameChoice {
+  if (pose === 'prone') return action(15);
+  // v105: visibly different death throes so a field of casualties doesn't
+  // play the same stagger in unison. v116 widened the spread from three to
+  // six variants — classic stagger, knee crumple, clean drop, forward pitch,
+  // slow sink and a spin — so a platoon's worth of wrecks rarely repeats.
+  // v120 widened to eight — a double-take stagger and a slow fold join the
+  // rotation.
+  // The seed is the casualty's uid, stable for the wreck's whole lifetime.
+  const variant = seed % 8;
+  if (variant === 2) return action(15); // clean drop: killed mid-stride
+  if (pose === 'crouch' || pose === 'hunker' || pose === 'land')
+    return age < 0.45
+      ? reaction(5 + Math.min(2, Math.floor(age * 6)))
+      : action(15);
+  if (variant === 1)
+    // Crumple: buckle at the knees first, then go down.
+    return age < 0.5
+      ? reaction(5 + Math.min(1, Math.floor(age * 4)))
+      : action(15);
+  if (variant === 3)
+    // Forward pitch: flinch, then pitch onto the face.
+    return age < 0.55
+      ? age < 0.25
+        ? reaction(4)
+        : reaction(7)
+      : action(15);
+  if (variant === 4)
+    // Slow sink: knees give out slowly, then the body folds.
+    return age < 0.7 ? (age < 0.4 ? reaction(5) : reaction(7)) : action(15);
+  if (variant === 5)
+    // Spin: twist under the impact, stagger, then drop.
+    return age < 0.6
+      ? [reaction(6), reaction(4), reaction(7)][
+          Math.min(2, Math.floor(age * 5))
+        ]
+      : action(15);
+  if (variant === 6)
+    // v120: double-take stagger — flinch, curl, deep squat before dropping.
+    return age < 0.55
+      ? [reaction(4), reaction(6), reaction(7)][
+          Math.min(2, Math.floor(age * 5))
+        ]
+      : action(15);
+  if (variant === 7)
+    // v120: slow fold — curl, knee-soft, then down.
+    return age < 0.7 ? (age < 0.35 ? reaction(6) : reaction(5)) : action(15);
+  // Classic: hit stagger, stumble, drop.
+  return age < 0.6
+    ? reaction(4 + Math.min(3, Math.floor(age * 6)))
+
+灰线像素前线游戏软件 V1.0  第19/60页
+    : action(15);
+}
+/**
+ * v106: a soldier thrown by a blast. While airborne the body cycles the
+ * stagger/flinch frames fast so the tumble reads as a man flung through the
+ * air; the renderer spins the sprite on the wreck's spin axis. On landing the
+ * wreck switches to adultWreckChoice's final prone frame.
+ */
+export function ragdollChoice(age: number, seed = 0): AdultFrameChoice {
+  return reaction(4 + ((Math.floor(age * 12) + (seed % 2)) % 4));
+}
+import { transparentSheet } from './sprite-atlas';
+import type { AdultSprites } from './adult-animation';
+/** The packed reference already uses a 384px cell, 252px adult and a shared foot anchor. */
+export function adultAtlas(image: HTMLImageElement): Omit<AdultSprites, 'signals4' | 'reload8' | 'grenade8' | 'stance16' | 'lowReload16' | 'medical24' | 'lowGrenade32' | 'repair34' | 'proneIdle8'> {
+  const source = transparentSheet(image),
+    context = source.getContext('2d')!;
+  const pixels = context.getImageData(0, 0, source.width, source.height);
+  for (let at = 3; at < pixels.data.length; at += 4)
+    pixels.data[at] = pixels.data[at] > 120 ? 255 : 0;
+  context.putImageData(pixels, 0, 0);
+  const cellW = source.width / 8,
+    cellH = source.height / 6;
+  const frames = Array.from({ length: 44 }, (_, index) => {
+    const out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = false;
+    // Do not fit individual bounding boxes: crouching and prone bodies keep their scale.
+    ctx.drawImage(
+      source,
+      (index % 8) * cellW,
+      Math.floor(index / 8) * cellH,
+      cellW,
+      cellH,
+      0,
+      0,
+      96,
+      96,
+    );
+    return out;
+  });
+  return {
+    walk8: frames.slice(0, 8),
+    crouch8: frames.slice(8, 16),
+    actions20: frames.slice(16, 36),
+    // Save the authored pair BEFORE loadArt replaces actions20[2] with the
+    // new, lower settled stance. Mixing that 17px body into this 23–25px
+    // crawl made every step visibly flatten and spring up again.
+    crawl2: [frames[18], frames[28]],
+
+灰线像素前线游戏软件 V1.0  第20/60页
+    reactions8: frames.slice(36, 44),
+  };
+}
+/** Generated eight-cel standing reload, measured rather than square-grid fitted.
+ * Common scale retains the 63px adult and a fixed 95px boot anchor. */
+export function standingReloadFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image);
+  const cellW = source.width / 4, cellH = source.height / 2;
+  const scale = 63 / 454;
+  return Array.from({ length: 8 }, (_, i) => {
+    const row = Math.floor(i / 4), out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    const baseline = row === 0 ? 578 : 565;
+    ctx.drawImage(source, (i % 4) * cellW, row * cellH, cellW, cellH,
+      48 - 130 * scale, 95 - baseline * scale, cellW * scale, cellH * scale);
+    return out;
+  });
+}
+/** Measured gutters, NOT equal cells: the release hand extends past x=314.
+ * Registration still uses the original common pelvis/boot anchors, not each
+ * silhouette's bounding box, so an outstretched arm cannot shrink the body. */
+export function standingGrenadeFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image), scale = 63 / 504;
+  const cuts = [[40, 315, 640, 970, 1240], [40, 355, 640, 970, 1240]];
+  return Array.from({ length: 8 }, (_, i) => {
+    const row = Math.floor(i / 4), col = i % 4;
+    const left = cuts[row][col], right = cuts[row][col + 1];
+    const out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(source, left, row * 627 + 70, right - left, 528,
+      48 + (left - col * 313.5 - 171) * scale,
+      95 + (70 - 587) * scale, (right - left) * scale, 528 * scale);
+    return out;
+  });
+}
+/**
+ * v121: dedicated hand-signal sheets (2x2 grid, point-forward / wave-overhead /
+ * point-back / fist). The old signal branch reused climbing frames, which read
+ * as the leader hauling himself up a rope instead of directing the squad.
+ * These sheets are painted at high resolution with real anti-aliased alpha, so
+ * unlike adultAtlas they keep smoothing on and skip the alpha binarisation.
+ */
+export function signalFrames(image: HTMLImageElement): HTMLCanvasElement[] {
+  const source = transparentSheet(image);
+  const cellW = source.width / 2,
+    cellH = source.height / 2;
+
+灰线像素前线游戏软件 V1.0  第21/60页
+  return Array.from({ length: 4 }, (_, index) => {
+    const out = document.createElement('canvas');
+    out.width = out.height = 96;
+    const ctx = out.getContext('2d')!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      source,
+      (index % 2) * cellW,
+      Math.floor(index / 2) * cellH,
+      cellW,
+      cellH,
+      0,
+      0,
+      96,
+      96,
+    );
+    return out;
+  });
+}
+/**
+ * v174: per-identity pose chain built from the soldier's OWN pixel atlas, so
+ * a yellow marine or militia fighter never snaps to the shared green realistic
+ * stance sheet when aiming or dropping to a knee. Index semantics match the
+ * legacy painted stance16: 0 standing aim, 7 kneeling aim, 15 prone aim,
+ * 8 = 7 handoff. Intermediate indices reuse the closest authored height from
+ * the same atlas (crouch-walk for the stand->knee descent, prone-rise and
+ * crawl for the knee->prone descent), and the travel endpoints hand off
+ * seamlessly to the crouch8 / crawl2 gait cycles.
+ */
+export function ownStance16(
+  adult: ReturnType<typeof adultAtlas>,
+): HTMLCanvasElement[] {
+  const stand = adult.actions20[0];
+  const knee = adult.actions20[1];
+  const prone = adult.actions20[2];
+  const crouchWalk = adult.crouch8[0];
+  const crawlAlt = adult.crawl2[1];
+  const proneRise = adult.actions20[13];
+  return [
+    stand, stand, crouchWalk, crouchWalk, knee, knee, knee, knee,
+    knee, proneRise, proneRise, crawlAlt, prone, prone, prone, prone,
+  ];
+}
+import { weaponModel } from './cards';
+import type { Unit } from './engine';
+import type { AdultFrameChoice } from './adult-animation';
+import { SPECIALIST_LANDMARKS } from './specialist-landmarks';
+import { isHeavyGunner } from './machinegun-team';
+import { isPrecisionObserver } from './precision-team';
+import { specialistLegWaist, specialistBodyOffset } from './weapon-pose-data';
+
+灰线像素前线游戏软件 V1.0  第22/60页
+export type SpecialistRole =
+  | 'machinegun'
+  | 'rocket'
+  | 'grenade'
+  | 'sniper'
+  | 'medic'
+  | 'mortar';
+export interface SpecialistFrame {
+  image: HTMLCanvasElement;
+  waist: readonly number[];
+  muzzle: readonly number[] | null;
+}
+export interface AdultSpecialistArt {
+  standing: SpecialistFrame;
+  crouch: SpecialistFrame;
+  prone: SpecialistFrame;
+  /** A whole-body painted drill, including its exact settled endpoints. */
+  stance16?: SpecialistFrame[];
+}
+export type AdultSpecialists = Partial<
+  Record<SpecialistRole, AdultSpecialistArt>
+>;
+export interface SpecialistSprite {
+  image: HTMLCanvasElement;
+  muzzle: { x: number; height: number } | null;
+}
+const roles: SpecialistRole[] = [
+  'machinegun',
+  'rocket',
+  'sniper',
+  'medic',
+  'mortar',
+];
+function canvas() {
+  const out = document.createElement('canvas');
+  out.width = 128;
+  out.height = 96;
+  return out;
+}
+/** The prepared sheet preserves adult anatomy; no per-pose fitting or weapon drawing. */
+export function specialistAtlas(source: HTMLImageElement): AdultSpecialists {
+  const sets: AdultSpecialists = {};
+  for (let col = 0; col < 5; col++) {
+    const rows = [0, 1, 2].map((row) => {
+      const image = canvas(),
+        ctx = image.getContext('2d')!;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(
+        source,
+        (col * source.width) / 5,
+
+灰线像素前线游戏软件 V1.0  第23/60页
+        (row * source.height) / 3,
+        source.width / 5,
+        source.height / 3,
+        0,
+        0,
+        128,
+        96,
+      );
+      return { image, ...SPECIALIST_LANDMARKS[row * 5 + col] };
+    });
+    sets[roles[col]] = { standing: rows[0], crouch: rows[1], prone: rows[2] };
+  }
+  return sets;
+}
+const cache = new WeakMap<
+  HTMLCanvasElement,
+  Map<SpecialistFrame, SpecialistSprite>
+>();
+/** Replace the baked rifle torso, retaining only the generated moving legs. */
+export function specialistSprite(
+  base: HTMLCanvasElement,
+  choice: AdultFrameChoice,
+  u: Unit,
+  sets?: AdultSpecialists,
+  weaponStances?: AdultSpecialists,
+): SpecialistSprite | null {
+  const model = (u.id === 'grenadiers' ? 'grenade' : weaponModel(u)) as SpecialistRole,
+    // A portable LMG is not the heavy tripod gun. The precision observer
+    // carries ordinary kit/radio, not a second sniper rifle.
+    set =
+      (!isHeavyGunner(u) && !isPrecisionObserver(u)
+        ? weaponStances?.[model]
+        : undefined) ?? sets?.[model];
+  if (
+    !set ||
+    isPrecisionObserver(u) ||
+    u.hp <= 0 ||
+    u.wounded ||
+    u.surrendered ||
+    choice.group === 'reactions8'
+  )
+    return null;
+  if (choice.group === 'stance16') {
+    // Stance transitions use the identity's own per-identity stance16 frames
+    // (built by ownStance16), which carry the correct uniform colour. The
+    // generic green weapon-stance sheet would repaint the whole body and
+    // shrink it (128×96 vs 96×96), so yield to the identity art here.
     return null;
   }
-
-  /** Mark a campaign mission complete. */
-  completeMission(id: MissionId): void {
-    if (!this.completed.includes(id)) {
-      this.completed.push(id);
-      localStorage.setItem(
-        'greyline-campaign-v21',
-        JSON.stringify(this.completed),
-      );
-      this.emit();
-    }
+  const prone = choice.group === 'crawl2' ||
+
+灰线像素前线游戏软件 V1.0  第24/60页
+    choice.group === 'actions20' && [2, 12].includes(choice.index);
+  const low =
+    choice.group === 'crouch8' ||
+    (choice.group === 'actions20' && choice.index === 1);
+  const running =
+    choice.group === 'actions20' && choice.index >= 16 && choice.index <= 19;
+  if (
+    !prone &&
+    !low &&
+    !running &&
+    choice.group !== 'walk8' &&
+    !(choice.group === 'actions20' && choice.index === 0)
+  )
+    return null;
+  const part = prone
+    ? set.prone
+    : low && !(model === 'mortar' && choice.group === 'crouch8')
+      ? set.crouch
+      : set.standing;
+  // Static poses (standing aim / crouch / prone) used to return the full
+  // generic green 128×96 body, which repainted the soldier in the wrong
+  // uniform and changed the apparent size. Always composite the specialist
+  // weapon torso onto the identity's own legs so the uniform colour and
+  // silhouette stay correct.
+  let variants = cache.get(base);
+  if (!variants) {
+    variants = new Map();
+    cache.set(base, variants);
   }
-
-  isMissionUnlocked(index: number): boolean {
-    if (index === 0) return true;
-    return this.completed.includes(MISSIONS[index - 1].id);
-  }
+  const found = variants.get(part);
+  if (found) return found;
+  const waist = specialistLegWaist(choice.group,choice.index);
+  const image = canvas(),
+    ctx = image.getContext('2d')!;
+  ctx.imageSmoothingEnabled = false;
+  const {x:dx,y:dy}=specialistBodyOffset(choice.group,choice.index,part);
+  const targetX = 16 + waist[0],
+    targetY = waist[1];
+  ctx.save();
+  ctx.beginPath();
+  if (prone) ctx.rect(0, 0, targetX + 1, 96);
+  else ctx.rect(0, targetY, 128, 96 - targetY);
+  ctx.clip();
+  ctx.drawImage(base, 16, 0);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath();
+  if (prone) {
+    // Retain the complete generic legs and the specialist's rearward launcher/pack.
+    // Only the truncated source pants stub is excluded.
+
+灰线像素前线游戏软件 V1.0  第25/60页
+    ctx.rect(Math.round(part.waist[0]) - 1 + dx, 0, 128, 96);
+    ctx.rect(
+      0,
+      0,
+      Math.round(part.waist[0]) + dx,
+      Math.round(part.waist[1]) - 3 + dy,
+    );
+  } else ctx.rect(0, 0, 128, Math.round(part.waist[1]) + 1 + dy);
+  ctx.clip();
+  ctx.drawImage(part.image, dx, dy);
+  ctx.restore();
+  const result = {
+    image,
+    muzzle: part.muzzle
+      ? { x: part.muzzle[0] + dx - 64, height: 96 - part.muzzle[1] - dy }
+      : null,
+  };
+  variants.set(part, result);
+  return result;
 }
-
-export const lobbyState = new LobbyState();
-export { DECK };
-
-// === 文件: minigame/src/ui/framework.ts ===
+import { CARDS, W, ground, pointVisible, veteranTier, type DragMark, type GameState, type Scorch, type TreadMark, type Unit } from './engine';
+import { drawSmokePuff } from './effect-atlas';
+/** Deterministic hash → [0,1) */
+function hash(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+// ── Birds ────────────────────────────────────────────────
+const FLOCK_PERIOD = 27; // seconds between flocks
+const FLOCK_CROSS = 11; // seconds for a flock to cross the map
 /**
-
-灰线像素前线游戏软件  V1.0    第 11/60 页
-------------------------------------------------------------
- * Canvas UI framework: a lightweight widget system for the mini-game.
- * Handles touch routing, rendering, and layout without any DOM.
+ * Small flocks cross the sky, suggesting a living world beyond the trenches.
+ * Purely decorative — drawn in world space so the camera transform applies.
  */
-
-import { COLORS, LAYOUT, drawPanel, drawTextCentered, drawTextLeft, font, roundR
-
-// ── Touch event ──────────────────────────────────────────────────────────────
-
-export interface TouchPoint {
-  id: number;
+export function drawBirds(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  const t = s.time;
+  const cycle = t % FLOCK_PERIOD;
+  if (cycle >= FLOCK_CROSS) return;
+  const flockIdx = Math.floor(t / FLOCK_PERIOD);
+  const seed = flockIdx * 91.7;
+  const dir = hash(seed) > 0.5 ? 1 : -1;
+  const progress = cycle / FLOCK_CROSS;
+  const startX = dir > 0 ? -60 : W + 60;
+  const endX = dir > 0 ? W + 60 : -60;
+  const cx = startX + (endX - startX) * progress;
+
+灰线像素前线游戏软件 V1.0  第26/60页
+  const baseY = 28 + hash(seed + 1) * 52;
+  const count = 4 + Math.floor(hash(seed + 2) * 5);
+  ctx.strokeStyle = 'rgba(35,38,33,0.45)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < count; i++) {
+    const ox = (i - count / 2) * 9;
+    const bx = cx + ox * dir;
+    if (bx < camera - 20 || bx > camera + viewportWidth + 20) continue;
+    const by =
+      baseY + Math.abs(ox) * 0.32 + Math.sin(t * 2.5 + i * 1.3) * 1.5;
+    const flap = Math.sin(t * 9 + i * 2.1) * 1.5;
+    ctx.moveTo(bx - 2.5, by + flap);
+    ctx.lineTo(bx, by - flap * 0.6);
+    ctx.lineTo(bx + 2.5, by + flap);
+  }
+  ctx.stroke();
+}
+// ── Distant horizon flashes ──────────────────────────────
+const FLASH_PERIOD = 18;
+const FLASH_DURATION = 0.55;
+/**
+ * State of the distant-flash cycle at time t. Shared by the renderer and the
+ * audio layer so the delayed thunder stays in sync with the horizon glow.
+ */
+export function distantFlashState(t: number): {
+  active: boolean;
   x: number;
-  y: number;
+  index: number;
+} {
+  const index = Math.floor(t / FLASH_PERIOD);
+  const cycle = t % FLASH_PERIOD;
+  if (cycle >= FLASH_DURATION) return { active: false, x: 0, index };
+  const fseed = index * 57.3;
+  const side = hash(fseed) > 0.5 ? 0 : 1;
+  const x =
+    side === 0
+      ? 24 + hash(fseed + 1) * 90
+      : W - 24 - hash(fseed + 1) * 90;
+  return { active: true, x, index };
 }
-
-export interface TouchEvent {
-  type: 'down' | 'move' | 'up';
-  points: TouchPoint[];
-  changed: TouchPoint[];
+/**
+ * Brief flashes at the far left/right edges suggest a larger battle
+ * happening just beyond the playable area.
+ */
+export function drawDistantFlashes(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+
+灰线像素前线游戏软件 V1.0  第27/60页
+) {
+  const t = s.time;
+  const flash = distantFlashState(t);
+  if (!flash.active) return;
+  const fx = flash.x;
+  if (fx < camera - 60 || fx > camera + viewportWidth + 60) return;
+  const cycle = t % FLASH_PERIOD;
+  const fseed = flash.index * 57.3;
+  const fy = ground(s, fx) - 55 - hash(fseed + 2) * 45;
+  const intensity = 1 - cycle / FLASH_DURATION;
+  const r = 14 + hash(fseed + 3) * 20;
+  const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, r);
+  grad.addColorStop(0, `rgba(255,210,130,${0.45 * intensity})`);
+  grad.addColorStop(0.4, `rgba(255,160,70,${0.18 * intensity})`);
+  grad.addColorStop(1, 'rgba(255,100,30,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(fx - r, fy - r, r * 2, r * 2);
 }
-
-// ── Base Widget ──────────────────────────────────────────────────────────────
-
-export abstract class Widget {
-  x = 0;
-  y = 0;
-  w = 0;
-  h = 0;
-  visible = true;
-  enabled = true;
-  parent: Widget | null = null;
-  children: Widget[] = [];
-  tag: string = '';
-
-  addChild<T extends Widget>(child: T): T {
-    child.parent = this;
-    this.children.push(child);
-    return child;
-  }
-
-  removeChild(child: Widget): void {
-    const i = this.children.indexOf(child);
-    if (i >= 0) {
-      this.children.splice(i, 1);
-      child.parent = null;
+// ── Wreck smoke columns ──────────────────────────────────
+const SMOKE_PUFF_INTERVAL = 0.38;
+const SMOKE_PUFF_LIFE = 4.0;
+const SMOKE_COLUMN_HEIGHT = 62;
+/**
+ * Destroyed vehicles bleed slow smoke columns that drift with the wind.
+ * Fresh wrecks smoke heavily; the column thins over two minutes.
+ */
+export function drawWreckSmoke(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+  smokeFrames?: HTMLCanvasElement[],
+) {
+  const now = s.time;
+  for (const w of s.wrecks) {
+    const c = CARDS[w.cardId];
+    if (w.abandoned || w.cardId==='glider_transport' || (!c.armored && !c.vehicle)) continue;
+    if (w.x < camera - 80 || w.x > camera + viewportWidth + 80) continue;
+    const strength = Math.max(0, 1 - w.age / 120);
+    if (strength <= 0.02) continue;
+    const baseY = w.y - 10;
+    const seedBase = w.id * 13.7;
+    // A newly destroyed vehicle has no smoke history. Using global match time
+    // spawned an entire four-second column high in the sky on its first frame.
+    const latestPuff = Math.floor(w.age / SMOKE_PUFF_INTERVAL);
+    const maxPuffs = Math.ceil(SMOKE_PUFF_LIFE / SMOKE_PUFF_INTERVAL);
+    for (let p = 0; p < maxPuffs; p++) {
+      const puffIdx = latestPuff - p;
+      if (puffIdx < 0) continue;
+      const puffStart = puffIdx * SMOKE_PUFF_INTERVAL;
+
+灰线像素前线游戏软件 V1.0  第28/60页
+      const age = w.age - puffStart;
+      if (age > SMOKE_PUFF_LIFE) continue;
+      const lifeT = age / SMOKE_PUFF_LIFE;
+      const rise = lifeT * SMOKE_COLUMN_HEIGHT;
+      const sway =
+        Math.sin(now * 0.7 + puffIdx * 1.3) * 3 * lifeT +
+        s.wind * age * 0.6;
+      const jitter = (hash(seedBase + puffIdx * 7.1) - 0.5) * 6;
+      const px = w.x + sway + jitter;
+      const py = baseY - rise;
+      const size = Math.round(
+        (3 + lifeT * 12) * (0.65 + strength * 0.35),
+      );
+      const alpha = (1 - lifeT) * 0.3 * strength;
+      if (alpha < 0.015) continue;
+      if (smokeFrames) {
+        drawSmokePuff(ctx, smokeFrames, lifeT, px, py, size * 2.2, '#44423c', alpha);
+        continue;
+      }
+      ctx.fillStyle = `rgba(68,66,60,${alpha.toFixed(3)})`;
+      // Two overlapping rects → soft blob, matching the particle style.
+      ctx.fillRect(
+        Math.round(px - size / 2),
+        Math.round(py - size / 3),
+        size,
+        Math.max(1, Math.round(size * 0.65)),
+      );
+      ctx.fillRect(
+        Math.round(px - size / 3),
+        Math.round(py - size / 2),
+        Math.max(1, Math.round(size * 0.65)),
+        size,
+      );
     }
   }
-
-  clearChildren(): void {
-    for (const c of this.children) c.parent = null;
-    this.children.length = 0;
+}
+// ── Scorch marks ─────────────────────────────────────────
+function drawScorch(ctx: CanvasRenderingContext2D, sc: Scorch, gy: number) {
+  let seed = sc.seed;
+  const rnd = () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const r = sc.radius;
+  ctx.save();
+  // Core dark patch
+  ctx.fillStyle = '#1c1712';
+  ctx.globalAlpha = 0.42;
+  const core = 6 + Math.floor(rnd() * 5);
+  for (let i = 0; i < core; i++) {
+
+灰线像素前线游戏软件 V1.0  第29/60页
+    const a = rnd() * Math.PI * 2;
+    const d = rnd() * r * 0.45;
+    const w = r * (0.3 + rnd() * 0.4);
+    const h = Math.max(1, Math.round(w * 0.4));
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d - w / 2),
+      Math.round(gy - h / 2 - 1),
+      Math.round(w),
+      h,
+    );
   }
-
-  /** Absolute X on screen. */
-  get absX(): number {
-    return this.parent ? this.parent.absX + this.x : this.x;
-
-灰线像素前线游戏软件  V1.0    第 12/60 页
-------------------------------------------------------------
+  // Burnt rim
+  ctx.fillStyle = '#33281e';
+  ctx.globalAlpha = 0.3;
+  const rim = 5 + Math.floor(rnd() * 4);
+  for (let i = 0; i < rim; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (0.35 + rnd() * 0.4);
+    const w = r * (0.15 + rnd() * 0.2);
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d - w / 2),
+      Math.round(gy - 2),
+      Math.round(w),
+      2,
+    );
   }
-
-  /** Absolute Y on screen. */
-  get absY(): number {
-    return this.parent ? this.parent.absY + this.y : this.y;
+  // Scattered char flecks
+  ctx.fillStyle = '#241d18';
+  ctx.globalAlpha = 0.35;
+  const flecks = 8 + Math.floor(rnd() * 8);
+  for (let i = 0; i < flecks; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (0.5 + rnd() * 0.55);
+    ctx.fillRect(
+      Math.round(sc.x + Math.cos(a) * d),
+      Math.round(gy - 1 - rnd() * 2),
+      2,
+      1,
+    );
   }
-
-  contains(px: number, py: number): boolean {
-    const ax = this.absX;
-    const ay = this.absY;
-    return px >= ax && px <= ax + this.w && py >= ay && py <= ay + this.h;
+  ctx.restore();
+}
+/** Persistent blast scorches drawn on the ground, under units and props. */
+export function drawScorches(
+  ctx: CanvasRenderingContext2D,
+  s: GameState,
+  camera: number,
+  viewportWidth: number,
+) {
+  for (const sc of s.scorches) {
+
+灰线像素前线游戏软件 V1.0  第30/60页
+    if (sc.x < camera - 80 || sc.x > camera + viewportWidth + 80) continue;
+    drawScorch(ctx, sc, ground(s, sc.x));
   }
-
- /** Find the topmost widget at a point (visible + enabled). */
-  hitTest(px: number, py: number): Widget | null {
-    if (!this.visible || !this.enabled) return null;
-    // Check children in reverse order (topmost first)
-    for (let i = this.children.length - 1; i >= 0; i--) {
-      const hit = this.children[i].hitTest(px, py);
-      if (hit) return hit;
+}
+// ── Vehicle tread marks ──────────────────────────────────
+const TREAD_LIFETIME = 40; // seconds before a mark fully fades
+function drawTread(
+  ctx: CanvasRenderingContext2D,
+  t: TreadMark,
+  gy: number,
+  age: number,
+) {
+  const fade = Math.max(0, 1 - age / TREAD_LIFETIME);
+  if (fade <= 0) return;
+  let seed = t.seed;
+  const rnd = () => {
+    seed = (Math.imul(1664525, seed) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  const spacing = t.half * 0.88; // track centres sit just inside the hull edge
+  const bandW = 7; // track width, px
+  const bandL = 15; // mark length along the direction of travel
+  ctx.save();
+  for (const side of [-1, 1]) {
+    const bx = t.x + side * spacing;
+    // Compressed earth band
+    ctx.fillStyle = '#241f19';
+    ctx.globalAlpha = 0.3 * fade;
+    ctx.fillRect(
+      Math.round(bx - bandL / 2),
+      Math.round(gy - bandW / 2),
+      bandL,
+      bandW,
+    );
+    // Slight ridge at the leading edge
+    ctx.fillStyle = '#3a322a';
+    ctx.globalAlpha = 0.18 * fade;
+    ctx.fillRect(
+      Math.round(bx - bandL / 2),
+      Math.round(gy - bandW / 2 - 1),
+      bandL,
+      1,
+    );
+    // Texture flecks
+    ctx.fillStyle = '#1a1612';
+    ctx.globalAlpha = 0.22 * fade;
+    const flecks = 3 + Math.floor(rnd() * 3);
+    for (let i = 0; i < flecks; i++) {
+      ctx.fillRect(
+        Math.round(bx - bandL / 2 + rnd() * bandL),
+
+灰线像素前线游戏软件 V1.0  第31/60页
+      { page: 'settings', label: '设置' },
+      { page: 'guide', label: '作战手册' },
+    ];
+    let y = 64;
+    for (const item of nav) {
+      const btn = new Button(item.label, SIDEBAR_W - 16, 32, {
+        fontSize: 13,
+        bg: COLORS.bgPanel,
+      });
+      btn.x = 8;
+      btn.y = y;
+      btn.onTap = () => {
+        if (item.page === 'builder') this.router.navigate('deck-builder');
+        else if (item.page === 'shop') this.router.navigate('shop');
+        else this.setSubpage(item.page as LobbyPage);
+      };
+      this.addChild(btn);
+      this.navButtons.push(btn);
+      y += 36;
     }
-    return this.contains(px, py) ? this : null;
+    y += 4;
+    this.mapBtn = new Button('', SIDEBAR_W - 16, 44, { fontSize: 11 });
+    this.mapBtn.x = 8;
+    this.mapBtn.y = y;
+    this.mapBtn.onTap = () => {
+      const idx = MAP_IDS.indexOf(lobbyState.mapId);
+      const next = MAP_IDS[(idx + 1) % MAP_IDS.length];
+      lobbyState.setMap(next);
+      this.refreshSidebarLabels();
+    };
+    this.addChild(this.mapBtn);
+    y += 50;
+    this.nightBtn = new Button('', SIDEBAR_W - 16, 40, { fontSize: 11 });
+    this.nightBtn.x = 8;
+    this.nightBtn.y = y;
+    this.nightBtn.onTap = () => {
+      lobbyState.setNight(!lobbyState.night);
+      this.refreshSidebarLabels();
+    };
+    this.addChild(this.nightBtn);
+    y += 46;
+    this.diffBtn = new Button('', SIDEBAR_W - 16, 40, { fontSize: 11 });
+    this.diffBtn.x = 8;
+    this.diffBtn.y = y;
+    this.diffBtn.onTap = () => this.setSubpage('settings');
+    this.addChild(this.diffBtn);
+    this.refreshSidebarLabels();
   }
-
-  /** Draw this widget and all children. */
-  draw(ctx: CanvasRenderingContext2D): void {
-    if (!this.visible) return;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    this.drawSelf(ctx);
-    for (const c of this.children) c.draw(ctx);
-    ctx.restore();
+  private refreshSidebarLabels(): void {
+    const map = MAPS[lobbyState.mapId];
+
+灰线像素前线游戏软件 V1.0  第32/60页
+    this.mapBtn.label = `地图: ${map.name}`;
+    this.nightBtn.label = lobbyState.night ? '时段: 夜间' : '时段: 昼间';
+    this.diffBtn.label = `对手: ${DIFFICULTY_LABEL[lobbyState.difficulty]}`;
   }
-
-  /** Subclass draws itself here (coordinates are local). */
-  protected abstract drawSelf(ctx: CanvasRenderingContext2D): void;
-
-  /** Called when a touch down lands on this widget. Return true to claim the to
-  onTouchDown(_x: number, _y: number): boolean {
+  // ── Content pages ───────────────────────────────────────────────────────
+  private setSubpage(page: LobbyPage): void {
+    this.subpage = page;
+    this.scrollY = 0;
+    this.buildContent();
+    // Map/night selectors hidden on campaign (mission defines its own map)
+    this.mapBtn.visible = page !== 'campaign';
+    this.nightBtn.visible = page !== 'campaign';
+  }
+  private clearContent(): void {
+    const keep = new Set<Widget>([
+      ...this.navButtons,
+      this.mapBtn,
+      this.nightBtn,
+      this.diffBtn,
+    ]);
+    for (const c of [...this.children]) {
+      if (!keep.has(c)) this.removeChild(c);
+    }
+  }
+  private buildContent(): void {
+    this.clearContent();
+    if (this.subpage === 'home') this.buildHome();
+    else if (this.subpage === 'settings') this.buildSettings();
+    else if (this.subpage === 'campaign') this.buildCampaign();
+    // guide is pure text, drawn in drawSelf
+  }
+  private buildHome(): void {
+    this.startBtn = new Button('开始游戏', 220, 56, {
+      fontSize: 20,
+      bold: true,
+      bg: COLORS.accent,
+      bgPressed: COLORS.accentDark,
+      textColor: '#1a1f1a',
+      border: COLORS.accentDark,
+      radius: 6,
+    });
+    this.startBtn.x = this.contentX() + (this.contentW() - 220) / 2;
+    this.startBtn.y = this.screenH - 96;
+    this.startBtn.onTap = () => {
+      const err = lobbyState.begin();
+      if (err) this.toast(err);
+    };
+    this.addChild(this.startBtn);
+  }
+  private buildSettings(): void {
+
+灰线像素前线游戏软件 V1.0  第33/60页
+    const x = this.contentX() + 24;
+    let y = 24;
+    // Difficulty buttons
+    const diffs: Difficulty[] = ['standard', 'veteran', 'elite'];
+    const bw = 150;
+    for (const d of diffs) {
+      const btn = new Button(
+        `${DIFFICULTY_LABEL[d]}\n${DIFFICULTY_BONUS[d]}`,
+        bw,
+        52,
+        {
+          fontSize: 12,
+          bg:
+            lobbyState.difficulty === d ? COLORS.green : COLORS.bgPanelLight,
+          border:
+            lobbyState.difficulty === d ? COLORS.greenLight : COLORS.border,
+        },
+      );
+      btn.x = x + diffs.indexOf(d) * (bw + 10);
+      btn.y = y;
+      const dd = d;
+      btn.onTap = () => {
+        lobbyState.setDifficulty(dd);
+        this.buildContent();
+        this.refreshSidebarLabels();
+      };
+      this.addChild(btn);
+    }
+    y += 66;
+    // Sound toggle
+    const audio = getBattleAudio().settings;
+    const toggle = new Toggle(44, 22, audio.enabled);
+    toggle.x = x;
+    toggle.y = y;
+    toggle.onChange = (v) => {
+      getBattleAudio().configure({ enabled: v });
+    };
+    this.addChild(toggle);
+    y += 36;
+    // Music volume
+    const musicSlider = new Slider(260, 24, audio.music);
+    musicSlider.x = x;
+    musicSlider.y = y;
+    musicSlider.onChange = (v) => {
+      getBattleAudio().configure({ music: v });
+    };
+    this.addChild(musicSlider);
+    y += 36;
+    // SFX volume
+    const sfxSlider = new Slider(260, 24, audio.effects);
+
+灰线像素前线游戏软件 V1.0  第34/60页
+    sfxSlider.x = x;
+    sfxSlider.y = y;
+    sfxSlider.onChange = (v) => {
+      getBattleAudio().configure({ effects: v });
+    };
+    this.addChild(sfxSlider);
+  }
+  private buildCampaign(): void {
+    const x = this.contentX() + 16;
+    let y = 16;
+    for (let i = 0; i < MISSIONS.length; i++) {
+      const m = MISSIONS[i];
+      const done = lobbyState.completed.includes(m.id);
+      const unlocked = lobbyState.isMissionUnlocked(i);
+      const btn = new Button(
+        `${m.chapter} ${m.title}  ${done ? '✓' : unlocked ? '' : '🔒'}`,
+        150,
+        40,
+        {
+          fontSize: 11,
+          bg:
+            this.selectedMission === m.id
+              ? COLORS.green
+              : COLORS.bgPanel,
+        },
+      );
+      btn.x = x;
+      btn.y = y;
+      btn.enabled = unlocked;
+      btn.onTap = () => {
+        this.selectedMission = m.id;
+        this.buildContent();
+      };
+      this.addChild(btn);
+      y += 46;
+    }
+    // Start button
+    const idx = MISSIONS.findIndex((m) => m.id === this.selectedMission);
+    const unlocked = lobbyState.isMissionUnlocked(idx);
+    const startBtn = new Button(
+      unlocked ? '进入战役 →' : '完成上一章后解锁',
+      170,
+      40,
+      {
+        fontSize: 13,
+        bold: true,
+        bg: unlocked ? COLORS.accent : COLORS.bgPanelLight,
+        textColor: unlocked ? '#1a1f1a' : COLORS.textMuted,
+      },
+    );
+
+灰线像素前线游戏软件 V1.0  第35/60页
+    startBtn.x = x;
+    startBtn.y = y + 8;
+    startBtn.enabled = unlocked;
+    startBtn.onTap = () => {
+      const err = lobbyState.begin(undefined, this.selectedMission);
+      if (err) this.toast(err);
+    };
+    this.addChild(startBtn);
+  }
+  // ── Images ──────────────────────────────────────────────────────────────
+  private loadHomeBg(): void {
+    const img = new Image();
+    img.onload = () => {
+      this.homeBg = img;
+    };
+    img.src = assetUrl('/art/home-camp-v14.png');
+  }
+  private loadMissionBg(url: string): void {
+    if (this.missionBgUrl === url) return;
+    this.missionBgUrl = url;
+    this.missionBg = null;
+    const img = new Image();
+    img.onload = () => {
+      if (this.missionBgUrl === url) this.missionBg = img;
+    };
+    img.src = assetUrl(url);
+  }
+  // ── Toast ───────────────────────────────────────────────────────────────
+  private toast(msg: string): void {
+    this.toastMsg = msg;
+    this.toastTime = Date.now();
+  }
+  // ── Lifecycle ───────────────────────────────────────────────────────────
+  onEnter(): void {
+    this.refreshSidebarLabels();
+    this.buildContent();
+    const mixer = getBattleAudio();
+    mixer.prefetch();
+    mixer.setActive(true);
+  }
+  handleTouch(ev: TouchEvent): boolean {
+    if (!this.audioUnlocked && ev.type === 'down') {
+      this.audioUnlocked = true;
+      void getBattleAudio().unlock();
+      getBattleAudio().setActive(true);
+    }
+    if (super.handleTouch(ev)) return true;
+    // Content scrolling for guide / campaign text
+    if (this.subpage !== 'guide' && this.subpage !== 'campaign')
+      return false;
+
+灰线像素前线游戏软件 V1.0  第36/60页
+    const p = ev.changed[0];
+    if (!p || p.x < this.contentX()) return false;
+    if (ev.type === 'down') {
+      this.scrollTouchId = p.id;
+      this.scrollStartY = p.y;
+      this.scrollStartScroll = this.scrollY;
+      return true;
+    }
+    if (ev.type === 'move' && this.scrollTouchId === p.id) {
+      this.scrollY = clamp(
+        this.scrollStartScroll - (p.y - this.scrollStartY),
+        0,
+        this.scrollMax,
+      );
+      return true;
+    }
+    if (ev.type === 'up' && this.scrollTouchId === p.id) {
+      this.scrollTouchId = -1;
+      return true;
+    }
     return false;
   }
-
-  /** Called when a claimed touch moves. */
-  onTouchMove(_x: number, _y: number): void {}
-
-  /** Called when a claimed touch is released. */
-  onTouchUp(_x: number, _y: number): void {}
-
-  /** Called when a claimed touch is cancelled. */
-  onTouchCancel(): void {}
-}
-
-// ── Button ───────────────────────────────────────────────────────────────────
-
-/** A concrete transparent container for grouping child widgets (e.g. dialog bod
-
-灰线像素前线游戏软件  V1.0    第 13/60 页
-------------------------------------------------------------
-export class Container extends Widget {
-  protected drawSelf(_ctx: CanvasRenderingContext2D): void {}
-}
-
-export interface ButtonStyle {
-  bg: string;
-  bgHover: string;
-  bgPressed: string;
-  border: string;
-  textColor: string;
-  fontSize: number;
-  bold: boolean;
-  radius: number;
-}
-
-export const DEFAULT_BUTTON_STYLE: ButtonStyle = {
-  bg: COLORS.bgPanelLight,
-  bgHover: '#3a4a3a',
-  bgPressed: '#1a2a1a',
-  border: COLORS.border,
-  textColor: COLORS.text,
-  fontSize: 13,
-  bold: false,
-  radius: LAYOUT.radius,
-};
-
-export class Button extends Widget {
-  label: string;
-  onTap: (() => void) | null = null;
-  style: ButtonStyle;
-  pressed = false;
-  disabled = false;
-  icon: ((ctx: CanvasRenderingContext2D, w: number, h: number) => void) | null =
-
-  constructor(
-    label: string,
-    w: number,
-    h: number,
-    style?: Partial<ButtonStyle>,
-  ) {
-    super();
-    this.label = label;
-    this.w = w;
-    this.h = h;
-    this.style = { ...DEFAULT_BUTTON_STYLE, ...style };
-  }
-
+  // ── Drawing ─────────────────────────────────────────────────────────────
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    const s = this.style;
-    const bg = this.disabled ? COLORS.bgPanel : (this.pressed ? s.bgPressed : s.
-    roundRect(ctx, 0, 0, this.w, this.h, s.radius);
-    ctx.fillStyle = bg;
-    ctx.fill();
-    ctx.strokeStyle = s.border;
-    ctx.lineWidth = 1;
-
-灰线像素前线游戏软件  V1.0    第 14/60 页
-------------------------------------------------------------
-    ctx.stroke();
-
-    if (this.disabled) {
-      ctx.globalAlpha = 0.45;
-    }
-    if (this.icon) {
-      this.icon(ctx, this.w, this.h);
-    }
-    if (this.label) {
-      drawTextCentered(ctx, this.label, this.w / 2, this.h / 2, s.fontSize, s.te
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  onTouchDown(): boolean {
-    if (this.disabled) return false;
-    this.pressed = true;
-    return true;
-  }
-
-  onTouchUp(): void {
-    if (this.disabled) return;
-    if (this.pressed) {
-      this.pressed = false;
-      this.onTap?.();
+    // Background
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, this.screenW, this.screenH);
+    this.drawSidebar(ctx);
+    const cx = this.contentX();
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(cx, 0, this.contentW(), this.screenH);
+    ctx.clip();
+    ctx.translate(0, -this.scrollY);
+    if (this.subpage === 'home') this.drawHome(ctx);
+    else if (this.subpage === 'guide') this.drawGuide(ctx);
+    else if (this.subpage === 'campaign') this.drawCampaignBrief(ctx);
+    // settings widgets draw themselves; draw labels here
+    if (this.subpage === 'settings') this.drawSettingsLabels(ctx);
+    ctx.restore();
+    // Toast
+    if (this.toastMsg && Date.now() - this.toastTime < 3000) {
+      const alpha = Math.min(1, (3000 - (Date.now() - this.toastTime)) / 500);
+      ctx.globalAlpha = alpha;
+      const w = measureText(ctx, this.toastMsg, 13) + 32;
+      const x = this.screenW / 2 - w / 2;
+      const y = this.screenH - 60;
+      drawPanel(ctx, x, y, w, 32, COLORS.overlay, COLORS.accent);
+      drawTextCentered(ctx, this.toastMsg, this.screenW / 2, y + 16, 13);
+      ctx.globalAlpha = 1;
+
+灰线像素前线游戏软件 V1.0  第37/60页
     }
   }
-
-  onTouchCancel(): void {
-    this.pressed = false;
+  private drawSidebar(ctx: CanvasRenderingContext2D): void {
+    drawPanel(ctx, 0, 0, SIDEBAR_W, this.screenH, COLORS.bgPanel, COLORS.border);
+    // Brand
+    drawTextLeft(ctx, '灰线', 12, 20, 20, COLORS.accent, 'bold');
+    drawTextLeft(ctx, 'GREYLINE · v170', 12, 40, 9, COLORS.textDim);
+    // Gold + deck status at bottom
+    const gold = lobbyState.collection.gold;
+    drawTextLeft(ctx, `金币 ${gold}`, 12, this.screenH - 44, 12, COLORS.gold);
+    drawTextLeft(
+      ctx,
+      `当前编队 ${lobbyState.deck.length}/20`,
+      12,
+      this.screenH - 24,
+      12,
+      lobbyState.deck.length === 20 ? COLORS.greenLight : COLORS.redLight,
+    );
   }
-}
-
-// ── Label ────────────────────────────────────────────────────────────────────
-
-export class Label extends Widget {
-  text: string;
-  fontSize: number;
-  color: string;
-  bold: boolean;
-  align: 'left' | 'center' | 'right';
-
-  constructor(
-    text: string,
-    fontSize: number = 12,
-    color: string = COLORS.text,
-    align: 'left' | 'center' | 'right' = 'left',
-    bold: boolean = false,
-  ) {
-    super();
-    this.text = text;
-    this.fontSize = fontSize;
-    this.color = color;
-    this.align = align;
-    this.bold = bold;
-
-灰线像素前线游戏软件  V1.0    第 15/60 页
-------------------------------------------------------------
-    this.h = fontSize + 4;
+  private drawHome(ctx: CanvasRenderingContext2D): void {
+    const cx = this.contentX();
+    const cw = this.contentW();
+    if (this.homeBg) {
+      // Cover fit
+      const imgRatio = this.homeBg.width / this.homeBg.height;
+      const boxRatio = cw / this.screenH;
+      let dw = cw;
+      let dh = this.screenH;
+      let dx = cx;
+      let dy = 0;
+      if (imgRatio > boxRatio) {
+        dw = this.screenH * imgRatio;
+        dx = cx - (dw - cw) / 2;
+      } else {
+        dh = cw / imgRatio;
+        dy = -(dh - this.screenH) / 2;
+      }
+      ctx.drawImage(this.homeBg, dx, dy, dw, dh);
+    }
+    // Title
+    drawTextCentered(
+      ctx,
+      '灰线 · 现代战争像素对战',
+      cx + cw / 2,
+      48,
+      22,
+      COLORS.text,
+      'bold',
+    );
   }
-
-  protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    ctx.font = font(this.fontSize, this.bold ? 'bold' : 'normal');
-    ctx.fillStyle = this.color;
-    ctx.textBaseline = 'middle';
-    if (this.align === 'center') {
-      ctx.textAlign = 'center';
-      ctx.fillText(this.text, this.w / 2, this.h / 2);
-    } else if (this.align === 'right') {
-      ctx.textAlign = 'right';
-      ctx.fillText(this.text, this.w, this.h / 2);
+
+灰线像素前线游戏软件 V1.0  第38/60页
+  private drawGuide(ctx: CanvasRenderingContext2D): void {
+    const cx = this.contentX() + 20;
+    const cw = this.contentW() - 40;
+    let y = 20;
+    drawTextLeft(ctx, '作战手册', cx, y, 20, COLORS.accent, 'bold');
+    y += 36;
+    const sections: [string, string][] = [
+      [
+        '胜利条件',
+        '摧毁敌方指挥部。十分钟后仍未分出胜负，则比较双方基地剩余生命。',
+      ],
+      [
+        '出牌与抽牌',
+        '把卡牌拖出底部扇形区域后松手，即可使用；拖回则取消。长按查看详情。单位从己方基地出发，烟幕、地雷和机降落点使用松手位置。机降直升机会飞抵落点后放下步兵，途中可被防空击落。\n点击牌堆，消耗 2 点指挥点抽牌，冷却 9 秒。手牌最多 6 张。\n双方开局 2 点，每 3.6 秒恢复 1 点。后勤可加快回点，扩编可增加上限；难度设置会注明 AI 的额外回点速度。',
+      ],
+      [
+        '查看战场',
+        '左右拖动画面移动视野。手机横屏游玩。',
+      ],
+      [
+        '机步协同',
+        '步兵会自动伴随附近友军坦克，保持后方距离。点击小队可选择伴随、据守、撤退、进攻或警戒；手动进攻会解除伴随。缺少有效反甲或防空保护时，步兵会持续撤离重装火力范围。',
+      ],
+      [
+        '组建编队',
+        '在卡组中选择 20 张牌，每种卡各有数量上限。带上反坦克与防空兵种；AI 使用自己的卡组，双方各抽各的。',
+      ],
+    ];
+    for (const [title, body] of sections) {
+      drawTextLeft(ctx, title, cx, y, 14, COLORS.greenLight, 'bold');
+      y += 22;
+      y = drawWrapped(ctx, body, cx, y, cw, 12, COLORS.text, 'normal', 19) + 12;
+    }
+    this.scrollMax = Math.max(0, y - this.screenH);
+  }
+  private drawCampaignBrief(ctx: CanvasRenderingContext2D): void {
+    const idx = MISSIONS.findIndex((m) => m.id === this.selectedMission);
+    const m = MISSIONS[idx];
+    const cx = this.contentX() + 180;
+    const cw = this.contentW() - 200;
+    let y = 16;
+    drawTextLeft(
+      ctx,
+      '故事战役 · 六章 — 断线之地',
+      cx,
+      y,
+      16,
+      COLORS.accent,
+      'bold',
+    );
+
+灰线像素前线游戏软件 V1.0  第39/60页
+    y += 28;
+    // Landscape image
+    this.loadMissionBg(MAPS[m.mapId].backgroundAsset);
+    const imgH = Math.min(110, this.screenH * 0.3);
+    if (this.missionBg) {
+      ctx.drawImage(this.missionBg, cx, y, cw, imgH);
     } else {
-      ctx.textAlign = 'left';
-      ctx.fillText(this.text, 0, this.h / 2);
+      drawPanel(ctx, cx, y, cw, imgH, COLORS.bgPanelLight, COLORS.border);
     }
+    drawTextLeft(ctx, m.region, cx + 8, y + 14, 11, COLORS.text, 'bold');
+    drawTextLeft(ctx, m.title, cx + 8, y + 30, 15, COLORS.text, 'bold');
+    y += imgH + 12;
+    y = drawWrapped(ctx, m.briefing, cx, y, cw, 12, COLORS.text) + 10;
+    drawTextLeft(ctx, `任务: ${m.goal}`, cx, y, 12, COLORS.greenLight, 'bold');
+    y += 20;
+    y =
+      drawWrapped(ctx, `已知部署: ${m.preparation}`, cx, y, cw, 11, COLORS.textDim) +
+      10;
+    drawTextLeft(
+      ctx,
+      `${DIFFICULTY_LABEL[lobbyState.difficulty]} · ${DIFFICULTY_BONUS[lobbyState.difficulty]}`,
+      cx,
+      y,
+      11,
+      COLORS.textDim,
+    );
+    y += 18;
+    drawTextLeft(
+      ctx,
+      '使用当前20张编队 · 战役进度保存在本机 · 进场先听无线电简报',
+      cx,
+      y,
+      10,
+      COLORS.textMuted,
+    );
+    y += 16;
+    this.scrollMax = Math.max(0, y - this.screenH);
+  }
+  private drawSettingsLabels(ctx: CanvasRenderingContext2D): void {
+    const x = this.contentX() + 24;
+    drawTextLeft(ctx, '对手难度', x, 14, 14, COLORS.accent, 'bold');
+    drawTextLeft(
+      ctx,
+      '双方开局均为 2 点指挥点。资源优势只影响 AI 回点速度。',
+      x,
+      100,
+      11,
+      COLORS.textDim,
+    );
+    drawTextLeft(ctx, '游戏声音', x, 128, 13, COLORS.text);
+
+灰线像素前线游戏软件 V1.0  第40/60页
+    const audio = getBattleAudio().settings;
+    drawTextLeft(
+      ctx,
+      `音乐音量 ${Math.round(audio.music * 100)}%`,
+      x + 320,
+      152,
+      12,
+      COLORS.text,
+    );
+    drawTextLeft(
+      ctx,
+      `音效音量 ${Math.round(audio.effects * 100)}%`,
+      x + 320,
+      188,
+      12,
+      COLORS.text,
+    );
+    drawTextLeft(
+      ctx,
+      '自动保存，进入战场后同样生效。',
+      x,
+      224,
+      11,
+      COLORS.textDim,
+    );
   }
 }
-
-// ── Panel ────────────────────────────────────────────────────────────────────
-
-export class Panel extends Widget {
-  fill: string;
-  border: string;
-  radius: number;
-
-  constructor(
-    w: number,
-    h: number,
-    fill: string = COLORS.bgPanel,
-    border: string = COLORS.border,
-    radius: number = LAYOUT.radius,
-  ) {
+/**
+ * Shop screen: buy card packs, watch the tear animation, reveal draws
+ * (fan for single packs, scrollable grid for ten-packs), watch ads for
+ * gold, and browse the owned-card collection.
+ * Replaces app/shop.tsx.
+ */
+import {
+  Screen,
+  Button,
+  ScrollList,
+  Widget,
+  type Router,
+} from './framework';
+import {
+  COLORS,
+  clamp,
+  drawTextCentered,
+  drawTextLeft,
+  drawTextRight,
+  roundRect,
+} from './theme';
+import { drawCardFace, drawCardMini, loadCardImage } from './card-render';
+import { CardDetailDialog } from './card-detail-dialog';
+
+灰线像素前线游戏软件 V1.0  第41/60页
+import { lobbyState } from '../lobby-state';
+import { CARDS, type CardId } from '@/game/engine';
+import {
+  PACK_COST,
+  TEN_PACK_COST,
+  AD_REWARD,
+  AD_COOLDOWN_MS,
+  RARITY_LABEL,
+  RARITY_RATE,
+  collectionProgress,
+  grantAdReward,
+  openPack,
+  openTenPacks,
+  ownedCount,
+  rarityOf,
+  type PackDraw,
+  type PackResult,
+  type Rarity,
+} from '@/game/collection';
+import {
+  PACK_CANVAS,
+  PACK_DURATION,
+  packFrameRect,
+  packMotion,
+} from '@/game/pack-animation';
+import { assetUrl } from '@/game/asset-url';
+const TOP_H = 40;
+const BOTTOM_H = 100;
+const LEFT_W = 216;
+const ROW_H = 50;
+const RARITY_COLOR: Record<Rarity, string> = {
+  common: '#8b9578',
+  rare: '#c0c8d0',
+  epic: '#e8c25a',
+  legendary: '#b06fd0',
+};
+const AD_COOLDOWN_STORAGE = 'greyline-ad-cooldown';
+// ── Owned-card list row ──────────────────────────────────────────────────────
+class OwnedRow extends Widget {
+  id: CardId;
+  count: number;
+  constructor(id: CardId, count: number) {
     super();
-    this.w = w;
-    this.h = h;
-    this.fill = fill;
-    this.border = border;
-    this.radius = radius;
+    this.id = id;
+    this.count = count;
   }
-
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    drawPanel(ctx, 0, 0, this.w, this.h, this.fill, this.border, this.radius);
+    const c = CARDS[this.id];
+    drawCardMini(ctx, this.id, 6, 4, 28);
+    drawTextLeft(ctx, c.name, 44, 13, 12, COLORS.text);
+
+灰线像素前线游戏软件 V1.0  第42/60页
+    drawTextLeft(
+      ctx,
+      RARITY_LABEL[rarityOf(this.id)],
+      44,
+      30,
+      9,
+      RARITY_COLOR[rarityOf(this.id)],
+    );
+    drawTextRight(ctx, `×${this.count}`, this.w - 8, 26, 12, COLORS.textDim);
   }
 }
-
-// ── Image Widget ─────────────────────────────────────────────────────────────
-
-export class ImageWidget extends Widget {
-  image: HTMLImageElement | HTMLCanvasElement | null = null;
-  stretch = true;
-
+// ── Pack tear animation (full screen) ───────────────────────────────────────
+class TearWidget extends Widget {
+  onDone: (() => void) | null = null;
+  private atlas: HTMLImageElement | null = null;
+  private t = 0;
+  private finished = false;
+  private loadTimer: ReturnType<typeof setTimeout> | null = null;
   constructor(w: number, h: number) {
     super();
-
-灰线像素前线游戏软件  V1.0    第 16/60 页
-------------------------------------------------------------
     this.w = w;
     this.h = h;
+    this.loadTimer = setTimeout(() => this.finish(), 5000);
+    loadCardImage(assetUrl('art/pack-tear-v139.png'))
+      .then((img) => {
+        if (this.loadTimer) clearTimeout(this.loadTimer);
+        this.loadTimer = null;
+        this.atlas = img;
+      })
+      .catch(() => this.finish());
   }
-
-  protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    if (!this.image) return;
-    if (this.stretch) {
-      ctx.drawImage(this.image, 0, 0, this.w, this.h);
-    } else {
-      ctx.drawImage(this.image, 0, 0);
+  update(dt: number): void {
+    if (!this.atlas || this.finished) return;
+    this.t += dt;
+    if (this.t >= PACK_DURATION) this.finish();
+  }
+  private finish(): void {
+    if (this.finished) return;
+    this.finished = true;
+    if (this.loadTimer) {
+      clearTimeout(this.loadTimer);
+      this.loadTimer = null;
     }
+    this.onDone?.();
   }
-}
-
-// ── Slider ───────────────────────────────────────────────────────────────────
-
-export class Slider extends Widget {
-  value: number; // 0..1
-  onChange: ((v: number) => void) | null = null;
-  barColor: string;
-  knobColor: string;
-  private dragging = false;
-
-  constructor(w: number, h: number, value: number = 0.5) {
-    super();
-    this.w = w;
-    this.h = h;
-    this.value = value;
-    this.barColor = COLORS.accent;
-    this.knobColor = COLORS.text;
-  }
-
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    const cy = this.h / 2;
-    const barH = 4;
-    // Track
-    ctx.fillStyle = COLORS.bgPanelLight;
-    ctx.fillRect(0, cy - barH / 2, this.w, barH);
-    // Fill
-    ctx.fillStyle = this.barColor;
-    ctx.fillRect(0, cy - barH / 2, this.w * this.value, barH);
-    // Knob
-    const kx = this.w * this.value;
-    ctx.fillStyle = this.knobColor;
-    ctx.beginPath();
-    ctx.arc(kx, cy, 8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  onTouchDown(x: number): boolean {
-    this.dragging = true;
-    this.value = Math.max(0, Math.min(1, x / this.w));
-    this.onChange?.(this.value);
-    return true;
-  }
-
-灰线像素前线游戏软件  V1.0    第 17/60 页
-------------------------------------------------------------
-
-  onTouchMove(x: number): void {
-    if (this.dragging) {
-      this.value = Math.max(0, Math.min(1, x / this.w));
-      this.onChange?.(this.value);
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, this.w, this.h);
+    if (!this.atlas) {
+      drawTextCentered(ctx, '准备拆封…', this.w / 2, this.h / 2, 14, COLORS.textDim);
+
+灰线像素前线游戏软件 V1.0  第43/60页
+      return;
     }
+    const motion = packMotion(this.t);
+    const s = Math.min(this.w / PACK_CANVAS.width, this.h / PACK_CANVAS.height) * 0.85;
+    const img = this.atlas;
+    const cell = packFrameRect(img.width, img.height, motion.frame);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = motion.alpha;
+    ctx.translate(this.w / 2, this.h / 2);
+    ctx.scale(s, s);
+    ctx.translate(motion.x - PACK_CANVAS.width / 2, motion.y - PACK_CANVAS.height / 2);
+    ctx.drawImage(
+      img,
+      cell.x,
+      cell.y,
+      cell.width,
+      cell.height,
+      0,
+      0,
+      cell.width,
+      cell.height,
+    );
+    ctx.restore();
+    drawTextCentered(ctx, '点击跳过', this.w / 2, this.h - 24, 11, COLORS.textMuted);
   }
-
-  onTouchUp(): void {
-    this.dragging = false;
-  }
-
-  onTouchCancel(): void {
-    this.dragging = false;
-  }
-}
-
-// ── Toggle ───────────────────────────────────────────────────────────────────
-
-export class Toggle extends Widget {
-  on: boolean;
-  onChange: ((v: boolean) => void) | null = null;
-
-  constructor(w: number = 44, h: number = 22, on: boolean = false) {
-    super();
-    this.w = w;
-    this.h = h;
-    this.on = on;
-  }
-
-  protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    const r = this.h / 2;
-    roundRect(ctx, 0, 0, this.w, this.h, r);
-    ctx.fillStyle = this.on ? COLORS.green : COLORS.bgPanelLight;
-    ctx.fill();
-    ctx.strokeStyle = COLORS.border;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    // Knob
-    const kx = this.on ? this.w - r : r;
-    ctx.fillStyle = COLORS.text;
-    ctx.beginPath();
-    ctx.arc(kx, r, r - 3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   onTouchDown(): boolean {
-    this.on = !this.on;
-    this.onChange?.(this.on);
     return true;
   }
+  onTouchUp(): void {
+    this.finish();
+  }
 }
-
-// ── Scroll List ──────────────────────────────────────────────────────────────
-
-
-灰线像素前线游戏软件  V1.0    第 18/60 页
-------------------------------------------------------------
-export class ScrollList extends Widget {
-  items: Widget[] = [];
-  itemHeight: number;
-  scrollY = 0;
-  /** Fired when an item is tapped (not dragged). */
-  onItemTap: ((index: number) => void) | null = null;
-  /** Fired when an item is long-pressed (450ms without moving). */
-  onItemLongPress: ((index: number) => void) | null = null;
+// ── Reveal area (fan for 5, scrollable grid for 50) ─────────────────────────
+interface RevealCallbacks {
+  onFlip: () => void;
+  onFlipAll: () => void;
+  onDetail: (id: CardId) => void;
+}
+class RevealAreaWidget extends Widget {
+  private draws: PackDraw[];
+  private flipped: boolean[];
+  private prevOwned: Partial<Record<CardId, number>>;
+  private cb: RevealCallbacks;
+  private backImg: HTMLImageElement | null = null;
+  private ten: boolean;
+  // Grid scroll state
+  private scrollY = 0;
   private maxScroll = 0;
-  private dragStartY = 0;
-  private dragStartScroll = 0;
   private dragging = false;
+
+灰线像素前线游戏软件 V1.0  第44/60页
   private moved = false;
   private downX = 0;
   private downY = 0;
-  private lastTouchY = 0;
-  private lastTouchTime = 0;
-  private velocity = 0;
-  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
-  private longPressFired = false;
-
-  constructor(w: number, h: number, itemHeight: number) {
+  private startScroll = 0;
+  constructor(
+    w: number,
+    h: number,
+    draws: PackDraw[],
+    flipped: boolean[],
+    prevOwned: Partial<Record<CardId, number>>,
+    cb: RevealCallbacks,
+  ) {
     super();
     this.w = w;
     this.h = h;
-    this.itemHeight = itemHeight;
-  }
-
-  setItems(items: Widget[]): void {
-    this.items = items;
-    for (const item of items) {
-      item.parent = this;
+    this.draws = draws;
+    this.flipped = flipped;
+    this.prevOwned = prevOwned;
+    this.cb = cb;
+    this.ten = draws.length > 5;
+    if (this.ten) {
+      const cols = 10;
+      const gap = 6;
+      const cardW = (this.w - 16 - (cols - 1) * gap) / cols;
+      const rows = Math.ceil(draws.length / cols);
+      const contentH = rows * (cardW * 1.5 + gap) + 8;
+      this.maxScroll = Math.max(0, contentH - this.h);
     }
-    this.maxScroll = Math.max(0, items.length * this.itemHeight - this.h);
-    this.scrollY = Math.min(this.scrollY, this.maxScroll);
-    this.layoutItems();
+    loadCardImage(assetUrl('art/card-back-v1.webp'))
+      .then((img) => {
+        this.backImg = img;
+      })
+      .catch(() => {});
   }
-
-  /** Items are drawn inside drawSelf with clipping, so skip the children loop. 
-  draw(ctx: CanvasRenderingContext2D): void {
-    if (!this.visible) return;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    this.drawSelf(ctx);
-    ctx.restore();
+  private isNew(d: PackDraw): boolean {
+    return !d.converted && (this.prevOwned[d.id] ?? 0) === 0;
   }
-
-  /** The list claims all touches inside its bounds; items are not hit-tested. *
-  hitTest(px: number, py: number): Widget | null {
-    if (!this.visible || !this.enabled) return null;
-    return this.contains(px, py) ? this : null;
+  // ── Geometry ──
+  private fanCardW(): number {
+    return clamp(96, this.w * 0.14, 130);
   }
-
-  private layoutItems(): void {
-    for (let i = 0; i < this.items.length; i++) {
-
-灰线像素前线游戏软件  V1.0    第 19/60 页
-------------------------------------------------------------
-      const item = this.items[i];
-      item.x = 0;
-      item.y = i * this.itemHeight - this.scrollY;
-      item.w = this.w;
-      item.h = this.itemHeight;
-    }
+  /** Returns draw rect + rotation for fan mode, or null if offscreen. */
+  private fanRect(i: number): { x: number; y: number; w: number; h: number; rot: number } {
+    const cw = this.fanCardW();
+    const ch = cw * 1.5;
+    const fanX = clamp(34, this.w * 0.12, 64);
+    const cx = this.w / 2;
+    const cy = this.h * 0.42;
+    const n = this.draws.length;
+    const mid = (n - 1) / 2;
+
+灰线像素前线游戏软件 V1.0  第45/60页
+    const rot = (i - mid) * 11 * (Math.PI / 180);
+    const spread = fanX + cw * 0.62;
+    const x = cx + (i - mid) * spread - cw / 2;
+    const y = cy + Math.abs(i - mid) * 12 - ch / 2;
+    return { x, y, w: cw, h: ch, rot };
   }
-
-  scrollTo(y: number): void {
-    this.scrollY = Math.max(0, Math.min(this.maxScroll, y));
-    this.layoutItems();
+  private gridRect(i: number): { x: number; y: number; w: number; h: number } {
+    const cols = 10;
+    const gap = 6;
+    const cw = (this.w - 16 - (cols - 1) * gap) / cols;
+    const ch = cw * 1.5;
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    return {
+      x: 8 + col * (cw + gap),
+      y: 8 + row * (ch + gap) - this.scrollY,
+      w: cw,
+      h: ch,
+    };
   }
-
+  // ── Drawing ──
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    // Clip to list bounds
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, this.w, this.h);
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, this.w, this.h);
     ctx.clip();
-    for (const item of this.items) {
-      if (item.y + item.h < 0 || item.y > this.h) continue;
-      item.draw(ctx);
+    if (this.ten) this.drawGrid(ctx);
+    else this.drawFan(ctx);
+    ctx.restore();
+  }
+  private drawFan(ctx: CanvasRenderingContext2D): void {
+    // Draw order: edges first, center last (on top).
+    const n = this.draws.length;
+    const order = [0, n - 1, 1, n - 2, 2].filter((i) => i >= 0 && i < n);
+    const seen = new Set<number>();
+    for (const i of order) {
+      if (seen.has(i)) continue;
+      seen.add(i);
+      this.drawFanCard(ctx, i);
+    }
+    // Any remaining (n>5 safety)
+    for (let i = 0; i < n; i++) {
+      if (!seen.has(i)) this.drawFanCard(ctx, i);
+    }
+  }
+  private drawFanCard(ctx: CanvasRenderingContext2D, i: number): void {
+    const r = this.fanRect(i);
+    const d = this.draws[i];
+
+灰线像素前线游戏软件 V1.0  第46/60页
+    ctx.save();
+    ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+    ctx.rotate(r.rot);
+    if (!this.flipped[i]) {
+      this.drawBack(ctx, -r.w / 2, -r.h / 2, r.w, r.h);
+    } else {
+      drawCardFace(ctx, d.id, -r.w / 2, -r.h / 2, r.w);
+      this.drawBadges(ctx, d, -r.w / 2, -r.h / 2, r.w, r.h);
+      // Rarity label under the card
+      const label =
+        RARITY_LABEL[d.rarity] +
+        (this.isNew(d) ? '·新卡' : d.converted ? '·转化' : '');
+      drawTextCentered(
+        ctx,
+        label,
+        0,
+        r.h / 2 + 10,
+        9,
+        RARITY_COLOR[d.rarity],
+      );
     }
     ctx.restore();
-
-    // Scrollbar
-    if (this.maxScroll > 0) {
-      const barH = Math.max(20, (this.h / (this.maxScroll + this.h)) * this.h);
-      const barY = (this.scrollY / this.maxScroll) * (this.h - barH);
-      ctx.fillStyle = COLORS.border;
-      ctx.fillRect(this.w - 3, barY, 2, barH);
+  }
+  private drawGrid(ctx: CanvasRenderingContext2D): void {
+    for (let i = 0; i < this.draws.length; i++) {
+      const r = this.gridRect(i);
+      if (r.y + r.h < 0 || r.y > this.h) continue;
+      const d = this.draws[i];
+      if (!this.flipped[i]) {
+        this.drawBack(ctx, r.x, r.y, r.w, r.h);
+      } else {
+        drawCardFace(ctx, d.id, r.x, r.y, r.w);
+        this.drawBadges(ctx, d, r.x, r.y, r.w, r.h);
+      }
     }
   }
-
-  private itemAt(localY: number): number {
-    const y = localY + this.scrollY;
-    const idx = Math.floor(y / this.itemHeight);
-    if (idx < 0 || idx >= this.items.length) return -1;
-    const itemTop = idx * this.itemHeight - this.scrollY;
-    if (itemTop + this.itemHeight < 0 || itemTop > this.h) return -1;
-    return idx;
-  }
-
-  private clearLongPress(): void {
-    if (this.longPressTimer) {
-      clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
+  private drawBack(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): void {
+    if (this.backImg) {
+      ctx.drawImage(this.backImg, x, y, w, h);
+    } else {
+      ctx.fillStyle = '#2a332a';
+      ctx.fillRect(x, y, w, h);
     }
+    ctx.strokeStyle = COLORS.border;
+
+灰线像素前线游戏软件 V1.0  第47/60页
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   }
-
-  onTouchDown(_x: number, y: number): boolean {
+  private drawBadges(
+    ctx: CanvasRenderingContext2D,
+    d: PackDraw,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): void {
+    if (this.isNew(d)) {
+      ctx.fillStyle = COLORS.red;
+      roundRect(ctx, x + 2, y + 2, 20, 11, 2);
+      ctx.fill();
+      drawTextCentered(ctx, '新', x + 12, y + 8, 9, '#ffffff', 'bold');
+    }
+    if (d.converted) {
+      ctx.fillStyle = COLORS.accentDark;
+      const bw = 34;
+      roundRect(ctx, x + w - bw - 2, y + 2, bw, 11, 2);
+      ctx.fill();
+      drawTextCentered(ctx, `+${d.gold}金`, x + w - bw / 2 - 2, y + 8, 8, '#ffffff');
+    }
+    void h;
+  }
+  // ── Hit testing ──
+  /** Returns the draw index at a point, or -1. */
+  private hitIndex(px: number, py: number): number {
+    if (this.ten) {
+      for (let i = this.draws.length - 1; i >= 0; i--) {
+        const r = this.gridRect(i);
+        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
+      }
+      return -1;
+    }
+    // Fan: test in reverse draw order
+    const n = this.draws.length;
+    const order = [2, 3, 1, 4, 0].filter((i) => i >= 0 && i < n);
+    for (const i of order) {
+      const r = this.fanRect(i);
+      // Inverse-rotate the point around the card center
+      const cx = r.x + r.w / 2;
+      const cy = r.y + r.h / 2;
+      const dx = px - cx;
+      const dy = py - cy;
+      const cos = Math.cos(-r.rot);
+      const sin = Math.sin(-r.rot);
+      const lx = dx * cos - dy * sin;
+      const ly = dx * sin + dy * cos;
+
+灰线像素前线游戏软件 V1.0  第48/60页
+      if (Math.abs(lx) <= r.w / 2 && Math.abs(ly) <= r.h / 2) return i;
+    }
+    return -1;
+  }
+  // ── Touch ──
+  onTouchDown(x: number, y: number): boolean {
     this.dragging = true;
     this.moved = false;
-    this.longPressFired = false;
-    this.downX = _x;
-
-灰线像素前线游戏软件  V1.0    第 20/60 页
-------------------------------------------------------------
+    this.downX = x;
     this.downY = y;
-    this.dragStartY = y;
-    this.dragStartScroll = this.scrollY;
-    this.lastTouchY = y;
-    this.lastTouchTime = Date.now();
-    this.velocity = 0;
-    this.clearLongPress();
-    if (this.onItemLongPress) {
-      this.longPressTimer = setTimeout(() => {
-        if (this.dragging && !this.moved) {
-          this.longPressFired = true;
-          const idx = this.itemAt(this.downY);
-          if (idx >= 0) this.onItemLongPress?.(idx);
-        }
-      }, 450);
-    }
+    this.startScroll = this.scrollY;
     return true;
   }
-
-  onTouchMove(_x: number, y: number): void {
+  onTouchMove(x: number, y: number): void {
     if (!this.dragging) return;
-    const dy = y - this.dragStartY;
-    if (Math.abs(_x - this.downX) > 8 || Math.abs(dy) > 8) {
-      this.moved = true;
-      this.clearLongPress();
+    const dx = x - this.downX;
+    const dy = y - this.downY;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) this.moved = true;
+    if (this.ten && this.moved) {
+      this.scrollY = clamp(this.startScroll - dy, 0, this.maxScroll);
     }
-    this.scrollTo(this.dragStartScroll - dy);
-    const now = Date.now();
-    const dt = now - this.lastTouchTime;
-    if (dt > 0) {
-      this.velocity = (y - this.lastTouchY) / dt;
-    }
-    this.lastTouchY = y;
-    this.lastTouchTime = now;
   }
-
-  onTouchUp(): void {
+  onTouchUp(x: number, y: number): void {
+    if (!this.dragging) return;
     this.dragging = false;
-    this.clearLongPress();
-    if (!this.moved && !this.longPressFired) {
-      const idx = this.itemAt(this.downY);
-      if (idx >= 0) this.onItemTap?.(idx);
+    if (this.moved) return;
+    const idx = this.hitIndex(x, y);
+    if (idx >= 0) {
+      if (!this.flipped[idx]) {
+        this.flipped[idx] = true;
+        this.cb.onFlip();
+      } else {
+        this.cb.onDetail(this.draws[idx].id);
+      }
+    } else {
+      this.cb.onFlipAll();
     }
-    // Inertia
-    if (Math.abs(this.velocity) > 0.1) {
-      const inertia = this.velocity * 15;
-      this.scrollTo(this.scrollY - inertia);
-    }
-  }
-
-  onTouchCancel(): void {
-    this.dragging = false;
-    this.moved = false;
-    this.clearLongPress();
-  }
-
-灰线像素前线游戏软件  V1.0    第 21/60 页
-------------------------------------------------------------
-}
-
-// ── Dialog / Modal ───────────────────────────────────────────────────────────
-
-export class Dialog extends Widget {
-  content: Widget;
-  onClose: (() => void) | null = null;
-  private scrimColor: string;
-
-  constructor(
-    screenW: number,
-    screenH: number,
-    content: Widget,
-    scrimColor: string = COLORS.overlay,
-  ) {
-    super();
-    this.w = screenW;
-    this.h = screenH;
-    this.content = content;
-    this.scrimColor = scrimColor;
-    // Center content
-    content.x = (screenW - content.w) / 2;
-    content.y = (screenH - content.h) / 2;
-    this.addChild(content);
-  }
-
-  protected drawSelf(ctx: CanvasRenderingContext2D): void {
-    ctx.fillStyle = this.scrimColor;
-    ctx.fillRect(0, 0, this.w, this.h);
-  }
-
-  onTouchDown(x: number, y: number): boolean {
-    // Tap outside content closes
-    if (!this.content.contains(x - this.x, y - this.y)) {
-      this.onClose?.();
-    }
-    return true;
   }
 }
-
-// ── Screen (root widget) ─────────────────────────────────────────────────────
-
-export abstract class Screen extends Widget {
-  screenW: number;
-  screenH: number;
-  protected dialog: Dialog | null = null;
-
-  constructor(screenW: number, screenH: number) {
-    super();
-    this.w = screenW;
-    this.h = screenH;
-    this.screenW = screenW;
-    this.screenH = screenH;
+// ── Shop screen ─────────────────────────────────────────────────────────────
+type Phase = 'idle' | 'tearing' | 'fanned';
+export class ShopScreen extends Screen {
+  private router: Router;
+  private phase: Phase = 'idle';
+  private result: PackResult | null = null;
+  private prevOwned: Partial<Record<CardId, number>> = {};
+  private flipped: boolean[] = [];
+  private message = '';
+  private messageAt = 0;
+  private adReadyAt = 0;
+
+灰线像素前线游戏软件 V1.0  第49/60页
+  private packImg: HTMLImageElement | null = null;
+  private tearWidget: TearWidget | null = null;
+  private revealWidget: RevealAreaWidget | null = null;
+  private ownedList: ScrollList | null = null;
+  private btnPack: Button | null = null;
+  private btnTen: Button | null = null;
+  private btnAd: Button | null = null;
+  private bottomButtons: Button[] = [];
+  constructor(screenW: number, screenH: number, router: Router) {
+    super(screenW, screenH);
+    this.router = router;
+    try {
+      const saved = Number(localStorage.getItem(AD_COOLDOWN_STORAGE) ?? '0');
+      this.adReadyAt = Number.isFinite(saved) ? saved : 0;
+      if (this.adReadyAt < Date.now()) this.adReadyAt = 0;
+    } catch {
+      this.adReadyAt = 0;
+    }
+    loadCardImage(assetUrl('art/card-pack-v1.webp'))
+      .then((img) => {
+        this.packImg = img;
+      })
+      .catch(() => {});
   }
-
-
-灰线像素前线游戏软件  V1.0    第 22/60 页
-------------------------------------------------------------
-  showDialog(content: Widget, scrimColor?: string): void {
-    this.dialog = new Dialog(this.screenW, this.screenH, content, scrimColor);
-    this.dialog.onClose = () => {
-      this.dialog = null;
+  onEnter(): void {
+    this.buildIdle();
+  }
+  // ── Idle layout ──
+  private buildIdle(): void {
+    this.phase = 'idle';
+    this.clearChildren();
+    this.result = null;
+    this.bottomButtons = [];
+    // Top bar
+    const back = new Button('返回', 64, 28);
+    back.x = 8;
+    back.y = 6;
+    back.onTap = () => this.router.navigate('lobby');
+    this.addChild(back);
+    // Left column panel content
+    const btnW = 168;
+    const btnX = 8 + (LEFT_W - btnW) / 2;
+    let btnY = TOP_H + 206;
+    this.btnPack = new Button(`开一包 · ${PACK_COST}金`, btnW, 30);
+    this.btnPack.x = btnX;
+    this.btnPack.y = btnY;
+    this.btnPack.onTap = () => this.startReveal(false);
+    this.addChild(this.btnPack);
+    btnY += 34;
+    this.btnTen = new Button(`连开十包 · ${TEN_PACK_COST}金`, btnW, 30);
+
+灰线像素前线游戏软件 V1.0  第50/60页
+    this.btnTen.x = btnX;
+    this.btnTen.y = btnY;
+    this.btnTen.onTap = () => this.startReveal(true);
+    this.addChild(this.btnTen);
+    btnY += 34;
+    this.btnAd = new Button('', btnW, 30);
+    this.btnAd.x = btnX;
+    this.btnAd.y = btnY;
+    this.btnAd.onTap = () => this.watchAd();
+    this.addChild(this.btnAd);
+    // Right side: owned cards
+    this.ownedList = new ScrollList(
+      this.screenW - 240,
+      this.screenH - 82,
+      ROW_H,
+    );
+    this.ownedList.x = 232;
+    this.ownedList.y = 74;
+    this.ownedList.onItemTap = (index) => {
+      const rows = this.ownedRows();
+      const row = rows[index];
+      if (!row) return;
+      this.showDialog(new CardDetailDialog(row.id, () => this.closeDialog()));
     };
+    this.addChild(this.ownedList);
+    this.refreshIdle();
   }
-
-  closeDialog(): void {
-    this.dialog = null;
+  private ownedRows(): OwnedRow[] {
+    const col = lobbyState.collection;
+    const ids = (Object.keys(CARDS) as CardId[]).filter(
+      (id) => !CARDS[id].internal && ownedCount(col, id) > 0,
+    );
+    ids.sort((a, b) => {
+      const ca = CARDS[a];
+      const cb = CARDS[b];
+      if (ca.cost !== cb.cost) return ca.cost - cb.cost;
+      return ca.name.localeCompare(cb.name, 'zh-CN');
+    });
+    return ids.map((id) => new OwnedRow(id, ownedCount(col, id)));
   }
-
-  get hasDialog(): boolean {
-    return this.dialog !== null;
+  private refreshIdle(): void {
+    const col = lobbyState.collection;
+    this.btnPack!.disabled = col.gold < PACK_COST;
+    this.btnTen!.disabled = col.gold < TEN_PACK_COST;
+    this.refreshAdButton();
+    if (this.ownedList) {
+      this.ownedList.setItems(this.ownedRows());
+    }
   }
-
-  draw(ctx: CanvasRenderingContext2D): void {
-    if (!this.visible) return;
-    ctx.save();
-    this.drawSelf(ctx);
-    for (const c of this.children) c.draw(ctx);
-    if (this.dialog) this.dialog.draw(ctx);
-    ctx.restore();
+  private refreshAdButton(): void {
+
+灰线像素前线游戏软件 V1.0  第51/60页
+    if (!this.btnAd) return;
+    const col = lobbyState.collection;
+    const remaining = this.adReadyAt - Date.now();
+    if (remaining > 0) {
+      this.btnAd.label = `广告冷却 ${Math.ceil(remaining / 1000)}s`;
+      this.btnAd.disabled = true;
+    } else {
+      this.btnAd.label = `看广告领 ${AD_REWARD} 金`;
+      this.btnAd.disabled = false;
+    }
+    void col;
   }
-
-  /** Route a touch event. Returns true if handled. */
-  handleTouch(ev: TouchEvent): boolean {
-    if (!this.visible) return false;
-    if (ev.type === 'down') {
-      for (const p of ev.changed) {
-        // Dialog gets priority
-        if (this.dialog) {
-          const hit = this.dialog.hitTest(p.x, p.y);
-          if (hit) {
-            hit.onTouchDown(p.x - hit.absX, p.y - hit.absY);
-            this.touchClaim = new Map([[p.id, hit]]);
-            return true;
-          }
-          continue;
-        }
-        const hit = this.hitTest(p.x, p.y);
-        if (hit && hit !== this) {
-          hit.onTouchDown(p.x - hit.absX, p.y - hit.absY);
-          if (!this.touchClaim) this.touchClaim = new Map();
-          this.touchClaim.set(p.id, hit);
-          return true;
-        }
-      }
-    } else if (ev.type === 'move') {
-      if (this.touchClaim) {
-        for (const p of ev.changed) {
-          const widget = this.touchClaim.get(p.id);
-          if (widget) {
-            widget.onTouchMove(p.x - widget.absX, p.y - widget.absY);
-          }
-        }
-
-灰线像素前线游戏软件  V1.0    第 23/60 页
-------------------------------------------------------------
-      }
-    } else if (ev.type === 'up') {
-      if (this.touchClaim) {
-        for (const p of ev.changed) {
-          const widget = this.touchClaim.get(p.id);
-          if (widget) {
-            widget.onTouchUp(p.x - widget.absX, p.y - widget.absY);
-            this.touchClaim.delete(p.id);
-          }
-        }
+  // ── Pack opening ──
+  private startReveal(ten: boolean): void {
+    const col = lobbyState.collection;
+    try {
+      const r = ten ? openTenPacks(col) : openPack(col);
+      this.prevOwned = { ...col.owned };
+      lobbyState.updateCollection(r.state);
+      this.result = r;
+      this.flipped = r.drawn.map(() => false);
+      this.buildTearing();
+    } catch (e) {
+      this.message = e instanceof Error ? e.message : String(e);
+      this.messageAt = Date.now();
+    }
+  }
+  private buildTearing(): void {
+    this.phase = 'tearing';
+    this.clearChildren();
+    this.tearWidget = new TearWidget(this.screenW, this.screenH);
+    this.tearWidget.onDone = () => this.buildFanned();
+    this.addChild(this.tearWidget);
+  }
+  private buildFanned(): void {
+    this.phase = 'fanned';
+    this.clearChildren();
+    this.tearWidget = null;
+    if (!this.result) {
+      this.buildIdle();
+      return;
+    }
+    this.revealWidget = new RevealAreaWidget(
+      this.screenW,
+      this.screenH - BOTTOM_H,
+      this.result.drawn,
+      this.flipped,
+      this.prevOwned,
+      {
+        onFlip: () => this.refreshBottomBar(),
+
+灰线像素前线游戏软件 V1.0  第52/60页
+        onFlipAll: () => {
+          for (let i = 0; i < this.flipped.length; i++) this.flipped[i] = true;
+          this.refreshBottomBar();
+        },
+        onDetail: (id) => {
+          this.showDialog(new CardDetailDialog(id, () => this.closeDialog()));
+        },
+      },
+    );
+    this.addChild(this.revealWidget);
+    this.refreshBottomBar();
+  }
+  private get allFlipped(): boolean {
+    return this.flipped.every((f) => f);
+  }
+  private refreshBottomBar(): void {
+    for (const b of this.bottomButtons) this.removeChild(b);
+    this.bottomButtons = [];
+    if (this.phase !== 'fanned' || !this.result) return;
+    const y = this.screenH - 62;
+    const h = 30;
+    let x = 8;
+    const add = (label: string, w: number, onTap: () => void, disabled = false) => {
+      const b = new Button(label, w, h);
+      b.x = x;
+      b.y = y;
+      b.onTap = onTap;
+      b.disabled = disabled;
+      this.addChild(b);
+      this.bottomButtons.push(b);
+      x += w + 6;
+    };
+    if (!this.allFlipped) {
+      add('全部翻开', 84, () => {
+        for (let i = 0; i < this.flipped.length; i++) this.flipped[i] = true;
+        this.refreshBottomBar();
+      });
+    }
+    add('收下', 72, () => this.buildIdle(), !this.allFlipped);
+    add(
+      '再开一包',
+      92,
+      () => this.startReveal(false),
+      lobbyState.collection.gold < PACK_COST,
+    );
+    add(
+      '再开十包',
+      92,
+      () => this.startReveal(true),
+      lobbyState.collection.gold < TEN_PACK_COST,
+
+灰线像素前线游戏软件 V1.0  第53/60页
+    );
+  }
+  private summaryText(): string {
+    if (!this.result) return '';
+    const newCount = this.result.drawn.filter(
+      (d) => !d.converted && (this.prevOwned[d.id] ?? 0) === 0,
+    ).length;
+    let parts = [`新卡 ${newCount} 张`];
+    if (this.result.goldGained > 0) {
+      parts.push(`溢出转化 +${this.result.goldGained} 金币`);
+    }
+    if (this.result.pity) {
+      parts.push('保底王牌已触发');
+    }
+    return parts.join(' · ');
+  }
+  // ── Ads ──
+  private watchAd(): void {
+    if (this.adReadyAt > Date.now()) return;
+    lobbyState.updateCollection(grantAdReward(lobbyState.collection));
+    this.adReadyAt = Date.now() + AD_COOLDOWN_MS;
+    try {
+      localStorage.setItem(AD_COOLDOWN_STORAGE, String(this.adReadyAt));
+    } catch {
+      /* storage may be unavailable */
+    }
+    this.message = `广告奖励 +${AD_REWARD} 金币`;
+    this.messageAt = Date.now();
+    this.refreshIdle();
+  }
+  // ── Frame ──
+  update(dt: number): void {
+    if (this.phase === 'tearing' && this.tearWidget) {
+      this.tearWidget.update(dt);
+    } else if (this.phase === 'idle') {
+      this.refreshAdButton();
+    }
+  }
+  protected drawSelf(ctx: CanvasRenderingContext2D): void {
+    ctx.fillStyle = COLORS.bg;
+    ctx.fillRect(0, 0, this.screenW, this.screenH);
+    if (this.phase === 'tearing') return;
+    if (this.phase === 'idle') {
+      this.drawIdle(ctx);
+    } else if (this.phase === 'fanned') {
+      drawTextCentered(
+        ctx,
+        this.summaryText(),
+        this.screenW / 2,
+        this.screenH - 86,
+
+灰线像素前线游戏软件 V1.0  第54/60页
+        12,
+        COLORS.accent,
+        'bold',
+      );
+      if (!this.allFlipped) {
+        drawTextCentered(
+          ctx,
+          '点击卡片翻一张 · 点击桌面全翻',
+          this.screenW / 2,
+          this.screenH - 14,
+          10,
+          COLORS.textMuted,
+        );
       }
     }
-    return false;
   }
-
-  private touchClaim: Map<number, Widget> | null = null;
-
-  /** Per-frame update. Override for animation. */
-  update(_dt: number): void {}
-
-  /** Called when this screen becomes active. */
-  onEnter(): void {}
-
-  /** Called when this screen is exited. */
-  onExit(): void {}
+  private drawIdle(ctx: CanvasRenderingContext2D): void {
+    // Top bar title + gold
+    drawTextCentered(ctx, '军需商店', this.screenW / 2, 20, 15, COLORS.text, 'bold');
+    drawTextRight(
+      ctx,
+      `金币 ${lobbyState.collection.gold}`,
+      this.screenW - 12,
+      20,
+      13,
+      COLORS.accent,
+      'bold',
+    );
+    // Left panel background
+    ctx.fillStyle = COLORS.bgPanel;
+    roundRect(ctx, 8, TOP_H + 4, LEFT_W, this.screenH - TOP_H - 12, 6);
+    ctx.fill();
+    ctx.strokeStyle = COLORS.border;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Pack image
+    const packW = 100;
+    const packH = clamp(this.screenH - 220, 90, 150);
+    const packX = 8 + (LEFT_W - packW) / 2;
+    const packY = TOP_H + 24;
+    if (this.packImg) {
+      ctx.drawImage(this.packImg, packX, packY, packW, packH);
+    } else {
+      ctx.fillStyle = COLORS.bgPanelLight;
+      roundRect(ctx, packX, packY, packW, packH, 4);
+      ctx.fill();
+    }
+    drawTextCentered(
+      ctx,
+      '前线卡包',
+
+灰线像素前线游戏软件 V1.0  第55/60页
+      8 + LEFT_W / 2,
+      packY + packH + 14,
+      12,
+      COLORS.text,
+    );
+    // Rates
+    const rateY = TOP_H + 206 + 34 * 3 + 40;
+    drawTextCentered(
+      ctx,
+      `常规 ${(RARITY_RATE.common * 100).toFixed(0)}% · 精锐 ${(RARITY_RATE.rare * 100).toFixed(0)}%`,
+      8 + LEFT_W / 2,
+      rateY,
+      9,
+      COLORS.textMuted,
+    );
+    drawTextCentered(
+      ctx,
+      `王牌 ${(RARITY_RATE.epic * 100).toFixed(0)}% · 传奇 ${(RARITY_RATE.legendary * 100).toFixed(0)}%`,
+      8 + LEFT_W / 2,
+      rateY + 14,
+      9,
+      COLORS.textMuted,
+    );
+    // Message
+    if (this.message && Date.now() - this.messageAt < 4000) {
+      drawTextCentered(
+        ctx,
+        this.message,
+        8 + LEFT_W / 2,
+        rateY + 40,
+        11,
+        COLORS.redLight,
+      );
+    }
+    // Right side header
+    const col = lobbyState.collection;
+    const prog = collectionProgress(col);
+    drawTextLeft(
+      ctx,
+      `已收集 ${prog.species}/${prog.total} 种 · 共 ${prog.copies} 张 · 已开 ${col.packsOpened} 包`,
+      232,
+      52,
+      11,
+      COLORS.textDim,
+    );
+    drawTextLeft(ctx, '我的卡牌', 232, 66, 12, COLORS.text, 'bold');
+  }
 }
-
-// ── Screen Router ────────────────────────────────────────────────────────────
-
-export class Router {
-  private screens = new Map<string, Screen>();
-  private current: Screen | null = null;
-  private currentName = '';
-
-  register(name: string, screen: Screen): void {
-    this.screens.set(name, screen);
-  }
-
-  navigate(name: string): void {
-    const next = this.screens.get(name);
-    if (!next) return;
-    if (this.current) this.current.onExit();
-    this.current = next;
-    this.currentName = name;
-    this.current.onEnter();
-  }
-
-  get active(): Screen | null {
-    return this.current;
-  }
-
-  get activeName(): string {
-    return this.currentName;
-  }
-
-
-灰线像素前线游戏软件  V1.0    第 24/60 页
-------------------------------------------------------------
-  draw(ctx: CanvasRenderingContext2D): void {
-    this.current?.draw(ctx);
-  }
-
-  update(dt: number): void {
-    this.current?.update(dt);
-  }
-
-  handleTouch(ev: TouchEvent): boolean {
-    return this.current?.handleTouch(ev) ?? false;
-  }
-}
-
-// === 文件: minigame/src/ui/theme.ts ===
 /** Theme constants shared by all Canvas UI pages. */
-
 export const COLORS = {
+
+灰线像素前线游戏软件 V1.0  第56/60页
   bg: '#1a1f1a',
   bgPanel: '#232b23',
   bgPanelLight: '#2d3a2d',
@@ -1376,12 +2884,10 @@ export const COLORS = {
   overlay: 'rgba(10, 12, 10, 0.85)',
   scrim: 'rgba(10, 12, 10, 0.6)',
 } as const;
-
 export const FONT = {
   pixel: 'fusion-pixel',
   fallback: 'monospace',
 } as const;
-
 export const LAYOUT = {
   /** Standard margin from screen edge. */
   margin: 8,
@@ -1389,9 +2895,6 @@ export const LAYOUT = {
   gap: 6,
   /** Button height. */
   btnH: 36,
-
-灰线像素前线游戏软件  V1.0    第 25/60 页
-------------------------------------------------------------
   /** Small button height. */
   btnSmH: 28,
   /** Panel corner radius. */
@@ -1401,13 +2904,13 @@ export const LAYOUT = {
   /** Bottom bar height. */
   bottomBarH: 120,
 } as const;
-
-export function font(size: number, weight: 'normal' | 'bold' = 'normal'): string
-  return `${weight === 'bold' ? 'bold ' : ''}${size}px "${FONT.pixel}", ${FONT.f
+export function font(size: number, weight: 'normal' | 'bold' = 'normal'): string {
+  return `${weight === 'bold' ? 'bold ' : ''}${size}px "${FONT.pixel}", ${FONT.fallback}`;
 }
-
 /** Measure text width using the pixel font. */
 export function measureText(
+
+灰线像素前线游戏软件 V1.0  第57/60页
   ctx: CanvasRenderingContext2D,
   text: string,
   size: number,
@@ -1416,7 +2919,6 @@ export function measureText(
   ctx.font = font(size, weight);
   return ctx.measureText(text).width;
 }
-
 /** Draw text centered horizontally at (cx, y). */
 export function drawTextCentered(
   ctx: CanvasRenderingContext2D,
@@ -1433,7 +2935,6 @@ export function drawTextCentered(
   ctx.textBaseline = 'middle';
   ctx.fillText(text, cx, y);
 }
-
 /** Draw text left-aligned at (x, y). */
 export function drawTextLeft(
   ctx: CanvasRenderingContext2D,
@@ -1447,13 +2948,9 @@ export function drawTextLeft(
   ctx.font = font(size, weight);
   ctx.fillStyle = color;
   ctx.textAlign = 'left';
-
-灰线像素前线游戏软件  V1.0    第 26/60 页
-------------------------------------------------------------
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y);
 }
-
 /** Draw text right-aligned at (x, y). */
 export function drawTextRight(
   ctx: CanvasRenderingContext2D,
@@ -1464,13 +2961,14 @@ export function drawTextRight(
   color: string = COLORS.text,
   weight: 'normal' | 'bold' = 'normal',
 ): void {
+
+灰线像素前线游戏软件 V1.0  第58/60页
   ctx.font = font(size, weight);
   ctx.fillStyle = color;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, x, y);
 }
-
 /** Draw a rounded rectangle path. */
 export function roundRect(
   ctx: CanvasRenderingContext2D,
@@ -1493,7 +2991,6 @@ export function roundRect(
   ctx.arcTo(x, y, x + rr, y, rr);
   ctx.closePath();
 }
-
 /** Draw a filled panel with border. */
 export function drawPanel(
   ctx: CanvasRenderingContext2D,
@@ -1505,9 +3002,6 @@ export function drawPanel(
   border: string = COLORS.border,
   radius: number = LAYOUT.radius,
 ): void {
-
-灰线像素前线游戏软件  V1.0    第 27/60 页
-------------------------------------------------------------
   roundRect(ctx, x, y, w, h, radius);
   ctx.fillStyle = fill;
   ctx.fill();
@@ -1515,11 +3009,12 @@ export function drawPanel(
   ctx.lineWidth = 1;
   ctx.stroke();
 }
-
 /** Draw a progress bar. */
 export function drawBar(
   ctx: CanvasRenderingContext2D,
   x: number,
+
+灰线像素前线游戏软件 V1.0  第59/60页
   y: number,
   w: number,
   h: number,
@@ -1538,17 +3033,14 @@ export function drawBar(
   ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
 }
-
 /** Clamp a value. */
 export function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
 }
-
 /** Linear interpolate. */
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
-
 /**
  * Wrap text to fit a width. Returns lines. Handles CJK character-by-character
  * and Latin word-by-word wrapping.
@@ -1563,9 +3055,6 @@ export function wrapText(
   ctx.font = font(size, weight);
   const lines: string[] = [];
   const paragraphs = text.split('\n');
-
-灰线像素前线游戏软件  V1.0    第 28/60 页
-------------------------------------------------------------
   for (const para of paragraphs) {
     let line = '';
     let i = 0;
@@ -1576,6 +3065,8 @@ export function wrapText(
         let j = i;
         while (j < para.length && /[^\s一-鿿　-〿＀-￯]/.test(para[j])) j++;
         const word = para.slice(i, j);
+
+灰线像素前线游戏软件 V1.0  第60/60页
         const test = line ? line + word : word;
         if (ctx.measureText(test).width > maxWidth && line) {
           lines.push(line);
@@ -1599,7 +3090,6 @@ export function wrapText(
   }
   return lines;
 }
-
 /**
  * Draw wrapped text starting at (x, y). Returns the y position after the
  * last line.
@@ -1621,1836 +3111,9 @@ export function drawWrapped(
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   let cy = y;
-
-灰线像素前线游戏软件  V1.0    第 29/60 页
-------------------------------------------------------------
   for (const line of lines) {
     ctx.fillText(line, x, cy);
     cy += lineHeight;
   }
   return cy;
 }
-
-// === 文件: minigame/src/ui/input.ts ===
-/**
- * Text input helper: wraps the Douyin keyboard API (tt.showKeyboard) into a
- * single prompt-style call. Only one prompt may be active at a time; starting
- * a new prompt cancels the previous one.
- */
-
-declare const tt: any;
-
-export interface PromptOptions {
-  /** Text shown in the input when the keyboard opens. */
-  defaultValue?: string;
-  /** Maximum character count. Defaults to 24. */
-  maxLength?: number;
-  /** Called with the final text when the user confirms or dismisses. */
-  onDone: (value: string) => void;
-  /** Called if the prompt is cancelled programmatically. */
-  onCancel?: () => void;
-}
-
-let active: PromptOptions | null = null;
-let latestValue = '';
-let finished = false;
-
-function handleInput(res: any): void {
-  if (res && typeof res.value === 'string') latestValue = res.value;
-}
-
-function handleConfirm(res: any): void {
-  if (res && typeof res.value === 'string') latestValue = res.value;
-  finish(latestValue);
-}
-
-function handleComplete(res: any): void {
-  if (res && typeof res.value === 'string') latestValue = res.value;
-  // Keyboard dismissed (back gesture etc.) — treat as done with latest text.
-  if (!finished) finish(latestValue);
-}
-
-function unregister(): void {
-  try {
-    if (typeof tt.offKeyboardInput === 'function') tt.offKeyboardInput(handleInp
-    if (typeof tt.offKeyboardConfirm === 'function') tt.offKeyboardConfirm(handl
-    if (typeof tt.offKeyboardComplete === 'function') tt.offKeyboardComplete(han
-  } catch {
-    /* platform without keyboard events */
-  }
-}
-
-灰线像素前线游戏软件  V1.0    第 30/60 页
-------------------------------------------------------------
-
-function finish(value: string): void {
-  if (finished || !active) return;
-  finished = true;
-  const cb = active.onDone;
-  active = null;
-  unregister();
-  try {
-    if (typeof tt.hideKeyboard === 'function') tt.hideKeyboard();
-  } catch {
-    /* ignore */
-  }
-  cb(value);
-}
-
-/** Cancel the active prompt without calling onDone. */
-export function dismissPrompt(): void {
-  if (!active) return;
-  const cb = active.onCancel;
-  active = null;
-  finished = true;
-  unregister();
-  try {
-    if (typeof tt.hideKeyboard === 'function') tt.hideKeyboard();
-  } catch {
-    /* ignore */
-  }
-  cb?.();
-}
-
-/**
- * Show the platform keyboard and collect a line of text.
- * Falls back to the default value immediately when no keyboard API exists.
- */
-export function promptText(opts: PromptOptions): void {
-  dismissPrompt();
-  active = opts;
-  latestValue = opts.defaultValue ?? '';
-  finished = false;
-  try {
-    if (typeof tt === 'undefined' || typeof tt.showKeyboard !== 'function') {
-      finish(latestValue);
-      return;
-    }
-    tt.showKeyboard({
-      defaultValue: latestValue,
-      maxLength: opts.maxLength ?? 24,
-      multiple: false,
-      confirmHold: false,
-      confirmType: 'done',
-    });
-    tt.onKeyboardInput(handleInput);
-    tt.onKeyboardConfirm(handleConfirm);
-    tt.onKeyboardComplete(handleComplete);
-  } catch {
-
-灰线像素前线游戏软件  V1.0    第 31/60 页
-------------------------------------------------------------
-    waves: [
-      {
-        at: 85,
-        cards: ['infantry', 'mortar_carrier'],
-        message: '敌军迫击炮车正在向渡口转移。',
-      },
-      {
-        at: 175,
-        cards: ['tank', 'helicopter'],
-        message: '敌方装甲预备队抵达。渡口不会等到天黑。',
-      },
-    ],
-  },
-  {
-    id: 'canopy-signal',
-    title: '雨林盲区',
-    chapter: '第四章',
-    region: '东部雨林 · 雨后',
-    mapId: 'jungle',
-    objective: 'capture',
-    objectiveX: 2460,
-    duration: 300,
-    camera: 640,
-    briefing:
-      '渡口的旧转运单把你带进东部雨林。救护队最后一次报到来自林中中继站，此后只剩杂音。要找到他们，先让这座电台重新工作。',
-    goal: '300秒内，让可作战步兵控制林中电台15秒。附近敌军会阻止占领。',
-    preparation:
-      '己方陆战队、侦察组、工兵与步战车沿林道展开；敌方步兵、机枪和武警守住电台。敌军在70秒、160秒增援，第二轮有旋翼机。',
-    victory:
-      '电台里传来久违的回话：救护队已到山间货站，等待最后一批撤离车辆。许岚把他们的呼号写在了地图边上。',
-    defeat:
-      '林中的呼叫再次被杂音盖住。侦察能找出目标，最后仍需要有人走进电台，把那里守住。',
-    openingDialogue: [
-      {
-        speaker: '联络官 · 许岚',
-        text: '转运单没有错。救护队进了这片雨林，他们一直没有收到停火消息，也没有收到我们的回话。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '林木会缩短观察距离。侦察组、工兵和陆战队已经到位，步战车沿林道提供支援。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '300秒内控制林中电台15秒。第二轮敌方增援有旋翼机，推进时别忘了防空。',
-      },
-    ],
-    phaseHints: [
-      { at: 40, text: '许岚：林间视野有限。让侦察先建立观察，再调火力接敌。' },
-      {
-        at: 125,
-        text: '许岚：预报中的旋翼机将在35秒后进入增援航线，提前准备防空。',
-      },
-      { at: 240, text: '许岚：还剩60秒。电台必须有人驻留，车辆只能提供掩护。' },
-    ],
-    opening: [
-
-灰线像素前线游戏软件  V1.0    第 32/60 页
-------------------------------------------------------------
-      { side: 0, id: 'marines', x: 1130 },
-      { side: 0, id: 'scouts', x: 1290 },
-      { side: 0, id: 'engineers', x: 940 },
-      { side: 0, id: 'ifv', x: 820 },
-      { side: 1, id: 'infantry', x: 2420, guard: true },
-      { side: 1, id: 'machinegun', x: 2700, guard: true },
-      { side: 1, id: 'armed_police', x: 2480, guard: true },
-    ],
-    waves: [
-      {
-        at: 70,
-        cards: ['assault', 'antiarmor'],
-        message: '林道东侧出现突击组与反甲步兵。',
-      },
-      {
-        at: 160,
-        cards: ['helicopter', 'infantry'],
-        message: '旋翼机进入雨林上空，后续步兵正沿林道赶来。',
-      },
-    ],
-  },
-  {
-    id: 'last-convoy',
-    title: '末班车队',
-    chapter: '第五章',
-    region: '山间货站 · 入夜前',
-    mapId: 'mountains',
-    objective: 'defend',
-    objectiveX: 1440,
-    duration: 240,
-    camera: 800,
-    briefing:
-      '接通雨林电台后，救护队的位置终于明确。山间货站挤满了等待转运的人，敌军却正在向通道靠近。你要为末班车队争取四分钟。',
-    goal: '守住己方指挥部240秒，为转运争取时间。',
-    preparation:
-      '己方武警、步兵与机枪已入壕，后方有军医和单兵防空组；敌军轻装先头已在前方。敌军在25、95、170秒增援，依次加入迫炮车、装甲与空中支援。',
-    victory:
-      '最后一批人离开了货站。救护队带回一份记录：北线终站仍在转发旧的开火命令，那是沿线最后一处封锁。',
-    defeat:
-      '转运尚未完成，货站的联络就中断了。现有防空只能支撑一部分压力，守军还需要反甲和持续增援。',
-    openingDialogue: [
-      {
-        speaker: '联络官 · 许岚',
-        text: '找到他们了。救护队就在这座货站，和他们一起的还有沿路撤来的居民。转运还需要四分钟。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '武警、步兵和机枪已经入壕，军医在后面，防空组也到了。敌方先头离得很近，这次没有太多展开时间。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '守住基地240秒。敌军会分三轮增加迫炮、装甲和空中支援，别让现有守军独自扛到最后。',
-      },
-    ],
-    phaseHints: [
-
-灰线像素前线游戏软件  V1.0    第 33/60 页
-------------------------------------------------------------
-      {
-        at: 60,
-        text: '许岚：预置部队不是后续增援。留出反甲费用，守住通往基地的后方。',
-      },
-      {
-        at: 140,
-        text: '许岚：第三轮增援将在30秒后抵达，确认防空组仍有观察和掩护。',
-      },
-      {
-        at: 205,
-        text: '许岚：还要守35秒。不要追击，保住指挥部和仍能还击的成员。',
-      },
-    ],
-    opening: [
-      { side: 0, id: 'armed_police', x: 1600, dugIn: true },
-      { side: 0, id: 'infantry', x: 1360, dugIn: true },
-      { side: 0, id: 'machinegun', x: 1110, dugIn: true },
-      { side: 0, id: 'medic', x: 860, guard: true },
-      { side: 0, id: 'manpads', x: 1030, guard: true },
-      { side: 1, id: 'infantry', x: 2420 },
-      { side: 1, id: 'pickup', x: 2670 },
-    ],
-    waves: [
-      {
-        at: 25,
-        cards: ['infantry', 'mortar_carrier'],
-        message: '货站前方出现迫击炮车，步兵正在掩护它展开。',
-      },
-      {
-        at: 95,
-        cards: ['tank', 'antiarmor', 'infantry'],
-        message: '敌方装甲纵队进入山路，反甲阵地准备接敌。',
-      },
-      {
-        at: 170,
-        cards: ['helicopter', 'strike_jet', 'infantry'],
-        message: '敌军最后一轮空地增援到达，守住撤离通道。',
-      },
-    ],
-  },
-  {
-    id: 'silent-terminal',
-    title: '静默终站',
-    chapter: '第六章',
-    region: '北线终站 · 黎明',
-    mapId: 'greyline',
-    objective: 'assault',
-    objectiveX: 3680,
-    duration: 420,
-    camera: 540,
-    briefing:
-      '盐路、电台、渡口和货站终于接成了一条线。北线终站仍在转发旧命令，阻止沿线撤离。摧毁它的指挥部，才能让这条通道真正安静下来。',
-    goal: '420秒内摧毁敌方指挥部，同时保住己方指挥部。',
-    preparation:
-      '己方坦克、步兵、侦察与野战榴弹炮已经展开；敌方机枪、反甲组与单兵防空守在步战车和炮兵前方。敌军在90、210、300秒增援。',
-
-灰线像素前线游戏软件  V1.0    第 34/60 页
-------------------------------------------------------------
-    victory:
-      '终站停止了转发。许岚依次呼叫盐路、岭口、渡口和货站，每一处都有人回答。路还很长，但这一次，车队不必在炮声里等消息了。',
-    defeat:
-      '终站仍在发出旧命令。把观察、反甲与掩护送到同一条前线，让炮兵和装甲真正接上进攻。',
-    openingDialogue: [
-      {
-        speaker: '联络官 · 许岚',
-        text: '盐路、电台、渡口、货站，现在都能互相听见了。只有终站还在转发旧的开火命令，拦住最后一段路。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '这次有坦克、步兵、侦察和榴弹炮支援。敌军的反甲与防空阵地都在，不要让任何一支部队单独冲进去。',
-      },
-      {
-        speaker: '联络官 · 许岚',
-        text: '420秒内摧毁敌方指挥部，并守住自己的基地。让观察和护卫跟上，我们一起把这条线接完。',
-      },
-    ],
-    phaseHints: [
-      {
-        at: 50,
-        text: '许岚：炮兵需要前线观察。护卫到位后，再让重装接上火力。',
-      },
-      {
-        at: 165,
-        text: '许岚：敌军第二轮增援将在45秒后到达，别把所有反制留在基地后方。',
-      },
-      {
-        at: 330,
-        text: '许岚：最后90秒。整理还能推进的部队，目标是终站指挥部。',
-      },
-    ],
-    opening: [
-      { side: 0, id: 'tank', x: 1100 },
-      { side: 0, id: 'infantry', x: 960 },
-      { side: 0, id: 'infantry', x: 750 },
-      { side: 0, id: 'scouts', x: 1250 },
-      { side: 0, id: 'artillery', x: 570 },
-      { side: 1, id: 'machinegun', x: 2410, dugIn: true },
-      { side: 1, id: 'antiarmor', x: 2680, dugIn: true },
-      { side: 1, id: 'manpads', x: 2920, guard: true },
-      { side: 1, id: 'ifv', x: 3130 },
-      { side: 1, id: 'artillery', x: 3340 },
-    ],
-    waves: [
-      {
-        at: 90,
-        cards: ['infantry', 'pickup'],
-        message: '终站轻装预备队进入前线。',
-      },
-      {
-        at: 210,
-        cards: ['javelin', 'tank', 'infantry'],
-        message: '终站装甲预备队出动，反甲组正在同行。',
-      },
-
-灰线像素前线游戏软件  V1.0    第 35/60 页
-------------------------------------------------------------
-      {
-        at: 300,
-        cards: ['helicopter', 'antiarmor'],
-        message: '终站发出了最后一批增援命令。',
-      },
-    ],
-  },
-];
-export const missionById = (id: MissionId) =>
-  MISSIONS.find((m) => m.id === id)!;
-export const isMissionId = (id: unknown): id is MissionId =>
-  MISSIONS.some((m) => m.id === id);
-type Hooks = {
-  spawn: (s: GameState, side: Side, id: CardId, x: number) => void;
-  refresh: (s: GameState) => void;
-};
-
-/** Scenario fortifications use the same smooth chamber and cover rules as playe
-function preparePosition(s: GameState, side: Side, squad: number) {
-  const members = s.units.filter((u) => u.squad === squad && u.side === side);
-  const starts = members.map((u) => u.x);
-  let trench: NonNullable<GameState['entrenchments']>[number] | undefined;
-  // Authored troops may shift within their deployment sector to leave trees,
-  // houses and other prepared chambers intact; each squad keeps its own chamber
-  const offsets = [
-    0,
-    ...Array.from({ length: 8 }, (_, i) => [
-      -80 * (i + 1),
-      80 * (i + 1),
-    ]).flat(),
-  ];
-  for (const offset of offsets) {
-    s.entrenchments = (s.entrenchments ?? []).filter(
-      (t) => t.squad !== squad || t.side !== side,
-    );
-    members.forEach((u, i) => {
-      u.x = Math.max(350, Math.min(s.terrain.length - 350, starts[i] + offset));
-      u.y = s.terrain[Math.floor(u.x)];
-      u.squadOrder = undefined;
-    });
-    const ordered = setSquadOrder(s, side, squad, 'hold');
-    const candidate = s.entrenchments.find(
-      (t) => t.squad === squad && t.side === side,
-    );
-    if (
-      ordered.ok &&
-      candidate &&
-      !s.entrenchments.some(
-        (t) =>
-          t !== candidate &&
-          Math.abs(t.x - candidate.x) < t.radius + candidate.radius + 28,
-      )
-    ) {
-      trench = candidate;
-      break;
-
-灰线像素前线游戏软件  V1.0    第 36/60 页
-------------------------------------------------------------
-    }
-  }
-  if (!trench) throw new Error('预设阵地没有可施工空地');
-  trench.progress = 1;
-  trench.built = true;
-  trench.minesLaid = true;
-  for (
-    let x = Math.max(126, Math.ceil(trench.x - trench.radius));
-    x <= Math.min(s.terrain.length - 127, trench.x + trench.radius);
-    x++
-  )
-    s.terrain[x] = Math.max(
-      s.terrain[x],
-      s.original[x] + trenchCutDepth(s, trench, x),
-    );
-  s.terrainVersion++;
-  for (const u of s.units.filter((u) => u.squad === squad && u.side === side)) {
-    u.x = u.squadOrderX!;
-    u.y = s.terrain[Math.floor(u.x)];
-    u.lane = u.holdLane ?? 0;
-    u.pose = 'crouch';
-  }
-  const dir = side === 0 ? 1 : -1;
-  for (const offset of [45, 95])
-    s.mines.push({
-      uid: ++s.uid,
-      side,
-      x: trench.x + dir * (trench.radius + offset),
-      armAt: 0,
-      kind: 'antipersonnel',
-    });
-}
-export function setupCampaign(s: GameState, id: MissionId, hooks: Hooks) {
-  const m = missionById(id);
-  s.entrenchments ??= [];
-  s.campaign = {
-    id,
-    duration: m.duration,
-    objective: m.objective,
-    objectiveX: m.objectiveX,
-    captureProgress: 0,
-    waveIndex: 0,
-    hintIndex: 0,
-    initialCamera: m.camera,
-  };
-  const status = s.status;
-  s.status = 'playing';
-  for (const d of m.opening) {
-    const first = s.units.length;
-    hooks.spawn(s, d.side, d.id, d.x);
-    if (d.dugIn) preparePosition(s, d.side, s.units[first].squad);
-    else if (d.guard) setSquadOrder(s, d.side, s.units[first].squad, 'watch');
-  }
-  s.status = status;
-  s.knownTerrain = [s.terrain.slice(), s.terrain.slice()];
-
-灰线像素前线游戏软件  V1.0    第 37/60 页
-------------------------------------------------------------
-  s.notices = [];
-  hooks.refresh(s);
-}
-export function advanceCampaign(
-  s: GameState,
-  dt: number,
-  spawn: Hooks['spawn'],
-) {
-  const c = s.campaign;
-  if (!c) return;
-  const m = missionById(c.id);
-  let hintIndex = c.hintIndex ?? 0;
-  while (
-    hintIndex < m.phaseHints.length &&
-    s.time >= m.phaseHints[hintIndex].at
-  ) {
-    s.notices.unshift({
-      text: m.phaseHints[hintIndex++].text,
-      time: s.time,
-      kind: 'info',
-      audience: [0],
-    });
-    s.notices = s.notices.slice(0, 5);
-  }
-  c.hintIndex = hintIndex;
-  while (c.waveIndex < m.waves.length && s.time >= m.waves[c.waveIndex].at) {
-    const wave = m.waves[c.waveIndex++];
-    wave.cards.forEach((id, i) =>
-      spawn(s, 1, id, s.terrain.length - 120 - i * 95),
-    );
-    s.notices.unshift({
-      text: wave.message,
-      time: s.time,
-      kind: 'warn',
-      audience: [0],
-    });
-    s.notices = s.notices.slice(0, 5);
-  }
-  if (c.objective === 'capture') {
-    const alive = s.units.filter(
-      (u) =>
-        u.hp > 0 &&
-        !u.wounded &&
-        !u.surrendered &&
-        !u.rappelling &&
-        !CARDS[u.id].air,
-    );
-    const occupying = alive.some(
-      (u) =>
-        u.side === 0 &&
-        CARDS[u.id].members &&
-        Math.abs(u.x - c.objectiveX) <= 130,
-    );
-    const contested = alive.some(
-      (u) => u.side === 1 && Math.abs(u.x - c.objectiveX) <= 210,
-
-灰线像素前线游戏软件  V1.0    第 38/60 页
-------------------------------------------------------------
-    );
-    c.captureProgress = Math.max(
-      0,
-      Math.min(
-        15,
-        c.captureProgress + (occupying && !contested ? dt : -dt * 2),
-      ),
-    );
-  }
-}
-export function campaignResult(s: GameState): Side | null {
-  const c = s.campaign;
-  if (!c) return null;
-  if (s.players[0].hp <= 0) return 1;
-  if (s.players[1].hp <= 0) return 0;
-  if (c.objective === 'capture' && c.captureProgress >= 15) return 0;
-  if (s.time >= c.duration) return c.objective === 'defend' ? 0 : 1;
-  return null;
-}
-
-// === 文件: game/campaign-game.ts ===
-import { createGame, spawnUnit, refreshVision, type CardId } from './engine';
-import { setupCampaign, missionById, type MissionId } from './campaign';
-import type { Difficulty } from './economy';
-import { AI_DECKS } from './deck-presets';
-
-const MISSION_AI: Record<MissionId, number> = {
-  'salt-road': 0,
-  'ridge-relay': 2,
-  'river-counterattack': 4,
-  'canopy-signal': 1,
-  'last-convoy': 3,
-  'silent-terminal': 2,
-};
-
-export function createCampaignGame(
-  seed: number,
-  deck: CardId[],
-  id: MissionId,
-  difficulty: Difficulty,
-) {
-  const mission = missionById(id);
-  const ai = AI_DECKS[MISSION_AI[id]];
-  const s = createGame(seed, deck, ai, mission.mapId, { difficulty });
-  setupCampaign(s, id, { spawn: spawnUnit, refresh: refreshVision });
-  return s;
-}
-
-// === 文件: game/maps.ts ===
-/** Map layout is independent of combat/card randomness. Terrain remains destruc
-export type MapId = 'greyline' | 'jungle' | 'mountains' | 'desert';
-export interface MapScenerySite {
-  id?: number;
-  x: number;
-  kind: 'house' | 'tree';
-
-灰线像素前线游戏软件  V1.0    第 39/60 页
-------------------------------------------------------------
-  seed: number;
-  building?: number;
-}
-export interface MapWallSite {
-  x: number;
-  width: number;
-  height: number;
-  hp: number;
-}
-export interface MapPalette {
-  sky: string;
-  surface: string;
-  disturbed: string;
-  darkSoil: string;
-  exposedSoil: string;
-  grass: string;
-  terrainFilter: string;
-  terrainTint: string;
-  tintStrength: number;
-}
-export interface MapDefinition {
-  id: MapId;
-  name: string;
-  en: string;
-  description: string;
-  terrainLabel: string;
-  coverLabel: string;
-  layoutSeed: number;
-  backgroundAsset: string;
-  /** Amplitude and wavelength in world pixels; broad waves do not create climb 
-  terrainProfile: ReadonlyArray<{
-    amplitude: number;
-    wavelength: number;
-    phase: number;
-  }>;
-  vegetationDensity: 'sparse' | 'moderate' | 'dense';
-  housingDensity: 'sparse' | 'moderate';
-  palette: MapPalette;
-}
-export const MAP_IDS: readonly MapId[] = [
-  'greyline',
-  'jungle',
-  'mountains',
-  'desert',
-];
-export const DEFAULT_MAP: MapId = 'greyline';
-/**
- * v113: the classic fixed terrain seed for greyline. Tests and replays pass
- * this as MatchOptions.mapSeed to reproduce the original battlefield instead
- * of the seed-driven procedural layout.
- */
-export const GREYLINE_LAYOUT_SEED = 119;
-export const MAPS: Record<MapId, MapDefinition> = {
-  greyline: {
-    id: 'greyline',
-
-灰线像素前线游戏软件  V1.0    第 40/60 页
-------------------------------------------------------------
-    name: '灰线村镇',
-    en: 'GREYLINE VILLAGE',
-    description: '村屋与林带交错，适合机步协同。',
-    terrainLabel: '缓丘公路',
-    coverLabel: '树屋交错',
-    layoutSeed: 119,
-    backgroundAsset: '/art/battlefield-v3.png',
-    terrainProfile: [
-      { amplitude: 13, wavelength: Math.PI * 500, phase: 0 },
-      { amplitude: 5, wavelength: (Math.PI * 2000) / 13, phase: 0 },
-    ],
-    vegetationDensity: 'moderate',
-    housingDensity: 'moderate',
-    palette: {
-      sky: '#8b948b',
-      surface: '#6b7050',
-      disturbed: '#746959',
-      darkSoil: '#423e35',
-      exposedSoil: '#b09a70',
-      grass: '#929078',
-      terrainFilter: 'none',
-      terrainTint: '#746959',
-      tintStrength: 0,
-    },
-  },
-  jungle: {
-    id: 'jungle',
-    name: '雨林公路',
-    en: 'JUNGLE ROAD',
-    description: '林带密集，利用空隙观察与压制。',
-    terrainLabel: '平缓湿地',
-    coverLabel: '密林掩护',
-    layoutSeed: 0x4a554e47,
-    backgroundAsset: '/art/v16-maps/jungle.png',
-    terrainProfile: [
-      { amplitude: 9, wavelength: 1700, phase: 0.2 },
-      { amplitude: 4, wavelength: 650, phase: 1.1 },
-    ],
-    vegetationDensity: 'dense',
-    housingDensity: 'sparse',
-    palette: {
-      sky: '#6b8275',
-      surface: '#425b3b',
-      disturbed: '#625c42',
-      darkSoil: '#303f2b',
-      exposedSoil: '#8c9462',
-      grass: '#78915b',
-      terrainFilter: 'saturate(.7) brightness(.82)',
-      terrainTint: '#5c7445',
-      tintStrength: 0.35,
-    },
-  },
-  mountains: {
-    id: 'mountains',
-    name: '山地隘口',
-
-灰线像素前线游戏软件  V1.0    第 41/60 页
-------------------------------------------------------------
-    en: 'HIGHLAND PASS',
-    description: '宽缓山脊，争夺高处观察与射界。',
-    terrainLabel: '宽缓山脊',
-    coverLabel: '稀疏林屋',
-    layoutSeed: 0x52494447,
-    backgroundAsset: '/art/v16-maps/mountains.png',
-    terrainProfile: [
-      { amplitude: 36, wavelength: 2100, phase: -0.9 },
-      { amplitude: 9, wavelength: 850, phase: 0.3 },
-    ],
-    vegetationDensity: 'sparse',
-    housingDensity: 'sparse',
-    palette: {
-      sky: '#8d9fa5',
-      surface: '#6b756d',
-      disturbed: '#777b77',
-      darkSoil: '#424b4b',
-      exposedSoil: '#b0b6ad',
-      grass: '#a2ab96',
-      terrainFilter: 'saturate(.25) brightness(.96)',
-      terrainTint: '#829298',
-      tintStrength: 0.27,
-    },
-  },
-  desert: {
-    id: 'desert',
-    name: '沙漠边境',
-    en: 'DESERT FRONTIER',
-    description: '开阔沙原，少量村屋提供落脚点。',
-    terrainLabel: '开阔沙丘',
-    coverLabel: '稀少掩体',
-    layoutSeed: 0x44554e45,
-    backgroundAsset: '/art/v16-maps/desert.png',
-    terrainProfile: [
-      { amplitude: 14, wavelength: 2200, phase: 0.6 },
-      { amplitude: 4, wavelength: 1050, phase: -0.4 },
-    ],
-    vegetationDensity: 'sparse',
-    housingDensity: 'sparse',
-    palette: {
-      sky: '#c5b79a',
-      surface: '#b79a64',
-      disturbed: '#aa8c5c',
-      darkSoil: '#786247',
-      exposedSoil: '#e0c48e',
-      grass: '#ccbd8b',
-      terrainFilter: 'sepia(.8) saturate(.8) brightness(1.25)',
-      terrainTint: '#d7b36f',
-      tintStrength: 0.4,
-    },
-  },
-};
-export function isMapId(value: unknown): value is MapId {
-  return typeof value === 'string' && Object.hasOwn(MAPS, value);
-}
-
-灰线像素前线游戏软件  V1.0    第 42/60 页
-------------------------------------------------------------
-export function mapDefinition(value: unknown): MapDefinition {
-  return MAPS[isMapId(value) ? value : DEFAULT_MAP];
-}
-const WIDTH = 3840;
-
-/**
- * v113: deterministic PRNG for seeded map generation. The same seed always
- * produces the same battlefield, so replays and multiplayer lobbies can
- * share a layout by sharing a seed. mulberry32 is small, fast, and has
- * enough period for terrain + scenery jitter.
- */
-function mulberry32(seed: number) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0;
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-/**
- * Seeded terrain for non-greyline maps. Jitters each wave's amplitude,
- * wavelength and phase, and adds one extra small wave for surface texture.
- * The jitter ranges are conservative enough to preserve the walkability
- * guarantees the engine relies on: adjacent px step ≤ 1, 36 px span ≤ 9,
- * and every elevation inside [310, 430]. Mirror symmetry and edge
- * flattening are inherited from the same formula the default terrain uses.
- */
-function seededTerrain(
-  definition: MapDefinition,
-  width: number,
-  rand: () => number,
-): number[] {
-  // Jitter ranges are tight enough to preserve every walkability guarantee
-  // the engine relies on, even for the steepest profile (mountains):
-  // adjacent px step ≤ 1, 36 px span ≤ 9, elevation inside [310, 430].
-  // Worst case (all peaks aligned): 36 px span ≈ 8.5, range ≈ ±54.
-  const waves = definition.terrainProfile.map((w) => ({
-    amplitude: w.amplitude * (0.88 + rand() * 0.24),
-    wavelength: w.wavelength * (0.94 + rand() * 0.12),
-    phase: w.phase + rand() * Math.PI * 2,
-  }));
-  // One extra low-amplitude wave breaks up the repeating rhythm so two
-  // seeded maps don't feel like the same hills shifted sideways.
-  waves.push({
-    amplitude: 1.5 + rand() * 2,
-    wavelength: 750 + rand() * 450,
-    phase: rand() * Math.PI * 2,
-  });
-  return Array.from({ length: width }, (_, x) => {
-    const edge = Math.min(x, width - 1 - x);
-    // Seeded terrain uses a wider blend ramp (450 px vs the authored 300)
-    // so a jittered wave peak landing on the flank never pushes the 36 px
-
-灰线像素前线游戏软件  V1.0    第 43/60 页
-------------------------------------------------------------
-    // walkability span past 9.
-    const blend = smooth(Math.max(0, Math.min(1, (edge - 220) / 450)));
-    const distance = ((x - (width - 1) / 2) * WIDTH) / width;
-    const elevation = waves.reduce(
-      (height, wave) =>
-        height +
-        wave.amplitude *
-          Math.cos(
-            (Math.abs(distance) * Math.PI * 2) / wave.wavelength + wave.phase,
-          ),
-      0,
-    );
-    return 374 + Math.round(elevation * blend);
-  });
-}
-
-/**
- * Seeded terrain for the greyline village map. Jitters the two sine
- * frequencies, amplitudes and phases while keeping the 125 px flat
- * apron on both flanks. The village sits on open ground, so there is no
- * mirror-symmetry requirement here — the sin waves already read as
- * natural rolling terrain.
- */
-function seededVillageTerrain(width: number, rand: () => number): number[] {
-  const f1 = 0.004 * (0.85 + rand() * 0.3);
-  const f2 = 0.013 * (0.85 + rand() * 0.3);
-  const a1 = 13 * (0.8 + rand() * 0.4);
-  const a2 = 5 * (0.8 + rand() * 0.4);
-  const p1 = rand() * Math.PI * 2;
-  const p2 = rand() * Math.PI * 2;
-  return Array.from({ length: width }, (_, x) => {
-    if (x < 125 || x > width - 125) return 374;
-    return 374 + Math.round(Math.sin(x * f1 + p1) * a1 + Math.sin(x * f2 + p2) *
-  });
-}
-
-const VILLAGE_ANCHORS = [
-  620, 820, 1040, 1250, 1450, 1680, 1910, 2140, 2370, 2570, 2790, 3000, 3220,
-];
-/** Default sites reproduce the existing village, including paired trees and vis
-export function villageScenerySites(
-  width = WIDTH,
-  rand?: () => number,
-): MapScenerySite[] {
-  return VILLAGE_ANCHORS.flatMap((x, i) => {
-    const house = i % 3 === 0;
-    // Seeded layouts nudge each anchor ±35 px. Anchors are ≥200 px apart, so
-    // neighbours never collide; paired trees keep their 72 px gap because
-    // both members of a pair share the same jitter.
-    const jx = x + (rand ? Math.round((rand() * 2 - 1) * 35) : 0);
-    const site: MapScenerySite = {
-      id: i * 2,
-      x: Math.round((jx * width) / WIDTH),
-      kind: house ? 'house' : 'tree',
-      seed: 119 + i * 47,
-
-灰线像素前线游戏软件  V1.0    第 44/60 页
-------------------------------------------------------------
-      building: house ? Math.floor(i / 3) % 3 : undefined,
-    };
-    return house
-      ? [site]
-      : [
-          site,
-          {
-            ...site,
-            id: i * 2 + 1,
-            x: Math.round(((jx + 72) * width) / WIDTH),
-            seed: site.seed + 7,
-          },
-        ];
-  });
-}
-const smooth = (t: number) => t * t * (3 - 2 * t);
-export function mapTerrain(
-  id: MapId = DEFAULT_MAP,
-  width = WIDTH,
-  seed?: number,
-): number[] {
-  const definition = mapDefinition(id);
-  // A seed that differs from the layout seed switches to procedural
-  // generation. Omitting the seed (or passing the layout seed) reproduces
-  // the authored terrain pixel-for-pixel.
-  if (seed !== undefined && seed !== definition.layoutSeed) {
-    const rand = mulberry32(seed);
-    return definition.id === 'greyline'
-      ? seededVillageTerrain(width, rand)
-      : seededTerrain(definition, width, rand);
-  }
-  return Array.from({ length: width }, (_, x) => {
-    if (definition.id === 'greyline')
-      return x < 125 || x > width - 125
-        ? 374
-        : 374 + Math.round(Math.sin(x * 0.004) * 13 + Math.sin(x * 0.013) * 5);
-    // Mirror the long landforms and flatten both entries, with a smooth base tr
-    const edge = Math.min(x, width - 1 - x);
-    const blend = smooth(Math.max(0, Math.min(1, (edge - 220) / 300)));
-    const distance = ((x - (width - 1) / 2) * WIDTH) / width;
-    const elevation = definition.terrainProfile.reduce(
-      (height, wave) =>
-        height +
-        wave.amplitude *
-          Math.cos(
-            (Math.abs(distance) * Math.PI * 2) / wave.wavelength + wave.phase,
-          ),
-      0,
-    );
-    return 374 + Math.round(elevation * blend);
-  });
-}
-function mirroredSites(
-  id: MapId,
-  width: number,
-
-灰线像素前线游戏软件  V1.0    第 45/60 页
-------------------------------------------------------------
-  rand?: () => number,
-): MapScenerySite[] {
-  const definition = MAPS[id];
-  const trees =
-    id === 'jungle'
-      ? [
-          690, 755, 830, 960, 1050, 1130, 1260, 1340, 1430, 1540, 1630, 1760,
-          1840,
-        ]
-      : id === 'mountains'
-        ? [600, 950, 1400, 1690]
-        : [740];
-  const houses =
-    id === 'jungle' ? [500] : id === 'mountains' ? [1120] : [1100, 1640];
-  const entries = [
-    ...trees.map((x) => ({ x, kind: 'tree' as const })),
-    ...houses.map((x, i) => ({
-      x,
-      kind: 'house' as const,
-      building: (i + (id === 'desert' ? 2 : 0)) % 3,
-    })),
-  ].sort((a, b) => a.x - b.x);
-  // Seeded layouts jitter each site ±30 px, then enforce a minimum gap so
-  // the dense jungle tree line (some anchors only 65 px apart) never
-  // overlaps. Clamping preserves anchor order, so seeds stay stable.
-  const MIN_GAP = 55;
-  let prev = -Infinity;
-  const positioned = entries.map((site) => {
-    const jx = rand ? site.x + Math.round((rand() * 2 - 1) * 30) : site.x;
-    const clamped = Math.max(jx, prev + MIN_GAP);
-    prev = clamped;
-    return { ...site, x: clamped };
-  });
-  return positioned
-    .flatMap((site, i) => {
-      const x = Math.round((site.x * width) / WIDTH),
-        seed = (definition.layoutSeed + i * 47) >>> 0;
-      return [
-        { ...site, x, seed },
-        { ...site, x: width - 1 - x, seed },
-      ];
-    })
-    .sort((a, b) => a.x - b.x);
-}
-export interface MapLayout {
-  id: MapId;
-  seed: number;
-  terrain: number[];
-  scenerySites: MapScenerySite[];
-  wallSites: MapWallSite[];
-}
-export function createMapLayout(
-  id: MapId = DEFAULT_MAP,
-  width = WIDTH,
-  seed?: number,
-
-灰线像素前线游戏软件  V1.0    第 46/60 页
-------------------------------------------------------------
-): MapLayout {
-  const definition = mapDefinition(id),
-    mapId = definition.id;
-  const actualSeed = seed ?? definition.layoutSeed;
-  // Scenery jitter draws from an independent stream so terrain and scenery
-  // randomness never correlate.
-  const sceneryRand =
-    actualSeed === definition.layoutSeed
-      ? undefined
-      : mulberry32(actualSeed ^ 0x9e3779b9);
-  const terrain = mapTerrain(mapId, width, actualSeed);
-  let scenerySites =
-    mapId === 'greyline'
-      ? villageScenerySites(width, sceneryRand)
-      : mirroredSites(mapId, width, sceneryRand);
-  // Keep seeded, visible clearings between buildings. These are physical
-  // open ground for manoeuvre/landing, not collision exceptions for aircraft.
-  // Classic layout seeds stay byte-for-byte compatible with old replays.
-  if(actualSeed!==definition.layoutSeed) {
-    const openGaps=()=>{
-      const houses=scenerySites.filter(p=>p.kind==='house').map(p=>p.x).sort((a,
-      const boundaries=[480,...houses,width-480];
-      return boundaries.slice(1).map((right,i)=>({left:boundaries[i]+150,right:r
-        .filter(g=>g.right-g.left>=660);
-    };
-    // Dense village blocks have no physically possible glider approach. Make
-    // one central site a field, retaining the other houses and their pads.
-    if(!openGaps().length){
-      const houses=scenerySites.filter(p=>p.kind==='house').sort((a,b)=>Math.abs
-      if(houses.length>2)scenerySites=scenerySites.filter(p=>p!==houses[0]);
-    }
-    const gaps=openGaps();
-    const chosen=new Set<number>();
-    for(const fraction of [.3,.7]) {
-      const gap=gaps.filter((_,i)=>!chosen.has(i)).sort((a,b)=>
-        Math.abs((a.left+a.right)/2-width*fraction)-Math.abs((b.left+b.right)/2-
-      if(!gap)continue;chosen.add(gaps.indexOf(gap));
-      const cx=Math.round((gap.left+gap.right)/2),left=cx-330,right=cx+330,y=ter
-      scenerySites=scenerySites.filter(p=>p.kind!=='tree'||p.x<left-25||p.x>righ
-      for(let x=left-24;x<=right+24;x++){
-        const d=Math.max(left-x,x-right,0),t=smooth(Math.min(1,d/24));
-        terrain[x]=Math.round(y*(1-t)+terrain[x]*t);
-      }
-    }
-    if(mapId==='greyline')scenerySites.filter(p=>p.kind==='house')
-      .sort((a,b)=>a.x-b.x).forEach((p,i)=>{p.building=i%3;});
-  }
-  // v130: houses are painted as a single rectangle whose base sits on one
-  // ground sample, but the authored terrain rolls ±13 px across a house
-  // footprint — the downhill corner floated in mid-air. Level a building
-  // pad under every house (with a smooth earthen ramp at the edges) so the
-  // masonry sits flat. Trees keep the raw grade.
-  // Merge overlapping pads before levelling. Otherwise a later house's ramp
-  // tilts the corner of a house we just flattened.
-  const pads: { left: number; right: number; y: number }[] = [];
-
-灰线像素前线游戏软件  V1.0    第 47/60 页
-------------------------------------------------------------
-  const blend = 34;
-  for (const site of scenerySites.filter(site => site.kind === 'house').sort((a,
-    const cx = Math.max(0, Math.min(width - 1, Math.round(site.x)));
-    const previous = pads.at(-1);
-    if (previous && cx - 112 - blend <= previous.right + blend)
-      previous.right = cx + 112;
-    else pads.push({ left: cx - 112, right: cx + 112, y: terrain[cx] });
-  }
-  for (const pad of pads) {
-    const padY = pad.y;
-    for (let x = pad.left - blend; x <= pad.right + blend; x++) {
-      if (x < 0 || x >= width) continue;
-      const d = Math.max(pad.left - x, x - pad.right, 0);
-      if (d === 0) terrain[x] = padY;
-      else {
-        const t = d / blend;
-        const s = t * t * (3 - 2 * t);
-        terrain[x] = Math.round(terrain[x] * s + padY * (1 - s));
-      }
-    }
-  }
-  return {
-    id: mapId,
-    seed: actualSeed,
-    terrain,
-    scenerySites,
-    // v99: low walls removed from all maps — the battlefield is now open
-    // ground. The Wall type and vault/destruction mechanics remain in the
-    // engine for scripted scenarios and future map designs.
-    wallSites: [],
-  };
-}
-
-// === 文件: game/art-v16.ts ===
-import { assetUrl } from './asset-url';
-import type { MapId } from './maps';
-
-type Rect = [number, number, number, number];
-
-export const FPV_SPRITE_SIZE: [number, number] = [54, 28];
-export const FPV_WRECK_SIZE: [number, number] = [54, 19];
-export const FPV_SHEET_URL = '/art/v16-air/fpv-frames.png';
-
-/** Bounds measured on the original 1774 x 887 generated sprite sheet. */
-export const FPV_SOURCE = {
-  flightCells: [0, 444, 887, 1331],
-  flightWindow: [28, 180, 393, 180] as Rect,
-  rotorBottom: 228,
-  wrecks: [
-    [49, 595, 367, 145],
-    [493, 543, 344, 193],
-    [920, 604, 382, 134],
-    [1359, 599, 388, 141],
-  ] as Rect[],
-};
-
-灰线像素前线游戏软件  V1.0    第 48/60 页
-------------------------------------------------------------
-
-/** Settled broken frame, with low body/arm blocks instead of a solid cell. */
-export const FPV_WRECK_PROFILE = {
-  source: [920, 604, 382, 134] as Rect,
-  width: 54,
-  height: 19,
-  parts: [
-    [0.15, 0.5, 0.69, 0.28],
-    [0.12, 0.23, 0.12, 0.31],
-    [0.39, 0.08, 0.1, 0.34],
-    [0.75, 0.57, 0.13, 0.3],
-  ] as Rect[],
-  support: [0.14, 0.87, 0.9] as [number, number, number],
-  spriteOffset: 0,
-};
-
-export const V16_CARD_ART = {
-  fpv_drone: '/art/v16-air/cards/fpv_drone.webp',
-  air_assault: '/art/v16-air/cards/air_assault.webp',
-};
-
-function canvas(width: number, height: number) {
-  const frame = document.createElement('canvas');
-  frame.width = width;
-  frame.height = height;
-  frame.getContext('2d')!.imageSmoothingEnabled = false;
-  return frame;
-}
-
-/** Only the authored propeller band changes. The camera, battery and frame stay
- * Diving uses rotation of these same sprites, not a per-frame body shape change
-export function fpvFlightFrames(image: HTMLImageElement) {
-  const [x, y, width, height] = FPV_SOURCE.flightWindow;
-  const scale = FPV_SPRITE_SIZE[0] / width;
-  const destHeight = height * scale;
-  const top = (FPV_SPRITE_SIZE[1] - destHeight) / 2;
-  const rotorHeight = (FPV_SOURCE.rotorBottom - y) * scale;
-  return FPV_SOURCE.flightCells.map((left) => {
-    const frame = canvas(...FPV_SPRITE_SIZE);
-    const ctx = frame.getContext('2d')!;
-    ctx.drawImage(image, x, y, width, height, 0, top, 54, destHeight);
-    ctx.clearRect(0, top, 54, rotorHeight);
-    ctx.drawImage(
-      image,
-      left + x,
-      y,
-      width,
-      FPV_SOURCE.rotorBottom - y,
-      0,
-      top,
-      54,
-      rotorHeight,
-    );
-    return frame;
-  });
-
-灰线像素前线游戏软件  V1.0    第 49/60 页
-------------------------------------------------------------
-}
-
-export function fpvWreckFrames(image: HTMLImageElement) {
-  // Constant art scale for all crash stages; never squash height to fit a pose.
-  const scale = FPV_WRECK_SIZE[0] / FPV_WRECK_PROFILE.source[2];
-  return FPV_SOURCE.wrecks.map((source) => {
-    const frame = canvas(54, 28);
-    const ctx = frame.getContext('2d')!;
-    ctx.drawImage(
-      image,
-      ...source,
-      (54 - source[2] * scale) / 2,
-      28 - source[3] * scale,
-      source[2] * scale,
-      source[3] * scale,
-    );
-    return frame;
-  });
-}
-
-export function fpvSettledWreck(image: HTMLImageElement) {
-  const frame = canvas(...FPV_WRECK_SIZE);
-  const source = FPV_WRECK_PROFILE.source;
-  const height = (54 * source[3]) / source[2];
-  frame
-    .getContext('2d')!
-    .drawImage(image, ...source, 0, 19 - height, 54, height);
-  return frame;
-}
-
-function loadImage(path: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load ${path}`));
-    image.src = assetUrl(path);
-  });
-}
-
-export interface V16Art {
-  fpvFrames: HTMLCanvasElement[];
-  fpvWreckFrames: HTMLCanvasElement[];
-  fpvWreck: HTMLCanvasElement;
-  fpvSheet: HTMLImageElement;
-  mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
-}
-
-let pending: Promise<V16Art> | undefined;
-export function loadV16Art(): Promise<V16Art> {
-  return (pending ??= Promise.all([
-    loadImage(FPV_SHEET_URL),
-    loadImage('/art/v16-maps/jungle.png'),
-    loadImage('/art/v16-maps/mountains.png'),
-    loadImage('/art/v16-maps/desert.png'),
-  ])
-
-灰线像素前线游戏软件  V1.0    第 50/60 页
-------------------------------------------------------------
-    .then(([fpv, ...backgrounds]) => {
-      const ids: MapId[] = ['jungle', 'mountains', 'desert'];
-      const mapBackgrounds = Object.fromEntries(
-        backgrounds.map((image, index) => {
-          const background = canvas(720, 240);
-          background.getContext('2d')!.drawImage(image, 0, 0, 720, 240);
-          return [ids[index], background];
-        }),
-      );
-      return {
-        fpvFrames: fpvFlightFrames(fpv),
-        fpvWreckFrames: fpvWreckFrames(fpv),
-        fpvWreck: fpvSettledWreck(fpv),
-        fpvSheet: fpv,
-        mapBackgrounds,
-      };
-    })
-    .catch((error) => {
-      pending = undefined;
-      throw error;
-    }));
-}
-
-// === 文件: game/tree-art-v17.ts ===
-import { assetUrl } from './asset-url';
-
-export type TreeKindV17 = 'pine' | 'broadleaf';
-type Rect = [number, number, number, number];
-export interface TreeSpritesV17 {
-  intact: HTMLCanvasElement;
-  damaged: HTMLCanvasElement;
-  fall8: HTMLCanvasElement[];
-  fallen: HTMLCanvasElement;
-  bare: HTMLCanvasElement;
-}
-export type TreeArtV17 = Record<TreeKindV17, TreeSpritesV17>;
-export const TREE_CELL_V17 = [256, 160] as const;
-export const TREE_ANCHOR_V17 = [70, 150] as const;
-export const TREE_FALL_DURATION_V17 = 1.12;
-
-/** Rectangles are world pixels relative to the stump on level ground.
- * Crown blocks remain probabilistic foliage; they must not become invisible sol
-export const TREE_PROFILES_V17: Record<
-  TreeKindV17,
-  {
-    trunk: Rect[];
-    crown: Rect[];
-    damagedCrown: Rect[];
-    fallenTrunk: Rect[];
-    fallenCrown: Rect[];
-    support: [number, number];
-  }
-> = {
-  pine: {
-    trunk: [[-5, -99, 10, 99]],
-
-灰线像素前线游戏软件  V1.0    第 51/60 页
-------------------------------------------------------------
-    crown: [
-      [-25, -138, 50, 60],
-      [-39, -103, 78, 82],
-    ],
-    damagedCrown: [
-      [-17, -138, 37, 55],
-      [-30, -103, 64, 75],
-    ],
-    fallenTrunk: [
-      [-6, -24, 12, 15],
-      [-10, -9, 20, 9],
-      [4, -20, 92, 11],
-    ],
-    fallenCrown: [[66, -40, 78, 39]],
-    support: [-13, 144],
-  },
-  broadleaf: {
-    trunk: [[-6, -82, 12, 82]],
-    crown: [
-      [-55, -128, 104, 47],
-      [-60, -89, 122, 62],
-    ],
-    damagedCrown: [
-      [-47, -128, 78, 44],
-      [-53, -86, 108, 47],
-    ],
-    fallenTrunk: [
-      [-5, -24, 10, 12],
-      [-10, -12, 20, 12],
-      [2, -17, 78, 12],
-    ],
-    fallenCrown: [[53, -42, 69, 41]],
-    support: [-12, 123],
-  },
-};
-
-export function treeFramesV17(image: HTMLImageElement): TreeSpritesV17 {
-  const frames = Array.from({ length: 12 }, (_, index) => {
-    const frame = document.createElement('canvas');
-    [frame.width, frame.height] = TREE_CELL_V17;
-    const ctx = frame.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      image,
-      (index % 4) * 256,
-      Math.floor(index / 4) * 160,
-      256,
-      160,
-      0,
-      0,
-      256,
-      160,
-    );
-    return frame;
-  });
-
-灰线像素前线游戏软件  V1.0    第 52/60 页
-------------------------------------------------------------
-  return {
-    intact: frames[0],
-    damaged: frames[1],
-    fall8: frames.slice(2, 10),
-    fallen: frames[10],
-    bare: frames[11],
-  };
-}
-
-/** fallAge starts once, when trunk health reaches zero; never restart on later 
-export function treeFrameV17(
-  art: TreeArtV17,
-  kind: TreeKindV17,
-  healthRatio: number,
-  fallAge: number | null,
-  defoliated = false,
-) {
-  const sprites = art[kind];
-  if (fallAge === null)
-    return healthRatio < 0.68 ? sprites.damaged : sprites.intact;
-  if (fallAge >= TREE_FALL_DURATION_V17)
-    return defoliated ? sprites.bare : sprites.fallen;
-  return sprites.fall8[
-    Math.min(7, Math.floor((Math.max(0, fallAge) / TREE_FALL_DURATION_V17) * 8))
-  ];
-}
-
-/** All collapse poses are authored images. This draw path never rotates or comp
-export function drawTreeV17(
-  ctx: CanvasRenderingContext2D,
-  frame: HTMLCanvasElement,
-  x: number,
-  groundY: number,
-  flip = false,
-  scale = 1,
-) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.translate(Math.round(x), Math.round(groundY));
-  ctx.scale((flip ? -1 : 1) * scale, scale);
-  ctx.drawImage(frame, -TREE_ANCHOR_V17[0], -TREE_ANCHOR_V17[1]);
-  ctx.restore();
-}
-
-let pending: Promise<TreeArtV17> | undefined;
-export function loadTreeArtV17(): Promise<TreeArtV17> {
-  const kinds: TreeKindV17[] = ['pine', 'broadleaf'];
-  return (pending ??= Promise.all(
-    kinds.map(
-      (kind) =>
-        new Promise<[TreeKindV17, TreeSpritesV17]>((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve([kind, treeFramesV17(image)]);
-          image.onerror = () =>
-            reject(new Error(`Unable to load tree art: ${kind}`));
-
-灰线像素前线游戏软件  V1.0    第 53/60 页
-------------------------------------------------------------
-          // Authored V19 sprites use 128×80 logical cells, enlarged exactly 2×.
-          // World size, the [70,150] root and all V17 collision profiles stay f
-          image.src = assetUrl(`/art/v19-trees/${kind}.png`);
-        }),
-    ),
-  )
-    .then((entries) => Object.fromEntries(entries) as TreeArtV17)
-    .catch((error) => {
-      pending = undefined;
-      throw error;
-    }));
-}
-
-// === 文件: game/patrol-art-v17.ts ===
-import { assetUrl } from './asset-url';
-import type { AdultIdentity } from './adult-animation';
-
-export interface PatrolSpritesV17 {
-  walk8: HTMLCanvasElement[];
-  lowIdle: HTMLCanvasElement;
-  raise3: HTMLCanvasElement[];
-}
-export type PatrolArtV17 = Record<AdultIdentity, PatrolSpritesV17>;
-export type PatrolModeV17 = 'walk' | 'idle' | 'raise' | 'fire';
-export const PATROL_CELL = 96;
-export const PATROL_RAISE_DURATION = 0.24;
-export const PATROL_RAISE_FRAME_TIME = 0.08;
-export const PATROL_WALK_FPS = 8;
-
-/** Original poses were generated individually, then uniformly packed around a f
-export function patrolFramesV17(image: HTMLImageElement): PatrolSpritesV17 {
-  const frames = Array.from({ length: 12 }, (_, index) => {
-    const out = document.createElement('canvas');
-    out.width = out.height = PATROL_CELL;
-    const ctx = out.getContext('2d')!;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(
-      image,
-      (index % 4) * 96,
-      Math.floor(index / 4) * 96,
-      96,
-      96,
-      0,
-      0,
-      96,
-      96,
-    );
-    return out;
-  });
-  return {
-    walk8: frames.slice(0, 8),
-    lowIdle: frames[8],
-    raise3: frames.slice(9, 12),
-  };
-}
-
-灰线像素前线游戏软件  V1.0    第 54/60 页
-------------------------------------------------------------
-
-/** walk uses the existing distance-based u.walk phase. raiseElapsed is in secon
- * raise plays the three-frame bring-up then holds the final aimed pose. */
-export function patrolFrameV17(
-  art: PatrolArtV17,
-  identity: AdultIdentity,
-  mode: PatrolModeV17,
-  walk = 0,
-  raiseElapsed = 0,
-): HTMLCanvasElement | null {
-  const sprites = art[identity];
-  if (mode === 'idle') return sprites.lowIdle;
-  if (mode === 'walk') return sprites.walk8[((Math.floor(walk) % 8) + 8) % 8];
-  // The final raise frame is a standing aimed-rifle pose, so reuse it for firin
-  if (mode === 'fire') return sprites.raise3[2];
-  // Hold the aimed pose after the raise transition instead of dropping the
-  // rifle, so the whole front line keeps guns on the enemy between shots.
-  if (raiseElapsed >= PATROL_RAISE_DURATION) return sprites.raise3[2];
-  return sprites.raise3[
-    Math.min(2, Math.floor(Math.max(0, raiseElapsed) / PATROL_RAISE_FRAME_TIME))
-  ];
-}
-
-/** Returns false after the raise transition so the caller draws the original co
-export function drawPatrolSprite(
-  ctx: CanvasRenderingContext2D,
-  art: PatrolArtV17,
-  identity: AdultIdentity,
-  mode: PatrolModeV17,
-  walk: number,
-  raiseElapsed: number,
-  x: number,
-  y: number,
-  flip = false,
-  scale = 1,
-) {
-  const frame = patrolFrameV17(art, identity, mode, walk, raiseElapsed);
-  if (!frame) return false;
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.scale((flip ? -1 : 1) * scale, scale);
-  ctx.drawImage(frame, -48, -96);
-  ctx.restore();
-  return true;
-}
-
-let pending: Promise<PatrolArtV17> | undefined;
-export function loadPatrolArtV17(): Promise<PatrolArtV17> {
-  const identities: AdultIdentity[] = [
-    'infantry',
-    'marines',
-    'police',
-    'militia',
-  ];
-
-灰线像素前线游戏软件  V1.0    第 55/60 页
-------------------------------------------------------------
-  return (pending ??= Promise.all(
-    identities.map(
-      (identity) =>
-        new Promise<[AdultIdentity, PatrolSpritesV17]>((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve([identity, patrolFramesV17(image)]);
-          image.onerror = () =>
-            reject(new Error(`Unable to load patrol art: ${identity}`));
-          image.src = assetUrl(`/art/v17-patrol/${identity}.png`);
-        }),
-    ),
-  )
-    .then((entries) => Object.fromEntries(entries) as PatrolArtV17)
-    .catch((error) => {
-      pending = undefined;
-      throw error;
-    }));
-}
-
-// === 文件: game/dig-art-v18.ts ===
-import { assetUrl } from './asset-url';
-import type { AdultIdentity } from './adult-animation';
-
-export interface DigSpritesV18 {
-  dig8: HTMLCanvasElement[];
-}
-export type DigArtV18 = Record<AdultIdentity, DigSpritesV18>;
-export const DIG_CELL_V18 = 96;
-export const DIG_ANCHOR_V18 = [48, 96] as const;
-export const DIG_FRAME_SECONDS_V18 = 0.2;
-export const DIG_CYCLE_SECONDS_V18 = 1.6;
-export const DIG_PHASES_V18 = [
-  'ready',
-  'reach',
-  'drive',
-  'lever',
-  'lift',
-  'throw',
-  'return',
-  'settle',
-] as const;
-
-/** Generated poses are uniformly scaled and aligned at the rear planted boot.
- * The blade entering the ground may continue beneath the cell's ground boundary
-export function digFramesV18(image: HTMLImageElement): DigSpritesV18 {
-  return {
-    dig8: Array.from({ length: 8 }, (_, index) => {
-      const frame = document.createElement('canvas');
-      frame.width = frame.height = DIG_CELL_V18;
-      const ctx = frame.getContext('2d')!;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(
-        image,
-        (index % 4) * 96,
-        Math.floor(index / 4) * 96,
-
-灰线像素前线游戏软件  V1.0    第 56/60 页
-------------------------------------------------------------
-        96,
-        96,
-        0,
-        0,
-        96,
-        96,
-      );
-      return frame;
-    }),
-  };
-}
-
-/** Call only while the member is actually digging at its work position.
- * elapsedSeconds is continuous work time; phaseOffset is also in seconds. */
-export function digFrameV18(
-  art: DigArtV18,
-  identity: AdultIdentity,
-  elapsedSeconds: number,
-  phaseOffset = 0,
-) {
-  const phase =
-    (((Math.max(0, elapsedSeconds) + phaseOffset) % DIG_CYCLE_SECONDS_V18) +
-      DIG_CYCLE_SECONDS_V18) %
-    DIG_CYCLE_SECONDS_V18;
-  return art[identity].dig8[
-    Math.min(7, Math.floor(phase / DIG_FRAME_SECONDS_V18))
-  ];
-}
-
-export function drawDigV18(
-  ctx: CanvasRenderingContext2D,
-  art: DigArtV18,
-  identity: AdultIdentity,
-  elapsedSeconds: number,
-  x: number,
-  groundY: number,
-  flip = false,
-  phaseOffset = 0,
-  scale = 1,
-) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.translate(Math.round(x), Math.round(groundY));
-  ctx.scale((flip ? -1 : 1) * scale, scale);
-  ctx.drawImage(
-    digFrameV18(art, identity, elapsedSeconds, phaseOffset),
-    -48,
-    -96,
-  );
-  ctx.restore();
-}
-
-let pending: Promise<DigArtV18> | undefined;
-export function loadDigArtV18(): Promise<DigArtV18> {
-  const identities: AdultIdentity[] = [
-
-灰线像素前线游戏软件  V1.0    第 57/60 页
-------------------------------------------------------------
-    'infantry',
-    'marines',
-    'police',
-    'militia',
-  ];
-  return (pending ??= Promise.all(
-    identities.map(
-      (identity) =>
-        new Promise<[AdultIdentity, DigSpritesV18]>((resolve, reject) => {
-          const image = new Image();
-          image.onload = () => resolve([identity, digFramesV18(image)]);
-          image.onerror = () =>
-            reject(new Error(`Unable to load digging art: ${identity}`));
-          image.src = assetUrl(`/art/v18-dig/${identity}.png`);
-        }),
-    ),
-  )
-    .then((entries) => Object.fromEntries(entries) as DigArtV18)
-    .catch((error) => {
-      pending = undefined;
-      throw error;
-    }));
-}
-
-// === 文件: game/mine-art-v18.ts ===
-import { assetUrl } from './asset-url';
-
-export type MineKindV18 = 'antipersonnel' | 'antitank';
-export interface MineSpritesV18 {
-  unarmed: HTMLCanvasElement;
-  armed: HTMLCanvasElement;
-  dustyUnarmed: HTMLCanvasElement;
-  dustyArmed: HTMLCanvasElement;
-}
-export type MineArtV18 = Record<MineKindV18, MineSpritesV18>;
-export const MINE_CELL_V18 = [40, 20] as const;
-export const MINE_ANCHOR_V18 = [20, 20] as const;
-/** Subject dimensions, excluding transparent cell padding. */
-export const MINE_SIZE_V18 = {
-  antipersonnel: [20, 9],
-  antitank: [28, 12],
-} as const;
-
-export function mineFramesV18(image: HTMLImageElement): MineArtV18 {
-  const kinds: MineKindV18[] = ['antipersonnel', 'antitank'];
-  return Object.fromEntries(
-    kinds.map((kind, row) => {
-      const frames = Array.from({ length: 4 }, (_, col) => {
-        const frame = document.createElement('canvas');
-        [frame.width, frame.height] = MINE_CELL_V18;
-        const ctx = frame.getContext('2d')!;
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(image, col * 40, row * 20, 40, 20, 0, 0, 40, 20);
-        return frame;
-      });
-
-灰线像素前线游戏软件  V1.0    第 58/60 页
-------------------------------------------------------------
-      return [
-        kind,
-        {
-          unarmed: frames[0],
-          armed: frames[1],
-          dustyUnarmed: frames[2],
-          dustyArmed: frames[3],
-        },
-      ];
-    }),
-  ) as MineArtV18;
-}
-
-export function mineFrameV18(
-  art: MineArtV18,
-  kind: MineKindV18,
-  armed: boolean,
-  dusty = false,
-) {
-  const sprites = art[kind];
-  return dusty
-    ? armed
-      ? sprites.dustyArmed
-      : sprites.dustyUnarmed
-    : armed
-      ? sprites.armed
-      : sprites.unarmed;
-}
-
-/** Draw the authored mine as a small world object, centered on its ground conta
-export function drawMineV18(
-  ctx: CanvasRenderingContext2D,
-  art: MineArtV18,
-  kind: MineKindV18,
-  x: number,
-  groundY: number,
-  armed: boolean,
-  dusty = false,
-  flip = false,
-  scale = 1,
-) {
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.translate(Math.round(x), Math.round(groundY));
-  ctx.scale((flip ? -1 : 1) * scale, scale);
-  ctx.drawImage(mineFrameV18(art, kind, armed, dusty), -20, -20);
-  ctx.restore();
-}
-
-let pending: Promise<MineArtV18> | undefined;
-export function loadMineArtV18(): Promise<MineArtV18> {
-  return (pending ??= new Promise<MineArtV18>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(mineFramesV18(image));
-    image.onerror = () => reject(new Error('Unable to load mine art'));
-
-灰线像素前线游戏软件  V1.0    第 59/60 页
-------------------------------------------------------------
-    image.src = assetUrl('/art/v18-mines/mines.png');
-  }).catch((error) => {
-    pending = undefined;
-    throw error;
-  }));
-}
-
-// === 文件: game/comeback-art-v18.ts ===
-import { assetUrl } from './asset-url';
-
-export interface ComebackArtV18 {
-  toxicCloud8: HTMLCanvasElement[];
-}
-export const TOXIC_CLOUD_CELL_V18 = [256, 128] as const;
-export const TOXIC_CLOUD_ANCHOR_V18 = [128, 112] as const;
-export const TOXIC_CLOUD_FRAME_SECONDS_V18 = 0.3;
-export const TOXIC_CLOUD_CYCLE_SECONDS_V18 = 2.4;
-
-export function comebackFramesV18(image: HTMLImageElement): ComebackArtV18 {
-  return {
-    toxicCloud8: Array.from({ length: 8 }, (_, index) => {
-      const frame = document.createElement('canvas');
-      [frame.width, frame.height] = TOXIC_CLOUD_CELL_V18;
-      const ctx = frame.getContext('2d')!;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(
-        image,
-        (index % 4) * 256,
-        Math.floor(index / 4) * 128,
-        256,
-        128,
-        0,
-        0,
-        256,
-        128,
-      );
-      return frame;
-    }),
-  };
-}
-
-export function toxicCloudFrameV18(
-  art: ComebackArtV18,
-  elapsedSeconds: number,
-) {
-  const phase = Math.max(0, elapsedSeconds) % TOXIC_CLOUD_CYCLE_SECONDS_V18;
-  return art.toxicCloud8[
-    Math.min(7, Math.floor(phase / TOXIC_CLOUD_FRAME_SECONDS_V18))
-  ];
-}
-
-/** width is the whole padded cell width; painted cloud occupies about 88%.
- * Large areas can use several offset authored clouds to retain a low silhouette
-export function drawToxicCloudV18(
-  ctx: CanvasRenderingContext2D,
-
-灰线像素前线游戏软件  V1.0    第 60/60 页
-------------------------------------------------------------
-  art: ComebackArtV18,
-  elapsedSeconds: number,
-  x: number,
-  groundY: number,
-  width = 256,
-  opacity = 1,
-  flip = false,
-) {
-  if (width <= 0 || opacity <= 0) return;
-  const scale = width / TOXIC_CLOUD_CELL_V18[0];
-  ctx.save();
-  ctx.imageSmoothingEnabled = false;
-  ctx.globalAlpha *= Math.min(1, opacity);
-  ctx.translate(Math.round(x), Math.round(groundY));
-  ctx.scale((flip ? -1 : 1) * scale, scale);
-  ctx.drawImage(toxicCloudFrameV18(art, elapsedSeconds), -128, -112);
-  ctx.restore();
-}
-
-let pending: Promise<ComebackArtV18> | undefined;
-export function loadComebackArtV18(): Promise<ComebackArtV18> {
-  return (pending ??= new Promise<ComebackArtV18>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(comebackFramesV18(image));
-    image.onerror = () => reject(new Error('Unable to load toxic cloud art'));
-    image.src = assetUrl('/art/v18-comeback/toxic-cloud.png');
-  }).catch((error) => {
-    pending = undefined;
-    throw error;
-  }));
-}
-

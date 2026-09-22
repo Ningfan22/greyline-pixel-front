@@ -65,7 +65,7 @@ const ART_CDN_BASE = 'https://你的CDN域名/pixel-frontline/';
 ## 三、上传与审核
 
 ### 3.1 安装开发者工具
-1. 下载 [抖音开发者工具](https://developer.open-douyin.com/docs/resource/zh-CN/mini-game/develop/developer-instrument/developer-instrument-update-and-download)
+1. 下载 [抖音开发者工具](https://developer.open-douyin.com/docs/resource/zh-CN/mini-game/develop/dev-tools/developer-instrument-update-and-download)
 2. 用开发者账号登录
 
 ### 3.2 导入项目
