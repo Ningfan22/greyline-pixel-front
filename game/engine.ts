@@ -2717,6 +2717,34 @@ function blastEarthCover(s: GameState, x: number, y: number, u: Unit) {
   // Earth can shield legs while the torso remains exposed. Even both rays never grant immunity.
   return blocked * 0.3;
 }
+/** Short-range fire damages exposed bodies, not terrain with HE craters. */
+function flameImpact(s: GameState, p: Projectile, x: number, y: number) {
+  const radius = p.radius || 16;
+  for (const u of s.units) {
+    const card = CARDS[u.id];
+    if (u.side === p.side || card.air || !canTakeDamage(u)) continue;
+    const half = card.vehicle || card.armored ? armorHalf(u.id) : 6;
+    const nearestX = Math.max(u.x - half, Math.min(u.x + half, x));
+    const nearestY = Math.max(u.y - bodyHeight(u), Math.min(u.y, y));
+    const distance = Math.hypot(nearestX - x, nearestY - y);
+    if (distance >= radius || (card.members && !depthHit(p, u))) continue;
+    if (distance > 2 && terrainIntercept(s, x, y, nearestX, nearestY)) continue;
+    const multiplier = card.armored ? (p.armorMultiplier ?? 0.08)
+      : card.members ? (p.infantryMultiplier ?? 1) : 1;
+    hitUnit(s, u, p.damage * (1 - distance / radius) * multiplier,
+      p.side, 0, 'gas', p.sourceUid);
+  }
+  if (p.base !== null && Math.abs(x - p.tx) < radius)
+    s.players[p.base].hp = Math.max(0, s.players[p.base].hp - p.damage * (p.baseMultiplier ?? 0.1));
+  for (let i = 0; i < 5; i++) {
+    const life = 0.18 + fxRnd(s) * 0.2;
+    emitParticle(s, { kind: 'flash', x: x + (fxRnd(s) - 0.5) * radius,
+      y: y + (fxRnd(s) - 0.5) * 8, vx: (fxRnd(s) - 0.5) * 12,
+      vy: -12 - fxRnd(s) * 14, life, maxLife: life,
+      color: i % 2 ? '#ed782c' : '#ffc15c', size: 3 + fxRnd(s) * 4 });
+  }
+}
+
 export function explode(
   s: GameState,
   x: number,
@@ -8411,8 +8439,8 @@ export function tick(s: GameState, dt: number) {
       u.y = c.altitude ?? AIR_ALTITUDE;
       continue;
     }
-    if (c.observer && controlledNavigation) continue;
-    if (c.observer) {
+    if (c.air && c.observer && controlledNavigation) continue;
+    if (c.air && c.observer) {
       // Observers are air units, so the front line (ground combatants only)
       // never includes u itself; frontX is exact for this query.
       const frontX = s.frontX
@@ -9918,7 +9946,7 @@ export function tick(s: GameState, dt: number) {
             ammunition: kind,
             tracer: isTracer(kind, u.shots),
             trailIn: 0,
-            arc: flight.arc,
+            arc: c.indirect ? FLIGHT.mortar.arc : flight.arc,
             radius: ap ? 0 : (c.radius ?? 0),
             life: c.guided && !c.indirect ? 8 : total,
             total,
@@ -10324,7 +10352,8 @@ export function tick(s: GameState, dt: number) {
     }
     if (impact) {
       p.life = 0;
-      if (p.radius)
+      if (p.ammunition === 'flame') flameImpact(s, p, impact.x, impact.y);
+      else if (p.radius)
         explode(
           s,
           impact.x,
@@ -10354,7 +10383,8 @@ export function tick(s: GameState, dt: number) {
     }
     if (p.life <= 0) {
       let connected = !!p.radius;
-      if (p.radius)
+      if (p.ammunition === 'flame') flameImpact(s, p, p.tx, p.ty);
+      else if (p.radius)
         explode(
           s,
           p.tx,

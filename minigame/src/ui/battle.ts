@@ -104,6 +104,7 @@ type Phase = 'ready' | 'dialogue' | 'battle';
 class BattlefieldWidget extends Widget {
   private screen: BattleScreen;
   private dragStartX = 0;
+  private dragStartY = 0;
   private dragStartCam = 0;
   private moved = false;
 
@@ -116,16 +117,17 @@ class BattlefieldWidget extends Widget {
     this.screen.drawBattlefield(ctx);
   }
 
-  onTouchDown(x: number, _y: number): boolean {
+  onTouchDown(x: number, y: number): boolean {
     this.dragStartX = x;
+    this.dragStartY = y;
     this.dragStartCam = this.screen.camera;
     this.moved = false;
     return true;
   }
 
-  onTouchMove(x: number, _y: number): void {
+  onTouchMove(x: number, y: number): void {
     const dx = x - this.dragStartX;
-    if (!this.moved && Math.abs(dx) > 8) this.moved = true;
+    if (!this.moved && Math.hypot(dx, y - this.dragStartY) > 8) this.moved = true;
     if (this.moved) {
       this.screen.moveCamera(this.dragStartCam - dx / this.screen.scale);
     }
@@ -177,6 +179,7 @@ class MinimapWidget extends Widget {
 // ── Hand card widget ─────────────────────────────────────────────────────────
 
 class HandCardWidget extends Widget {
+  captureOutside = true;
   private screen: BattleScreen;
   readonly uid: number;
   readonly cardId: CardId;
@@ -341,20 +344,23 @@ class SquadMenuWidget extends Widget {
     this.caption = caption;
     this.progress = progress;
     this.progressLabel = progressLabel;
-    // rebuild order buttons
-    for (const b of this.orderBtns) this.removeChild(b);
-    this.orderBtns = [];
+    // Keep the same control while a finger is held across live snapshots.
+    const previous = new Map(this.orderBtns.map(b => [b.tag, b]));
+    const next: SquadOrderButton[] = [];
     let bx = 4;
     for (const o of orders) {
-      const btn = new SquadOrderButton(o.label, ORDER_GLYPHS[o.id] ?? '');
+      const btn = previous.get(o.id) ?? new SquadOrderButton(o.label, ORDER_GLYPHS[o.id] ?? '');
+      btn.tag = o.id;
       btn.x = bx;
       btn.y = 4;
       btn.active = activeOrder === o.id;
       btn.onTap = () => this.screen.onSquadOrder(o.id);
-      this.addChild(btn);
-      this.orderBtns.push(btn);
+      if (!btn.parent) this.addChild(btn);
+      next.push(btn);
       bx += btn.w + 4;
     }
+    for (const old of this.orderBtns) if (!next.includes(old)) this.removeChild(old);
+    this.orderBtns = next;
     this.w = Math.max(bx, 120);
     this.h = 38 + 16 + (this.progress !== null ? 10 : 0);
     this.closeBtn.x = this.w - 20;
@@ -1112,6 +1118,9 @@ export class BattleScreen extends Screen {
   }
 
   onAppHide(): void {
+    this.cancelTouches();
+    this.selectedCardUid = null;
+    this.hoverX = null;
     if (this.game && this.game.status === 'playing') {
       this.game.status = 'paused';
     }
@@ -1229,14 +1238,15 @@ export class BattleScreen extends Screen {
   }
 
   private rebuildHand(): void {
-    for (const w of this.handWidgets) this.removeChild(w);
-    this.handWidgets = [];
+    const previous = new Map(this.handWidgets.map(w => [w.uid, w]));
     const hand = this.view?.players[0].hand ?? [];
-    for (const h of hand) {
-      const w = new HandCardWidget(this, h.uid, h.id);
-      this.addChild(w);
-      this.handWidgets.push(w);
-    }
+    const next = hand.map(h => previous.get(h.uid) ?? new HandCardWidget(this, h.uid, h.id));
+    for (const old of this.handWidgets) if (!next.includes(old)) { old.onTouchCancel(); this.removeChild(old); }
+    this.children = this.children.filter(w => !this.handWidgets.includes(w as HandCardWidget));
+    this.handWidgets = next;
+    for (const w of next) w.parent = this;
+    // Cards must stay below squad controls and pause/result/portrait overlays.
+    this.children.splice(this.children.indexOf(this.squadMenu), 0, ...next);
     this.layoutHand();
   }
 
@@ -1662,8 +1672,7 @@ export class BattleScreen extends Screen {
       this.dragGhost = null;
       this.cardDragging = false;
       // check if released outside hand area
-      const handAreaTop = this.screenH - this.bottomH;
-      if (sy < handAreaTop) {
+      if (this.battlefield.contains(sx, sy) && !this.hasDialog) {
         // played!
         const hand = this.view?.players[0].hand.find((h) => h.uid === w.uid);
         const worldX = hand && needsTarget(hand.id)
@@ -1699,6 +1708,10 @@ export class BattleScreen extends Screen {
       this.pressUid = null;
       this.dragGhost = null;
       this.cardDragging = false;
+      this.selectedCardUid = null;
+      this.hoverX = null;
+      this.heldClickUid = null;
+      this.longPressFired = false;
     }
   }
 
@@ -1745,6 +1758,9 @@ export class BattleScreen extends Screen {
 
   onTogglePause(): void {
     if (!this.game) return;
+    this.cancelTouches();
+    this.selectedCardUid = null;
+    this.hoverX = null;
     if (this.game.status === 'playing') {
       this.game.status = 'paused';
     } else if (this.game.status === 'paused') {
@@ -1755,6 +1771,7 @@ export class BattleScreen extends Screen {
 
   onResume(): void {
     if (!this.game) return;
+    this.cancelTouches();
     this.game.status = 'playing';
     this.syncFromView();
   }

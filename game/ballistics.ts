@@ -15,9 +15,14 @@ export type Ammunition =
   | 'cannon'
   | 'rocket'
   | 'grenade'
+  | 'flame'
   | 'mortar'
   | 'drone';
 export function ammunition(id: CardId, member = 0): Ammunition {
+  if (id === 'flame_tank' || id === 'flame_team' && member === 0) return 'flame';
+  if ((id === 'flame_team' || id === 'light_mortar') && member > 0) return 'rifle';
+  if (id === 'mlrs') return 'rocket';
+  if (id === 'scout_car') return 'machinegun';
   if (id === 'airborne_at') return member < 2 ? 'rocket' : 'rifle';
   if (CARDS[id].emplacement === 'at_gun') return 'ap';
   if (
@@ -56,6 +61,7 @@ export function magazine(id: CardId, member = 0): MagazineSpec | null {
   if (isPrecisionObserver({ id, member })) return null;
   if (!CARDS[id].members) return null;
   const kind = ammunition(id, member);
+  if (kind === 'flame') return { mag: 12, reserve: 36, reload: 3.5 };
   if (member === 0 && id === 'lmg_team') return { mag: 60, reserve: 180, reload: 2.8 };
   if (member === 0 && id === 'heavy_mg') return { mag: 150, reserve: 300, reload: 5.0 };
   if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
@@ -78,6 +84,7 @@ export const FLIGHT: Record<
   grenade: { speed: 650, minimum: 0.25, arc: 70 },
   mortar: { speed: 550, minimum: 0.9, arc: 170 },
   drone: { speed: 250, minimum: 0.35, arc: 0 },
+  flame: { speed: 480, minimum: 0.08, arc: 0 },
 };
 export function isTracer(kind: Ammunition, shot: number) {
   return kind === 'machinegun'
@@ -118,7 +125,12 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
     vy = Math.sin(angle);
   const travelled = Math.hypot(p.x - p.startX, p.y - p.startY);
   ctx.save();
-  if (kind === 'drone') {
+  if (kind === 'flame') {
+    const length = Math.min(30, travelled + 4);
+    streak(ctx, p.x, p.y, angle, length, '#df641e', 5, 0.7);
+    streak(ctx, p.x, p.y, angle, length * 0.7, '#ffba48', 3, 0.9);
+    streak(ctx, p.x, p.y, angle, length * 0.35, '#ffe3a0', 2);
+  } else if (kind === 'drone') {
     streak(ctx, p.x, p.y, angle, 13, '#384239', 3);
     streak(
       ctx,

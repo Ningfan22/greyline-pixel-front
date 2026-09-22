@@ -3,8 +3,8 @@
  * description, stats, and flavor text. Used by the deck builder and shop.
  */
 
-import { Widget, Button, Panel } from './framework';
-import { COLORS } from './theme';
+import { Widget, Button } from './framework';
+import { COLORS, drawPanel } from './theme';
 import { drawCardFace, cardStats } from './card-render';
 import { CARDS, type CardId } from '@/game/engine';
 import { CARD_COPY } from '@/game/card-copy';
@@ -18,9 +18,6 @@ export class CardDetailDialog extends Widget {
     this.w = 340;
     this.h = 210;
 
-    const panel = new Panel(this.w, this.h, COLORS.bgPanel, COLORS.border, 6);
-    this.addChild(panel);
-
     const close = new Button('关闭', 80, 28);
     close.x = this.w - 80 - 10;
     close.y = this.h - 28 - 10;
@@ -29,6 +26,7 @@ export class CardDetailDialog extends Widget {
   }
 
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
+    drawPanel(ctx, 0, 0, this.w, this.h, COLORS.bgPanel, COLORS.border, 6);
     const id = this.cardId;
     const c = CARDS[id];
     const faceW = 92;

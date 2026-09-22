@@ -14,7 +14,7 @@ export interface TouchPoint {
 }
 
 export interface TouchEvent {
-  type: 'down' | 'move' | 'up';
+  type: 'down' | 'move' | 'up' | 'cancel';
   points: TouchPoint[];
   changed: TouchPoint[];
 }
@@ -31,6 +31,8 @@ export abstract class Widget {
   parent: Widget | null = null;
   children: Widget[] = [];
   tag: string = '';
+  /** Drag controls can finish outside; ordinary taps must end inside. */
+  captureOutside = false;
 
   addChild<T extends Widget>(child: T): T {
     child.parent = this;
@@ -185,7 +187,7 @@ export class Button extends Widget {
   }
 
   onTouchUp(): void {
-    if (this.disabled) return;
+    if (this.disabled) { this.pressed = false; return; }
     if (this.pressed) {
       this.pressed = false;
       this.onTap?.();
@@ -194,6 +196,10 @@ export class Button extends Widget {
 
   onTouchCancel(): void {
     this.pressed = false;
+  }
+
+  onTouchMove(x: number, y: number): void {
+    if (x < 0 || y < 0 || x > this.w || y > this.h) this.pressed = false;
   }
 }
 
@@ -291,6 +297,7 @@ export class ImageWidget extends Widget {
 // ── Slider ───────────────────────────────────────────────────────────────────
 
 export class Slider extends Widget {
+  captureOutside = true;
   value: number; // 0..1
   onChange: ((v: number) => void) | null = null;
   barColor: string;
@@ -351,6 +358,7 @@ export class Slider extends Widget {
 export class Toggle extends Widget {
   on: boolean;
   onChange: ((v: boolean) => void) | null = null;
+  private pressed = false;
 
   constructor(w: number = 44, h: number = 22, on: boolean = false) {
     super();
@@ -376,15 +384,28 @@ export class Toggle extends Widget {
   }
 
   onTouchDown(): boolean {
-    this.on = !this.on;
-    this.onChange?.(this.on);
+    this.pressed = true;
     return true;
   }
+
+  onTouchUp(): void {
+    if (!this.pressed) return;
+    this.pressed = false;
+    this.on = !this.on;
+    this.onChange?.(this.on);
+  }
+
+  onTouchMove(x: number, y: number): void {
+    if (x < 0 || y < 0 || x > this.w || y > this.h) this.pressed = false;
+  }
+
+  onTouchCancel(): void { this.pressed = false; }
 }
 
 // ── Scroll List ──────────────────────────────────────────────────────────────
 
 export class ScrollList extends Widget {
+  captureOutside = true;
   items: Widget[] = [];
   itemHeight: number;
   scrollY = 0;
@@ -530,10 +551,10 @@ export class ScrollList extends Widget {
     this.lastTouchTime = now;
   }
 
-  onTouchUp(): void {
+  onTouchUp(x: number, y: number): void {
     this.dragging = false;
     this.clearLongPress();
-    if (!this.moved && !this.longPressFired) {
+    if (!this.moved && !this.longPressFired && x >= 0 && x <= this.w && y >= 0 && y <= this.h) {
       const idx = this.itemAt(this.downY);
       if (idx >= 0) this.onItemTap?.(idx);
     }
@@ -605,18 +626,29 @@ export abstract class Screen extends Widget {
   }
 
   showDialog(content: Widget, scrimColor?: string): void {
+    this.cancelTouches();
     this.dialog = new Dialog(this.screenW, this.screenH, content, scrimColor);
     this.dialog.onClose = () => {
-      this.dialog = null;
+      this.closeDialog();
     };
   }
 
   closeDialog(): void {
+    this.cancelTouches();
     this.dialog = null;
   }
 
   get hasDialog(): boolean {
     return this.dialog !== null;
+  }
+
+  private claimIsActive(widget: Widget): boolean {
+    let current: Widget | null = widget;
+    while (current && current !== this && current !== this.dialog) {
+      if (!current.visible || !current.enabled) return false;
+      current = current.parent;
+    }
+    return current === this || (this.dialog !== null && current === this.dialog);
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -631,50 +663,56 @@ export abstract class Screen extends Widget {
   /** Route a touch event. Returns true if handled. */
   handleTouch(ev: TouchEvent): boolean {
     if (!this.visible) return false;
+    let handled = !!this.dialog;
     if (ev.type === 'down') {
       for (const p of ev.changed) {
-        // Dialog gets priority
-        if (this.dialog) {
-          const hit = this.dialog.hitTest(p.x, p.y);
-          if (hit) {
-            hit.onTouchDown(p.x - hit.absX, p.y - hit.absY);
-            this.touchClaim = new Map([[p.id, hit]]);
-            return true;
+        let hit = (this.dialog ?? this).hitTest(p.x, p.y);
+        while (hit && hit !== this) {
+          // One pointer owns each control: a second finger cannot restart
+          // its drag origin or trigger the same button twice.
+          if ([...this.touchClaim.values()].includes(hit)) { handled = true; break; }
+          const epoch = this.touchEpoch;
+          if (hit.onTouchDown(p.x - hit.absX, p.y - hit.absY)) {
+            if (epoch === this.touchEpoch) this.touchClaim.set(p.id, hit);
+            handled = true;
+            break;
           }
-          continue;
-        }
-        const hit = this.hitTest(p.x, p.y);
-        if (hit && hit !== this) {
-          hit.onTouchDown(p.x - hit.absX, p.y - hit.absY);
-          if (!this.touchClaim) this.touchClaim = new Map();
-          this.touchClaim.set(p.id, hit);
-          return true;
+          hit = hit.parent;
         }
       }
     } else if (ev.type === 'move') {
-      if (this.touchClaim) {
-        for (const p of ev.changed) {
-          const widget = this.touchClaim.get(p.id);
-          if (widget) {
-            widget.onTouchMove(p.x - widget.absX, p.y - widget.absY);
-          }
+      for (const p of ev.changed) {
+        const widget = this.touchClaim.get(p.id);
+        if (widget) {
+          handled = true;
+          if (this.claimIsActive(widget)) widget.onTouchMove(p.x - widget.absX, p.y - widget.absY);
+          else { this.touchClaim.delete(p.id); widget.onTouchCancel(); }
         }
       }
-    } else if (ev.type === 'up') {
-      if (this.touchClaim) {
-        for (const p of ev.changed) {
-          const widget = this.touchClaim.get(p.id);
-          if (widget) {
-            widget.onTouchUp(p.x - widget.absX, p.y - widget.absY);
-            this.touchClaim.delete(p.id);
-          }
+    } else {
+      for (const p of ev.changed) {
+        const widget = this.touchClaim.get(p.id);
+        if (widget) {
+          handled = true;
+          this.touchClaim.delete(p.id);
+          if (ev.type === 'cancel' || !this.claimIsActive(widget) ||
+              (!widget.captureOutside && !widget.contains(p.x, p.y))) widget.onTouchCancel();
+          else widget.onTouchUp(p.x - widget.absX, p.y - widget.absY);
         }
       }
     }
-    return false;
+    return handled;
   }
 
-  private touchClaim: Map<number, Widget> | null = null;
+  private touchClaim = new Map<number, Widget>();
+  private touchEpoch = 0;
+
+  cancelTouches(): void {
+    this.touchEpoch++;
+    const claimed = [...this.touchClaim.values()];
+    this.touchClaim.clear();
+    for (const widget of claimed) widget.onTouchCancel();
+  }
 
   /** Per-frame update. Override for animation. */
   update(_dt: number): void {}
@@ -700,7 +738,11 @@ export class Router {
   navigate(name: string): void {
     const next = this.screens.get(name);
     if (!next) return;
-    if (this.current) this.current.onExit();
+    if (this.current) {
+      this.current.cancelTouches();
+      this.current.closeDialog();
+      this.current.onExit();
+    }
     this.current = next;
     this.currentName = name;
     this.current.onEnter();

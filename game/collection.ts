@@ -164,6 +164,7 @@ export function clampToCollection(
   const seen = new Map<CardId, number>();
   const out: CardId[] = [];
   for (const id of cards) {
+    if (!Object.hasOwn(CARDS, id) || CARDS[id].internal) continue;
     const n = seen.get(id) ?? 0;
     if (n < deckLimit(state, id)) {
       out.push(id);
@@ -173,7 +174,7 @@ export function clampToCollection(
   return out;
 }
 
-function starterState(): CollectionState {
+export function starterState(): CollectionState {
   return {
     gold: STARTER_GOLD,
     owned: { ...STARTER_COLLECTION },

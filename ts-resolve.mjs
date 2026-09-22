@@ -3,6 +3,9 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export async function resolve(specifier, context, nextResolve) {
+  if (specifier.startsWith('@/')) {
+    return nextResolve(new URL('./' + specifier.slice(2) + '.ts', import.meta.url).href, context);
+  }
   if (
     (specifier.startsWith('./') || specifier.startsWith('../')) &&
     !/\.[a-zA-Z0-9]+$/.test(specifier)

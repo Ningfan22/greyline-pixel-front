@@ -17,12 +17,14 @@ import {
 import { isMissionId, MISSIONS, type MissionId } from '@/game/campaign';
 import {
   loadCollection,
+  starterState,
   saveCollection,
   validDeckWithCollection,
   type CollectionState,
 } from '@/game/collection';
 import {
   loadDeckStore,
+  defaultDeckStore,
   saveDeckStore,
   activeDeck,
   withActiveDeck,
@@ -45,9 +47,10 @@ export interface MatchConfig {
 
 type Listener = () => void;
 
-class LobbyState {
-  collection: CollectionState;
-  deckStore: DeckStore;
+export class LobbyState {
+  // Module imports happen before the platform adapter installs localStorage.
+  collection: CollectionState = starterState();
+  deckStore: DeckStore = defaultDeckStore();
   mapId: MapId = DEFAULT_MAP;
   difficulty: Difficulty = DEFAULT_DIFFICULTY;
   night = false;
@@ -61,10 +64,11 @@ class LobbyState {
 
   private listeners = new Set<Listener>();
 
-  constructor() {
+  initialize(): void {
     this.collection = loadCollection();
     this.deckStore = loadDeckStore(this.collection);
     this.loadPrefs();
+    this.emit();
   }
 
   subscribe(fn: Listener): () => void {

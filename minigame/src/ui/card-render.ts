@@ -165,6 +165,7 @@ export function drawCardFace(
   w: number,
   costOverride?: number,
 ): void {
+  preloadCardArt(id);
   const h = w * 1.5;
   const c = CARDS[id];
   const copy = CARD_COPY[id];
@@ -313,6 +314,7 @@ export function drawCardMini(
   w: number,
   costOverride?: number,
 ): void {
+  preloadCardArt(id);
   const h = w * 1.5;
   const c = CARDS[id];
   const value = costOverride ?? c.cost;

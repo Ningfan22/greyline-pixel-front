@@ -122,9 +122,6 @@ class ConfirmDialog extends Widget {
     this.okLabel = okLabel;
     this.cancelLabel = cancelLabel;
 
-    const panel = new Panel(this.w, this.h, COLORS.bgPanel, COLORS.border, 6);
-    this.addChild(panel);
-
     const btnW = 110;
     const btnH = 30;
     const ok = new Button(this.okLabel, btnW, btnH, { bg: COLORS.accentDark, textColor: COLORS.text });
@@ -145,6 +142,7 @@ class ConfirmDialog extends Widget {
   }
 
   protected drawSelf(ctx: CanvasRenderingContext2D): void {
+    drawPanel(ctx, 0, 0, this.w, this.h, COLORS.bgPanel, COLORS.border, 6);
     ctx.font = `13px -apple-system, "PingFang SC", sans-serif`;
     ctx.fillStyle = COLORS.text;
     ctx.textAlign = 'center';
@@ -223,7 +221,13 @@ export class DeckBuilderScreen extends Screen {
     const back = new Button('返回', 52, h);
     back.x = x;
     back.y = y;
-    back.onTap = () => this.router.navigate('lobby');
+    back.onTap = () => {
+      if (!this.dirty()) { this.router.navigate('lobby'); return; }
+      const dlg = new ConfirmDialog('当前卡组有未保存的修改，\n返回将丢失。确定返回吗？', '放弃修改');
+      dlg.onConfirm = () => this.router.navigate('lobby');
+      dlg.onCancel = () => this.closeDialog();
+      this.showDialog(dlg);
+    };
     this.addChild(back);
     x += 52 + 6;
 
@@ -495,6 +499,8 @@ export class DeckBuilderScreen extends Screen {
     dlg.onConfirm = () => {
       lobbyState.deleteDeckSlot(slot.id);
       this.draft = lobbyState.deck;
+      this.history = [];
+      this.pending = null;
       this.closeDialog();
       this.toast('当前卡组已删除');
       this.refresh();

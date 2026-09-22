@@ -9,7 +9,7 @@ export const DECK_PRESETS: {
   {
     id: 'combined',
     name: '机步协同',
-    plan: '基础班组掩护装甲推进，工兵破障、轻机枪伴随，标枪与防空留作反制。',
+    plan: '基础班组掩护装甲推进，侦察提供视野、轻机枪伴随，标枪与防空留作反制。',
     cards: [
       'infantry',
       'infantry',
@@ -27,8 +27,8 @@ export const DECK_PRESETS: {
       'tank',
       'tow_ifv',
       'command_expansion',
-      'scout_car',
-      'flame_tank',
+      'scouts',
+      'lmg_team',
       'infantry',
       'smoke_withdrawal',
     ],

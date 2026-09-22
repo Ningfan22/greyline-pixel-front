@@ -459,7 +459,9 @@ export class BattleAudio {
       if (u.shots > previous[0] && u.fire > 0) {
         if (card.attackRun === 'bomb') {
           /* Explosions are heard on impact. */
-        } else if (model === 'tank' || card.indirect || card.emplacement)
+        } else if (u.lastAmmo === 'flame')
+          this.sample('rumble.wav', u.x, 0.06, 0.3, 1.4);
+        else if (model === 'tank' || card.indirect || card.emplacement)
           this.sample('explosion-small.wav', u.x, 0.34, 0.18, 0.85);
         else if (model === 'rocket')
           this.sample('rumble.wav', u.x, 0.22, 0.25, 1.25);

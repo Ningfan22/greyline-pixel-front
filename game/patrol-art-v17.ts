@@ -1,5 +1,6 @@
 import { assetUrl } from './asset-url';
-import type { AdultIdentity } from './adult-animation';
+import type { AdultFrameChoice, AdultIdentity } from './adult-animation';
+import type { Unit } from './engine';
 
 export interface PatrolSpritesV17 {
   walk8: HTMLCanvasElement[];
@@ -12,6 +13,24 @@ export const PATROL_CELL = 96;
 export const PATROL_RAISE_DURATION = 0.24;
 export const PATROL_RAISE_FRAME_TIME = 0.08;
 export const PATROL_WALK_FPS = 8;
+
+/** Whole-body patrol poses must never freeze or replace an active combat gait. */
+export function patrolModeForUnit(
+  u: Unit, choice: AdultFrameChoice, time: number,
+): PatrolModeV17 | null {
+  const plain = choice.group === 'walk8' ||
+    (choice.group === 'actions20' && choice.index === 0);
+  if (!plain || u.hp <= 0 || u.wounded || u.surrendered || u.rappelling ||
+      u.backpedaling || u.motion !== 'ground' || u.climbing ||
+      !['idle', 'walk'].includes(u.pose) || (u.reloadingUntil ?? 0) > time)
+    return null;
+  // adult.walk8 already carries a shouldered rifle. Raising a static patrol
+  // body here used to hide all eight moving-leg cels until aimUntil expired.
+  if (u.moving)
+    return u.fire > 0 || u.secondaryFire > 0 || (u.aimUntil ?? 0) > time ? null : 'walk';
+  if (u.fire > 0 || u.secondaryFire > 0) return 'fire';
+  return (u.aimUntil ?? 0) > time ? 'raise' : 'idle';
+}
 
 /** Original poses were generated individually, then uniformly packed around a fixed foot anchor. */
 export function patrolFramesV17(image: HTMLImageElement): PatrolSpritesV17 {
