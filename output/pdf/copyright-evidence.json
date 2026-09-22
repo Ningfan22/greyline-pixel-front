@@ -1,0 +1,1286 @@
+{
+  "commit": "a84bcbdc35e0502a557a411c6f491c5fdb188fbb",
+  "selection": "Entry first, remaining local TypeScript import dependencies sorted by path; blank lines omitted; first/last 1500 nonempty source lines.",
+  "nonempty_source_lines": 35306,
+  "source_files": [
+    {
+      "path": "minigame/src/main.ts",
+      "sha256": "4514aff68202aa96a2e738c7683602bc03101b0a31e6a1d0dc3f7b7a80e1aa10"
+    },
+    {
+      "path": "game/acoustics.ts",
+      "sha256": "6c6e5070f074dc6dc7a1c54ac5c90cbec53b15585f217c5ee4b6ff16d8ca99d0"
+    },
+    {
+      "path": "game/adult-animation.ts",
+      "sha256": "309106b3b578e54d15cb98dcdd8dacffa4d12fef367a1c545cc9b257d626838b"
+    },
+    {
+      "path": "game/adult-atlas.ts",
+      "sha256": "3264aae20741afadd46c932e4e8d0c1acefa5004e476bf18c37c4083fa61264c"
+    },
+    {
+      "path": "game/adult-specialists.ts",
+      "sha256": "7e44207389156e6edfa972bfd3aee6fa57125a57d6d6f3b79faf18ce1f79275e"
+    },
+    {
+      "path": "game/ambience.ts",
+      "sha256": "072cc2d9d32c52dbf27878fd906388eb997b965602b7213f4af4ca6343db00e8"
+    },
+    {
+      "path": "game/art-v16.ts",
+      "sha256": "0499faae648cf7c1cb78f102072c4e9b161990ee5eb483ed5072b0de57ba3cd4"
+    },
+    {
+      "path": "game/art.ts",
+      "sha256": "6856c65b9cf91292f5434562a5a003eaff46d3c2cc7a52f7e2e50fdf0b6308a5"
+    },
+    {
+      "path": "game/asset-url.ts",
+      "sha256": "6f74a8e492a728c29924a9231e154dbfce4316f8f833c908b580d893bdf937b9"
+    },
+    {
+      "path": "game/audio.ts",
+      "sha256": "b2d062991bd7a5d65e57c9e328c48183aafdc92756ce8b9e744b10626eaf44c6"
+    },
+    {
+      "path": "game/ballistics.ts",
+      "sha256": "075018865d6c08e6aa24087ab6470e154d8c2fec8020ba3289f5f34a45c03d66"
+    },
+    {
+      "path": "game/battlefield-effects-art.ts",
+      "sha256": "0fc2368f55878212797983db417363a6226763a57700836bd055e18ee2be654e"
+    },
+    {
+      "path": "game/blast-animation.ts",
+      "sha256": "030bf626a88cc546a428dcf3a81d76c283055533dc9820a3bee6ddcd6f445398"
+    },
+    {
+      "path": "game/building-art.ts",
+      "sha256": "bfa5324c8d56dfdeb09c9bfb49050d6ef710e2f40d22f312135c68fc6c0fa009"
+    },
+    {
+      "path": "game/bullet-crack.ts",
+      "sha256": "5e1aec7d1af98d9712994efcea908ca14cc96295221d3b93dad31be989f2423e"
+    },
+    {
+      "path": "game/campaign-game.ts",
+      "sha256": "ce6205d366915e5491d5039856f4625c9bda351c419122e96beaedf10d5d5d56"
+    },
+    {
+      "path": "game/campaign.ts",
+      "sha256": "40062a2bd947b7eef649cbe85428d2f974b8981e6ba302514ad0c9dae467257b"
+    },
+    {
+      "path": "game/card-copy.ts",
+      "sha256": "abf930b435b3d2d26811e774ccc96d263a4abbb6c6338d80f53687bfca8f8ea7"
+    },
+    {
+      "path": "game/cards.ts",
+      "sha256": "91e4edc83778b315fb4e336b994719946045995b3b32a57ea2051368c7793150"
+    },
+    {
+      "path": "game/collection.ts",
+      "sha256": "08c1d8a52e9bc8e5068ad44b801e03ce5fad01efe2c57d23846d7256a953cc3f"
+    },
+    {
+      "path": "game/comeback-art-v18.ts",
+      "sha256": "94c1717dc3d8f5b50ee0823d64d14d809688cdb7015d7e7eb2e23693cc1f95f6"
+    },
+    {
+      "path": "game/comeback.ts",
+      "sha256": "7cc95b83f6144aa014525525780505a035242ec44a06d38ab3c811240d926469"
+    },
+    {
+      "path": "game/cover-animation.ts",
+      "sha256": "1b8e8df90be3bbe591d29ac3daabdb24614981a878c41523f8ce3763f998e196"
+    },
+    {
+      "path": "game/crouch-locomotion.ts",
+      "sha256": "6bb2961738c8792c1c0821839361bddde3094d3671f1f6731f42e9cf72632e60"
+    },
+    {
+      "path": "game/deck-presets.ts",
+      "sha256": "49aeb749bfa77d832456aec9c464ac1e27d13cbfe893208c28b7706518245b02"
+    },
+    {
+      "path": "game/decks-store.ts",
+      "sha256": "193c2fb66319d3cd58ed22f5b6f3e53d7026e2b1298a18a073302c6a33fd33fe"
+    },
+    {
+      "path": "game/dig-art-v18.ts",
+      "sha256": "d2657975972b3d6ade5c81c96c43d10a1758bb40b5564aedce99945b20605766"
+    },
+    {
+      "path": "game/economy.ts",
+      "sha256": "e6a29ca310720279e47cc07cd214bc4f436a4941aab22023286d2ce93d658ac1"
+    },
+    {
+      "path": "game/effect-atlas.ts",
+      "sha256": "234b1f0a6f098c3d10a7d95c4c053bbf34c7df7a1a88afba21a1da639d03dd8e"
+    },
+    {
+      "path": "game/engine-sound.ts",
+      "sha256": "1e6aa6bc30394392674ad364aec17ceb0eb0287bc69e2d4ff4609210572ee597"
+    },
+    {
+      "path": "game/engine.ts",
+      "sha256": "25e25f5d44400a2d6cd951076a6ae76e4bd09e4bef9ef99da3f37a5b730e0b5b"
+    },
+    {
+      "path": "game/focus-fire.ts",
+      "sha256": "a10a0e5723094bf24cc7bd61a1a7eb6d3496aac643975ae930ea99616fe6b577"
+    },
+    {
+      "path": "game/glider-art.ts",
+      "sha256": "2d99524c50d9bdb3423a639a7d8a42815a67b2d42dada4d7b1a6029e29eda1c1"
+    },
+    {
+      "path": "game/glider.ts",
+      "sha256": "16eb1e369497143ca8cc1e4c0eaac5073cbfabf350a814ce9055f228969533cf"
+    },
+    {
+      "path": "game/grenade-geometry.ts",
+      "sha256": "be8c17a421f957afb3180f792d679d7689fae3093461f4f1f35070ec82e6b109"
+    },
+    {
+      "path": "game/grenade-launcher-art.ts",
+      "sha256": "7e0c3fd8affeac40a266bd8e24ed8d3fcff6ac9df66d2e85be24c427f5aa9701"
+    },
+    {
+      "path": "game/grenade-team.ts",
+      "sha256": "d48157f5f909e90bfc5ef48b195f4d31ee787f5b62bf306ca0fc436d73d3f5c3"
+    },
+    {
+      "path": "game/heavy-mg-art.ts",
+      "sha256": "e4cdcaeae1e524b6c227d1e1f70fd7aae8b0b03d90fbe7ece7620ef7576cafa4"
+    },
+    {
+      "path": "game/impact-fx.ts",
+      "sha256": "9c61ace7590e3729f439b7f05e27767332dd197646bdcea50bf21aba141cc42d"
+    },
+    {
+      "path": "game/infantry-action-timing.ts",
+      "sha256": "c5b077bfe7a005ca734c03e05f3b55c980fe407b3873bcfef510073127279f5b"
+    },
+    {
+      "path": "game/infantry-fire-post.ts",
+      "sha256": "7290921bf993c6716953265697359ccfb1b9d69664fa4ae4a5155f58f33b87b8"
+    },
+    {
+      "path": "game/infantry-geometry.ts",
+      "sha256": "0679c66bf8f5999717dced476322ac2c11ed13a081c2190b3d59548494d4a9cf"
+    },
+    {
+      "path": "game/infantry-specialties.ts",
+      "sha256": "e6ab8fbecfd5617bde7975c8d9d93ecd6ca324cf2fcb9442d98dd2f739449693"
+    },
+    {
+      "path": "game/infantry-weapon-geometry.ts",
+      "sha256": "92bd420d66418936e383ea374b93ac79133f149c056069a23030a344f139d8eb"
+    },
+    {
+      "path": "game/launcher-drill.ts",
+      "sha256": "f5016f54f4a4878c428d87340d4cce2395749574d7f19bd2556e1835d505808f"
+    },
+    {
+      "path": "game/lob-trajectory.ts",
+      "sha256": "71723615856298c8b27b6e8500bca880bb2709c37d6a6ec57b83c5fc1a68d91f"
+    },
+    {
+      "path": "game/low-grenade-art.ts",
+      "sha256": "33bf3a6c6d79ef410da6d9cc38220944a83bd590e526fa3ff8b6d74edad06a96"
+    },
+    {
+      "path": "game/low-reload-art.ts",
+      "sha256": "6fb56e80544b73ae1bf43758838b57e42ebc5005f37a28f209aeb59fea9ef7ff"
+    },
+    {
+      "path": "game/machinegun-team.ts",
+      "sha256": "36b761bbc895c34435ec19a5d2d49b2553c91ebf4db1618f08ae708260bfd43b"
+    },
+    {
+      "path": "game/maps.ts",
+      "sha256": "68ea07f16a35b971a052ebbf112342f00b870f3d18bbb98ebc206a9b2339d3df"
+    },
+    {
+      "path": "game/medical-art.ts",
+      "sha256": "fb14c75453eebe6fb3e6181c046799848942389101b885e28b3d8413d57cd7f7"
+    },
+    {
+      "path": "game/mine-art-v18.ts",
+      "sha256": "842024db866ca9073112a3553c8ae0c19995462f850bec685b66b765cb922ef2"
+    },
+    {
+      "path": "game/mobile-mortar.ts",
+      "sha256": "e3dd0b5be66ecdd3a016a89b42ad4b9562eccc6a94a7f62c90a8564e483ddba9"
+    },
+    {
+      "path": "game/mobile-vehicle-art.ts",
+      "sha256": "389a76f066ca5a120b22b9e8344f8aa0352463cf7c6d5a554aa3561e3d068760"
+    },
+    {
+      "path": "game/pack-animation.ts",
+      "sha256": "5847a6b9c4a9405a6d9e21660a6cb0256fb9f342aeb8b49ef994311c73952d3a"
+    },
+    {
+      "path": "game/patrol-art-v17.ts",
+      "sha256": "68b531959277aa615a422771e577c22408e12d2c0ecb32f8b86cb3a050c79c35"
+    },
+    {
+      "path": "game/precision-team.ts",
+      "sha256": "d44555d975dfd84b3900014efe075c85a307780b2f9262a28ee0aea9e1cb1523"
+    },
+    {
+      "path": "game/projectile-depth.ts",
+      "sha256": "b5378449b26f63aeb60abbdb57b28063fb437464a3a536ce4aac8c35a991447e"
+    },
+    {
+      "path": "game/prone-locomotion.ts",
+      "sha256": "dcb8112a4f4a7b86a8012cda6beff8e10fadb5018b5043dc1489a280a8aede16"
+    },
+    {
+      "path": "game/prone-watch-art.ts",
+      "sha256": "55133d51a8c3e1138c9404821fb5f007cfd6bbfd9e5e745c9bfccd5116e0f93c"
+    },
+    {
+      "path": "game/render-cache.ts",
+      "sha256": "ed3361f97e035bb9f38311229ad87a3bdd919909ae19e1320468f85282c840f0"
+    },
+    {
+      "path": "game/render-depth.ts",
+      "sha256": "dbb5eaddb363b88898eeb52ba2d9a433afdb3f3bc936c199142d5dd98204ae8f"
+    },
+    {
+      "path": "game/render.ts",
+      "sha256": "ed932282e2662be352903428c0ffa87b4f4a1bacf4e1e0921930150b4e10bb85"
+    },
+    {
+      "path": "game/repair-art.ts",
+      "sha256": "0ec770378e9ff90a8d295d4fc3b57cec099be4abfc6ebf596bc7f0b2eb7f498b"
+    },
+    {
+      "path": "game/repair-work.ts",
+      "sha256": "0e588f70f549fabc7123da63d344f1bf01cf28a328c1efdbd68ac5b8a62db690"
+    },
+    {
+      "path": "game/ricochet.ts",
+      "sha256": "4c8d7b9f4751757e654fc970772ccf51e9988bb8755ef8c803c97e390099ed28"
+    },
+    {
+      "path": "game/rotor-wash.ts",
+      "sha256": "95dcc087a473331c6bf4bfdaa2262c1afacf0d917cfbcba076c4a13a96374110"
+    },
+    {
+      "path": "game/scenery-art.ts",
+      "sha256": "9d373719d58de21c2da51758e532b7a2955a847312587c3c41587c4dcee26a0f"
+    },
+    {
+      "path": "game/selection-render.ts",
+      "sha256": "4410e13b938f23e81b043cb2d04026fdbfba16432235ecb49ca541e4264d6f0c"
+    },
+    {
+      "path": "game/smoke-art.ts",
+      "sha256": "c16e9e6695195f77365c7fdeba68fe170dd0883869322b4d597adbc5a845e482"
+    },
+    {
+      "path": "game/spatial.ts",
+      "sha256": "2b38b4b8094f707cd2a3bd97754608e57ef3e4fa1a9ff5a0c6b9d532bb6e70e7"
+    },
+    {
+      "path": "game/specialist-landmarks.ts",
+      "sha256": "7c78e7362e7a05e7f34ec947e0522f9ec55461ae594b703cb1d68c758bb7a11d"
+    },
+    {
+      "path": "game/sprite-atlas.ts",
+      "sha256": "e393fb91424db56224e974c207a3ea5b9721ae7666034ff6505aeb963ede2773"
+    },
+    {
+      "path": "game/squad-orders.ts",
+      "sha256": "6419c34f3e0506f01adda9109851c8a8efdc4e2668e0e3b4402eacbd7a1bb5fe"
+    },
+    {
+      "path": "game/support-work.ts",
+      "sha256": "c7e75dd45dcab590b6beb40b90d0bb873c64c0e6735e553d28ba309d4351996d"
+    },
+    {
+      "path": "game/synergy.ts",
+      "sha256": "47539ad2dfab979521786a15e88fd73d1f12610a68a90f6739c82830b95c83c8"
+    },
+    {
+      "path": "game/tank-doctrine.ts",
+      "sha256": "b52eda680762b33ea59ef9f67cdb76703cf766ea39ccfb09525c3a079fc4966f"
+    },
+    {
+      "path": "game/tank-wreck-art.ts",
+      "sha256": "1769dafa57a15e4ca98f983acfd366da2cd9744b99d37e7e77c684da9456a936"
+    },
+    {
+      "path": "game/tank-wreck-geometry.ts",
+      "sha256": "b39d93e54a55e577538e39d8bd4a61766c999f48530137e52062fa5d67e5c9bc"
+    },
+    {
+      "path": "game/terrain-ray.ts",
+      "sha256": "93c338ddd72a61bb8d1d9df56cac7d49ece09db6e7f3e3e4e1628c26860e2ced"
+    },
+    {
+      "path": "game/terrain-render.ts",
+      "sha256": "58e99519780f6dec12101610dcef15d9c7acde5c4f77eb61c04b6c6ac73e262b"
+    },
+    {
+      "path": "game/tree-art-v17.ts",
+      "sha256": "ff9465a5777c5df4352957f05557276c0f8f3a3092a5ce2b1c0666dc61d39705"
+    },
+    {
+      "path": "game/tree-state-v17.ts",
+      "sha256": "d917a42be7354aacb57fc9f04b3163d7cfbf13303b036b718cef4bced90d0df3"
+    },
+    {
+      "path": "game/unit-control.ts",
+      "sha256": "277c820555d9657d0ac0a88607ed2bf1cbc35e01472191f4f1bd5fd76d63b9e7"
+    },
+    {
+      "path": "game/vehicle-geometry.ts",
+      "sha256": "be6f7b25feacb2cc3da1c16f80e76ce999f4b97ef14e3b4c051fe936e9e08d11"
+    },
+    {
+      "path": "game/veteran-team.ts",
+      "sha256": "c8ee60d88ffb3058d9805f864d7de245b54006170ffbfd508d90a46211ec381e"
+    },
+    {
+      "path": "game/weapon-pose-data.ts",
+      "sha256": "a3c6fbf3eaa87cc4173bcfdbeaa1b116e20594b640c22a0922e7a53fe2a64d9b"
+    },
+    {
+      "path": "game/weapon-stance-art.ts",
+      "sha256": "a9788f518089cd838294366c09212b05700bcf5e3937b9f6783a0a5603aa01ff"
+    },
+    {
+      "path": "game/weather.ts",
+      "sha256": "125130cf6ce5da4b4f489108604d128dd0a2ecf7170d0fe34e7101ffd0a0f817"
+    },
+    {
+      "path": "game/whip-streak.ts",
+      "sha256": "581d4c88563b99464be532495804e0383a4181903a78c0ffa54ecb28070adf82"
+    },
+    {
+      "path": "game/world.ts",
+      "sha256": "9abe382f3f8df54d3685c41290ce4806be3de2b284f3a19b9e7ef55008536f49"
+    },
+    {
+      "path": "game/wreck-art.ts",
+      "sha256": "17a929a8b6f39f72fbf0908bc3b794314b222df56cd042d4b8885351124f19d3"
+    },
+    {
+      "path": "game/wreck-geometry.ts",
+      "sha256": "ecb1479bc95c60f04e99fbc073e5662b184715ea1e69fd9ce0772f9c6121642a"
+    },
+    {
+      "path": "game/wreck-variants.ts",
+      "sha256": "857ec7f5f4d7df24aefb3764b232fe017e806273bd870dab37cb230edbf13906"
+    },
+    {
+      "path": "minigame/src/adapter.ts",
+      "sha256": "42aaf56da7e5b2269c58bbca380bb4a69e4fce38bcc8397f5256a484da9560fd"
+    },
+    {
+      "path": "minigame/src/lobby-state.ts",
+      "sha256": "5c4abc4cfcad0fe0f707e91759a93fb324ec2a288e202f4acaf694c2968af907"
+    },
+    {
+      "path": "minigame/src/ui/battle.ts",
+      "sha256": "133725fc93d4e7919a54457586f1c8b9dfca1e178b7c6b7927e32b1788059110"
+    },
+    {
+      "path": "minigame/src/ui/card-detail-dialog.ts",
+      "sha256": "8d251018c0e8b43ebaddf16f0b84f1d1a72254fe23bf8d234f4b6330365e5968"
+    },
+    {
+      "path": "minigame/src/ui/card-render.ts",
+      "sha256": "2fb01a7af12cb3f33c5203fa05243e84a561ceb22f4216ce9b2ef1fd707614ce"
+    },
+    {
+      "path": "minigame/src/ui/deck-builder.ts",
+      "sha256": "959d826358d618426ecf85b7dbff1d4add9a9105caf1c48d45f593b6e3fb810d"
+    },
+    {
+      "path": "minigame/src/ui/framework.ts",
+      "sha256": "e4f3b930b60c5000100d5d97dee2ce36694109479f658ca8d0b3c9ff7ae87e72"
+    },
+    {
+      "path": "minigame/src/ui/input.ts",
+      "sha256": "40519d32ff882d12da4e1886248af924ebc066c47c6d9b531915640526cb51fc"
+    },
+    {
+      "path": "minigame/src/ui/lobby.ts",
+      "sha256": "cfbdb9dd0937454803a3c488e3aaa2bab4372f3489ad8081ddc1707fc90331f6"
+    },
+    {
+      "path": "minigame/src/ui/shop.ts",
+      "sha256": "962f5695781b629cb05f7a408d69ed2c6c0d19c32e11bae9ac199f915f2df459"
+    },
+    {
+      "path": "minigame/src/ui/theme.ts",
+      "sha256": "62930696d5ec1eece07ef1638c5ffc884dcbed77b1a34cab22a2619cc0200c63"
+    }
+  ],
+  "source_pages": [
+    {
+      "page": 1,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/main.ts",
+        1
+      ],
+      "last": [
+        "minigame/src/main.ts",
+        58
+      ]
+    },
+    {
+      "page": 2,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/main.ts",
+        60
+      ],
+      "last": [
+        "minigame/src/main.ts",
+        117
+      ]
+    },
+    {
+      "page": 3,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/main.ts",
+        118
+      ],
+      "last": [
+        "game/acoustics.ts",
+        26
+      ]
+    },
+    {
+      "page": 4,
+      "source_rows": 50,
+      "rendered_rows": 51,
+      "font_size": 9.0,
+      "first": [
+        "game/acoustics.ts",
+        28
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        43
+      ]
+    },
+    {
+      "page": 5,
+      "source_rows": 50,
+      "rendered_rows": 51,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        44
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        94
+      ]
+    },
+    {
+      "page": 6,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        95
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        146
+      ]
+    },
+    {
+      "page": 7,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        147
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        198
+      ]
+    },
+    {
+      "page": 8,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        199
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        250
+      ]
+    },
+    {
+      "page": 9,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        251
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        302
+      ]
+    },
+    {
+      "page": 10,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        303
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        354
+      ]
+    },
+    {
+      "page": 11,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        355
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        406
+      ]
+    },
+    {
+      "page": 12,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        407
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        458
+      ]
+    },
+    {
+      "page": 13,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        460
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        512
+      ]
+    },
+    {
+      "page": 14,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        514
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        564
+      ]
+    },
+    {
+      "page": 15,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        565
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        614
+      ]
+    },
+    {
+      "page": 16,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        615
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        664
+      ]
+    },
+    {
+      "page": 17,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        665
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        714
+      ]
+    },
+    {
+      "page": 18,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        715
+      ],
+      "last": [
+        "game/adult-animation.ts",
+        764
+      ]
+    },
+    {
+      "page": 19,
+      "source_rows": 50,
+      "rendered_rows": 51,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-animation.ts",
+        765
+      ],
+      "last": [
+        "game/adult-atlas.ts",
+        39
+      ]
+    },
+    {
+      "page": 20,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-atlas.ts",
+        40
+      ],
+      "last": [
+        "game/adult-atlas.ts",
+        92
+      ]
+    },
+    {
+      "page": 21,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-atlas.ts",
+        93
+      ],
+      "last": [
+        "game/adult-specialists.ts",
+        7
+      ]
+    },
+    {
+      "page": 22,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-specialists.ts",
+        8
+      ],
+      "last": [
+        "game/adult-specialists.ts",
+        57
+      ]
+    },
+    {
+      "page": 23,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-specialists.ts",
+        58
+      ],
+      "last": [
+        "game/adult-specialists.ts",
+        107
+      ]
+    },
+    {
+      "page": 24,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-specialists.ts",
+        108
+      ],
+      "last": [
+        "game/adult-specialists.ts",
+        157
+      ]
+    },
+    {
+      "page": 25,
+      "source_rows": 50,
+      "rendered_rows": 51,
+      "font_size": 9.0,
+      "first": [
+        "game/adult-specialists.ts",
+        158
+      ],
+      "last": [
+        "game/ambience.ts",
+        34
+      ]
+    },
+    {
+      "page": 26,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/ambience.ts",
+        35
+      ],
+      "last": [
+        "game/ambience.ts",
+        88
+      ]
+    },
+    {
+      "page": 27,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/ambience.ts",
+        89
+      ],
+      "last": [
+        "game/ambience.ts",
+        145
+      ]
+    },
+    {
+      "page": 28,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/ambience.ts",
+        146
+      ],
+      "last": [
+        "game/ambience.ts",
+        200
+      ]
+    },
+    {
+      "page": 29,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/ambience.ts",
+        201
+      ],
+      "last": [
+        "game/ambience.ts",
+        251
+      ]
+    },
+    {
+      "page": 30,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "game/ambience.ts",
+        252
+      ],
+      "last": [
+        "game/ambience.ts",
+        304
+      ]
+    },
+    {
+      "page": 31,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        101
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        155
+      ]
+    },
+    {
+      "page": 32,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        156
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        211
+      ]
+    },
+    {
+      "page": 33,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        212
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        265
+      ]
+    },
+    {
+      "page": 34,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        266
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        317
+      ]
+    },
+    {
+      "page": 35,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        318
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        375
+      ]
+    },
+    {
+      "page": 36,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        376
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        432
+      ]
+    },
+    {
+      "page": 37,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        433
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        484
+      ]
+    },
+    {
+      "page": 38,
+      "source_rows": 50,
+      "rendered_rows": 54,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        486
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        537
+      ]
+    },
+    {
+      "page": 39,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        538
+      ],
+      "last": [
+        "minigame/src/ui/lobby.ts",
+        590
+      ]
+    },
+    {
+      "page": 40,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/lobby.ts",
+        591
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        24
+      ]
+    },
+    {
+      "page": 41,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        25
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        81
+      ]
+    },
+    {
+      "page": 42,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        82
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        137
+      ]
+    },
+    {
+      "page": 43,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        138
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        193
+      ]
+    },
+    {
+      "page": 44,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        194
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        248
+      ]
+    },
+    {
+      "page": 45,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        249
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        303
+      ]
+    },
+    {
+      "page": 46,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        304
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        355
+      ]
+    },
+    {
+      "page": 47,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        356
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        408
+      ]
+    },
+    {
+      "page": 48,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        409
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        467
+      ]
+    },
+    {
+      "page": 49,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        469
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        527
+      ]
+    },
+    {
+      "page": 50,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        528
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        583
+      ]
+    },
+    {
+      "page": 51,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        584
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        637
+      ]
+    },
+    {
+      "page": 52,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        638
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        691
+      ]
+    },
+    {
+      "page": 53,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        692
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        749
+      ]
+    },
+    {
+      "page": 54,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        750
+      ],
+      "last": [
+        "minigame/src/ui/shop.ts",
+        802
+      ]
+    },
+    {
+      "page": 55,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/shop.ts",
+        803
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        3
+      ]
+    },
+    {
+      "page": 56,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/theme.ts",
+        4
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        57
+      ]
+    },
+    {
+      "page": 57,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/theme.ts",
+        58
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        110
+      ]
+    },
+    {
+      "page": 58,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/theme.ts",
+        111
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        163
+      ]
+    },
+    {
+      "page": 59,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/theme.ts",
+        164
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        216
+      ]
+    },
+    {
+      "page": 60,
+      "source_rows": 50,
+      "rendered_rows": 50,
+      "font_size": 9.0,
+      "first": [
+        "minigame/src/ui/theme.ts",
+        217
+      ],
+      "last": [
+        "minigame/src/ui/theme.ts",
+        267
+      ]
+    }
+  ],
+  "manual_sha256": "c6a36bd4863f5cfda971fe5b1d443fcb45f5c1c6a9cf0a3678ce4747e6be4999",
+  "manual_page_rows": [
+    34,
+    34,
+    34
+  ],
+  "outputs": {
+    "source-code.pdf": {
+      "sha256": "8ffde11bc073cfa82aef2d794196b50e645b5504900ad9d8836a210fcf511b98",
+      "bytes": 288029
+    },
+    "manual.pdf": {
+      "sha256": "e646cf0a59ff7fb35708237ae1c104e847fee5b41816339847b402df4ede870a",
+      "bytes": 229559
+    }
+  },
+  "status": "Prepared; not submitted. Applicant identity, ownership and publication details require confirmation."
+}

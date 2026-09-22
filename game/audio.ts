@@ -41,18 +41,26 @@ const FILES = [
 const clamp = (n: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, n));
 
 /** Base gain for a vehicle engine voice at full level. */
-const ENGINE_BASE_LEVEL = 0.13;
+const ENGINE_BASE_LEVEL = 0.085;
 /** Nominal oscillator frequency (Hz) for each engine family at pitch 1. */
 const ENGINE_BASE_FREQ = { tank: 58, ifv: 84 } as const;
+/** Diesel cylinder-firing chuff rate (Hz): idle floor and full-rpm span. */
+const ENGINE_FIRE_RATE = {
+  tank: { idle: 9, span: 32 },
+  ifv: { idle: 13, span: 46 },
+} as const;
 
 interface EngineVoiceNodes {
   osc: OscillatorNode;
   sub: OscillatorNode;
+  harmonic: OscillatorNode;
+  lfo: OscillatorNode;
   noise: AudioBufferSourceNode;
   gain: GainNode;
   pan: StereoPannerNode;
   filter: BiquadFilterNode;
   noiseFilter: BiquadFilterNode;
+  chuffGain: GainNode;
 }
 
 /** Recorded public audio, mixed locally. No simulation random values are consumed. */
@@ -755,14 +763,16 @@ export class BattleAudio {
   }
 
   /**
-   * Synthesised diesel engine voice for one ground vehicle (v97). Three
-   * layers — a sawtooth fundamental, a square sub-octave, and looped brown
-   * noise through a lowpass — track the vehicle's observed speed: rpm
-   * drives pitch and filter opening, distance drives the level. The voice
-   * starts with the same speed-of-sound lag as gunfire, so armour rolling
-   * in from off-screen is heard before it is seen, exactly as on a real
-   * battlefield. The noise buffer is generated once with a deterministic
-   * xorshift so the audio path consumes no simulation randomness.
+   * Synthesised diesel engine voice for one ground vehicle (v97, retuned
+   * v175). Three low sines — fundamental, sub-octave rumble, and a quiet
+   * 2nd harmonic — carry the body, with looped brown noise through a hard
+   * lowpass underneath as texture. The whole voice is amplitude-modulated
+   * at the cylinder firing rate for the diesel chuff. rpm drives pitch and
+   * filter opening, distance drives the level. The voice starts with the
+   * same speed-of-sound lag as gunfire, so armour rolling in from off-screen
+   * is heard before it is seen, exactly as on a real battlefield. The noise
+   * buffer is generated once with a deterministic xorshift so the audio
+   * path consumes no simulation randomness.
    */
   private engineNoiseBuffer(): AudioBuffer {
     if (this.engineNoise) return this.engineNoise;
@@ -804,55 +814,87 @@ export class BattleAudio {
     if (!ctx || !this.effectsGain) return;
     const now = ctx.currentTime,
       base = ENGINE_BASE_FREQ[spec.model],
+      fire = ENGINE_FIRE_RATE[spec.model],
       osc = ctx.createOscillator(),
       sub = ctx.createOscillator(),
+      harmonic = ctx.createOscillator(),
+      lfo = ctx.createOscillator(),
+      lfoDepth = ctx.createGain(),
       noise = ctx.createBufferSource(),
       oscGain = ctx.createGain(),
       subGain = ctx.createGain(),
+      harmGain = ctx.createGain(),
       noiseGain = ctx.createGain(),
       filter = ctx.createBiquadFilter(),
       noiseFilter = ctx.createBiquadFilter(),
+      chuffGain = ctx.createGain(),
       gain = ctx.createGain(),
       pan = ctx.createStereoPanner();
-    osc.type = 'sawtooth';
-    sub.type = 'square';
+    // v175: the diesel body is carried by three low sines — fundamental,
+    // sub-octave chest rumble, and a quiet 2nd harmonic for bite. The old
+    // stack let AM'd broadband noise dominate, which read as a mosquito
+    // whine; the noise is now a dark, quiet texture under the sines.
+    osc.type = 'sine';
+    sub.type = 'sine';
+    harmonic.type = 'sine';
+    lfo.type = 'sine';
     noise.buffer = this.engineNoiseBuffer();
     noise.loop = true;
-    oscGain.gain.value = 0.5;
-    subGain.gain.value = 0.28;
-    noiseGain.gain.value = 0.3;
+    oscGain.gain.value = 0.42;
+    subGain.gain.value = 0.3;
+    harmGain.gain.value = 0.1;
+    noiseGain.gain.value = 0.16;
+    // The chuff: the LFO amplitude-modulates the *whole* voice at the
+    // cylinder firing rate. AM on a low sine only adds two close sidebands,
+    // so it reads as an engine pulse — AM on broadband noise sprays
+    // sidebands across the spectrum and is what made the old voice buzz.
+    chuffGain.gain.value = 1;
+    lfoDepth.gain.value = 0.3;
     filter.type = 'lowpass';
     noiseFilter.type = 'lowpass';
     const t0 =
       now + soundDelay(listenerDistance(spec.x, this.camera, this.width));
     const pitch = base * spec.pitch;
+    const fireRate = fire.idle + spec.rpm * fire.span;
     osc.frequency.setValueAtTime(pitch, t0);
     sub.frequency.setValueAtTime(pitch * 0.5, t0);
-    filter.frequency.setValueAtTime(280 + spec.rpm * 700, t0);
-    noiseFilter.frequency.setValueAtTime(320 + spec.rpm * 500, t0);
+    harmonic.frequency.setValueAtTime(pitch * 2, t0);
+    lfo.frequency.setValueAtTime(fireRate, t0);
+    filter.frequency.setValueAtTime(120 + spec.rpm * 140, t0);
+    noiseFilter.frequency.setValueAtTime(90 + spec.rpm * 150, t0);
     gain.gain.setValueAtTime(0, t0);
     gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, t0, 0.2);
     pan.pan.setValueAtTime(spec.pan, t0);
     osc.connect(oscGain);
-    oscGain.connect(filter);
     sub.connect(subGain);
     subGain.connect(filter);
+    harmonic.connect(harmGain);
+    harmGain.connect(filter);
+    oscGain.connect(filter);
+    lfo.connect(lfoDepth);
+    lfoDepth.connect(chuffGain.gain);
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(filter);
-    filter.connect(gain);
+    filter.connect(chuffGain);
+    chuffGain.connect(gain);
     gain.connect(pan);
     pan.connect(this.effectsGain);
     osc.onended = () => {
       for (const node of [
         osc,
         sub,
+        harmonic,
+        lfo,
         noise,
         oscGain,
         subGain,
+        harmGain,
+        lfoDepth,
         noiseGain,
         filter,
         noiseFilter,
+        chuffGain,
         gain,
         pan,
       ]) {
@@ -865,15 +907,20 @@ export class BattleAudio {
     };
     osc.start(t0);
     sub.start(t0);
+    harmonic.start(t0);
+    lfo.start(t0);
     noise.start(t0);
     this.engineVoices.set(uid, {
       osc,
       sub,
+      harmonic,
+      lfo,
       noise,
       gain,
       pan,
       filter,
       noiseFilter,
+      chuffGain,
     });
   }
 
@@ -881,11 +928,15 @@ export class BattleAudio {
     const ctx = this.context;
     if (!ctx) return;
     const now = ctx.currentTime,
-      pitch = ENGINE_BASE_FREQ[spec.model] * spec.pitch;
+      pitch = ENGINE_BASE_FREQ[spec.model] * spec.pitch,
+      fire = ENGINE_FIRE_RATE[spec.model],
+      fireRate = fire.idle + spec.rpm * fire.span;
     nodes.osc.frequency.setTargetAtTime(pitch, now, 0.08);
     nodes.sub.frequency.setTargetAtTime(pitch * 0.5, now, 0.08);
-    nodes.filter.frequency.setTargetAtTime(280 + spec.rpm * 700, now, 0.1);
-    nodes.noiseFilter.frequency.setTargetAtTime(320 + spec.rpm * 500, now, 0.1);
+    nodes.harmonic.frequency.setTargetAtTime(pitch * 2, now, 0.08);
+    nodes.lfo.frequency.setTargetAtTime(fireRate, now, 0.1);
+    nodes.filter.frequency.setTargetAtTime(120 + spec.rpm * 140, now, 0.1);
+    nodes.noiseFilter.frequency.setTargetAtTime(90 + spec.rpm * 150, now, 0.1);
     nodes.gain.gain.setTargetAtTime(spec.level * ENGINE_BASE_LEVEL, now, 0.1);
     nodes.pan.pan.setTargetAtTime(spec.pan, now, 0.1);
   }
@@ -902,6 +953,8 @@ export class BattleAudio {
       nodes.gain.gain.setTargetAtTime(0, now, 0.05);
       nodes.osc.stop(now + 0.3);
       nodes.sub.stop(now + 0.3);
+      nodes.harmonic.stop(now + 0.3);
+      nodes.lfo.stop(now + 0.3);
       nodes.noise.stop(now + 0.3);
     } catch {
       /* Already stopped. */

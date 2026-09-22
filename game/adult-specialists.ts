@@ -98,15 +98,11 @@ export function specialistSprite(
   )
     return null;
   if (choice.group === 'stance16') {
-    const frame = set.stance16?.[choice.index];
-    return frame
-      ? {
-          image: frame.image,
-          muzzle: frame.muzzle
-            ? { x: frame.muzzle[0] - 64, height: 96 - frame.muzzle[1] }
-            : null,
-        }
-      : null;
+    // Stance transitions use the identity's own per-identity stance16 frames
+    // (built by ownStance16), which carry the correct uniform colour. The
+    // generic green weapon-stance sheet would repaint the whole body and
+    // shrink it (128×96 vs 96×96), so yield to the identity art here.
+    return null;
   }
   const prone = choice.group === 'crawl2' ||
     choice.group === 'actions20' && [2, 12].includes(choice.index);
@@ -128,13 +124,11 @@ export function specialistSprite(
     : low && !(model === 'mortar' && choice.group === 'crouch8')
       ? set.crouch
       : set.standing;
-  if (!u.moving && (!prone || set.stance16) && choice.group !== 'crouch8')
-    return {
-      image: part.image,
-      muzzle: part.muzzle
-        ? { x: part.muzzle[0] - 64, height: 96 - part.muzzle[1] }
-        : null,
-    };
+  // Static poses (standing aim / crouch / prone) used to return the full
+  // generic green 128×96 body, which repainted the soldier in the wrong
+  // uniform and changed the apparent size. Always composite the specialist
+  // weapon torso onto the identity's own legs so the uniform colour and
+  // silhouette stay correct.
   let variants = cache.get(base);
   if (!variants) {
     variants = new Map();

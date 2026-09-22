@@ -104,6 +104,7 @@ import {
   sceneryIntercept,
   sceneryCoverHits,
   damageScenery,
+  contactIsStale,
   type Scenery,
   type GroundContact,
   type Wreck,
@@ -156,6 +157,10 @@ export const DRAW_COST = 2,
 export const AIR_ALTITUDE = 232,
   DROP_HEIGHT = 26,
   CLIMB_HEIGHT = 28;
+/** v172: seconds of ineffective close-range fire before a unit breaks off to maneuver. */
+const STALEMATE_BREAK_S = 35;
+/** v172: a stalemated unit closes to this gap before resuming fire from the new angle. */
+const STALEMATE_CLOSE_GAP = 30;
 export interface HandCard {
   uid: number;
   id: CardId;
@@ -179,6 +184,7 @@ export interface Unit {
   withdrawHeavyRange?: number;
   withdrawUnderFireUntil?: number;
   withdrawStandby?: boolean;
+  withdrawStandbySince?: number;
   holdLane?: number;
   digging?: boolean;
   digElapsed?: number;
@@ -349,6 +355,16 @@ export interface Unit {
   breachShots?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
+  /** v172: stalemate detection — uid of the target tracked for ineffective fire. */
+  stalemateTargetUid?: number;
+  /** v172: last observed hp of the tracked stalemate target. */
+  stalemateTargetHp?: number;
+  /** v172: when the current no-damage streak against the tracked target began. */
+  stalemateSince?: number;
+  /** v172: unit x when the stalemate began, so a maneuver resets the clock. */
+  stalemateStartX?: number;
+  /** v172: until this time, contactSafeX uses the reduced stalemate close gap. */
+  stalemateCloseUntil?: number;
   /** Shoot-and-scoot: indirect-fire teams displace to this x once the enemy
    * sound rangers have refined a fix on their current position. */
   displaceGoal?: number | null;
@@ -2344,6 +2360,11 @@ function hitUnit(
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
+  const attacker =
+    attackerUid !== undefined
+      ? s.units.find((q) => q.uid === attackerUid)
+      : undefined;
+  const attackerCard = attacker ? CARDS[attacker.id] : undefined;
   const protection =
     u.pose === 'prone'
       ? 0.7
@@ -2357,9 +2378,13 @@ function hitUnit(
       ? damage
       : damage *
         protection *
-        (1 - cover) *
+        (attackerCard?.infantryAbility === 'flusher' ? 1 : 1 - cover) *
         (source === 'blast' ? (c.blastProtection ?? 1) : 1) *
         (c.trait === 'armor_vest' ? 0.88 : 1) *
+        (attackerCard?.infantryAbility === 'anti_materiel' &&
+        (c.armored || c.vehicle)
+          ? 2.5
+          : 1) *
         (c.members && !u.moving && s.players[u.side].fortify > 0 ? 0.7 : 1) *
         (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time
           ? 0.7
@@ -2413,6 +2438,9 @@ function hitUnit(
     const resolve = supported || c.infantryAbility === 'elite' || c.infantryAbility === 'fire_discipline' ? 0.65 : 1;
     const umbrella = aaUmbrella(s, u.side, u.x) ? 0.7 : 1;
     const firebase = unitSynergy(s, u, s.time).fire_base ? 0.65 : 1;
+    const suppressiveFire =
+      attackerCard?.infantryAbility === 'suppressive' ? 1.5 : 1;
+    const swarmNerves = c.infantryAbility === 'swarm' ? 0.75 : 1;
     u.suppression = Math.min(
       100,
       u.suppression +
@@ -2420,6 +2448,8 @@ function hitUnit(
           resolve *
           umbrella *
           firebase *
+          suppressiveFire *
+          swarmNerves *
           veteranSuppression(u),
     );
     u.personalMorale = Math.max(
@@ -3100,7 +3130,7 @@ function bodyHeight(
 }
 export function unitRange(s: GameState, u: Unit) {
   return (
-    (pairedPrecisionRange(s, u) ? 880 : weaponCard(u).range!) *
+    (pairedPrecisionRange(s, u) ? 930 : weaponCard(u).range!) *
     (CARDS[u.id].infantryAbility === 'mountain_fire' &&
     !u.moving &&
     u.motion === 'ground' &&
@@ -3762,7 +3792,10 @@ function traverse(s: GameState, u: Unit, dt: number) {
     u.x = contactSafeX(s,u,proposed);
     const blocked = Math.abs(u.x-proposed) > 1e-6;
     const distance = Math.abs(u.x-previousX);
-    u.walk += distance / (u.pose === 'prone' ? 4 : 6);
+    // v175: divisor 8 (was 6) so the passing cels stay on screen long enough
+    // to read; clamp 0.95 so a lag spike or stacked speed buffs can never skip
+    // a cel and teleport the rear leg to the front.
+    u.walk += Math.min(distance / (u.pose === 'prone' ? 4 : 8), 0.95);
     u.moving = distance > 1e-6;
     u.y = ground(s, u.x);
     if (t >= 1 || blocked) {
@@ -3794,8 +3827,17 @@ function orderedWithdrawal(s: GameState, u: Unit) {
 export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   const dir = u.side === 0 ? 1 : -1;
   if (CARDS[u.id].air || (proposedX - u.x) * dir <= 0) return proposedX;
+  // v172: a stalemated unit (ineffective close-range fire against a dug-in
+  // target) closes the distance to gain a flatter trajectory that clears the
+  // terrain lip intercepting its shots. The reduced gap persists briefly so
+  // the unit is not pushed back when it stops to try firing from the new angle.
+  const stalemateClose = (u.stalemateCloseUntil ?? 0) > s.time;
+  const gap = stalemateClose
+    ? STALEMATE_CLOSE_GAP
+    : CARDS[u.id].members
+      ? 105
+      : 150;
   let limit = proposedX;
-  const gap = CARDS[u.id].members ? 105 : 150;
   for (const enemy of s.units) {
     if (enemy.side === u.side || !isCombatant(enemy) || CARDS[enemy.id].air ||
         enemy.rappelling || enemy.parachuting || (enemy.x - u.x) * dir < 0 ||
@@ -3806,12 +3848,19 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   }
   // Only last OBSERVED coordinates may constrain travel through lost contact.
   // Never read a hidden unit's current position, health or continued existence.
+  // A snapshot older than CONTACT_STALE_S is too stale to be a hard barrier:
+  // the unit probes forward and either reacquires the threat or clears ground.
   for (const contact of s.groundContacts?.[u.side] ?? []) {
-    if (visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
+    if (contactIsStale(s.time, contact) || visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
         (contact.x-u.x)*dir > Math.abs(proposedX-u.x)+gap) continue;
     const stop = contact.x-dir*gap;
     if ((stop-limit)*dir < 0) limit = stop;
   }
+  // v173: don't overrun the enemy base — stop 35px short so the structure
+  // stays in range and wrecks near the base footprint don't trap the unit.
+  const enemyBaseX = u.side === 0 ? W - 70 : 70;
+  const baseStop = enemyBaseX - dir * 35;
+  if ((baseStop - limit) * dir < 0) limit = baseStop;
   return (limit - u.x) * dir < 0 ? u.x : limit;
 }
 function moveSoldier(
@@ -3899,7 +3948,9 @@ function moveSoldier(
       u.pose = setStance(u, s.time, 'crouch');
       if (u.supportCooldown <= 0) {
         const wallHpBefore = wall.hp;
-        wall.hp = Math.max(0, wall.hp - 70);
+        const breachDamage =
+          CARDS[u.id].infantryAbility === 'demolition' ? 70 * 3 : 70;
+        wall.hp = Math.max(0, wall.hp - breachDamage);
         u.supportCooldown = 1.2;
         burst(s, wall.x, ground(s, wall.x) - 8, 10);
         // Breach! Nearby assault troops surge through the gap.
@@ -4076,7 +4127,9 @@ function moveSoldier(
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
   const distance = Math.hypot(u.x - beforeX, u.lane - beforeLane);
   // Gait advances by travelled distance so feet stop when the soldier stops.
-  u.walk += distance / (u.pose === 'prone' ? 4 : 6);
+  // v175: divisor 8 + clamp keeps the passing cels visible and prevents
+  // frame-skipping at high speed or on lag spikes.
+  u.walk += Math.min(distance / (u.pose === 'prone' ? 4 : 8), 0.95);
   u.y = ground(s, u.x);
   u.moving = distance > 0.001;
   if (distance > 0.001 && u.motion === 'ground' && !u.climbing) {
@@ -4236,6 +4289,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   const clear = () => {
     u.withdrawHeavyUid = undefined;
     u.withdrawStandby = false;
+    u.withdrawStandbySince = undefined;
     u.withdrawUntil = 0;
     u.withdrawGoal = undefined;
     u.passingLane = undefined;
@@ -4271,6 +4325,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     if (tacticalReach(s, foe, u, 24)) {
       const away = Math.sign(u.x - foe.x) || (u.side === 0 ? -1 : 1);
       u.withdrawStandby = false;
+      u.withdrawStandbySince = undefined;
       u.withdrawUntil = s.time + 1.5;
       if (
         u.withdrawGoal === undefined ||
@@ -4309,11 +4364,23 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   }
   if (u.withdrawGoal !== undefined && Math.abs(u.withdrawGoal - u.x) > 4) {
     u.withdrawStandby = false;
+    u.withdrawStandbySince = undefined;
     u.withdrawUntil = s.time + 1.5;
+    return;
+  }
+  // v173: if the squad has been pinned in standby long enough, resume the
+  // advance instead of standing forever. Staying pinned hands the initiative
+  // to the enemy; the withdrawal logic re-evaluates on next contact, and AT
+  // support that has since closed distance will hold. Uses a standby-local
+  // timestamp because side-level vision keeps the heavy "seen" via a
+  // distant spotter even when this squad cannot engage it.
+  if (s.time - (u.withdrawStandbySince ?? s.time) > 30) {
+    clear();
     return;
   }
   // Once outside its firing lane, observe rather than walking straight back into it.
   u.withdrawStandby = true;
+  u.withdrawStandbySince ??= s.time;
   u.withdrawUntil = 0;
   u.withdrawGoal = undefined;
   u.coverGoal = null;
@@ -4591,6 +4658,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       ? unsupportedHeavy.foe.y - bodyHeight(unsupportedHeavy.foe)
       : undefined;
     mate.withdrawStandby = false;
+    mate.withdrawStandbySince = undefined;
     mate.withdrawStartedAt = s.time;
     mate.withdrawUntil = s.time + 4.8;
     mate.withdrawNextAt = s.time + 11;
@@ -5371,7 +5439,7 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = Math.abs(u.x-before) > .001;
-  u.walk += Math.abs(u.x-before) / 6;
+  u.walk += Math.min(Math.abs(u.x-before) / 8, 0.95);
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -5406,7 +5474,7 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
   u.y = ground(s, u.x);
   u.facing = Math.sign(change);
   u.moving = Math.abs(u.x-before) > .001;
-  u.walk += Math.abs(u.x-before) / 6;
+  u.walk += Math.min(Math.abs(u.x-before) / 8, 0.95);
   u.fire = 0;
   u.secondaryFire = 0;
   return true;
@@ -5713,7 +5781,7 @@ function updateAI(s: GameState) {
     .filter((u) => !CARDS[u.id].air)
     .reduce((x, u) => Math.min(x, u.x), W - 112);
   const unclearedFront = (s.groundContacts?.[1] ?? [])
-    .filter(c => !visibleToSide(s,1,c) && c.clearSince === undefined &&
+    .filter(c => !contactIsStale(s.time,c) && !visibleToSide(s,1,c) && c.clearSince === undefined &&
       front-c.x >= -120 && front-c.x < 800)
     .sort((a,b) => Math.abs(front-a.x)-Math.abs(front-b.x))[0];
 
@@ -5788,6 +5856,15 @@ function updateAI(s: GameState) {
     !battle &&
     cohorts < 2 &&
     s.time < (s.aiWaveUntil ?? 0);
+  // A quiet front: no visible foe and no fresh remembered contact. Once the
+  // enemy is wiped (or every contact has gone stale), survivors must push to
+  // the enemy base instead of staging forever — a lone surviving squad (e.g.
+  // scouts, who don't count as a cohort) otherwise refreshes the staging
+  // window every frame and holds until the 600s draw.
+  const rememberedThreat = (s.groundContacts?.[1] ?? []).some(
+    (c) => !contactIsStale(s.time, c) && !visibleToSide(s, 1, c),
+  );
+  const frontQuiet = foes.length === 0 && !rememberedThreat;
   // Armor assault: when the AI has an active armor_assault synergy (armored
   // vehicle + infantry within 170px) and contact is made, push the advantage
   // instead of settling into a static firefight.
@@ -5808,9 +5885,9 @@ function updateAI(s: GameState) {
     );
   // Double-time only between contacts. Once a threat is close, normal advance
   // gives each squad its own firing/cover decisions instead of a global rush.
-  p.order = staging
+  p.order = staging && !frontQuiet
     ? 'hold'
-    : (!battle && cohorts >= 2) ||
+    : frontQuiet || (!battle && cohorts >= 2) ||
         (pushing && battle && !emergency) ||
         armorAssault
       ? 'rush'
@@ -8075,6 +8152,7 @@ export function tick(s: GameState, dt: number) {
           (syn.armor_assault ? 1.6 : 1) *
           (syn.smoke_screen ? 1.5 : 1) *
           (syn.overwatch ? 1.35 : 1) *
+          (c.infantryAbility === 'swarm' ? 1.8 : 1) *
           vacuumSuppressionFactor(s, u),
     );
     if (stepHandGrenade(s, u)) continue;
@@ -8714,15 +8792,16 @@ export function tick(s: GameState, dt: number) {
        }
      }
    }
-   const baseInRange =
-     !target &&
-     !c.airOnly &&
-     !c.armorOnly &&
-     (c.attackRun !== 'strafe' ||
-       (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
-     Math.abs(baseX - u.x) <= range &&
-     Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
-     firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
+  const baseInRange =
+    !target &&
+    !c.airOnly &&
+    !c.armorOnly &&
+    (c.attackRun !== 'strafe' ||
+      (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
+    Math.abs(baseX - u.x) <= range &&
+    Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
+    (Math.abs(baseX - u.x) < 60 ||
+      firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null);
     // Counter-battery: a howitzer with no visible target can fire at a
     // fresh sound-ranging fix on an enemy battery position.
     let counterBattery: BatteryReport | null = null;
@@ -9413,11 +9492,66 @@ export function tick(s: GameState, dt: number) {
     if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
       fireCoax(s, u);
-    if (
-      (c.damage ?? 0) > 0 &&
+    // v172: stalemate break — a unit pinned in a static firefight against a
+    // close, dug-in target it cannot damage (terrain intercepts every round)
+    // breaks off and maneuvers instead of burning the clock until the draw.
+    // Once the unit has closed to point-blank range it resumes fire: the
+    // flatter trajectory may clear the terrain that blocked long-range shots.
+   let stalemated = false;
+   if (
+     target &&
+     c.members &&
+     !c.indirect &&
+     !breachRun &&
+     order !== 'rush' &&
+     u.ammo !== 0 &&
+     Math.abs(target.x - u.x) <= range * 0.62
+   ) {
+     if (u.stalemateTargetUid !== target.uid) {
+       u.stalemateTargetUid = target.uid;
+       u.stalemateTargetHp = target.hp;
+       u.stalemateSince = s.time;
+     } else if (target.hp < (u.stalemateTargetHp ?? target.hp) - 0.01) {
+       // Fire is effective — reset the clock.
+       u.stalemateTargetHp = target.hp;
+       u.stalemateSince = s.time;
+     } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
+       if (Math.abs(target.x - u.x) > STALEMATE_CLOSE_GAP) {
+         stalemated = true;
+         u.stalemateCloseUntil = s.time + 2;
+       }
+     }
+   } else if (
+     blockedContact &&
+     c.members &&
+     !c.indirect &&
+     !breachRun &&
+     threat
+   ) {
+      // v172b: blocked-contact stalemate — the unit has a threat it cannot
+      // acquire as a target (terrain blocks the firing ray) and the
+      // blockedContact drill cannot find a firing position. After the
+      // grace period it maneuvers to close the distance, where the flatter
+      // trajectory may clear the obstacle.
+      if (u.stalemateTargetUid !== threat.uid) {
+        u.stalemateTargetUid = threat.uid;
+        u.stalemateSince = s.time;
+      } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
+        if (Math.abs(threat.x - u.x) > STALEMATE_CLOSE_GAP) {
+          stalemated = true;
+          u.stalemateCloseUntil = s.time + 2;
+        }
+      }
+    } else {
+    u.stalemateTargetUid = undefined;
+    u.stalemateSince = undefined;
+  }
+   if (
+     (c.damage ?? 0) > 0 &&
       !relayReloadActive(u,s.time) &&
       !ambushHold &&
       !mobileBurstStep &&
+      !stalemated &&
       (!c.armorOnly || !!target) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
@@ -9734,6 +9868,11 @@ export function tick(s: GameState, dt: number) {
             damage:
               ((ap ? c.penetration! : c.damage!) / (c.members ?? 1)) *
               openingDamage *
+              (c.infantryAbility === 'entrenched' &&
+              !u.moving &&
+              (u.stillFor ?? 0) >= 2
+                ? 1.35
+                : 1) *
               (smallArmsAir ? 0.12 : 1) *
               (morale ? 1.35 : 1) *
               (c.trait === 'close_assault' && Math.abs(tx - u.x) < 200
@@ -9828,10 +9967,10 @@ export function tick(s: GameState, dt: number) {
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
           !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
-          (!target || breachRun) &&
-          !baseInRange &&
-          !blockedContact &&
-          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
+         (!target || breachRun || stalemated) &&
+         !baseInRange &&
+          (!blockedContact || stalemated) &&
+         (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
         (!c.members || order !== 'hold') &&
         !u.vehicleReverseHeld))
     ) {
@@ -9940,7 +10079,7 @@ export function tick(s: GameState, dt: number) {
             ? Math.max(-12 * dt, Math.min(12 * dt, desiredLane - u.lane))
             : 0;
         u.lane += laneChange;
-        u.walk += Math.abs(laneChange) / 6;
+        u.walk += Math.min(Math.abs(laneChange) / 8, 0.95);
         const beforeMove = u.x;
           moveSoldier(
             s,

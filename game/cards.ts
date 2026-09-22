@@ -120,7 +120,13 @@ export type CardId =
   | 'fire_team'
   | 'assault_grenadiers'
   | 'lmg_team'
-  | 'glider_transport';
+  | 'glider_transport'
+  // ── v176 特异化扩充 ─────────────────────────────────────────
+  | 'flame_team'
+  | 'mlrs'
+  | 'scout_car'
+  | 'flame_tank'
+  | 'light_mortar';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -218,7 +224,13 @@ export interface Card {
     | 'mountain_fire'
     | 'buddy_rally'
     | 'fire_discipline'
-    | 'elite';
+    | 'elite'
+    | 'suppressive'
+    | 'entrenched'
+    | 'anti_materiel'
+    | 'swarm'
+    | 'demolition'
+    | 'flusher';
   trait?:
     | 'close_assault'
     | 'armor_vest'
@@ -302,7 +314,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '压制 · 对空',
     description: '1 名机枪手，4 名步枪护卫',
     detail:
-      '1名机枪手与4名步枪护卫，全班225生命。机枪每0.22秒5伤害、射程500，可对空，100发弹带、装填4秒；不需重机枪的展开，也不做轻机枪的短点射跃进。四名护卫各4伤害/秒、射程380，仅对地，适合独立接敌与机步协同。',
+      '1名机枪手与4名步枪护卫，全班225生命。机枪每0.22秒5伤害、射程500，可对空，100发弹带、装填4秒；不需重机枪的展开，也不做轻机枪的短点射跃进。火力压制：被机枪命中的步兵压制值积累速度+50%，更容易被钉在原地。四名护卫各4伤害/秒、射程380，仅对地，适合独立接敌与机步协同。',
     atlas: 1,
     hp: 225,
     damage: 5,
@@ -312,6 +324,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     antiAir: true,
     members: 5,
     uniform: 'crew',
+    infantryAbility: 'suppressive',
   },
   rocket: {
     id: 'rocket',
@@ -637,21 +650,22 @@ export const CARDS: Record<CardId, Card> = {
     'airborne_insertion',
     '敌后空降',
     4,
-    '五人班空降到选定位置，落地整队推进',
+    '五人精锐班空降到选定位置，落地整队推进',
     {
       members: 5,
-      hp: 220,
-      damage: 30,
+      hp: 260,
+      damage: 34,
       range: 420,
       speed: 82,
       doctrine: 'assault',
       discipline: 90,
       uniform: 'marine',
+      infantryAbility: 'elite',
       airdrop: true,
       targetGround: true,
       tag: '空降 · 纵深插入',
       detail:
-        '5人伞兵班搭乘运输机空降到选定位置，伞降约2.5秒落地。适合一次投送完整班组；落地后正常推进，没有高速穿插小组的8秒冲刺。',
+        '5人精锐伞兵班搭乘运输机空降到选定位置，伞降约2.5秒落地。260生命、34伤害，比普通伞兵更硬更狠；精锐训练使压制积累降低35%，伏击只需停稳1秒。适合一次投送完整班组直插敌后；落地后正常推进，没有高速穿插小组的8秒冲刺。',
     },
   ),
   forced_march: variant('supply', 'forced_march', '强行军', 2, '己方全体步兵移速提升35%，12秒', {
@@ -1032,8 +1046,9 @@ export const CARDS: Record<CardId, Card> = {
       discipline: 100,
       uniform: 'elite',
       doctrine: 'defensive',
+      infantryAbility: 'entrenched',
       tag: '精锐 · 永不投降',
-      detail: '4 人，240 生命。永远不会投降；仍会受伤、被压制或战术撤退。',
+      detail: '4 人，240 生命。永远不会投降；仍会受伤、被压制或战术撤退。固守射击：静止超过2秒后伤害+35%，配合防御 doctrine 成为最硬的阵地钉子。',
     },
   ),
   supply_team: variant(
@@ -1060,10 +1075,10 @@ export const CARDS: Record<CardId, Card> = {
     'strike_jet',
     '对地攻击机',
     6,
-    '快速通场连续扫射，每架次最多 24 发，返航后低费再次派遣。',
+    '快速通场连续扫射，每架次最多 16 发，返航后低费再次派遣。',
     {
       hp: 170,
-      damage: 38,
+      damage: 26,
       rate: 0.08,
       range: 630,
       speed: 560,
@@ -1071,17 +1086,17 @@ export const CARDS: Record<CardId, Card> = {
       airframe: 'interceptor',
       sortie: true,
       attackRun: 'strafe',
-      sortieAmmo: 24,
+      sortieAmmo: 16,
       returnCost: 2,
       sortieCooldown: 18,
       sight: 730,
-      infantryMultiplier: 12,
+      infantryMultiplier: 1.7,
       armorMultiplier: 0.35,
       baseMultiplier: 0.15,
       radius: 30,
       tag: '航空 · 通场扫射',
       detail:
-        '170 生命，优先扫射步兵；每 0.08 秒发射 38 伤机炮弹，对步兵 ×12，一发即可撕碎一整个步兵班，弹着点掀起爆炸级烟尘。每架次最多 24 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
+        '170 生命，优先扫射步兵；每 0.08 秒发射 26 伤机炮弹，对步兵 ×1.7，一轮扫射可压制并重创聚集的步兵，但已不足以单轮全歼成建制班组，弹着点掀起爆炸级烟尘。每架次最多 16 发。成功离场返回手牌，满手则弃牌；返航冷却 18 秒，此后该张卡只需 2 费。被击落需重新全价派遣。',
     },
   ),
   bomber: variant(
@@ -1199,7 +1214,10 @@ export const CARDS: Record<CardId, Card> = {
       doctrine: 'irregular',
       discipline: 60,
       uniform: 'militia',
+      infantryAbility: 'swarm',
       tag: '低费 · 士气脆弱',
+      detail:
+        '1费7人175生命，最便宜的占点单位。人多势众：压制恢复速度+80%，受击时压制积累-25%，被打散后能更快重整旗鼓。单兵属性弱，适合涌上去占点、探雷、吸引火力，而不是正面对枪。',
     },
   ),
   assault: variant(
@@ -1311,9 +1329,12 @@ export const CARDS: Record<CardId, Card> = {
       range: 420,
       antiAir: false,
       uniform: 'heavy',
+      trait: 'armor_vest',
       doctrine: 'support',
       discipline: 78,
       tag: '榴弹 · 区域压制',
+      detail:
+        '4人榴弹组，220生命。重型防弹衣：受到的直接伤害-12%，在敌方步枪火力下存活率明显更高。低弧线榴弹越过矮掩体压制地面，仍需确认目标，高墙和山体会拦截；无法对空。适合跟在突击步兵身后提供持续面杀伤。',
     },
   ),
   antiarmor: variant(
@@ -1374,8 +1395,9 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'crew',
       doctrine: 'defensive',
       discipline: 84,
+      infantryAbility: 'entrenched',
       tag: '重机枪 · 火力封锁',
-      detail: '1名重机枪手、2名步枪护卫。机枪必须停稳2.4秒并完成低姿态展开后开火，移动后重新展开；射程620、每发7伤害，每8发停顿0.8秒。实际掠过敌人的子弹造成额外75%压制，不是全屏光环。150发弹带、装填5秒，可对空；护卫各4伤害/秒、射程380，只对地。适合守住射界，不适合一路冲锋。',
+      detail: '1名重机枪手、2名步枪护卫。机枪必须停稳2.4秒并完成低姿态展开后开火，移动后重新展开；射程620、每发7伤害，每8发停顿0.8秒。固守射击：静止超过2秒后伤害+35%。实际掠过敌人的子弹造成额外75%压制，不是全屏光环。150发弹带、装填5秒，可对空；护卫各4伤害/秒、射程380，只对地。适合守住射界，不适合一路冲锋。',
     },
   ),
   light_tank: variant(
@@ -1699,23 +1721,24 @@ export const CARDS: Record<CardId, Card> = {
     'glider_assault',
     '滑翔机突击',
     4,
-    '滑翔机运送4名精英，着陆后逐一离舱',
+    '滑翔机运送4名近战精英，着陆后逐一离舱',
     {
       members: 4,
-      hp: 240,
-      damage: 34,
-      range: 420,
+      hp: 220,
+      damage: 40,
+      range: 340,
       speed: 84,
       doctrine: 'assault',
       discipline: 95,
       uniform: 'assault',
       infantryAbility: 'elite',
+      trait: 'close_assault',
       airdrop: true,
       insertion: 'glider',
       targetGround: true,
-      tag: '空降 · 精英纵深',
+      tag: '空降 · 近战突破',
       detail:
-        '无武装滑翔机（180生命）从己方边缘进场，寻找指定位置附近的平缓空地，滑跑停稳后逐一卸下4名精英，共240生命。飞行途中可被防空拦截，击毁时尚未离舱者损失；不能在房屋和树干上着陆，不接受伞降引导加速。机体停留作掩体，不返航。步兵停稳1秒后首枪对步兵伤害乘1.5；没有隐身或不可见落点加成。',
+        '无武装滑翔机（180生命）从己方边缘进场，寻找指定位置附近的平缓空地，滑跑停稳后逐一卸下4名精英，共220生命。飞行途中可被防空拦截，击毁时尚未离舱者损失；不能在房屋和树干上着陆，不接受伞降引导加速。机体停留作掩体，不返航。步兵停稳1秒后首枪对步兵伤害乘1.5；200内交战伤害×1.2，攻击压制超过45的目标再×1.3。没有隐身或不可见落点加成。',
     },
   ),
   glider_transport: variant('helicopter', 'glider_transport', '滑翔运输机', 0,
@@ -1729,12 +1752,12 @@ export const CARDS: Record<CardId, Card> = {
     'infantry',
     'pathfinders',
     '先导小组',
-    3,
+    2,
     '2 人空降先导，落地警戒并引导附近后续伞降',
     {
       members: 2,
-      hp: 120,
-      damage: 26,
+      hp: 100,
+      damage: 22,
       range: 460,
       speed: 88,
       doctrine: 'recon',
@@ -1775,18 +1798,19 @@ export const CARDS: Record<CardId, Card> = {
     'sniper_team',
     '精确射手组',
     4,
-    '1 射手＋1 观察员；就位校射后射程从 650 提升至 880',
+    '1 射手＋1 观察员；就位校射后射程从 700 提升至 930',
     {
       members: 2,
       hp: 110,
-      damage: 52,
+      damage: 56,
       rate: 2.6,
-      range: 650,
+      range: 700,
       speed: 50,
       uniform: 'elite',
+      infantryAbility: 'anti_materiel',
       tag: '搭档 · 校射点杀',
       detail:
-        '1名射手与1名不射击的观察员。射手基础单发52伤害，5发弹匣；观察员在120内停稳0.65秒且未被压制时，将射程650提升至880。观察员跟随射手，为炮兵校射，并标记700内可见敌人，使狙击伤害增加25%。阵亡、负伤、撤退或离队后搭档射程失效。射手优先打击可见的重武器操作手，其次敌方狙击手。',
+        '1名射手与1名不射击的观察员。射手基础单发56伤害，5发弹匣；观察员在120内停稳0.65秒且未被压制时，将射程700提升至930。反器材：对装甲和载具目标伤害×2.5，可远程点杀轻装甲车辆。观察员跟随射手，为炮兵校射，并标记700内可见敌人，使狙击伤害增加25%。阵亡、负伤、撤退或离队后搭档射程失效。射手优先打击可见的重武器操作手，其次敌方狙击手。',
     },
   ),
   veteran_squad: variant(
@@ -1823,12 +1847,12 @@ export const CARDS: Record<CardId, Card> = {
       rate: 1.2,
       range: 260,
       speed: 66,
-      heal: 6,
+      heal: 7,
       healRange: 140,
       uniform: 'medic',
       tag: '机动 · 前线抢救',
       detail:
-        '3名随队军医，各自在140范围内寻找伤员；会接近倒地战友，进入64距离后施救。每0.8秒治疗一人6点生命。可以随部队推进，负责把前线伤员从失血边缘救回来。',
+        '3名随队军医，各自在140范围内寻找伤员；会接近倒地战友，进入64距离后施救。每0.8秒治疗一人7点生命，比基础医疗兵的4点更强。可以随部队推进，负责把前线伤员从失血边缘救回来。',
     },
   ),
   combat_engineers: variant(
@@ -2097,13 +2121,14 @@ export const CARDS: Record<CardId, Card> = {
       range: 380,
       speed: 64,
       trait: 'engineer',
+      infantryAbility: 'demolition',
       blastProtection: 0.5,
       uniform: 'engineer',
       doctrine: 'assault',
       discipline: 88,
       tag: '步兵 · 破障突击',
       detail:
-        '3费4人200生命。防爆装备使受到的爆炸伤害降低50%，不减免子弹或毒气；36内每1.2秒清除一枚敌雷。负责顶住炮火排雷推进，不维修载具，不额外增加对装甲伤害。',
+        '3费4人200生命。防爆装备使受到的爆炸伤害降低50%，不减免子弹或毒气；36内每1.2秒清除一枚敌雷。破障专精：对墙体、建筑和工事的伤害×3，能快速撕开防线缺口。负责顶住炮火排雷破障推进，不维修载具，不额外增加对装甲伤害。',
     },
   ),
   recon_jump: variant(
@@ -2246,7 +2271,7 @@ export const CARDS: Record<CardId, Card> = {
     'fire_team',
     '火力小组',
     1,
-    '2 人轻装班，便宜填线',
+    '2 人轻装侦察班，便宜填线、前出观测',
     {
       members: 2,
       hp: 90,
@@ -2254,9 +2279,10 @@ export const CARDS: Record<CardId, Card> = {
       range: 360,
       speed: 72,
       discipline: 82,
+      trait: 'scout',
       tag: '步兵 · 廉价填线',
       detail:
-        '2人轻装火力小组，最便宜的步兵单位。适合快速填线、吸引火力或配合战场回收形成源源不断的兵海。',
+        '2人轻装火力小组，最便宜的步兵单位。侦察属性使其能前出观测、为后方炮兵和导弹提供视野引导。适合快速填线、探路开视野、吸引火力或配合战场回收形成源源不断的兵海。',
     },
   ),
   assault_grenadiers: variant(
@@ -2264,7 +2290,7 @@ export const CARDS: Record<CardId, Card> = {
     'assault_grenadiers',
     '突击掷弹兵',
     3,
-    '4 人掷弹班，射击掩护下逐个投雷，优先压制重武器',
+    '4 人掷弹班，射击掩护下逐个投雷，枪弹无视掩体',
     {
       members: 4,
       hp: 200,
@@ -2272,20 +2298,21 @@ export const CARDS: Record<CardId, Card> = {
       range: 380,
       speed: 70,
       frags: 3,
+      infantryAbility: 'flusher',
       trait: 'close_assault',
       uniform: 'heavy',
       doctrine: 'assault',
       discipline: 88,
-      tag: '步兵 · 掩护投雷',
+      tag: '步兵 · 破掩投雷',
       detail:
-        '3费4人200生命，每人3颗手雷。停稳后，由120内同班队友实际射击掩护，逐个向70–220内已发现的敌群或落单重武器手投雷；上一颗落地后才开始下一次投掷。步枪护卫不算重武器手。单兵失去掩护时改用步枪，不盲投、不向55内有友军的落点投掷，屋顶和高土坡会阻挡弧线。保留近距增伤，不释放突击步兵的接敌烟幕。',
+        '3费4人200生命，每人3颗手雷。穿掩射击：步枪火力无视敌方掩体减伤，蹲在矮墙和弹坑里的敌人照样挨枪。停稳后，由120内同班队友实际射击掩护，逐个向70–220内已发现的敌群或落单重武器手投雷；上一颗落地后才开始下一次投掷。步枪护卫不算重武器手。单兵失去掩护时改用步枪，不盲投、不向55内有友军的落点投掷，屋顶和高土坡会阻挡弧线。保留近距增伤，不释放突击步兵的接敌烟幕。',
     },
   ),
   lmg_team: variant(
     'machinegun',
     'lmg_team',
     '轻机枪组',
-    3,
+    2,
     '2 人轻机枪组，短点射间隙借友军掩护换位',
     {
       members: 2,
@@ -2298,7 +2325,120 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'crew',
       tag: '步兵 · 机动压制',
       detail:
-        '1名轻机枪手与1名步枪护卫。机枪每4发短点射后停顿0.8秒，60发弹带、装填2.8秒，可对空。推进命令下，附近180内有友军持续开火掩护、敌人仍在220外时，可利用点射间隙向前换位最多24；无掩护、受压或驻守时留在原位。不需要重机枪的展开，适合跟随突击步兵，而不是单独顶住战线。',
+        '2费1名轻机枪手与1名步枪护卫。机枪每4发短点射后停顿0.8秒，60发弹带、装填2.8秒，可对空。推进命令下，附近180内有友军持续开火掩护、敌人仍在220外时，可利用点射间隙向前换位最多24；无掩护、受压或驻守时留在原位。不需要重机枪的展开，适合跟随突击步兵，而不是单独顶住战线。',
+    },
+  ),
+  flame_team: variant(
+    'infantry',
+    'flame_team',
+    '喷火班组',
+    3,
+    '近距离烈焰清扫掩体与壕沟，无视掩体减伤',
+    {
+      members: 2,
+      hp: 130,
+      damage: 26,
+      rate: 0.28,
+      range: 170,
+      speed: 52,
+      trait: 'close_assault',
+      infantryAbility: 'flusher',
+      uniform: 'heavy',
+      doctrine: 'assault',
+      discipline: 78,
+      tag: '步兵 · 近距焚壕',
+      detail:
+        '2人喷火组，130生命。射程仅170，但每秒伤害极高且无视掩体减伤——蹲在矮墙、弹坑和建筑里的敌人照样被烧。近距离接敌时获得突击加成。适合紧跟装甲推进，清扫壕沟与建筑据点；射程极短，被拉开距离后几乎无力还手。',
+    },
+  ),
+  mlrs: variant(
+    'ifv',
+    'mlrs',
+    '自行火箭炮',
+    7,
+    '远程大面积覆盖轰击，有最小射程，车体脆弱',
+    {
+      en: 'MLRS',
+      vehicle: true,
+      antiAir: false,
+      hp: 180,
+      damage: 48,
+      rate: 7.5,
+      range: 1050,
+      minRange: 350,
+      speed: 42,
+      radius: 65,
+      indirect: true,
+      baseMultiplier: 0.15,
+      sight: 460,
+      tag: '炮兵 · 远程覆盖',
+      detail:
+        '180生命无装甲。每7.5秒齐射一轮48伤害、半径65的远程火箭弹，射程350–1050，曲射越障。覆盖面积极大，适合轰击敌方集结区与阵地；但有350最小射程，被近身时无法还击，且车体脆弱，一发反甲火力即可瘫痪。被声测定位两轮后自动转移。',
+    },
+  ),
+  scout_car: variant(
+    'ifv',
+    'scout_car',
+    '装甲侦察车',
+    3,
+    '快速前出侦察，共享视野引导炮兵，自卫火力弱',
+    {
+      en: 'SCOUT CAR',
+      vehicle: true,
+      antiAir: false,
+      hp: 200,
+      damage: 3,
+      rate: 0.5,
+      range: 350,
+      speed: 82,
+      observer: true,
+      sight: 950,
+      tag: '侦察 · 视野共享',
+      detail:
+        '200生命。速度82，是最快的装甲车辆；950超远视野并为友军共享，可引导迫击炮、火箭炮与炮兵进行超视距打击。自卫机枪仅3伤害，几乎无法独立作战。适合开局抢占视野、持续监视敌方动向，被敌方装甲或空中力量盯上时需迅速撤离。',
+    },
+  ),
+  flame_tank: variant(
+    'tank',
+    'flame_tank',
+    '喷火坦克',
+    6,
+    '近距烈焰焚扫步兵，对装甲几乎无效',
+    {
+      hp: 560,
+      damage: 30,
+      rate: 0.22,
+      range: 210,
+      speed: 42,
+      radius: 18,
+      infantryMultiplier: 3.0,
+      armorMultiplier: 0.08,
+      baseMultiplier: 0.1,
+      tag: '装甲 · 近距焚扫',
+      detail:
+        '560生命装甲。拆除主炮换装喷火器：射程仅210，但对步兵伤害×3.0、附带范围灼烧，一轮喷射可清空整片壕沟；对装甲伤害×0.08，几乎无法击穿坦克。适合伴随步兵推进、清扫筑垒地带，被敌方坦克贴脸时毫无还手之力。',
+    },
+  ),
+  light_mortar: variant(
+    'mortar',
+    'light_mortar',
+    '轻迫击炮班',
+    2,
+    '低费曲射支援，射程近、伤害低',
+    {
+      members: 2,
+      hp: 100,
+      damage: 26,
+      rate: 3.6,
+      range: 580,
+      minRange: 100,
+      speed: 48,
+      radius: 22,
+      indirect: true,
+      uniform: 'crew',
+      tag: '炮兵 · 低费曲射',
+      detail:
+        '2人炮手，100生命。每3.6秒一发26范围伤害，射程100–580，曲射越障。费用仅2，是最便宜的曲射火力，适合早期压制敌方步兵集结点与轻阵地；伤害和射程都远不如重型迫击炮，被近身时同样后撤。',
     },
   ),
 };
@@ -2308,8 +2448,8 @@ export function modelOf(id: CardId): BaseCardId {
 export function weaponCard(u: { id: CardId; member: number }): Card {
   const c = CARDS[u.id];
   if (u.id === 'sniper_team')
-    return { ...c, members: 1, damage: u.member === 0 ? 52 : 0,
-      range: u.member === 0 ? 650 : 0 };
+    return { ...c, members: 1, damage: u.member === 0 ? 56 : 0,
+      range: u.member === 0 ? 700 : 0 };
   if (u.id === 'airborne_at')
     return u.member < 2
       ? { ...c, members: 1, damage: 60 }
@@ -2382,7 +2522,7 @@ Object.assign(CARDS.infantry, {
 Object.assign(CARDS.armed_police, {
   cost: 2,
   hp: 200,
-  damage: 16,
+  damage: 18,
   range: 300,
   infantryAbility: 'guard',
   tag: '守备 · 护卫',

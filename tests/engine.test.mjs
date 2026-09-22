@@ -687,8 +687,8 @@ check('卧姿狙击手有真实射线时保持卧姿开火，不为每枪起立'
   assert.equal(u.pose, 'prone');
   assert.equal(u.muzzleY, muzzlePoint(u, s.units[1].x).y);
 });
-check('116种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 116);
+check('121种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
+  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 121);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(
@@ -3605,7 +3605,7 @@ check('对地机优先扫射步兵，枪弹向机头前方飞行且飞机不反�
           'no backward gunfire under the nose',
         );
     }
-    assert(plane.shots > 5 && plane.shots <= 24);
+    assert(plane.shots > 5 && plane.shots <= (CARDS['strike_jet'].sortieAmmo ?? 24));
   }
 });
 
@@ -3659,7 +3659,7 @@ check('扫射和轰炸弹药逐架次复位，返航仍保留同一张卡与原�
       assert.equal(p.energy, 10 - cost);
       const plane = s.units.find((u) => u.side === 0 && u.sortieCard === token);
       assert(plane && plane.shots === 0 && plane.bombsLeft === undefined);
-      const limit = id === 'bomber' ? 6 : 24;
+      const limit = CARDS[id].sortieAmmo ?? (id === 'bomber' ? 6 : 24);
       while (plane.hp > 0 && s.status === 'playing') {
         tick(s, 1 / 60);
         assert(plane.shots <= limit);

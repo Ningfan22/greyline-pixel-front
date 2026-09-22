@@ -1,7 +1,6 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { figureFrames, transparentSheet } from './sprite-atlas';
-import { adultAtlas, standingReloadFrames, standingGrenadeFrames } from './adult-atlas';
-import { stanceAtlas } from './stance-art';
+import { adultAtlas, standingReloadFrames, standingGrenadeFrames, ownStance16 } from './adult-atlas';
 import { packedWeaponStances } from './weapon-stance-art';
 import { packedMedicalFrames } from './medical-art';
 import { packedLowGrenades } from './low-grenade-art';
@@ -334,6 +333,8 @@ const VEHICLE_TINTS: Record<string, [number, number, number]> = {
   mine_clearer: [0.95, 0.88, 0.66], // desert mine-plough
   aa_gun: [0.7, 0.74, 0.68], // dark air-defence
   sam_vehicle: [0.66, 0.7, 0.78], // slate blue
+  mlrs: [0.74, 0.7, 0.58], // olive-drab rocket launcher
+  scout_car: [0.82, 0.86, 0.8], // pale recon grey-green
   // Helicopter-family variants (share aircraft atlases)
   rocket_heli: [0.82, 0.78, 0.62], // desert attack
   scout_drone: [0.8, 0.84, 0.88], // pale recon grey
@@ -599,7 +600,6 @@ export function loadArt() {
       loadImage('/art/standing-grenade-v136.png'),
       loadImage('/art/heavy-mg-v140.png'),
       loadImage('/art/glider-v141.png'),
-      loadImage('/art/infantry-stance-v142.png'),
       loadImage('/art/infantry-reload-v143.png'),
       loadImage('/art/blast-fuel-frames-v165.png'),
       loadImage('/art/blast-earth-frames-v165.png'),
@@ -652,7 +652,6 @@ export function loadArt() {
         standingGrenade,
         heavyMG,
         gliderSheet,
-        stanceSheet,
         lowReloadSheet,
         fuelBlastSheet,
         earthBlastSheet,
@@ -712,7 +711,6 @@ export function loadArt() {
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const reload8 = standingReloadFrames(standingReload);
       const grenade8 = standingGrenadeFrames(standingGrenade);
-      const stance16 = stanceAtlas(stanceSheet);
       const lowReload16 = lowReloadAtlas(lowReloadSheet);
       const medical24 = packedMedicalFrames(medicalSheet);
       const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
@@ -721,21 +719,19 @@ export function loadArt() {
       // Command gestures were removed from all live selectors. Keep the
       // legacy field empty; do not fetch/decode four unused 1254px sheets.
       const signals4: HTMLCanvasElement[] = [];
-      const adults = {
-        infantry: { ...adultAtlas(adultInfantry), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
-        marines: { ...adultAtlas(adultMarines), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
-        police: { ...adultAtlas(adultPolice), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
-        militia: { ...adultAtlas(adultMilitia), signals4, reload8, grenade8, stance16, lowReload16, medical24, lowGrenade32, repair34, proneIdle8 },
+      // v174: each identity builds its pose chain from its OWN pixel atlas,
+      // so aiming or dropping to a knee never swaps a yellow marine onto the
+      // shared green realistic stance body.
+      const mkAdult = (img: HTMLImageElement) => {
+        const a = adultAtlas(img);
+        return { ...a, signals4, reload8, grenade8, stance16: ownStance16(a), lowReload16, medical24, lowGrenade32, repair34, proneIdle8 };
       };
-      // The settled posture is the last painted cel: no snap to a differently
-      // proportioned legacy body at the exact end of the transition.
-      for (const adult of Object.values(adults)) {
-        adult.actions20[0]=stance16[0];
-        adult.actions20[1]=stance16[7];
-        adult.actions20[2]=stance16[15];
-      }
-      // Both halves share the identical kneeling handoff.
-      stance16[8]=stance16[7];
+      const adults = {
+        infantry: mkAdult(adultInfantry),
+        marines: mkAdult(adultMarines),
+        police: mkAdult(adultPolice),
+        militia: mkAdult(adultMilitia),
+      };
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       // Match the last raising pose to the established firing anatomy at the handoff.
       for (const id of Object.keys(adults) as AdultIdentity[])
