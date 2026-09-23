@@ -23,11 +23,11 @@ const cases=[['ready',{}],...Array.from({length:8},(_,i)=>['walk-'+i,{pose:'walk
   ['deploy',{pose:'crouch',emplacementSetupUntil:21}],['signal',{pointUntil:21,pointDir:-1}],
 ];
 function plate(name,entries,columns=7){
-  const c=createCanvas(columns*256,Math.ceil(entries.length/columns)*225+35),ctx=c.getContext('2d');
+  const c=createCanvas(columns*256,Math.ceil(entries.length/columns)*285+35),ctx=c.getContext('2d');
   ctx.fillStyle='#adb6ad';ctx.fillRect(0,0,c.width,c.height);ctx.imageSmoothingEnabled=false;
   ctx.fillStyle='#17271e';ctx.font='18px monospace';ctx.fillText(name,10,24);
-  entries.forEach(([label,u],i)=>{const {image}=soldierFrame(art,{...base,...u},20),x=i%columns*256,y=35+Math.floor(i/columns)*225;
-    ctx.drawImage(image,x,y,256,192);ctx.fillStyle='#17271e';ctx.font='14px monospace';ctx.fillText(label,x+10,y+214);});
+  entries.forEach(([label,u],i)=>{const {image}=soldierFrame(art,{...base,...u},20),x=i%columns*256,y=35+Math.floor(i/columns)*285;
+    ctx.drawImage(image,x,y,256,image.height*2);ctx.fillStyle='#17271e';ctx.font='14px monospace';ctx.fillText(label,x+10,y+274);});
   writeFileSync(join(out,name+'.png'),c.toBuffer('image/png'));
 }
 for(const id of ['infantry','marines','armed_police','militia'])plate(id,cases.map(([n,u])=>[n,{...u,id}]));

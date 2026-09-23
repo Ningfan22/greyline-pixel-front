@@ -24,7 +24,7 @@ function canvas(){
     if(c===main){const m=ctx.getTransform();texts.push({value:String(value),x:(m.a*x+m.c*y+m.e)/2,y:(m.b*x+m.d*y+m.f)/2});}
     return text(value,x,y,...rest);
   };
-  ctx.drawImage=(image,...args)=>{if(image?.width===128&&image.height===96)bodyBlits++;return draw(image,...args);};
+  ctx.drawImage=(image,...args)=>{if(image?.width===128&&image.height===128)bodyBlits++;return draw(image,...args);};
   return c;
 }
 function image(){

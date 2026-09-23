@@ -507,8 +507,8 @@ export function render(
             (1 - decay) * (1 - shade)
           ).toFixed(2)})`,
         ),
-        w.x + (rigWreck?0:(bsd >>> 4) % 3 - 1),
-        w.y + infantryDepth(w.lane) + 3,
+        w.x + (rigWreck?-Math.sin(w.angle)*(rigWreck.image.height-rigWreck.anchorY):(bsd >>> 4) % 3 - 1),
+        w.y + infantryDepth(w.lane) + 3 + (rigWreck ? Math.cos(w.angle)*(rigWreck.image.height-rigWreck.anchorY) : 0),
         wreckImage.width * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
         wreckImage.height * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
@@ -776,6 +776,7 @@ export function render(
       u.y +
       infantryDepth(u.lane) +
       (u.glider ? 8 : isTank ? 0 : 3) +
+      (rig ? rig.image.height-rig.anchorY : 0) +
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);

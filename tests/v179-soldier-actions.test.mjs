@@ -28,13 +28,13 @@ test('all 145 member roles retain body parts and pixel scale in the complete syn
   for(const role of roles)for(const facing of [-1,1])for(const pose of ['idle','crouch','prone'])for(const [action,patch]of actions){
     const u={...base,...role,facing,pose,...patch},before=JSON.stringify(u),{image,pose:p}=soldierFrame(art,u,20);
     assert.equal(p.action,action,JSON.stringify(u));assert.deepEqual(p.appearance,soldierAppearance(u));
-    assert.equal(JSON.stringify(u),before);assert.equal(image.width,128);assert.equal(image.height,96);
+    assert.equal(JSON.stringify(u),before);assert.equal(image.width,128);assert.equal(image.height,128);
     for(const [a,b,l] of [[p.hip,p.neck,22],[p.hip,p.nearKnee,17],[p.nearKnee,p.nearFoot,17],
       [[p.hip[0]-1,p.hip[1]],p.farKnee,17],[p.farKnee,p.farFoot,17],
       [p.shoulder,p.nearElbow,12],[p.nearElbow,p.nearHand,13],
       [[p.shoulder[0]+1,p.shoulder[1]-1],p.farElbow,12],[p.farElbow,p.farHand,13]])
       assert(Math.abs(dist(a,b)-l)<1e-6,`${role.id}/${role.member}/${action} bone length`);
-    const pixels=image.getContext('2d').getImageData(0,0,128,96).data;
+    const pixels=image.getContext('2d').getImageData(0,0,image.width,image.height).data;
     let count=0;for(let i=3;i<pixels.length;i+=4){assert(pixels[i]===0||pixels[i]===255);if(pixels[i])count++;}
     assert(count>150,`${role.id}/${action} invisible`);
   }
@@ -153,9 +153,11 @@ test('the real revive branch hands off the wounded skeleton without resetting le
     const after=soldierPose(u,s.time);for(const key of bodyKeys)assert(dist(before[key],after[key])<1e-8,`${role.id}/${key}`);
   }
 });
-test('every member plants its feet during the real prone-to-kneel carrier transition, then resumes dragging',()=>{
+test('every mobile member plants its feet during the real prone-to-kneel carrier transition, then resumes dragging',()=>{
   const s=createGame(179);startGame(s);s.aiIn=1e9;s.scenery=[];s.walls=[];s.terrain.fill(374);s.original.fill(374);
-  for(const role of roles){
+  // Fixed field hospitals cannot haul; v181 separately verifies that they
+  // release invalid drag assignments and leave the patient available for aid.
+  for(const role of roles.filter(role=>(CARDS[role.id].speed??0)>0)){
     s.units=[];spawnUnit(s,0,role.id,900,{member:role.member});const u=s.units.at(-1);
     spawnUnit(s,0,'infantry',916);const patient=s.units.at(-1);s.units=[u,patient];
     Object.assign(patient,{x:916,y:374,pose:'prone',wounded:true,woundedTime:3,hp:8,bleedOut:120,
