@@ -10,6 +10,7 @@ const {MAP_IDS}=await import('../game/maps.ts');
 const out=mkdtempSync(join(tmpdir(),'greyline-soldier-combat-'));console.log(JSON.stringify({out}));
 const ids=Object.keys(CARDS).filter(id=>CARDS[id].members),trials=[],failures=[],jointJumps=[];
 for(const [index,id]of ids.entries())for(const side of [0,1]){
+  if(process.argv[2]&&id!==process.argv[2])continue;
   const map=MAP_IDS[index%MAP_IDS.length],s=createGame(178,undefined,undefined,map,{mapSeed:178,difficulty:'standard'});
   startGame(s);s.aiIn=1e9;s.weather.disabled=true;
   const x=side?2020:1500,enemy=1-side,ex=side?1500:2020;
@@ -53,7 +54,11 @@ for(const [index,id]of ids.entries())for(const side of [0,1]){
       if(largest>6)jointJumps.push({id,side,member:u.member,time:s.time,joint,pixels:largest,
         from:{pose:last.pose,motion:last.motion,action:last.rig.action,phase:last.phase,low:last.rig.low},
         to:{pose:u.pose,motion:u.motion,action:p.action,phase:u.gaitPhase,low:p.low},
-        gaitWeight:u.gaitWeight,crouchTravel:u.crouchTravel,proneTravel:u.proneTravel});
+        gaitWeight:u.gaitWeight,crouchTravel:u.crouchTravel,proneTravel:u.proneTravel,
+        woundedTime:u.woundedTime,hasFall:!!u.soldierFall,
+        previousJoints:{hip:last.rig.hip,knee:last.rig.nearKnee,foot:last.rig.nearFoot},
+        currentJoints:{hip:p.hip,knee:p.nearKnee,foot:p.nearFoot},
+        poseAnimFrom:u.poseAnimFrom,poseAnimSeen:u.poseAnimSeen,poseAnimAt:u.poseAnimAt});
     }
   }
   trials.push({id,side,map,seconds:s.time,members:[...records.values()].map(r=>({...r,poses:[...r.poses],actions:[...r.actions]}))});
