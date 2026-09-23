@@ -18,6 +18,9 @@ const cases=[['ready',{}],...Array.from({length:8},(_,i)=>['walk-'+i,{pose:'walk
   ['throw',{fragThrow:.6,fragThrowStartedAt:19.5}],['medic',{pose:'crouch',tending:true,tendingKind:'medical',tendingTime:.7}],
   ['dig',{pose:'crouch',digging:true,digElapsed:1}],['rappel',{rappelling:true}],
   ['wounded',{wounded:true,woundedTime:1}],['surrender',{surrendered:true,surrenderTime:1}],
+  ['share',{ammoShareUntil:21}],['drag',{draggingUid:99,pose:'walk',moving:true,walk:3}],
+  ['observe',{observingUntil:21}],['barrel',{pose:'crouch',overheatedUntil:21}],
+  ['deploy',{pose:'crouch',emplacementSetupUntil:21}],['signal',{pointUntil:21,pointDir:-1}],
 ];
 function plate(name,entries,columns=7){
   const c=createCanvas(columns*256,Math.ceil(entries.length/columns)*225+35),ctx=c.getContext('2d');
@@ -28,8 +31,15 @@ function plate(name,entries,columns=7){
   writeFileSync(join(out,name+'.png'),c.toBuffer('image/png'));
 }
 for(const id of ['infantry','marines','armed_police','militia'])plate(id,cases.map(([n,u])=>[n,{...u,id}]));
+for(const id of ['rocket','heavy_mg','light_mortar','sniper_team','flame_team','grenadiers'])
+  plate(id,cases.map(([n,u])=>[n,{...u,id}]));
 plate('roles',Object.entries(CARDS).filter(([,c])=>c.members).map(([id])=>[id,{id,pose:'crouch'}]));
 plate('stance-chain',Array.from({length:32},(_,i)=>['pose-'+i,{id:'marines',pose:'prone',poseAnimAt:20-i/31*2.4,poseAnimFrom:'stand',poseAnimSeen:'prone'}]),8);
+const fallFrom=soldierPose({...base,id:'marines',pose:'run',moving:true,gaitWeight:1,gaitPhase:2.3},20);
+plate('fall-chain',Array.from({length:24},(_,i)=>['fall-'+i,{id:'marines',pose:'prone',wounded:true,woundedTime:i/23*.7,soldierFall:fallFrom}]),8);
+const riseFrom=soldierPose({...base,id:'marines',pose:'prone',wounded:true,woundedTime:1},20);
+plate('revive-chain',Array.from({length:24},(_,i)=>['rise-'+i,{id:'marines',pose:'crouch',poseAnimFrom:'prone',poseAnimSeen:'crouch',
+  poseAnimAt:20-i/23*1.2,soldierRise:{at:20-i/23*1.2,pose:riseFrom}}]),8);
 let checked=0;
 for(const [id,c]of Object.entries(CARDS))if(c.members)for(let member=0;member<c.members;member++)for(const [,u]of cases){
   const p=soldierPose({...base,...u,id,member},20);

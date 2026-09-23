@@ -17,6 +17,7 @@ const {loadArt}=await import('../game/art.ts');
 const {render}=await import('../game/render.ts');
 const {createGame,startGame,spawnUnit,refreshVision,CARDS,H}=await import('../game/engine.ts');
 const {weaponModel}=await import('../game/cards.ts');
+const {soldierPose}=await import('../game/soldier-pose.ts');
 const art=await loadArt(),out=mkdtempSync(join(tmpdir(),'greyline-soldier-audit-'));
 const screen=createCanvas(960,H),ctx=screen.getContext('2d'),draw=ctx.drawImage.bind(ctx);
 let captured;
@@ -37,6 +38,14 @@ const cases=[
   ['medical',{pose:'crouch',tending:true,tendingKind:'medical',tendingTime:1.2}],
   ['repair',{pose:'crouch',tending:true,tendingKind:'repair',tendingTime:1.2}],
   ['dig',{pose:'crouch',digging:true,digElapsed:2}],
+  ['drag',{pose:'walk',moving:true,walk:2,draggingUid:999}],
+  ['share',{ammoShareUntil:21}], ['scavenge',{scavengeUntil:21}],
+  ['signal',{ammoSignalUntil:21}], ['point',{pointUntil:21,pointDir:-1}],
+  ['observe',{observingUntil:21}],['deploy',{pose:'crouch',emplacementSetupUntil:21}],
+  ['barrel',{pose:'crouch',overheatedUntil:21}],
+  ['cycle',{shots:1,lastCombatShotAt:19.7,cooldown:.5}],
+  ['alert',{blastGlanceUntil:20.5,blastGlanceDir:-1}],
+  ['parachute',{parachuting:true}], ['vault',{climbing:1}],
   ['rappel',{rappelling:true,walk:1}], ['jump',{motion:'jump',motionTime:.2}],
   ['wounded',{wounded:true,woundedTime:1}], ['surrender',{surrendered:true,surrenderTime:1}],
 ];
@@ -63,25 +72,24 @@ for(const [id,card] of Object.entries(CARDS).filter(([,c])=>c.members)){
       const before=JSON.stringify(u);render(ctx,s,art,null,null,true,500,960);
       if(JSON.stringify(u)!==before)throw new Error('Renderer mutated '+id+'/'+u.member);
       if(!captured)throw new Error('No actual body draw '+id+'/'+u.member+'/'+name);
-      frames.push({name,...bounds(captured)});
-      if(u.member===0)images.set(id+'/'+name,captured);
+      frames.push({name,action:soldierPose(u,s.time).action,...bounds(captured)});
+      images.set(id+'/'+u.member+'/'+name,captured);
     }
     inventory.push({id,member:u.member,weapon:weaponModel(u),uniform:card.uniform??'infantry',frames});
   }
 }
 const ids=Object.entries(CARDS).filter(([,c])=>c.members).map(([id])=>id);
-// One readable plate per card; this keeps all classes inspectable rather than
-// hiding the long tail behind four representative identities.
-for(const id of ids){
-  const columns=8,cellW=196,cellH=216,rows=Math.ceil(cases.length/columns);
+// Every mixed-crew member gets a plate: do not hide escorts behind member zero.
+for(const {id,member} of inventory){
+  const columns=8,cellW=256,cellH=216,rows=Math.ceil(cases.length/columns);
   const plate=createCanvas(columns*cellW,rows*cellH+36),p=plate.getContext('2d');
   p.fillStyle='#acb4ab';p.fillRect(0,0,plate.width,plate.height);p.imageSmoothingEnabled=false;
-  p.font='18px monospace';p.fillStyle='#19271c';p.fillText(id,12,24);
-  cases.forEach(([name],i)=>{const f=images.get(id+'/'+name),x=i%columns*cellW,y=36+Math.floor(i/columns)*cellH;
+  p.font='18px monospace';p.fillStyle='#19271c';p.fillText(id+' / member '+member,12,24);
+  cases.forEach(([name],i)=>{const f=images.get(id+'/'+member+'/'+name),x=i%columns*cellW,y=36+Math.floor(i/columns)*cellH;
     p.drawImage(f,x+(cellW-f.width*2)/2,y,f.width*2,f.height*2);
     p.fillStyle='#19271c';p.font='13px monospace';p.fillText(name,x+5,y+208);
   });
-  writeFileSync(join(out,id+'.png'),plate.toBuffer('image/png'));
+  writeFileSync(join(out,id+'-'+member+'.png'),plate.toBuffer('image/png'));
 }
 const report={cards:ids.length,members:inventory.length,rendered:inventory.length*cases.length,cases:cases.map(([n])=>n),inventory};
 writeFileSync(join(out,'report.json'),JSON.stringify(report,null,2));

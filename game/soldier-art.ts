@@ -115,7 +115,15 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
   arm(f,[p.shoulder[0]+1,p.shoulder[1]-1],p.farElbow,p.farHand);
   const spineAngle=Math.atan2(p.hip[1]-p.neck[1],p.hip[0]-p.neck[0])-Math.PI/2;
   at(ctx,p.weapon==='flame'?art.equipment.tanks:n.backpack,p.neck,-14,2,spineAngle);
-  if(p.slung&&p.weaponVisible)at(ctx,n.rifle,p.neck,-7,3,1.12);
+  if(p.slung&&p.weaponVisible){
+    const carried=p.weapon==='rifle'?n.rifle:art.equipment[p.weapon];
+    ctx.save();ctx.translate(Math.round(p.neck[0]),Math.round(p.neck[1]));ctx.rotate(spineAngle+1.12);
+    if(p.weapon==='hmg'){
+      ctx.drawImage(carried,0,0,carried.width,10,-7,3,carried.width,10);
+      ctx.fillStyle='#3c4034';ctx.fillRect(-6,14,23,3);
+    }else ctx.drawImage(carried,-7,3);
+    ctx.restore();
+  }
   segment(ctx,n.torso,p.neck,p.hip);at(ctx,n.pelvis,p.hip,-6,-4,spineAngle);
   at(ctx,n.head,p.head,-6,-13,p.headAngle);
   leg(n,p.nearKnee,p.nearFoot,p.hip);
@@ -138,9 +146,17 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
   if(p.appearance.uniform==='medic')at(ctx,art.equipment.medical,p.hip,-10,-1);
   arm(n,p.shoulder,p.nearElbow,p.nearHand);
   if(p.prop){
-    const hand=p.prop==='magazine'?p.farHand:p.nearHand;
+    const hand=p.propHand==='far'?p.farHand:p.nearHand;
     if(p.prop==='shovel'||p.prop==='wrench')at(ctx,art.equipment[p.prop],hand,-2,-5,p.prop==='shovel'?-.28:.25);
-    else {
+    else if(p.prop==='rocketRound'||p.prop==='mortarRound'||p.prop==='shell'){
+      const x=Math.round(hand[0]),y=Math.round(hand[1]),long=p.prop==='rocketRound';
+      ctx.fillStyle='#646146';ctx.fillRect(x-1,y-(long?9:5),3,long?15:9);
+      ctx.fillStyle='#b4a36c';ctx.fillRect(x,y-(long?11:7),1,2);
+      if(p.prop!=='shell'){ctx.fillStyle='#393d33';ctx.fillRect(x-3,y+(long?4:2),7,2);}
+    }else if(p.prop==='belt'){
+      const x=Math.round(hand[0]),y=Math.round(hand[1]);ctx.fillStyle='#30352b';ctx.fillRect(x-5,y,11,2);
+      ctx.fillStyle='#a79158';for(let i=0;i<5;i++)ctx.fillRect(x-5+i*2,y-2,1,5);
+    }else {
       const x=Math.round(hand[0]),y=Math.round(hand[1]);
       ctx.fillStyle=p.prop==='bandage'?'#d1caba':p.prop==='grenade'?'#52523a':'#2a302c';
       ctx.fillRect(x-2,y-2,p.prop==='binoculars'?8:4,p.prop==='magazine'?6:4);
@@ -151,7 +167,13 @@ export function soldierFrame(art:SoldierArt,u:SoldierBody,time:number) {
   const pose=soldierPose(u,time);
   // Quantise only the raster cache key, not simulation or skeletal movement.
   // Full appearance + weapon + action avoids cross-unit cache contamination.
-  const key=JSON.stringify(pose,(k,v)=>k==='phase'?undefined:typeof v==='number'?Math.round(v*2)/2:v);
+  const key=JSON.stringify(pose,(k,v)=>{
+    if(k==='phase')return undefined;
+    if(typeof v!=='number')return v;
+    // Half a radian would erase head checks and small changes of gun pitch.
+    const grid=k.endsWith('Angle')||k==='travel'||k==='low'?1024:2;
+    return Math.round(v*grid)/grid;
+  });
   const existing=art.frames.get(key);if(existing)return {image:existing,pose};
   const frame=make(128,96),ctx=frame.getContext('2d')!;ctx.save();ctx.translate(64,96);paintSoldier(ctx,art,pose);ctx.restore();
   // Rotations may produce edge coverage even with nearest sampling. Resolve

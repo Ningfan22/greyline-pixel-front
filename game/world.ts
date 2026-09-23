@@ -71,6 +71,7 @@ export interface Wreck {
   spentWarhead?: boolean;
   /** Preserve the casualty's final presentation; old serialized wrecks can omit these. */
   pose?: Unit['pose'];
+  soldierFall?: Unit['soldierFall'];
   facing?: number;
   lane?: number;
   /** v83: fallen infantry keep their weapon's remaining ammo so living squadmates can loot it. */
