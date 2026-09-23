@@ -20,8 +20,8 @@ export function initAdapter(): void {
   // ── Main on-screen canvas (first tt.createCanvas call) ──
   mainCanvas = tt.createCanvas();
   const info = tt.getSystemInfoSync();
-  mainCanvas.width = info.windowWidth * info.pixelRatio;
-  mainCanvas.height = info.windowHeight * info.pixelRatio;
+  mainCanvas.width = info.windowWidth * (info.pixelRatio || 1);
+  mainCanvas.height = info.windowHeight * (info.pixelRatio || 1);
 
   // ── document shim ──
   g.document = {
@@ -50,46 +50,10 @@ export function initAdapter(): void {
 
   // ── Image shim ──
   g.Image = class ImageShim {
-    private _img: any;
-    onload: (() => void) | null = null;
-    onerror: ((e: any) => void) | null = null;
-    private _src = '';
     constructor() {
-      this._img = tt.createImage();
-      this._img.onload = () => {
-        if (this.onload) this.onload();
-      };
-      this._img.onerror = (e: any) => {
-        if (this.onerror) this.onerror(e);
-      };
-    }
-    get src(): string {
-      return this._src;
-    }
-    set src(v: string) {
-      this._src = v;
-      this._img.src = v;
-    }
-    get width(): number {
-      return this._img.width;
-    }
-    set width(v: number) {
-      this._img.width = v;
-    }
-    get height(): number {
-      return this._img.height;
-    }
-    set height(v: number) {
-      this._img.height = v;
-    }
-    get naturalWidth(): number {
-      return this._img.width;
-    }
-    get naturalHeight(): number {
-      return this._img.height;
-    }
-    get complete(): boolean {
-      return this._img.complete ?? false;
+      // drawImage requires the native platform image, not a JS wrapper
+      // carrying it in _img. Return that very object from new Image().
+      return tt.createImage();
     }
   };
 
@@ -142,11 +106,9 @@ export function initAdapter(): void {
   }
 
   // ── AudioContext shim ──
-  const AC: any =
-    (typeof tt.createWebAudioContext === 'function' && tt.createWebAudioContext()) ||
-    g.AudioContext ||
-    g.webkitAudioContext ||
-    null;
+  const AC: any = typeof tt.createWebAudioContext === 'function'
+    ? function AudioContextShim() { return tt.createWebAudioContext(); }
+    : g.AudioContext || g.webkitAudioContext || null;
 
   // ── window shim ──
   g.window = {
@@ -159,8 +121,8 @@ export function initAdapter(): void {
     removeEventListener() {},
   };
   if (AC) {
-    g.AudioContext = AC.constructor || AC;
-    g.webkitAudioContext = AC.constructor || AC;
+    g.AudioContext = AC;
+    g.webkitAudioContext = AC;
   }
 
   // ── requestAnimationFrame (already global in mini-game, ensure) ──

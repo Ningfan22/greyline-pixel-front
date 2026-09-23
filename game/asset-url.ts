@@ -36,6 +36,8 @@ const CDN_AUDIO = new Set(['searching.mp3']);
  * - Everything else: always local (bundled in the package).
  */
 export function assetUrl(path: string) {
+  // Canvas screens also pass `art/...`; route both forms through the CDN.
+  if (!path.startsWith('/')) path = `/${path}`;
   if (path.startsWith('/art/')) {
     const cdn = artCdnBase();
     if (cdn) {

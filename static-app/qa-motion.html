@@ -1,0 +1,8 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>动画与触控回归 · 灰线战区</title>
+<style>body{margin:20px;background:#18221c;color:#e5dfca;font:16px system-ui}button,select{font:inherit;margin:4px;padding:8px;background:#354438;color:inherit;border:1px solid #839177}canvas{display:block;max-width:100%;image-rendering:pixelated;border:1px solid #697666;margin-top:10px}#status{line-height:1.6}</style>
+<h1>动画与触控回归</h1><p>使用正式渲染器与正式 Canvas 页面；测试页不会写入你的真实游戏存档。</p>
+<button id="motion">士兵举枪移动</button><button id="canvas-ui">Canvas 操作界面</button>
+<label>姿势 <select id="pose"><option value="walk">站姿</option><option value="crouch">蹲姿</option><option value="prone">卧姿</option><option value="run">跑步</option></select></label>
+<button id="pause">暂停</button><button id="step">下一步态帧</button><p id="status">加载中…</p>
+<canvas id="view" width="960" height="540"></canvas><script type="module" src="./qa-motion.ts"></script></html>

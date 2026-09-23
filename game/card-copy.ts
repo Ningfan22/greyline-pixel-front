@@ -435,14 +435,14 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FLAME ASSAULT TEAM',
     typeLabel: '近距焚壕',
     ability: '烈焰清壕',
-    rule: '近距高伤，无视掩体减伤。',
+    rule: '短程灼伤，实体掩体挡火。',
     flavor: '壕沟里的人最怕火柴。',
   },
   light_mortar: {
     en: 'LIGHT MORTAR TEAM',
     typeLabel: '低费曲射',
     ability: '轻便曲射',
-    rule: '低费曲射，射程伤害有限。',
+    rule: '一炮一护卫，低费短程曲射。',
     flavor: '小炮也是炮。',
   },
   light_tank: {
@@ -456,7 +456,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FLAME TANK',
     typeLabel: '近距焚扫',
     ability: '焚扫步兵',
-    rule: '近距灼烧步兵，对甲无力。',
+    rule: '短程灼伤，对甲弱、不炸坑。',
     flavor: '坦克拼刺刀，它赢。',
   },
   scout_car: {
@@ -470,7 +470,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MLRS',
     typeLabel: '远程覆盖',
     ability: '大面积齐射',
-    rule: '远程曲射覆盖，有最小射程。',
+    rule: '三发覆盖，长装填、无装甲。',
     flavor: '一轮齐射，地皮翻一遍。',
   },
   heavy_tank: {

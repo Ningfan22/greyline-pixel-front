@@ -1,0 +1,53 @@
+{
+  "task": "v152 standalone break-action grenadier atlas",
+  "mode": "built-in",
+  "tool": "image_gen.imagegen",
+  "generation_calls": 1,
+  "retries": 0,
+  "variants": 0,
+  "original_modified": false,
+  "arguments": {
+    "prompt": "Use case: stylized-concept\nAsset type: v152 authored whole-body single-shot grenadier animation atlas for a side-view modern battlefield game.\nCreate ONE original detailed painted bitmap PNG, preferably 2048x1024 LANDSCAPE (2:1), with EXACTLY EIGHT COLUMNS by THREE ROWS: TWENTY-FOUR isolated complete full-body figures. All cells form a regular equal invisible grid, conceptually 256 pixels wide by approximately 341 pixels high. Rows are three fixed postures; each row repeats the same eight-step weapon drill across its eight columns. Do not omit cells or add a fourth row.\n\nStyle/identity: Realistic adult human proportions and articulated anatomy, detailed grounded painted military-game finish, crisp readable silhouettes. Same adult grenadier, strict SIDE PROFILE facing RIGHT in every cel, same camera and anatomical body scale everywhere. Match the muted olive/tan infantry material finish of the previously viewed standing-reload-v135 and infantry-reload-v143 style references, but create this new asset, not a reference edit. Olive/tan camouflage uniform and helmet, tactical vest with SMALL 40mm-round pouches, gloves and dark boots. Natural full-sized adult head, torso, arms and legs. No chibi, stick figures, blocky pixel anatomy or torso cutouts. The complete helmet, both boots, hands and weapon must be visible.\n\nWeapon identity is critical: ONE compact standalone shoulder-fired SINGLE-SHOT BREAK-ACTION GRENADE LAUNCHER, fictional M79-style. Short THICK BLACK barrel, visible break-action hinge/breech, short fore-end, brown WOODEN shoulder stock. Consistent model, dimensions and materials in ALL twenty-four cels. It is not a rifle, an under-barrel attachment, RPG shoulder tube, rocket launcher, mortar, shotgun with long barrels, or automatic weapon. No extra rifle or extra launcher. When open, the SAME short thick barrel hinges downward away from the SAME wooden-stock receiver, clearly exposing the rear breech. The stock and barrel remain visibly joined at the hinge.\n\nPosture rows, TOP TO BOTTOM:\nROW 0: STANDING with both feet planted at exactly the same local positions in all eight columns. Full upright body approximately 200 pixels high at 2048x1024 output. No squat, step, kneeling or lower-body movement.\nROW 1: PLANTED ONE-KNEE KNEELING, approximately 140 pixels high at the SAME anatomical body scale. Back knee/rear boot and front boot stay fixed across all eight columns. No crawling, standing or rising.\nROW 2: FULLY PRONE, approximately 65 pixels high at the SAME anatomical body scale; belly, pelvis and elbows low/grounded, legs extended LEFT, head RIGHT. Entire prone body-plus-launcher extent LESS THAN 220 pixels wide at 2048 output. No push-up, lifting onto knees or enlarging prone figures. Local forearm articulation accommodates loading while the body remains flat.\n\nEight columns, LEFT TO RIGHT, in EACH of the three rows:\nCOLUMN 0: poised ready aim, launcher shouldered and barrel pointing RIGHT about 20 degrees upward; breech CLOSED, both hands supporting.\nCOLUMN 1: small shoulder/arm recoil from the shot, still holding the CLOSED launcher; lower body and ground contacts unmoved. Depict recoil only, no fire, projectile, flash, explosion or smoke.\nCOLUMN 2: lower launcher toward the hands; right hand controls the wooden-stock receiver and barrel hinges DOWN into a clearly OPEN break action.\nCOLUMN 3: breech stays OPEN; LEFT hand visibly extracts one small empty cartridge case from the exposed rear chamber.\nCOLUMN 4: breech stays OPEN; LEFT hand reaches to a vest pouch and takes a fresh small 40mm round; right hand keeps the launcher controlled.\nCOLUMN 5: breech stays OPEN; LEFT hand visibly inserts that fresh small round into the exposed rear chamber.\nCOLUMN 6: barrel rotates back into line and breech is CLOSED; left hand returns to supporting the fore-end.\nCOLUMN 7: same stable shouldered 20-degree ready aim as column 0, breech CLOSED, completing the cycle.\nMake recoil, breech opening, case extraction, vest reach, round insertion and closure visibly different. Columns 0 and 7 intentionally match for the return to ready; the other phases must not be duplicated ready-pose stills. Cases and rounds appear only where held/manipulated in the prescribed stages, no floating ammunition.\n\nRegistration and margins: identical camera and body scale in ALL cels, no per-cell zoom or resizing. Within each posture row keep a fixed body anchor, fixed head/pelvis height and fixed feet/knee/elbow baseline, apart from the tiny local shoulder/arm recoil. Align contacts to the same local y=290 within each approximately 341-high cell at the preferred output size. Keep every complete body, stock, muzzle, hand and held round comfortably inside its own cell with MORE THAN 12 pixels of EMPTY transparent space on EVERY side. Prone total length must stay under 220 pixels. Scale these size targets proportionally if the returned resolution differs, while preserving clear gutters. No touching adjacent cels, no clipped muzzle, boot, helmet or stock.\n\nBackground/output: true transparent RGBA, all empty pixels alpha 0, clean isolated actor cutouts. No scene, floor, terrain, shadows, bases, backdrop, colored haze, checkerboard, grid lines, borders, labels, text, numbers or watermark. No extra people, no command gestures, no climbing, no waving or overhead arms. No fire, explosion, smoke, sparks or other effects painted outside the weapon. Produce exactly this ONE 24-cel, 8-by-3 full-body atlas."
+  },
+  "original_png_path": "/Users/bytedance/.codex/generated_images/01a0bb93-c7af-74a3-b206-a0fe73cad320/exec-89139f38-cc47-497a-8e38-d072d37e7dab.png",
+  "skill_and_required_references_read_completely": [
+    "/Users/bytedance/.codex/skills/.system/imagegen/SKILL.md",
+    "/Users/bytedance/.codex/skills/.system/imagegen/references/prompting.md",
+    "/Users/bytedance/.codex/skills/.system/imagegen/references/sample-prompts.md"
+  ],
+  "style_references_viewed": [
+    "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/standing-reload-v135.png",
+    "/Users/bytedance/Documents/ChatGPT/Desktop/pixel-frontline/public/art/infantry-reload-v143.png"
+  ],
+  "inspection": {
+    "viewed_with": "view_image",
+    "dimensions": [
+      1774,
+      887
+    ],
+    "format": "PNG",
+    "color_space": "RGB",
+    "samples_per_pixel": 4,
+    "alpha_channel_present": true,
+    "alpha_extrema_measured": false,
+    "alpha_note": "Alpha presence confirmed by sips; original alpha preserved unchanged. Pixel-level alpha extrema/opacity histogram were not measured.",
+    "visual_cel_count": 24,
+    "visual_columns": 8,
+    "visual_rows": 3,
+    "count_is_not_a_quality_pass": true,
+    "observations": [
+      "All 24 visible figures have complete bodies rather than torso cutouts: eight standing, eight kneeling and eight prone.",
+      "The weapon consistently reads as a short, thick-barreled standalone launcher with a brown wooden stock. Open and closed break-action states are visible; no obvious morph into an RPG or rifle.",
+      "The rows do not occupy regular equal-height cells. Standing figures extend well below the first conceptual one-third row boundary; kneeling figures similarly extend below the second. Prone figures occupy a compressed band at the bottom.",
+      "Standing and kneeling figures are larger than the requested source scale. Prone figures are drawn at a visibly smaller anatomical scale than the standing/kneeling figures.",
+      "No obvious helmet, boot or torso truncation was observed. The last prone muzzle is extremely close to the right edge; adequate clearance is absent and subtle barrel clipping cannot be ruled out visually.",
+      "Prone figures have tight horizontal gutters, below the requested generous greater-than-12-pixel margins in several places.",
+      "Ready columns 0 and 7 intentionally repeat. Column 1 is very similar to column 0, and the requested recoil is not strongly readable.",
+      "Columns 2-5 visibly change the open breech and hands. The extracted case is held farther away/upward than a compact extraction intermediate; exact empty-case versus fresh-round differentiation and insertion contact are not certified.",
+      "Within each row the lower-body posture is generally retained, but exact feet/knee/elbow anchors, small head/torso changes, and loop continuity were not measured or playback-tested.",
+      "No exterior firing effects, scene, floor, printed grid, labels, numbers or additional people were observed.",
+      "This original should not be described as 24 fully validated production frames."
+    ],
+    "metadata_output": "/Users/bytedance/.codex/generated_images/01a0bb93-c7af-74a3-b206-a0fe73cad320/exec-89139f38-cc47-497a-8e38-d072d37e7dab.png\n  pixelWidth: 1774\n  pixelHeight: 887\n  format: png\n  space: RGB\n  samplesPerPixel: 4\n  hasAlpha: yes\n"
+  }
+}

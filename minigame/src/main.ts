@@ -3,8 +3,10 @@
  * routes touch events into the UI framework, and runs the main loop.
  */
 
-import { initAdapter, loadPixelFont, getMainCanvas } from './adapter';
-import { Router, type TouchEvent, type TouchPoint } from './ui/framework';
+import './platform-bootstrap';
+import { loadPixelFont, getMainCanvas } from './adapter';
+import { Router } from './ui/framework';
+import { TouchRouting } from './ui/touch-routing';
 import { lobbyState } from './lobby-state';
 import { LobbyScreen } from './ui/lobby';
 import { DeckBuilderScreen } from './ui/deck-builder';
@@ -31,21 +33,8 @@ const ART_CDN_BASE = 'https://cdn.example.com/pixel-frontline/';
  */
 const AUDIO_CDN_BASE = ART_CDN_BASE;
 
-function toPoints(list: any): TouchPoint[] {
-  if (!list) return [];
-  const out: TouchPoint[] = [];
-  for (const t of list) {
-    out.push({
-      id: t.identifier ?? 0,
-      x: t.clientX,
-      y: t.clientY,
-    });
-  }
-  return out;
-}
-
 export function boot(): void {
-  initAdapter();
+  lobbyState.initialize();
 
   // Route art loads to the CDN (WebP versions).
   if (ART_CDN_BASE) {
@@ -85,24 +74,11 @@ export function boot(): void {
   router.navigate('lobby');
 
   // ── Touch routing ──
-  const activeTouches = new Map<number, TouchPoint>();
-
-  const dispatch = (type: TouchEvent['type'], raw: any) => {
-    const changed = toPoints(raw.changedTouches ?? raw.touches);
-    if (type === 'down') {
-      for (const p of changed) activeTouches.set(p.id, p);
-    }
-    const points = [...activeTouches.values()];
-    router.handleTouch({ type, points, changed });
-    if (type === 'up') {
-      for (const p of changed) activeTouches.delete(p.id);
-    }
-  };
-
-  tt.onTouchStart((e: any) => dispatch('down', e));
-  tt.onTouchMove((e: any) => dispatch('move', e));
-  tt.onTouchEnd((e: any) => dispatch('up', e));
-  tt.onTouchCancel((e: any) => dispatch('up', e));
+  const touches = new TouchRouting((event) => router.handleTouch(event));
+  tt.onTouchStart((e: any) => touches.dispatch('down', e));
+  tt.onTouchMove((e: any) => touches.dispatch('move', e));
+  tt.onTouchEnd((e: any) => touches.dispatch('up', e));
+  tt.onTouchCancel((e: any) => touches.dispatch('cancel', e));
 
   // ── Main loop ──
   let last = Date.now();
@@ -123,6 +99,8 @@ export function boot(): void {
   // ── Lifecycle: pause on hide ──
   if (typeof tt.onHide === 'function') {
     tt.onHide(() => {
+      touches.cancelAll();
+      router.active?.cancelTouches();
       battle.onAppHide();
     });
   }

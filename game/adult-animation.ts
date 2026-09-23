@@ -618,12 +618,12 @@ export function adultFrameChoice(u: Unit, time = 0): AdultFrameChoice {
   // extended with the magazine) and a receiver (hunched over the mag well)
   // instead of two identical hunches. Only upright soldiers run the drill —
   // a pinned rifleman stays low and waits for a lull in the fire.
-  if ((u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
+  if (!u.moving && (u.ammoShareUntil ?? 0) > time && u.pose !== 'prone')
     // v128: giver extends an arm (sig point-forward) instead of the climb pose.
     return u.pose === 'crouch' || u.pose === 'hunker' ? action(1) : action(0);
   // v83: looting a fallen comrade's kit — a knee-down rummage beat
   // alternating with the huddled work beat so the search reads as active.
-  if ((u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
+  if (!u.moving && (u.scavengeUntil ?? 0) > time && u.pose !== 'prone')
     return groundedWork(u, time);
   if (
     (u.ammoSignalUntil ?? 0) > time &&

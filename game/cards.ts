@@ -2337,10 +2337,13 @@ export const CARDS: Record<CardId, Card> = {
     {
       members: 2,
       hp: 130,
-      damage: 26,
-      rate: 0.28,
+      damage: 12,
+      rate: 0.45,
       range: 170,
       speed: 52,
+      radius: 16,
+      armorMultiplier: 0.08,
+      baseMultiplier: 0.1,
       trait: 'close_assault',
       infantryAbility: 'flusher',
       uniform: 'heavy',
@@ -2348,7 +2351,7 @@ export const CARDS: Record<CardId, Card> = {
       discipline: 78,
       tag: '步兵 · 近距焚壕',
       detail:
-        '2人喷火组，130生命。射程仅170，但每秒伤害极高且无视掩体减伤——蹲在矮墙、弹坑和建筑里的敌人照样被烧。近距离接敌时获得突击加成。适合紧跟装甲推进，清扫壕沟与建筑据点；射程极短，被拉开距离后几乎无力还手。',
+        '3费2人、全组130生命：1名喷火手与1名步枪护卫。喷火器射程170，每0.45秒喷射12伤害火焰，落点16范围衰减灼伤，无视蹲姿与掩体减伤，但不能穿过实体墙体或土坡，不制造弹坑。对装甲仅8%伤害；近距接敌有突击加成。护卫每1.1秒3伤害、射程340，无喷火器。需要烟幕和装甲掩护接近。',
     },
   ),
   mlrs: variant(
@@ -2360,10 +2363,13 @@ export const CARDS: Record<CardId, Card> = {
     {
       en: 'MLRS',
       vehicle: true,
+      armored: false,
       antiAir: false,
       hp: 180,
-      damage: 48,
-      rate: 7.5,
+      damage: 16,
+      rate: 0.35,
+      burstSize: 3,
+      burstPause: 7.5,
       range: 1050,
       minRange: 350,
       speed: 42,
@@ -2373,7 +2379,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 460,
       tag: '炮兵 · 远程覆盖',
       detail:
-        '180生命无装甲。每7.5秒齐射一轮48伤害、半径65的远程火箭弹，射程350–1050，曲射越障。覆盖面积极大，适合轰击敌方集结区与阵地；但有350最小射程，被近身时无法还击，且车体脆弱，一发反甲火力即可瘫痪。被声测定位两轮后自动转移。',
+        '7费180生命无装甲。以0.35秒间隔连射3枚火箭，每枚16伤害、半径65，随后装填7.5秒；射程350–1050，曲射越障。适合分散覆盖集结区；最小射程大、单发伤害低，不能代替精确反甲火力。敌方声测定位两轮后，在有后撤空间时转移。',
     },
   ),
   scout_car: variant(
@@ -2406,17 +2412,17 @@ export const CARDS: Record<CardId, Card> = {
     '近距烈焰焚扫步兵，对装甲几乎无效',
     {
       hp: 560,
-      damage: 30,
-      rate: 0.22,
+      damage: 12,
+      rate: 0.4,
       range: 210,
       speed: 42,
       radius: 18,
-      infantryMultiplier: 3.0,
+      infantryMultiplier: 1.5,
       armorMultiplier: 0.08,
       baseMultiplier: 0.1,
       tag: '装甲 · 近距焚扫',
       detail:
-        '560生命装甲。拆除主炮换装喷火器：射程仅210，但对步兵伤害×3.0、附带范围灼烧，一轮喷射可清空整片壕沟；对装甲伤害×0.08，几乎无法击穿坦克。适合伴随步兵推进、清扫筑垒地带，被敌方坦克贴脸时毫无还手之力。',
+        '6费560生命装甲。主炮换装喷火器：射程210，每0.4秒喷射12伤害，落点18范围衰减灼伤，对步兵×1.5、对装甲×0.08。无视蹲姿与掩体减伤，但实体墙和土坡阻挡火焰，不打穿甲弹、不制造弹坑。必须接近才能清扫据点，需要反甲单位掩护。',
     },
   ),
   light_mortar: variant(
@@ -2438,7 +2444,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'crew',
       tag: '炮兵 · 低费曲射',
       detail:
-        '2人炮手，100生命。每3.6秒一发26范围伤害，射程100–580，曲射越障。费用仅2，是最便宜的曲射火力，适合早期压制敌方步兵集结点与轻阵地；伤害和射程都远不如重型迫击炮，被近身时同样后撤。',
+        '2费2人、全组100生命：1名迫击炮手与1名步枪护卫。炮手每3.6秒一发26伤害、半径22，射程100–580，曲射越障。护卫每1.1秒3伤害、射程340。早期低费支援，范围和射程小，不能充当重型炮兵。',
     },
   ),
 };
@@ -2447,6 +2453,13 @@ export function modelOf(id: CardId): BaseCardId {
 }
 export function weaponCard(u: { id: CardId; member: number }): Card {
   const c = CARDS[u.id];
+  if (u.id === 'flame_team' || u.id === 'light_mortar')
+    return u.member === 0 ? { ...c, members: 1 } : {
+      ...c, members: 1, model: 'infantry', damage: 3, rate: 1.1,
+      range: 340, minRange: 0, radius: 0, indirect: false,
+      infantryAbility: undefined, trait: undefined,
+      armorMultiplier: 0.15, infantryMultiplier: 1,
+    };
   if (u.id === 'sniper_team')
     return { ...c, members: 1, damage: u.member === 0 ? 56 : 0,
       range: u.member === 0 ? 700 : 0 };
@@ -2492,6 +2505,7 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
       };
 }
 export function weaponModel(u: { id: CardId; member: number }): BaseCardId {
+  if ((u.id === 'flame_team' || u.id === 'light_mortar') && u.member > 0) return 'infantry';
   if (u.id === 'airborne_at') return u.member < 2 ? 'rocket' : 'infantry';
   return (modelOf(u.id) === 'machinegun' || u.id === 'antiarmor') &&
     u.member > 0

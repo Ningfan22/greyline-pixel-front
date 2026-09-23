@@ -21,7 +21,7 @@ import { blastVisible } from './impact-fx';
 import { specialistSprite } from './adult-specialists';
 import { heavyMGSprite } from './heavy-mg-art';
 import { grenadeLauncherSprite } from './grenade-launcher-art';
-import { patrolFrameV17 } from './patrol-art-v17';
+import { patrolFrameV17, patrolModeForUnit } from './patrol-art-v17';
 import { digFrameV18 } from './dig-art-v18';
 import { digWorkSettled } from './support-work';
 import { drawMineV18 } from './mine-art-v18';
@@ -610,43 +610,13 @@ export function render(
         ? (!authoredBody ? grenadeLauncherSprite(u, s.time, art.grenadeLauncher) ?? heavyMGSprite(u, s.time, art.heavyMG) : null) ??
           specialistSprite(body, choice, u, art.adultSpecialists, art.weaponStances)
         : null;
-    // v117: the patrol overlay only covers "plain" frames — the walk cycle
-    // and the standing-alert frame. Every authored action frame (leader
-    // gestures, hit flinches, contact callouts, secondary-weapon shots) now
-    // shows through instead of being silently swallowed by the static patrol
-    // idle, which used to hide whole animation branches on upright soldiers.
-    const patrolPlain =
-      choice !== null &&
-      (choice.group === 'walk8' ||
-        (choice.group === 'actions20' && choice.index === 0));
+    const patrolMode = choice ? patrolModeForUnit(u, choice, s.time) : null;
     const patrol =
-      body &&
-      !specialist &&
-      patrolPlain &&
-      c.members &&
-      !isDead &&
-      !u.wounded &&
-      !u.surrendered &&
-      !u.rappelling &&
-      !u.backpedaling &&
-      u.motion === 'ground' &&
-      !u.climbing &&
-      ['idle', 'walk'].includes(u.pose) &&
-      (u.reloadingUntil ?? 0) <= s.time &&
-      // Yield only while firing on the move; a stationary burst keeps the
-      // patrol layer active so its dedicated aimed-rifle pose (raise3[2])
-      // holds the weapon on target for the whole burst.
-      (u.fire <= 0 || !u.moving)
+      body && !specialist && patrolMode
         ? patrolFrameV17(
             art.patrol,
             adultIdentity(u.id),
-            u.fire > 0 && !u.moving
-              ? 'fire'
-              : (u.aimUntil ?? 0) > s.time
-                ? 'raise'
-                : u.moving
-                  ? 'walk'
-                  : 'idle',
+            patrolMode,
             u.walk,
             s.time - (u.readyAt ?? -100),
           )

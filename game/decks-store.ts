@@ -1,5 +1,5 @@
 /* 多卡组存储：最多 6 套编队，本地持久化。 */
-import { DECK, type CardId } from './cards';
+import { DECK, DECK_SIZE, type CardId } from './cards';
 import {
   clampToCollection,
   type CollectionState,
@@ -47,7 +47,7 @@ function sanitizeDeck(
       (id): id is CardId => typeof id === 'string',
     ),
     collection,
-  );
+  ).slice(0, DECK_SIZE);
   return {
     id: typeof candidate.id === 'string' && candidate.id ? candidate.id : newDeckId(),
     name:
@@ -73,6 +73,13 @@ export function loadDeckStore(collection: CollectionState): DeckStore {
           .map((d, i) => sanitizeDeck(d, `编队 ${i + 1}`, collection))
           .filter((d): d is DeckSlot => d !== null);
         if (decks.length) {
+          // Imported/old saves can reuse slot IDs. Editing or deleting one
+          // must not silently edit/delete every other slot with that ID.
+          const seen = new Set<string>();
+          for (const deck of decks) {
+            if (seen.has(deck.id)) deck.id = newDeckId();
+            seen.add(deck.id);
+          }
           const activeId = decks.some((d) => d.id === parsed.activeId)
             ? (parsed.activeId as string)
             : decks[0].id;
