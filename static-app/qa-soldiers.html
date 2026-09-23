@@ -1,0 +1,9 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>全兵种动作检查 · 灰线</title>
+<style>body{margin:20px;background:#18221c;color:#e5dfca;font:16px system-ui}button,select{font:inherit;margin:4px;padding:8px;background:#354438;color:inherit;border:1px solid #839177}canvas{display:block;max-width:100%;image-rendering:pixelated;border:1px solid #697666;margin-top:10px}p{line-height:1.6}</style>
+<h1>全兵种动作检查</h1><p>41 张士兵卡牌，逐成员检查。上方为正式战场渲染，下方为同一渲染结果放大；独立测试，不写存档。</p>
+<label>兵种 <select id="card"></select></label><label>成员 <select id="member"></select></label>
+<label>动作 <select id="action"><option value="walk">举枪行进</option><option value="run">跑步</option><option value="crouch">蹲行</option><option value="prone">爬行</option><option value="stance">站—跪—卧—起身</option><option value="reload">行进换弹</option><option value="throw">投弹</option><option value="medical">救治</option><option value="repair">维修</option><option value="dig">挖掘</option><option value="surrender">投降</option><option value="rappel">索降</option><option value="wounded">倒地</option></select></label>
+<button id="flip">转身</button><button id="pause">暂停</button><button id="step">前进 1/30 秒</button><button id="combat">开始真实战斗</button>
+<p id="status">加载中…</p><canvas id="view" width="1024" height="540"></canvas><canvas id="detail" width="1024" height="300"></canvas>
+<script type="module" src="./qa-soldiers.ts"></script></html>

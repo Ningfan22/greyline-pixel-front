@@ -1,4 +1,5 @@
 import { mapDefinition, type MapId } from './maps';
+import {soldierFrame} from './soldier-art';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { infantryGeometry } from './infantry-geometry';
@@ -481,10 +482,14 @@ export function render(
           ? ragdollChoice(w.age, w.id)
           : adultWreckChoice(w.age, w.pose, w.id)
         : null;
-      const wreckImage =
+      const rigWreck=art.soldiers?soldierFrame(art.soldiers,{
+        id:w.cardId,member:w.member??0,uid:w.id,pose:w.pose??'idle',hp:1,
+        wounded:true,woundedTime:w.age,woundedFromPose:w.pose,moving:false,motion:'ground',walk:0,
+      },s.time):null;
+      const wreckImage = rigWreck?.image ?? (
         adultWreck && wreckChoice
           ? uniformFrame(adultWreck[wreckChoice.group][wreckChoice.index], c.uniform)
-          : unitFrame(art, w.cardId, 0);
+          : unitFrame(art, w.cardId, 0));
       ctx.save();
       const bsd = w.id >>> 0;
       // v106: a fresh casualty keeps its colour and desaturates into the
@@ -503,8 +508,8 @@ export function render(
         ),
         w.x + ((bsd >>> 4) % 3 - 1),
         w.y + infantryDepth(w.lane) + 3,
-        wreckImage.width * (0.96 + (bsd % 4) * 0.03),
-        wreckImage.height * (0.96 + (bsd % 4) * 0.03),
+        wreckImage.width * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
+        wreckImage.height * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
         1,
         w.falling ? w.angle : w.angle + ((bsd >>> 2) % 5 - 2) * 0.03,
@@ -601,8 +606,9 @@ export function render(
       Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) %
       (art.mobileVehicles?.[u.id]?.length ?? 4);
     if (c.emplacement && u.fire > 0.1) frame = 1;
-    const adult = c.members ? art.adults[adultIdentity(u.id)] : null;
-    const choice = c.members ? adultFrameChoice(u, s.time) : null;
+    const rig = c.members && art.soldiers ? soldierFrame(art.soldiers,u,s.time) : null;
+    const adult = c.members && !rig ? art.adults[adultIdentity(u.id)] : null;
+    const choice = adult ? adultFrameChoice(u, s.time) : null;
     const authoredBody = ownsAdultBody(choice);
     const body = adult && choice ? adult[choice.group][choice.index] : null;
     const specialist =
@@ -622,7 +628,7 @@ export function render(
           )
         : null;
     const digging =
-      u.digging && !authoredBody && digWorkSettled(u,s.time)
+      !rig && u.digging && !authoredBody && digWorkSettled(u,s.time)
         ? digFrameV18(
             art.digging,
             adultIdentity(u.id),
@@ -663,10 +669,12 @@ export function render(
             return micro ? adult[micro.group][micro.index] : null;
           })()
         : null;
-    const img = body
+    const img = rig?.image ?? (body
       ? uniformFrame(digging ?? idleMicro ?? patrol ?? specialist?.image ?? body, c.uniform)
-      : unitFrame(art, u.id, u.glider?gliderArtIndex(u,s.time):frame);
-    const visualMuzzle = specialist?.muzzle
+      : unitFrame(art, u.id, u.glider?gliderArtIndex(u,s.time):frame));
+    const visualMuzzle = rig ? {
+      x:u.x+u.facing*rig.pose.muzzle[0],y:u.y+3+rig.pose.muzzle[1],
+    } : specialist?.muzzle
       ? {
           x: u.x + u.facing * specialist.muzzle.x,
           y: u.y + 3 - specialist.muzzle.height,

@@ -1,4 +1,5 @@
 import { CARDS, modelOf, type CardId } from './cards';
+import {soldierArt,type SoldierArt} from './soldier-art';
 import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, standingReloadFrames, standingGrenadeFrames, ownStance16 } from './adult-atlas';
 import { packedWeaponStances } from './weapon-stance-art';
@@ -36,6 +37,7 @@ import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  soldiers?: SoldierArt;
   comeback: ComebackArtV18;
   digging: DigArtV18;
   mines: MineArtV18;
@@ -613,6 +615,8 @@ export function loadArt() {
       loadImage('/art/tank-wreck-frames-v162.png'),
       loadImage('/art/prone-watch-frames-v163.png'),
       loadImage('/art/blast-air-frames-v165.png'),
+      loadImage('/art/soldier-parts-v178.png'),
+      loadImage('/art/soldier-equipment-v178.png'),
     ]),
     loadV16Art(),
     loadTreeArtV17(),
@@ -665,6 +669,8 @@ export function loadArt() {
         tankWreckSheet,
         proneWatchSheet,
         airBlastSheet,
+        soldierPartsSheet,
+        soldierEquipmentSheet,
       ],
       extra,
       trees,
@@ -747,6 +753,7 @@ export function loadArt() {
         glider[6],
       );
       return {
+        soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
         comeback,
         digging,
         mines,
