@@ -21,6 +21,7 @@ const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const mix=(a:number,b:number,t:number)=>a+(b-a)*t;
 const lerp=(a:Point,b:Point,t:number):Point=>[mix(a[0],b[0],t),mix(a[1],b[1],t)];
 const add=(a:Point,b:Point):Point=>[a[0]+b[0],a[1]+b[1]];
+const rotate=(p:Point,a:number):Point=>[p[0]*Math.cos(a)-p[1]*Math.sin(a),p[0]*Math.sin(a)+p[1]*Math.cos(a)];
 const smooth=(t:number)=>{t=clamp(t);return t*t*(3-2*t);};
 
 export function soldierAppearance(u: Pick<Unit,'id'>) {
@@ -121,6 +122,8 @@ function actionFor(u:SoldierBody,time:number):SoldierAction {
     if((u.scavengeUntil??0)>time)return 'scavenge';
     if((u.ammoShareUntil??0)>time)return 'share';
     if((u.ammoSignalUntil??0)>time)return 'signal';
+    if(!u.fire&&!u.secondaryFire&&(u.aimUntil??0)<=time&&
+      ((u.calloutUntil??0)>time||(u.pointUntil??0)>time))return 'signal';
     if((u.observingUntil??0)>time)return 'observe';
   }
   return 'ready';
@@ -131,29 +134,66 @@ export interface SoldierPose {
   nearKnee:Point;farKnee:Point;nearFoot:Point;farFoot:Point;
   nearElbow:Point;farElbow:Point;nearHand:Point;farHand:Point;
   muzzle:Point;weaponAngle:number;weaponVisible:boolean;slung:boolean;
-  phase:number;travel:number;low:number;prop?:'magazine'|'grenade'|'bandage'|'shovel'|'wrench'|'binoculars';
+  phase:number;travel:number;low:number;
+  prop?:'magazine'|'grenade'|'bandage'|'shovel'|'wrench'|'binoculars'|'rocketRound'|'mortarRound'|'belt'|'shell';
+  propHand:'near'|'far';
   /** Anatomical order, never sorted by limb x position or by gait phase. */
   layers:readonly ['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm'];
+}
+/** Interpolate bone angles, not joint positions: a fall/recovery must keep
+ * every limb's length and must begin at the exact last live pose. */
+export function blendSoldierPose(from:SoldierPose,to:SoldierPose,progress:number):SoldierPose {
+  const t=smooth(progress);if(t===1)return to;
+  const angle=(a:number,b:number)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
+  const bone=(root:Point,oldRoot:Point,oldEnd:Point,newRoot:Point,newEnd:Point,length:number):Point=>{
+    const a=angle(Math.atan2(oldEnd[1]-oldRoot[1],oldEnd[0]-oldRoot[0]),Math.atan2(newEnd[1]-newRoot[1],newEnd[0]-newRoot[0]));
+    return add(root,[Math.cos(a)*length,Math.sin(a)*length]);
+  };
+  const hip=lerp(from.hip,to.hip,t),neck=bone(hip,from.hip,from.neck,to.hip,to.neck,22),shoulder=add(neck,[-1,5]);
+  const nearKnee=bone(hip,from.hip,from.nearKnee,to.hip,to.nearKnee,17),
+    farKnee=bone(add(hip,[-1,0]),add(from.hip,[-1,0]),from.farKnee,add(to.hip,[-1,0]),to.farKnee,17);
+  const nearFoot=bone(nearKnee,from.nearKnee,from.nearFoot,to.nearKnee,to.nearFoot,17),
+    farFoot=bone(farKnee,from.farKnee,from.farFoot,to.farKnee,to.farFoot,17);
+  const nearElbow=bone(shoulder,from.shoulder,from.nearElbow,to.shoulder,to.nearElbow,12),
+    farElbow=bone(add(shoulder,[1,-1]),add(from.shoulder,[1,-1]),from.farElbow,add(to.shoulder,[1,-1]),to.farElbow,12);
+  const nearHand=bone(nearElbow,from.nearElbow,from.nearHand,to.nearElbow,to.nearHand,13),
+    farHand=bone(farElbow,from.farElbow,from.farHand,to.farElbow,to.farHand,13);
+  const head=add(neck,lerp([from.head[0]-from.neck[0],from.head[1]-from.neck[1]],
+    [to.head[0]-to.neck[0],to.head[1]-to.neck[1]],t));
+  const result={...to,hip,neck,shoulder,head,nearKnee,farKnee,nearFoot,farFoot,nearElbow,farElbow,nearHand,farHand,
+    headAngle:angle(from.headAngle,to.headAngle),muzzle:lerp(from.muzzle,to.muzzle,t),
+    weaponAngle:angle(from.weaponAngle,to.weaponAngle),
+    weaponVisible:t<.25?from.weaponVisible:to.weaponVisible,slung:t<.25?from.slung:to.slung};
+  // A rotating shin can otherwise cross the floor and disappear below the
+  // sprite's boot anchor. Resolve contact by lifting the entire skeleton,
+  // never by cutting off/stretching a leg or reassigning its identity.
+  const lift=Math.max(0,nearFoot[1]+3,farFoot[1]+3);
+  if(lift>0)for(const key of ['hip','neck','shoulder','head','nearKnee','farKnee','nearFoot','farFoot',
+    'nearElbow','farElbow','nearHand','farHand','muzzle'] as const)result[key]=add(result[key],[0,-lift]);
+  return result;
 }
 export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   const action=actionFor(u,time),weapon=soldierWeapon(u);
   let stance=soldierStance(u,time),hip=stance.hip,lean=stance.lean;
   const phase=(u.gaitPhase??u.walk??0)*Math.PI/4;
   const travel=clamp(u.gaitWeight??(u.moving?1:0));
-  const moving=travel>0.001,run=u.pose==='run'||u.tactic==='retreat';
+  const moving=travel>0.001,run=clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0))*(1-clamp(stance.low*2));
   let nearFoot=stance.nearFoot,farFoot=stance.farFoot;
   if(moving){
-    const stride=stance.low>1.5?8:run?20:stance.low>.5?12:16;
+    // Keep the planted endpoint reachable at the longest stride. Clamping an
+    // overextended leg made an ostensibly moving gait slide and hover.
+    hip=add(hip,[0,travel*(2+run*4)*(1-clamp(stance.low))]);
+    const stride=stance.low>1.5?8:stance.low>.5?12:16+run*4;
     const foot=(p:number,far:boolean):Point=>{
       const cycle=((p/(Math.PI*2))%1+1)%1;
       // First half is planted contact (constant backwards local velocity).
       // Second half swings forward. The far leg is always half a cycle away.
       const x=cycle<.5?stride*(1-4*cycle):stride*(-1+4*(cycle-.5));
-      const lift=cycle<.5?0:Math.sin((cycle-.5)*Math.PI*2)*(run?11:stance.low>1.5?3:6);
-      return stance.low>1.5?[hip[0]-29+x*.5,-3-lift]:[x+(far?-1:1),-3-lift];
+      const lift=cycle<.5?0:Math.sin((cycle-.5)*Math.PI*2)*(stance.low>1.5?3:6+run*5);
+      return stance.low>1.5?[hip[0]-25+x,-3-lift]:[x+(far?-1:1),-3-lift];
     };
     nearFoot=lerp(nearFoot,foot(phase,false),travel);farFoot=lerp(farFoot,foot(phase+Math.PI,true),travel);
-    hip=add(hip,[0,-Math.abs(Math.sin(phase))*travel*(run?1.5:.65)]);
+    hip=add(hip,[0,-Math.abs(Math.sin(phase))*travel*(.65+run*.85)]);
   }
   if(u.motion==='jump'||u.motion==='land'){
     const jump=u.motion==='jump';
@@ -165,7 +205,7 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     hip=[-3,-32];lean=.05;nearFoot=[12,-9-Math.sin(time*4)*2];farFoot=[-9,-5+Math.sin(time*4)*2];
   }
   if(action==='casualty'){
-    const p=u.wounded?clamp((u.woundedTime??0)/.7):1;
+    const p=u.soldierFall?1:u.wounded?clamp((u.woundedTime??0)/.7):1;
     const fallen=blendStance(stance,stanceAt('prone'),smooth(p));hip=fallen.hip;lean=fallen.lean+.12;
     nearFoot=fallen.nearFoot;farFoot=fallen.farFoot;stance=fallen;
     if(u.crawling&&u.draggedByUid===undefined){
@@ -185,8 +225,10 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     const ready=u.fire?1:u.rifleReady??(aiming?smooth((time-(u.readyAt??time-.24))/.24):0);
     weaponAngle=(1-ready)*.24;muzzle=add(muzzle,[-(1-ready)*2,(1-ready)*9]);
   }
-  let nearHand:Point=[muzzle[0]-width+10,muzzle[1]+5],farHand:Point=[Math.min(muzzle[0]-11,shoulder[0]+21),muzzle[1]+3];
+  let nearHand:Point=add(muzzle,rotate([-width+10,5],weaponAngle)),
+    farHand:Point=add(muzzle,rotate([Math.min(-11,shoulder[0]+21-muzzle[0]),3],weaponAngle));
   let prop:SoldierPose['prop'];
+  let propHand:SoldierPose['propHand']='near';
   if(stance.low>1&&stance.low<2&&action==='ready'){
     const support=clamp(Math.sin((stance.low-1)*Math.PI)*2);
     farHand=lerp(farHand,[neck[0]+8,-3],support);
@@ -198,9 +240,14 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     const heavy=['rocket','manpads','mortar'].includes(weapon)&&!magazineReloadActive(u,time);
     const p=launcher?1-clamp(u.launcherCycleRemaining!/Math.max(.01,u.launcherCycleDuration??1.5)):
       heavy?1-clamp((u.cooldown??0)/Math.max(.1,CARDS[u.id].rate??1)):clamp((time-start)/Math.max(.01,(u.reloadingUntil??time)-start));
-    const well:Point=[muzzle[0]-width+15,muzzle[1]+8],pouch=add(hip,[6,-1]);
+    // Feed each actual weapon at its own loading point. A mortar bomb goes
+    // over the tube, an RPG round goes to the rear and belt guns open the feed.
+    const tube=weapon==='mortar',rocket=weapon==='rocket'||weapon==='manpads',belt=weapon==='lmg'||weapon==='hmg';
+    const well:Point=tube?[muzzle[0],muzzle[1]-3]:rocket?[muzzle[0]-width+2,muzzle[1]]:
+      [muzzle[0]-width+15,muzzle[1]+(belt?-1:8)],pouch=add(hip,[6,-1]);
     farHand=p<.2?lerp(well,pouch,smooth(p/.2)):p<.52?pouch:p<.8?lerp(pouch,well,smooth((p-.52)/.28)):well;
-    if(p>.2&&p<.82)prop='magazine';
+    propHand='far';
+    if(p>.2&&p<.82)prop=tube?'mortarRound':rocket?'rocketRound':belt?'belt':weapon==='grenade'?'shell':'magazine';
   }else if(action==='cycle'){
     const p=clamp((time-(u.lastCombatShotAt??time))/.7);
     farHand=[muzzle[0]-width+15-Math.sin(p*Math.PI)*4,muzzle[1]+2];
@@ -210,7 +257,13 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     nearHand=p<.35?lerp(add(hip,[3,-4]),back,smooth(p/.35)):p<.625?lerp(back,release,smooth((p-.35)/.275)):
       lerp(release,add(shoulder,[15,9]),smooth((p-.625)/.375));
     farHand=add(shoulder,[9,13]);if(elapsed<GRENADE_RELEASE_S)prop='grenade';
-  }else if(['medical','repair','dig','scavenge','deploy','barrel'].includes(action)){
+  }else if(action==='deploy'||action==='barrel'){
+    // Keep the crew's support weapon on the ground while adjusting it.
+    const p=(u.emplacementSetupUntil??u.overheatedUntil??time)-time;
+    nearHand=[muzzle[0]-Math.min(width-10,18),muzzle[1]+6+Math.sin(p*5)*2];
+    farHand=[muzzle[0]-Math.min(width-4,25),muzzle[1]+3];
+    if(action==='barrel')prop='wrench';
+  }else if(['medical','repair','dig','scavenge'].includes(action)){
     slung=true;const p=(u.tendingTime??u.digElapsed??time)*3.6,low=stance.low>1.5;
     const work=add(shoulder,[low?16:12,low?3:17]);
     nearHand=add(work,[Math.sin(p)*3,-Math.cos(p)*3]);farHand=add(work,[-5,1]);
@@ -218,7 +271,8 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   }else if(action==='share'){
     nearHand=add(shoulder,[22,4]);prop='magazine';
   }else if(action==='signal'){
-    nearHand=add(shoulder,[-4,-20]);
+    const point=(u.pointUntil??0)>time,dir=(u.pointDir??u.calloutDir??u.facing??1)*(u.facing??1);
+    nearHand=add(shoulder,point?[dir*21,-6]:[-4+Math.sin(time*7)*3,-20]);
   }else if(action==='observe'){
     nearHand=add(head,[9,-7]);farHand=add(head,[13,-6]);prop='binoculars';slung=true;
   }else if(action==='drag'){
@@ -231,15 +285,28 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   }else if(action==='casualty'){
     nearHand=add(shoulder,[10,5]);farHand=add(shoulder,[16,3]);headAngle=.45;weaponVisible=false;
   }
+  if(action==='ready'&&!u.moving&&travel<.01&&!u.fire&&!u.secondaryFire&&(u.aimUntil??0)<=time&&
+    (u.suppression??0)<.4&&stanceTransitionProgress(u,time)===null){
+    // Preserve alert/idle feedback without ever flipping the torso or legs.
+    const end=(u.blastGlanceUntil??0)>time?u.blastGlanceUntil!:
+      (u.traceGlanceUntil??0)>time?u.traceGlanceUntil!:
+      u.heardContactAt!==undefined&&time-u.heardContactAt<.7?u.heardContactAt+.7:0;
+    const glance=end?Math.sin(Math.min(1,end-time)*Math.PI):Math.sin(time*1.3+(u.uid??0))*.25;
+    headAngle-=glance*.18;head=add(head,[-glance*1.5,0]);
+  }
   if(u.flash&&action!=='casualty')headAngle-=Math.min(.1,u.flash*.3);
   const kneeBend=stance.legBend??(stance.low>1.5?1:-1);
   const nearLeg=solveLimb(hip,nearFoot,17,17,kneeBend),farLeg=solveLimb(add(hip,[-1,0]),farFoot,17,17,kneeBend);
   const nearArm=solveLimb(shoulder,nearHand,12,13,1),farArm=solveLimb(add(shoulder,[1,-1]),farHand,12,13,1);
-  return {appearance:soldierAppearance(u),weapon,action,hip,neck,shoulder,head,headAngle,
+  const result:SoldierPose={appearance:soldierAppearance(u),weapon,action,hip,neck,shoulder,head,headAngle,
     nearKnee:nearLeg.joint,farKnee:farLeg.joint,nearFoot:nearLeg.end,farFoot:farLeg.end,
     nearElbow:nearArm.joint,farElbow:farArm.joint,nearHand:nearArm.end,farHand:farArm.end,
-    muzzle,weaponAngle,weaponVisible,slung,phase,travel,low:stance.low,prop,
+    muzzle,weaponAngle,weaponVisible,slung,phase,travel,low:stance.low,prop,propHand,
     layers:['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm']};
+  if(action==='casualty'&&u.soldierFall)return blendSoldierPose(u.soldierFall,result,(u.woundedTime??0)/.7);
+  if(action!=='casualty'&&u.soldierRise&&time-u.soldierRise.at<.35)
+    return blendSoldierPose(u.soldierRise.pose,result,(time-u.soldierRise.at)/.35);
+  return result;
 }
 
 /** Simulation-owned gait; every navigation branch is reconciled once after
@@ -253,8 +320,11 @@ export function updateSoldierGait(u:Unit,previous:{x:number;lane:number},dt:numb
   const moving=distance>1e-5&&u.draggedByUid===undefined&&(u.hp>0||u.crawling);
   const phase=u.gaitPhase??u.walk;
   const sign=Math.abs(dx)>1e-5?Math.sign(dx*(u.facing||1)):1;
+  const running=u.pose==='run'||u.tactic==='retreat'?1:0;
+  const oldRun=u.gaitRun??running;
+  u.gaitRun=oldRun+Math.max(-dt*6,Math.min(dt*6,running-oldRun));
   // Teleports/recovery placement are not footsteps; do not flash through a cycle.
-  const stride=u.pose==='prone'?4:u.pose==='crouch'||u.pose==='hunker'?6:u.pose==='run'||u.tactic==='retreat'?10:8;
+  const stride=u.pose==='prone'?4:u.pose==='crouch'||u.pose==='hunker'?6:8+u.gaitRun*2;
   u.gaitPhase=phase+(moving&&distance<12?sign*distance/stride:0);
   u.gaitWeight=clamp((u.gaitWeight??0)+(moving?1:-1)*dt*7);
   const aim=(u.aimUntil??0)>time||u.fire>0||u.secondaryFire>0;

@@ -485,6 +485,7 @@ export function render(
       const rigWreck=art.soldiers?soldierFrame(art.soldiers,{
         id:w.cardId,member:w.member??0,uid:w.id,pose:w.pose??'idle',hp:1,
         wounded:true,woundedTime:w.age,woundedFromPose:w.pose,moving:false,motion:'ground',walk:0,
+        soldierFall:w.soldierFall,
       },s.time):null;
       const wreckImage = rigWreck?.image ?? (
         adultWreck && wreckChoice
@@ -506,13 +507,13 @@ export function render(
             (1 - decay) * (1 - shade)
           ).toFixed(2)})`,
         ),
-        w.x + ((bsd >>> 4) % 3 - 1),
+        w.x + (rigWreck?0:(bsd >>> 4) % 3 - 1),
         w.y + infantryDepth(w.lane) + 3,
         wreckImage.width * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
         wreckImage.height * (rigWreck?1:0.96 + (bsd % 4) * 0.03),
         (w.facing ?? (w.side === 0 ? 1 : -1)) < 0,
         1,
-        w.falling ? w.angle : w.angle + ((bsd >>> 2) % 5 - 2) * 0.03,
+        w.falling || rigWreck ? w.angle : w.angle + ((bsd >>> 2) % 5 - 2) * 0.03,
       );
       ctx.restore();
     }

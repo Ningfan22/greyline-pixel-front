@@ -8,7 +8,7 @@ const {CARDS,createGame,startGame,spawnUnit,tick,ground,setOrder}=await import('
 const {soldierPose}=await import('../game/soldier-pose.ts');
 const {MAP_IDS}=await import('../game/maps.ts');
 const out=mkdtempSync(join(tmpdir(),'greyline-soldier-combat-'));console.log(JSON.stringify({out}));
-const ids=Object.keys(CARDS).filter(id=>CARDS[id].members),trials=[],failures=[];
+const ids=Object.keys(CARDS).filter(id=>CARDS[id].members),trials=[],failures=[],jointJumps=[];
 for(const [index,id]of ids.entries())for(const side of [0,1]){
   const map=MAP_IDS[index%MAP_IDS.length],s=createGame(178,undefined,undefined,map,{mapSeed:178,difficulty:'standard'});
   startGame(s);s.aiIn=1e9;s.weather.disabled=true;
@@ -30,7 +30,8 @@ for(const [index,id]of ids.entries())for(const side of [0,1]){
     if(frame===600)setOrder(s,side,'crouch');
     if(frame===1200)setOrder(s,side,'prone');
     if(frame===1800)setOrder(s,side,'advance');
-    const before=new Map(s.units.filter(u=>records.has(u.uid)).map(u=>[u.uid,{x:u.x,lane:u.lane,phase:u.gaitPhase??u.walk}]));
+    const before=new Map(s.units.filter(u=>records.has(u.uid)).map(u=>[u.uid,{x:u.x,lane:u.lane,phase:u.gaitPhase??u.walk,
+      pose:u.pose,motion:u.motion,rig:soldierPose(u,s.time)}]));
     tick(s,1/60);
     for(const u of s.units){
       const r=records.get(u.uid),last=before.get(u.uid);if(!r||!last)continue;
@@ -44,10 +45,19 @@ for(const [index,id]of ids.entries())for(const side of [0,1]){
       }
       for(const key of ['hip','neck','nearKnee','farKnee','nearFoot','farFoot','nearHand','farHand'])
         assert(p[key].every(Number.isFinite),`${id}/${u.member}/${key}`);
+      let joint='',largest=0;
+      for(const key of ['hip','neck','nearKnee','farKnee','nearFoot','farFoot']){
+        const change=Math.hypot(p[key][0]-last.rig[key][0],p[key][1]-last.rig[key][1]);
+        if(change>largest){joint=key;largest=change;}
+      }
+      if(largest>6)jointJumps.push({id,side,member:u.member,time:s.time,joint,pixels:largest,
+        from:{pose:last.pose,motion:last.motion,action:last.rig.action,phase:last.phase,low:last.rig.low},
+        to:{pose:u.pose,motion:u.motion,action:p.action,phase:u.gaitPhase,low:p.low},
+        gaitWeight:u.gaitWeight,crouchTravel:u.crouchTravel,proneTravel:u.proneTravel});
     }
   }
   trials.push({id,side,map,seconds:s.time,members:[...records.values()].map(r=>({...r,poses:[...r.poses],actions:[...r.actions]}))});
   console.log(JSON.stringify({id,side,shots:[...records.values()].reduce((a,r)=>a+r.shots,0),moving:[...records.values()].reduce((a,r)=>a+r.movingFrames,0)}));
 }
-const report={cards:ids.length,trials,failures};writeFileSync(join(out,'report.json'),JSON.stringify(report,null,2));
-console.log(JSON.stringify({out,trials:trials.length,failures:failures.length}));assert.equal(failures.length,0);
+const report={cards:ids.length,trials,failures,jointJumps};writeFileSync(join(out,'report.json'),JSON.stringify(report,null,2));
+console.log(JSON.stringify({out,trials:trials.length,failures:failures.length,jointJumps:jointJumps.length}));assert.equal(failures.length,0);

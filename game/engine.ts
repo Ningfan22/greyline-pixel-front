@@ -1,5 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
-import {soldierMuzzle,updateSoldierGait} from './soldier-pose';
+import {soldierMuzzle,updateSoldierGait,soldierPose,type SoldierPose} from './soldier-pose';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
@@ -201,6 +201,7 @@ export interface Unit {
   /** Displacement-driven continuous skeletal gait, reconciled after all AI branches. */
   gaitPhase?: number;
   gaitWeight?: number;
+  gaitRun?: number;
   rifleReady?: number;
   stepDust?: number;
   rotorWashAt?: number;
@@ -226,6 +227,9 @@ export interface Unit {
   hullAngle: number;
   wounded: boolean;
   woundedFromPose?: Unit['pose'];
+  /** Exact live skeleton at injury/death, never another generic idle body. */
+  soldierFall?: SoldierPose;
+  soldierRise?: {at:number;pose:SoldierPose};
   woundedTime: number;
   bleedOut: number;
   woundedBy: Side;
@@ -2486,6 +2490,8 @@ function hitUnit(
   ) {
     s.injurySeed = (Math.imul(1664525, s.injurySeed) + 1013904223) >>> 0;
     if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
+      u.soldierFall = soldierPose(u,s.time);
+      u.soldierRise = undefined;
       u.woundedFromPose = u.pose;
       u.wounded = true;
       u.rappelling = false;
@@ -2520,6 +2526,7 @@ function finishDeath(
   blastY?: number,
 ) {
   if (u.destroyed) return;
+  const soldierDeathPose=CARDS[u.id].members?soldierPose({...u,hp:Math.max(1,u.hp)},s.time):undefined;
   u.destroyed = true;
   // Sever any buddy-drag bond so the survivor returns to combat.
   if (u.draggingUid !== undefined) {
@@ -2592,6 +2599,7 @@ function finishDeath(
     side: u.side,
     pose: u.pose,
     member:u.member,
+    soldierFall:soldierDeathPose,
     facing: u.facing,
     lane: u.lane,
     x: u.x,
@@ -2690,6 +2698,8 @@ function settleSortie(s: GameState, u: Unit, success: boolean) {
     );
 }
 function revive(u: Unit, time: number) {
+  u.soldierRise={at:time,pose:soldierPose(u,time)};
+  u.soldierFall=undefined;
   u.wounded = false;
   u.woundedTime = 0;
   u.bleedOut = 0;
@@ -7988,6 +7998,14 @@ export function tick(s: GameState, dt: number) {
         u.secondaryFire = 0;
         u.moving = true;
         u.pose = setStance(u, s.time, 'crouch');
+        // A carrier must finish lifting his body before hauling the patient.
+        // This early-return branch previously moved through a prone->kneel
+        // drill, replacing crawling feet with crouch feet halfway through.
+        if(stanceTransitionActive(u,s.time)){
+          u.moving=false;
+          u.y=ground(s,u.x);
+          continue;
+        }
         const gap = patient.x - u.x;
         if (Math.abs(gap) > 18) {
           moveSoldier(s, u, Math.sign(gap), c.speed! * u.pace * 0.85, dt);
@@ -10243,6 +10261,7 @@ export function tick(s: GameState, dt: number) {
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
   }
   for (const u of s.units) if (CARDS[u.id].members) {
+    if(u.soldierRise&&s.time-u.soldierRise.at>=.35)u.soldierRise=undefined;
     stepCrouchLocomotion(u,s.time,dt);
     stepProneLocomotion(u,s.time,dt);
     const previous=soldierPositions.get(u.uid);
