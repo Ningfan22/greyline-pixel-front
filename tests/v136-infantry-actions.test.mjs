@@ -5,6 +5,7 @@ import { weaponCard, weaponModel } from '../game/cards.ts';
 import { ammunition } from '../game/ballistics.ts';
 import { adultFrameChoice } from '../game/adult-animation.ts';
 import { GRENADE_THROW_S, GRENADE_RELEASE_S } from '../game/infantry-action-timing.ts';
+import {soldierPose} from '../game/soldier-pose.ts';
 
 function arena() {
   const s = createGame(136);
@@ -48,7 +49,12 @@ test('a real hand throw winds up, releases once from the hand, and plants the fe
       const elapsed = s.time - (u.fragThrowStartedAt ?? 1/60);
       const p = s.projectiles.find(p => p.sourceUid === u.uid && p.ammunition === 'grenade');
       if (elapsed < GRENADE_RELEASE_S - 1e-9) assert.equal(p, undefined);
-      if (p) { released.add(p.uid); assert.equal(p.startX, x + dir*21); assert.equal(p.startY, 323); }
+      if (p) {
+        released.add(p.uid);
+        const hand=soldierPose({...u,fragThrow:GRENADE_THROW_S-GRENADE_RELEASE_S,
+          fragThrowStartedAt:0,poseAnimAt:undefined,poseAnimProgress:undefined},GRENADE_RELEASE_S).nearHand;
+        assert.equal(p.startX,x+dir*hand[0]);assert.equal(p.startY,u.y+3+hand[1]);
+      }
       assert.equal(u.x, x); assert.equal(u.shots, 0); assert.equal(u.fire, 0);
       assert.equal(u.pose, 'idle');
       if (u.fragThrow > 0) assert.equal(adultFrameChoice(u, s.time).group, 'grenade8');

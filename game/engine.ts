@@ -1,4 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
+import {soldierMuzzle,updateSoldierGait} from './soldier-pose';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
@@ -197,6 +198,10 @@ export interface Unit {
   maxHp: number;
   cooldown: number;
   walk: number;
+  /** Displacement-driven continuous skeletal gait, reconciled after all AI branches. */
+  gaitPhase?: number;
+  gaitWeight?: number;
+  rifleReady?: number;
   stepDust?: number;
   rotorWashAt?: number;
   flash: number;
@@ -2586,6 +2591,7 @@ function finishDeath(
     cardId: u.id,
     side: u.side,
     pose: u.pose,
+    member:u.member,
     facing: u.facing,
     lane: u.lane,
     x: u.x,
@@ -3077,8 +3083,7 @@ type MuzzleBody = Pick<
 > & Partial<InfantryWeaponBody>;
 type FiringBody = MuzzleBody & Pick<Unit, 'side' | 'member'>;
 export function muzzleOffset(u: MuzzleBody) {
-  if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
-    return infantryWeaponMuzzle(u)?.x ?? infantryGeometry(u).muzzleX;
+  if (CARDS[u.id].members) return soldierMuzzle(u).x;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleX;
   if (CARDS[u.id].emplacement)
@@ -3100,8 +3105,7 @@ export function muzzleOffset(u: MuzzleBody) {
           : 18;
 }
 export function muzzleHeight(u: MuzzleBody) {
-  if (CARDS[u.id].members && modelOf(u.id) !== 'mortar')
-    return infantryWeaponMuzzle(u)?.height ?? infantryGeometry(u).muzzleHeight;
+  if (CARDS[u.id].members) return soldierMuzzle(u).height;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleY;
   if (CARDS[u.id].emplacement)
@@ -7566,6 +7570,11 @@ export function tick(s: GameState, dt: number) {
   // Only aircraft need velocity bookkeeping; skip the allocation entirely
   // when the battle has no air units (the common case).
   let airPositions: Map<number, { x: number; y: number }> | undefined;
+  const soldierPositions=new Map<number,{x:number;lane:number}>();
+  for(const u of s.units)if(CARDS[u.id].members){
+    u.gaitPhase??=u.walk;
+    soldierPositions.set(u.uid,{x:u.x,lane:u.lane});
+  }
   for (const u of s.units)
     if (CARDS[u.id].air)
       (airPositions ??= new Map()).set(u.uid, { x: u.x, y: u.y });
@@ -10236,6 +10245,8 @@ export function tick(s: GameState, dt: number) {
   for (const u of s.units) if (CARDS[u.id].members) {
     stepCrouchLocomotion(u,s.time,dt);
     stepProneLocomotion(u,s.time,dt);
+    const previous=soldierPositions.get(u.uid);
+    if(previous)updateSoldierGait(u,previous,dt,s.time);
   }
   if (airPositions)
     for (const u of s.units) {

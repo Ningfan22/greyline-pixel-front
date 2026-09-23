@@ -8,9 +8,9 @@ globalThis.Image=class extends Image {
   set src(v){super.src=v.startsWith('/')?fileURLToPath(new URL('../public'+v,import.meta.url)):v;}
   get src(){return super.src;}
 };
-const {loadArt,uniformFrame}=await import('../game/art.ts');
+const {loadArt}=await import('../game/art.ts');
 const {render}=await import('../game/render.ts');
-const {adultFrameChoice,adultIdentity}=await import('../game/adult-animation.ts');
+const {soldierFrame}=await import('../game/soldier-art.ts');
 const {createGame,startGame,spawnUnit,refreshVision,CARDS,H}=await import('../game/engine.ts');
 
 test('actual renderer draws all eight own-identity raised-rifle gait images, not a static patrol torso',async()=>{
@@ -22,8 +22,8 @@ test('actual renderer draws all eight own-identity raised-rifle gait images, not
     Object.assign(u,{hp:100,moving:true,motion:'ground',pose:'walk',climbing:0,aimUntil:100,readyAt:0,poseAnimAt:undefined,fire:0,flash:0});
     s.time=20;refreshVision(s);
     for(let i=0;i<8;i++){
-      u.walk=i;const snapshot=JSON.stringify(u),choice=adultFrameChoice(u,s.time),adult=art.adults[adultIdentity(id)];
-      const expected=uniformFrame(adult[choice.group][choice.index],CARDS[id].uniform);
+      u.walk=i;const snapshot=JSON.stringify(u);
+      const expected=soldierFrame(art.soldiers,u,s.time).image;
       calls=[];render(ctx,s,art,null,null,true,500,960);
       assert(calls.includes(expected),`${id} gait ${i} must reach the screen`);
       assert.equal(JSON.stringify(u),snapshot,'drawing must never modify movement state');
