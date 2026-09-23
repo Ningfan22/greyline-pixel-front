@@ -1,0 +1,45 @@
+{
+  "task": "v152 distinct grenade-launcher stance transition",
+  "mode": "built-in image_gen",
+  "generation_calls": 1,
+  "retries": 0,
+  "variants": 0,
+  "arguments": {
+    "prompt": "Use case: stylized-concept\nAsset type: NEW v152 grenade-launcher WHOLE-BODY STANCE-TRANSITION animation atlas for a side-view battlefield game.\nCreate exactly ONE new original transparent RGBA PNG sheet containing EXACTLY SIXTEEN complete painted adult figures in EIGHT COLUMNS by TWO ROWS, regular equal cells. Prefer 4096x1024 landscape with generous 512x512 conceptual cells. If that resolution is unsupported, use a supported landscape size while preserving the eight-column/two-row layout, full bodies, shared scale and safe margins. This asset is a continuous standing-to-kneeling-to-prone transition, NOT firing, loading, or a reworking of the firing/loading sheet.\n\nCharacter and weapon reference: The previously viewed v152 firing/loading PNG is CHARACTER/WEAPON STYLE REFERENCE ONLY, not an edit target and not the action/layout to reproduce. Match its realistic adult grenadier identity, olive/tan camouflage helmet and uniform, tactical vest with small round pouches, gloves, dark boots, natural anatomy, painted cloth/metal finish and brown-wood launcher furniture. Strict SIDE PROFILE facing RIGHT in every cel. No chibi or stick/pixel-block anatomy. One actor and ONE compact standalone single-shot break-action grenade launcher in every cel: short THICK BLACK barrel, brown WOODEN shoulder stock, consistent short fore-end and receiver, recognizable fictional M79-like silhouette. NOT an RPG tube, mortar, rifle, long shotgun or under-barrel attachment. Do not enlarge the weapon or shorten the adult body.\n\nCritical weapon invariant: the grenade launcher stays FULLY CLOSED and visibly intact in ALL sixteen cels. NO broken-open breech, NO cartridge, extraction, insertion or reload gesture, NO firing/recoil. Keep the muzzle pointing RIGHT, approximately LEVEL and visibly ABOVE the invisible ground throughout lowering. The right hand retains secure control at the stock/grip when the left hand is used to support body weight. Never plant the muzzle, point the weapon down into the ground, disconnect the barrel, or make it vanish.\n\nRead each row LEFT TO RIGHT. The top row contains EIGHT DISTINCT smooth chronological whole-body intermediates from standing to grounded kneeling:\nTop column 0: steady upright standing ready, both boots planted, launcher held compact and level with two hands.\nTop column 1: begin lowering weight with a slight controlled bend of both knees; boots remain grounded.\nTop column 2: pelvis descends farther and knees flex, torso inclines only modestly, launcher level.\nTop column 3: back knee folds more, rear heel naturally pivots as weight lowers toward the front planted foot.\nTop column 4: back knee descends close toward the invisible ground, front knee bends farther; no jump or floating body.\nTop column 5: back knee nearly reaches the ground, a visibly lower distinct intermediate; front foot stays planted.\nTop column 6: back knee makes initial grounded contact, hips settling gradually, launcher level.\nTop column 7: stable fully grounded one-knee kneeling endpoint, rear knee/rear boot and front boot supporting, launcher ready and closed.\n\nThe bottom row contains EIGHT smooth chronological whole-body intermediates from that kneeling endpoint to fully flat prone:\nBottom column 0: EXACT MATCH to top column 7 in body pose, hand placement, launcher shape and scale, and ground contacts. This is the shared kneeling seam.\nBottom column 1: lean the torso forward from the hips and begin reaching the LEFT hand toward the ground; RIGHT hand securely holds the closed launcher LEVEL above ground.\nBottom column 2: LEFT palm plants on the invisible ground, taking body weight; right hand still holds the complete launcher level and clear.\nBottom column 3: torso lowers further through supported shoulder/hip motion, rear leg begins extending backward to the LEFT.\nBottom column 4: rear leg extends farther and the other leg starts sliding backward; pelvis low, no crawling stride or raised hips.\nBottom column 5: BOTH legs extend backward, belly approaches ground and forearms lower, launcher kept level ahead/right.\nBottom column 6: belly and pelvis settle fully flat, both legs extended LEFT, elbows low, left hand returns toward launcher support.\nBottom column 7: steady fully-flat-prone aiming RIGHT, belly/pelvis/legs grounded, elbows supporting low, BOTH hands plausibly supporting the SAME closed short-barreled wooden-stock launcher. No push-up or raised knee.\n\nScale, ground registration and gutters: preserve EXACTLY the same natural adult anatomical scale across ALL sixteen figures. At the preferred 4096x1024 sheet with 512x512 cells, standing body height approximately 300 pixels, kneeling approximately 210 pixels, prone approximately 90 pixels, and the LONGEST prone body-plus-weapon extent LESS THAN 400 pixels. Never enlarge low figures to fill empty space. Scale all dimensions uniformly if output size changes. Every complete helmet, boot, limb, stock and muzzle must stay fully INSIDE its own cell with at least 30 pixels of empty transparent gutter on every side at the preferred size, proportionally generous margins at other sizes. Same invisible ground line at local y=450 within every 512-high cell. Grounded feet, knees, palms, elbows and belly contact this same line as appropriate to each pose; do not shift a whole row upward/downward. Keep the same camera and coherent body anchor, no per-cel zoom, cropping, horizontal framing jumps or shortened limbs. The top-row last cel and bottom-row first cel must align exactly when overlaid at their cell origins.\n\nOutput/background: genuine transparent RGBA, empty pixels alpha exactly zero, clean cutout silhouettes. No ground/floor line, scenery, cast shadow, backdrop, opaque haze, checkerboard, visible grid, frame numbers, labels, text, captions or watermark. No fire, smoke, explosion, flash, loose rounds, extra weapons or people. No hands above the head, waving, signaling, climbing, ropes, jump, flight or unrelated action. All cels are whole bodies, never torso cutouts. Produce ONLY this single new 16-cel stance-transition sheet."
+  },
+  "style_reference": {
+    "path": "/Users/bytedance/.codex/generated_images/01a0bb93-c7af-74a3-b206-a0fe73cad320/exec-89139f38-cc47-497a-8e38-d072d37e7dab.png",
+    "role": "Viewed character and weapon reference only; not an edit target."
+  },
+  "original_png": "/Users/bytedance/.codex/generated_images/01a0bb93-c7af-74a3-b206-a0fe73cad320/exec-8e2ad408-4510-4ae4-88d4-4379a7cb6104.png",
+  "original_modified": false,
+  "inspection": {
+    "method": "view_image visual inspection and read-only PNG metadata",
+    "dimensions": {
+      "width": 2172,
+      "height": 724
+    },
+    "format": "PNG",
+    "color_space": "RGB",
+    "samples_per_pixel": 4,
+    "alpha_channel_present": true,
+    "alpha_caveat": "Alpha channel confirmed; exact per-pixel alpha-zero coverage was not numerically measured.",
+    "visible_figure_count": 16,
+    "visual_layout": "8 columns by 2 rows",
+    "ideal_equal_cell_dimensions_at_actual_size": {
+      "width": 271.5,
+      "height": 362
+    },
+    "overall_action": "Standing lowers into grounded kneeling in top row; bottom row progresses from kneeling through ground-hand support to low prone. Launcher remains visibly closed, with no reload or firing sequence.",
+    "limitations": [
+      "Actual aspect ratio is 3:1, not the requested 4:1; actual dimensions are 2172x724 rather than 4096x1024.",
+      "The two rows do not register to equal-height cells: top-row boots extend below the nominal horizontal midpoint, and local ground baselines differ between rows.",
+      "Bottom-row low and prone silhouettes exceed or crowd nominal cell widths; safe transparent gutters and isolation are not achieved.",
+      "The final prone muzzle reaches the image's right edge and appears clipped; the top-right muzzle also has insufficient right margin.",
+      "Adult proportions remain broadly coherent, but exact shared anatomical scale and anchor registration are not established.",
+      "Top-row final kneeling and bottom-row first kneeling are similar but not an exact matching seam.",
+      "Late kneeling and prone cels look very similar; sixteen visible figures should not be interpreted as sixteen fully validated distinct animation intermediates.",
+      "Not a verified production-ready regular-grid atlas. Parent must inspect/calibrate usable cels."
+    ]
+  }
+}
