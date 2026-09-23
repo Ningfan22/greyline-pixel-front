@@ -437,7 +437,7 @@ export class LobbyScreen extends Screen {
     drawPanel(ctx, 0, 0, SIDEBAR_W, this.screenH, COLORS.bgPanel, COLORS.border);
     // Brand
     drawTextLeft(ctx, '灰线', 12, 20, 20, COLORS.accent, 'bold');
-    drawTextLeft(ctx, 'GREYLINE · v179', 12, 40, 9, COLORS.textDim);
+    drawTextLeft(ctx, 'GREYLINE · v180', 12, 40, 9, COLORS.textDim);
     // Gold + deck status at bottom
     const gold = lobbyState.collection.gold;
     drawTextLeft(ctx, `金币 ${gold}`, 12, this.screenH - 44, 12, COLORS.gold);

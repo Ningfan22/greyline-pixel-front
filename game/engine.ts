@@ -96,6 +96,7 @@ import {
   segmentBox,
   debrisCover,
   createScenery,
+  cloneScenery,
   refreshVision,
   visibleToSide,
   pointVisible,
@@ -230,6 +231,10 @@ export interface Unit {
   /** Exact live skeleton at injury/death, never another generic idle body. */
   soldierFall?: SoldierPose;
   soldierRise?: {at:number;pose:SoldierPose};
+  soldierLanding?: {at:number;duration:number;pose:SoldierPose};
+  soldierSurrender?: {at:number;pose:SoldierPose};
+  /** World-space fall after losing a rope/canopy or being incapacitated mid-jump. */
+  casualtyFall?: {vx:number;vy:number};
   woundedTime: number;
   bleedOut: number;
   woundedBy: Side;
@@ -997,7 +1002,7 @@ export function createGame(
   }
   for (const side of [0, 1] as Side[])
     s.knownScenery[side] = Object.fromEntries(
-      s.scenery.map((p) => [p.id, structuredClone(p)]),
+      s.scenery.map((p) => [p.id, cloneScenery(p)]),
     );
   for (const side of [0, 1] as Side[])
     s.knownWalls[side] = Object.fromEntries(
@@ -2492,6 +2497,7 @@ function hitUnit(
     if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
       u.soldierFall = soldierPose(u,s.time);
       u.soldierRise = undefined;
+      beginCasualtyFall(s,u);
       u.woundedFromPose = u.pose;
       u.wounded = true;
       u.rappelling = false;
@@ -2504,10 +2510,10 @@ function hitUnit(
       u.secondaryFire = 0;
       u.moving = false;
       u.climbing = 0;
-      u.motion = 'ground';
+      u.motion = u.casualtyFall ? 'jump' : 'ground';
       u.coverGoal = null;
       u.pose = setStance(u, s.time, 'prone', { force: true });
-      u.y = ground(s, u.x);
+      if(!u.casualtyFall)u.y = ground(s, u.x);
       notify(
         s,
         `${u.side === 0 ? '我方' : '敌方'}${c.name}有队员倒地待救`,
@@ -2527,6 +2533,8 @@ function finishDeath(
 ) {
   if (u.destroyed) return;
   const soldierDeathPose=CARDS[u.id].members?soldierPose({...u,hp:Math.max(1,u.hp)},s.time):undefined;
+  const soldierInAir=!!CARDS[u.id].members&&u.y<ground(s,u.x)-.01;
+  const fallVelocity=u.casualtyFall??infantryFallVelocity(u);
   u.destroyed = true;
   // Sever any buddy-drag bond so the survivor returns to combat.
   if (u.draggingUid !== undefined) {
@@ -2606,14 +2614,14 @@ function finishDeath(
     y: u.y,
     angle: u.hullAngle,
     age: 0,
-    falling: airborneTarget(u) || ragdoll,
+    falling: airborneTarget(u) || ragdoll || soldierInAir,
     vx: c.air
       ? u.facing * 70
       : ragdoll
         ? throwDir * (80 + blastPower * 120)
-        : 0,
-    vy: ragdoll ? -(110 + blastPower * 100) : 0,
-    ...(ragdoll ? { spin: throwDir * (4 + blastPower * 6) } : {}),
+        : soldierInAir ? fallVelocity.vx : 0,
+    vy: ragdoll ? -(110 + blastPower * 100) : soldierInAir ? fallVelocity.vy : 0,
+    ...(ragdoll ? { spin: throwDir * (4 + blastPower * 6) } : soldierInAir ? {spin:0} : {}),
     cause: source === 'gas' ? 'burn' : source,
     // v83: a fallen rifleman keeps his remaining ammunition on the body
     // so a dry squadmate can pull a magazine off the same weapon.
@@ -3413,6 +3421,7 @@ function seekCover(s: GameState, u: Unit, target: CoverTarget) {
  * someone who will survive it.
  */
 export function medicTriageScore(medic: Unit, patient: Unit): number {
+  if(!availableForGroundAid(patient))return -Infinity;
   if (patient.wounded && patient.bleedOut <= 2.5) return -Infinity;
   let score: number;
   if (patient.wounded) {
@@ -3791,6 +3800,27 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
   return { x: hit.x, y: hit.y, propId: hit.box.prop.id };
 }
 
+function infantryFallVelocity(u:Unit) {
+  return {vx:u.rappelling||u.parachuting?0:u.vx,
+    vy:u.rappelling?65:u.parachuting?135:u.vy};
+}
+function beginCasualtyFall(s:GameState,u:Unit) {
+  if(!u.casualtyFall&&u.y<ground(s,u.x)-.01)u.casualtyFall=infantryFallVelocity(u);
+}
+function stepCasualtyFall(s:GameState,u:Unit,dt:number) {
+  const fall=u.casualtyFall!;
+  u.x=Math.max(55,Math.min(W-55,u.x+fall.vx*dt));
+  fall.vx*=Math.max(0,1-2.2*dt);fall.vy+=420*dt;u.y+=fall.vy*dt;
+  if(u.y>=ground(s,u.x)){
+    u.y=ground(s,u.x);u.casualtyFall=undefined;u.motion='ground';u.vx=u.vy=0;
+  }
+}
+function availableForGroundAid(u:Unit) {
+  return !u.casualtyFall&&!u.rappelling&&!u.parachuting&&u.motion!=='jump'&&(u.climbing??0)<=0;
+}
+function beginSoldierLanding(u:Unit,time:number,duration:number) {
+  u.soldierLanding={at:time,duration,pose:soldierPose(u,time)};
+}
 function beginDrop(u: Unit, dir: number, speed: number, falling = false) {
   u.motion = 'jump';
   u.motionTime = 0;
@@ -3812,6 +3842,7 @@ function traverse(s: GameState, u: Unit, dt: number) {
     u.vy += 430 * dt;
     u.y += u.vy * dt;
     if (u.vy > 0 && u.y >= ground(s, u.x)) {
+      beginSoldierLanding(u,s.time,.22);
       u.y = ground(s, u.x);
       u.motion = 'land';
       u.motionTime = 0;
@@ -5011,6 +5042,8 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     threat &&
     Math.abs(threat.x - u.x) < 320
   ) {
+    u.soldierSurrender={at:s.time,pose:soldierPose(u,s.time)};
+    beginCasualtyFall(s,u);
     u.surrendered = true;
     u.tactic = 'surrender';
     u.surrenderTime = 0;
@@ -5018,7 +5051,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     u.secondaryFire = 0;
     u.coverGoal = null;
     u.climbing = 0;
-    u.motion = 'ground';
+    u.motion = u.casualtyFall ? 'jump' : 'ground';
     s.players[u.side === 0 ? 1 : 0].captures++;
     notify(
       s,
@@ -7730,6 +7763,7 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
     if (u.wounded) {
+      beginCasualtyFall(s,u);
       // v131: same hazard for casualties. The wounded branch `continue`s
       // before the descent-clearing code below, so a rifleman hit on the
       // rope kept rappelling=true through his whole casualty cycle — the
@@ -7758,6 +7792,12 @@ export function tick(s: GameState, dt: number) {
       u.fire = 0;
       u.secondaryFire = 0;
       u.moving = false;
+      if(u.casualtyFall){
+        u.crawling=false;
+        stepCasualtyFall(s,u,dt);
+        if(u.bleedOut<=0)finishDeath(s,u,u.woundedBy);
+        continue;
+      }
       // After the initial shock, a wounded soldier crawls back toward his own
       // line while no medic is actively tending him.
       // v84: a man being bandaged lies still so the lifesaver can work.
@@ -7818,6 +7858,8 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
     if (u.surrendered) {
+      u.soldierSurrender??={at:s.time-dt,pose:soldierPose({...u,surrendered:false},s.time-dt)};
+      beginCasualtyFall(s,u);
       u.surrenderTime += dt;
       u.moving = false;
       u.fire = 0;
@@ -7832,9 +7874,10 @@ export function tick(s: GameState, dt: number) {
         u.rappelling = false;
         u.parachuting = false;
         u.pose = 'idle';
-        u.motion = 'ground';
+        u.motion = u.casualtyFall ? 'jump' : 'ground';
       }
-      u.y = ground(s, u.x);
+      if(u.casualtyFall)stepCasualtyFall(s,u,dt);
+      else u.y = ground(s, u.x);
       continue;
     }
     // v79: blood-trail intelligence. On a staggered scan a soldier notices
@@ -7894,6 +7937,7 @@ export function tick(s: GameState, dt: number) {
         u.y >= ground(s, u.x) ||
         s.time - (u.parachutingStartAt ?? s.time) > 12
       ) {
+        beginSoldierLanding(u,s.time,.3);
         u.y = ground(s, u.x);
         u.parachuting = false;
         u.pose = 'land';
@@ -7921,6 +7965,7 @@ export function tick(s: GameState, dt: number) {
         u.y >= ground(s, u.x) ||
         s.time - (u.rappellingStartAt ?? s.time) > 12
       ) {
+        beginSoldierLanding(u,s.time,.3);
         u.y = ground(s, u.x);
         u.rappelling = false;
         u.pose = 'land';
@@ -7943,6 +7988,7 @@ export function tick(s: GameState, dt: number) {
       const stillValid =
         patient !== undefined &&
         patient.wounded &&
+        availableForGroundAid(patient) &&
         patient.hp > 0 &&
         patient.bleedOut > 0 &&
         patient.draggedByUid === undefined &&
@@ -7983,6 +8029,7 @@ export function tick(s: GameState, dt: number) {
         !patient ||
         patient.side !== u.side ||
         !patient.wounded ||
+        !availableForGroundAid(patient) ||
         patient.hp <= 0 ||
         patient.bleedOut <= 0 ||
         patient.draggedByUid !== u.uid ||
@@ -8101,6 +8148,7 @@ export function tick(s: GameState, dt: number) {
         for (const q of squadMates(s, u.side, u.squad)) {
           if (
             q.wounded &&
+            availableForGroundAid(q) &&
             q.draggedByUid === undefined &&
             q.bleedOut > 0 &&
             q.bleedOut < 25 &&
@@ -8142,6 +8190,7 @@ export function tick(s: GameState, dt: number) {
         for (const q of squadMates(s, u.side, u.squad)) {
           if (
             q.wounded &&
+            availableForGroundAid(q) &&
             q.draggedByUid === undefined &&
             q.firstAidByUid === undefined &&
             (q.stabilizedUntil ?? 0) <= s.time &&
@@ -10262,6 +10311,7 @@ export function tick(s: GameState, dt: number) {
   }
   for (const u of s.units) if (CARDS[u.id].members) {
     if(u.soldierRise&&s.time-u.soldierRise.at>=.35)u.soldierRise=undefined;
+    if(u.soldierLanding&&s.time-u.soldierLanding.at>=u.soldierLanding.duration)u.soldierLanding=undefined;
     stepCrouchLocomotion(u,s.time,dt);
     stepProneLocomotion(u,s.time,dt);
     const previous=soldierPositions.get(u.uid);

@@ -48,6 +48,11 @@ export interface Scenery {
   damageAt?: number;
   fromStage?: number;
 }
+/** Independent fog-of-war memory, including mutable damage parts. Native
+ * mini-game runtimes need not provide the browser's structuredClone API. */
+export function cloneScenery(p: Scenery): Scenery {
+  return { ...p, parts: p.parts.map((part) => ({ ...part })) };
+}
 export const HOUSE_PROFILES = [
   { width: 176, height: 180, wallHeight: 121 },
   { width: 196, height: 188, wallHeight: 137 },
@@ -739,7 +744,7 @@ export function refreshVision(s: GameState) {
         ) ||
         pointVisible(s, side, prop.x, prop.y - 12)
       )
-        s.knownScenery[side][prop.id] = structuredClone(prop);
+        s.knownScenery[side][prop.id] = cloneScenery(prop);
     rememberGroundContacts(s, side);
   }
 }

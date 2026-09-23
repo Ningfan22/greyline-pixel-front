@@ -1497,7 +1497,7 @@ export class BattleScreen extends Screen {
     drawTextLeft(ctx, orderDesc, 8, barY + 40, 8, COLORS.textDim);
 
     // footer
-    drawTextLeft(ctx, 'GREYLINE 林间前线 · v179', 8, this.screenH - 6, 7, COLORS.textMuted);
+    drawTextLeft(ctx, 'GREYLINE 林间前线 · v180', 8, this.screenH - 6, 7, COLORS.textMuted);
   }
 
   drawMinimap(ctx: CanvasRenderingContext2D): void {

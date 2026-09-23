@@ -23,6 +23,11 @@ const lerp=(a:Point,b:Point,t:number):Point=>[mix(a[0],b[0],t),mix(a[1],b[1],t)]
 const add=(a:Point,b:Point):Point=>[a[0]+b[0],a[1]+b[1]];
 const rotate=(p:Point,a:number):Point=>[p[0]*Math.cos(a)-p[1]*Math.sin(a),p[0]*Math.sin(a)+p[1]*Math.cos(a)];
 const smooth=(t:number)=>{t=clamp(t);return t*t*(3-2*t);};
+function gaitStep(phase:number,stride:number,height:number):Point {
+  const cycle=((phase/(Math.PI*2))%1+1)%1;
+  return [cycle<.5?stride*(1-4*cycle):stride*(-1+4*(cycle-.5)),
+    cycle<.5?0:Math.sin((cycle-.5)*Math.PI*2)*height];
+}
 
 export function soldierAppearance(u: Pick<Unit,'id'>) {
   return {identity:adultIdentity(u.id),uniform:CARDS[u.id].uniform??'infantry'};
@@ -185,17 +190,15 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     hip=add(hip,[0,travel*(2+run*4)*(1-clamp(stance.low))]);
     const stride=stance.low>1.5?8:stance.low>.5?12:16+run*4;
     const foot=(p:number,far:boolean):Point=>{
-      const cycle=((p/(Math.PI*2))%1+1)%1;
       // First half is planted contact (constant backwards local velocity).
       // Second half swings forward. The far leg is always half a cycle away.
-      const x=cycle<.5?stride*(1-4*cycle):stride*(-1+4*(cycle-.5));
-      const lift=cycle<.5?0:Math.sin((cycle-.5)*Math.PI*2)*(stance.low>1.5?3:6+run*5);
+      const [x,lift]=gaitStep(p,stride,stance.low>1.5?3:6+run*5);
       return stance.low>1.5?[hip[0]-25+x,-3-lift]:[x+(far?-1:1),-3-lift];
     };
     nearFoot=lerp(nearFoot,foot(phase,false),travel);farFoot=lerp(farFoot,foot(phase+Math.PI,true),travel);
     hip=add(hip,[0,-Math.abs(Math.sin(phase))*travel*(.65+run*.85)]);
   }
-  if(u.motion==='jump'||u.motion==='land'){
+  if((u.motion==='jump'||u.motion==='land')&&action!=='casualty'&&action!=='surrender'){
     const jump=u.motion==='jump';
     const p=clamp((u.motionTime??0)/Math.max(.01,u.motionDuration??.6));
     const tuck=jump?Math.sin(p*Math.PI):1-p;
@@ -208,9 +211,15 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     const p=u.soldierFall?1:u.wounded?clamp((u.woundedTime??0)/.7):1;
     const fallen=blendStance(stance,stanceAt('prone'),smooth(p));hip=fallen.hip;lean=fallen.lean+.12;
     nearFoot=fallen.nearFoot;farFoot=fallen.farFoot;stance=fallen;
-    if(u.crawling&&u.draggedByUid===undefined){
-      nearFoot=add(nearFoot,[Math.sin(phase)*5,-Math.max(0,Math.cos(phase))*2]);
-      farFoot=add(farFoot,[-Math.sin(phase)*5,-Math.max(0,-Math.cos(phase))*2]);
+    // Keep the last crawling legs while their displacement weight settles.
+    // A medic/drag bond can clear `crawling` in one tick, not the anatomy.
+    // The first fall already starts from its saved live legs. Its destination
+    // must stay still while the old gait weight drains; otherwise the shortest
+    // knee rotation can change sides during the collapse.
+    if(travel>0&&(!u.soldierFall||(u.woundedTime??0)>=.7)){
+      const near=gaitStep(phase,8,3),far=gaitStep(phase+Math.PI,8,3);
+      nearFoot=lerp(nearFoot,[hip[0]-25+near[0],-3-near[1]],travel);
+      farFoot=lerp(farFoot,[hip[0]-25+far[0],-3-far[1]],travel);
     }
   }
   const neck:Point=add(hip,[Math.sin(lean)*SOLDIER_BONES.torso,-Math.cos(lean)*SOLDIER_BONES.torso]);
@@ -304,8 +313,12 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     muzzle,weaponAngle,weaponVisible,slung,phase,travel,low:stance.low,prop,propHand,
     layers:['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm']};
   if(action==='casualty'&&u.soldierFall)return blendSoldierPose(u.soldierFall,result,(u.woundedTime??0)/.7);
+  if(action==='surrender'&&u.soldierSurrender&&time-u.soldierSurrender.at<.45)
+    return blendSoldierPose(u.soldierSurrender.pose,result,(time-u.soldierSurrender.at)/.45);
   if(action!=='casualty'&&u.soldierRise&&time-u.soldierRise.at<.35)
     return blendSoldierPose(u.soldierRise.pose,result,(time-u.soldierRise.at)/.35);
+  if(action!=='casualty'&&u.soldierLanding&&time-u.soldierLanding.at<u.soldierLanding.duration)
+    return blendSoldierPose(u.soldierLanding.pose,result,(time-u.soldierLanding.at)/u.soldierLanding.duration);
   return result;
 }
 
