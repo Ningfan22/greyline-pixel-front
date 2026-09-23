@@ -3,6 +3,7 @@ import type {AdultIdentity} from './adult-animation';
 type Part='head'|'torso'|'upperArm'|'forearm'|'thigh'|'shin'|'boot'|'rifle'|'backpack'|'pelvis';
 type Parts=Record<Part,HTMLCanvasElement>;
 type Equipment=Exclude<SoldierWeapon,'rifle'>|'tanks'|'medical'|'shovel'|'wrench';
+export const SOLDIER_FRAME={width:128,height:128,anchorX:64,anchorY:96} as const;
 export interface SoldierArt {
   bodies:Record<AdultIdentity,Parts>;
   equipment:Record<Equipment,HTMLCanvasElement>;
@@ -174,12 +175,15 @@ export function soldierFrame(art:SoldierArt,u:SoldierBody,time:number) {
     const grid=k.endsWith('Angle')||k==='travel'||k==='low'?1024:2;
     return Math.round(v*grid)/grid;
   });
-  const existing=art.frames.get(key);if(existing)return {image:existing,pose};
-  const frame=make(128,96),ctx=frame.getContext('2d')!;ctx.save();ctx.translate(64,96);paintSoldier(ctx,art,pose);ctx.restore();
+  const existing=art.frames.get(key);if(existing)return {image:existing,pose,anchorY:SOLDIER_FRAME.anchorY};
+  // Padding below the unchanged boot anchor fits a downhill foot. Canvas
+  // dimensions never resize the man; the renderer keeps this exact anchor.
+  const frame=make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),ctx=frame.getContext('2d')!;
+  ctx.save();ctx.translate(SOLDIER_FRAME.anchorX,SOLDIER_FRAME.anchorY);paintSoldier(ctx,art,pose);ctx.restore();
   // Rotations may produce edge coverage even with nearest sampling. Resolve
   // once onto the canonical ONE-world-pixel grid; every action uses this path.
-  const d=ctx.getImageData(0,0,128,96);for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
+  const d=ctx.getImageData(0,0,frame.width,frame.height);for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
   ctx.putImageData(d,0,0);art.frames.set(key,frame);
   if(art.frames.size>768)art.frames.delete(art.frames.keys().next().value!);
-  return {image:frame,pose};
+  return {image:frame,pose,anchorY:SOLDIER_FRAME.anchorY};
 }

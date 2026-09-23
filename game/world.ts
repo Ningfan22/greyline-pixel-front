@@ -98,6 +98,9 @@ export interface Wreck {
    * ragdoll tumbles through the air on this spin, then settles on landing.
    */
   spin?: number;
+  /** Continue the same body's shortest rotation after impact, never snap a
+   * fully turned ragdoll straight into its final ground orientation. */
+  soldierSettle?: { from: number; to: number; at: number; duration: number };
   /**
    * v109: how the hulk died. Picks the authored wreck-state family:
    * blast kills tear the hull apart, bullet kills puncture and riddle it,

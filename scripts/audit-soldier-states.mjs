@@ -22,7 +22,7 @@ const art=await loadArt(),out=mkdtempSync(join(tmpdir(),'greyline-soldier-audit-
 const screen=createCanvas(960,H),ctx=screen.getContext('2d'),draw=ctx.drawImage.bind(ctx);
 let captured;
 ctx.drawImage=(...args)=>{
-  if(args.length===5&&args[0]?.height===96&&args[2]===-96&&args[4]===96&&[96,128].includes(args[3]))captured=args[0];
+  if(args.length===5&&args[0]?.width===128&&args[0]?.height===128&&args[2]===-128&&args[4]===128&&args[3]===128)captured=args[0];
   return draw(...args);
 };
 const cases=[
@@ -81,13 +81,13 @@ for(const [id,card] of Object.entries(CARDS).filter(([,c])=>c.members)){
 const ids=Object.entries(CARDS).filter(([,c])=>c.members).map(([id])=>id);
 // Every mixed-crew member gets a plate: do not hide escorts behind member zero.
 for(const {id,member} of inventory){
-  const columns=8,cellW=256,cellH=216,rows=Math.ceil(cases.length/columns);
+  const columns=8,cellW=256,cellH=280,rows=Math.ceil(cases.length/columns);
   const plate=createCanvas(columns*cellW,rows*cellH+36),p=plate.getContext('2d');
   p.fillStyle='#acb4ab';p.fillRect(0,0,plate.width,plate.height);p.imageSmoothingEnabled=false;
   p.font='18px monospace';p.fillStyle='#19271c';p.fillText(id+' / member '+member,12,24);
   cases.forEach(([name],i)=>{const f=images.get(id+'/'+member+'/'+name),x=i%columns*cellW,y=36+Math.floor(i/columns)*cellH;
     p.drawImage(f,x+(cellW-f.width*2)/2,y,f.width*2,f.height*2);
-    p.fillStyle='#19271c';p.font='13px monospace';p.fillText(name,x+5,y+208);
+    p.fillStyle='#19271c';p.font='13px monospace';p.fillText(name,x+5,y+272);
   });
   writeFileSync(join(out,id+'-'+member+'.png'),plate.toBuffer('image/png'));
 }

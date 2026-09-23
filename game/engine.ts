@@ -1,5 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
-import {soldierMuzzle,updateSoldierGait,soldierPose,type SoldierPose} from './soldier-pose';
+import {soldierMuzzle,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
@@ -233,6 +233,8 @@ export interface Unit {
   soldierRise?: {at:number;pose:SoldierPose};
   soldierLanding?: {at:number;duration:number;pose:SoldierPose};
   soldierSurrender?: {at:number;pose:SoldierPose};
+  soldierGround?: {near:number;far:number;hip?:number;weight:number;y:number};
+  soldierTurn?: SoldierTurn;
   /** World-space fall after losing a rope/canopy or being incapacitated mid-jump. */
   casualtyFall?: {vx:number;vy:number};
   woundedTime: number;
@@ -2496,6 +2498,7 @@ function hitUnit(
     s.injurySeed = (Math.imul(1664525, s.injurySeed) + 1013904223) >>> 0;
     if (s.injurySeed / 4294967296 < Math.min(0.35, (0.9 * actual) / u.maxHp)) {
       u.soldierFall = soldierPose(u,s.time);
+      u.soldierTurn = undefined;
       u.soldierRise = undefined;
       beginCasualtyFall(s,u);
       u.woundedFromPose = u.pose;
@@ -5043,6 +5046,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
     Math.abs(threat.x - u.x) < 320
   ) {
     u.soldierSurrender={at:s.time,pose:soldierPose(u,s.time)};
+    u.soldierTurn=undefined;
     beginCasualtyFall(s,u);
     u.surrendered = true;
     u.tactic = 'surrender';
@@ -7613,10 +7617,10 @@ export function tick(s: GameState, dt: number) {
   // Only aircraft need velocity bookkeeping; skip the allocation entirely
   // when the battle has no air units (the common case).
   let airPositions: Map<number, { x: number; y: number }> | undefined;
-  const soldierPositions=new Map<number,{x:number;lane:number}>();
+  const soldierPositions=new Map<number,{x:number;y:number;lane:number;facing:number;pose:SoldierPose}>();
   for(const u of s.units)if(CARDS[u.id].members){
     u.gaitPhase??=u.walk;
-    soldierPositions.set(u.uid,{x:u.x,lane:u.lane});
+    soldierPositions.set(u.uid,{x:u.x,y:u.y,lane:u.lane,facing:u.facing,pose:soldierPose(u,s.time)});
   }
   for (const u of s.units)
     if (CARDS[u.id].air)
@@ -8033,6 +8037,7 @@ export function tick(s: GameState, dt: number) {
         patient.hp <= 0 ||
         patient.bleedOut <= 0 ||
         patient.draggedByUid !== u.uid ||
+        (c.speed ?? 0) <= 0 ||
         reachedBase ||
         u.hp < u.maxHp * 0.3 ||
         u.personalMorale < 25 ||
@@ -8053,14 +8058,18 @@ export function tick(s: GameState, dt: number) {
           u.y=ground(s,u.x);
           continue;
         }
-        const gap = patient.x - u.x;
-        if (Math.abs(gap) > 18) {
-          moveSoldier(s, u, Math.sign(gap), c.speed! * u.pace * 0.85, dt);
+        // Reach the homeward side before pulling. Being merely within 18px
+        // also admitted a helper on the opposite side and teleported the
+        // patient by up to 34px when the drag offset was first imposed.
+        const pickupGap = patient.x + baseDir * 16 - u.x;
+        if (Math.abs(pickupGap) > 1) {
+          moveSoldier(s, u, Math.sign(pickupGap), Math.min(c.speed! * u.pace * 0.85,Math.abs(pickupGap)/dt), dt);
         } else {
           const px = patient.x;
+          const carrierX = u.x;
           u.x = Math.max(80, Math.min(W - 80, u.x + baseDir * 16 * dt));
           u.walk += dt * 1.8;
-          patient.x = u.x - baseDir * 16;
+          patient.x += u.x - carrierX;
           patient.y = ground(s, patient.x);
           patient.crawling = true;
           patient.walk += dt * 1.2;
@@ -8107,6 +8116,7 @@ export function tick(s: GameState, dt: number) {
     // line, not already being tended by a medic or dragged by someone else.
     if (
       c.members &&
+      (c.speed ?? 0) > 0 &&
       u.hp >= u.maxHp * 0.5 &&
       u.personalMorale >= 40 &&
       !previousWork.tending &&
@@ -10316,6 +10326,11 @@ export function tick(s: GameState, dt: number) {
     stepProneLocomotion(u,s.time,dt);
     const previous=soldierPositions.get(u.uid);
     if(previous)updateSoldierGait(u,previous,dt,s.time);
+    updateSoldierGround(u,x=>ground(s,x),s.time,dt);
+    updateSoldierTurn(u,s.time);
+    if(previous&&previous.facing!==u.facing&&u.hp>0&&!u.wounded&&!u.surrendered)
+      beginSoldierTurn(u,previous,s.time);
+    if(u.soldierTurn&&s.time-u.soldierTurn.at>=u.soldierTurn.duration)u.soldierTurn=undefined;
   }
   if (airPositions)
     for (const u of s.units) {
@@ -10649,7 +10664,13 @@ export function tick(s: GameState, dt: number) {
           w.y = floorY;
           w.vx = 0;
           w.vy = 0;
-          w.angle = Math.max(-0.35, Math.min(0.35, w.angle));
+          const angle = Math.atan2(Math.sin(w.angle), Math.cos(w.angle));
+          const target = Math.max(-0.35, Math.min(0.35, angle));
+          const delta = target - angle;
+          if(Math.abs(delta) > .001)w.soldierSettle = {
+            from:w.angle, to:w.angle + delta, at:w.age,
+            duration:.2 + Math.abs(delta) * .26,
+          };
           // v121: a body hitting the dirt kicks up a dust puff — the old
           // crash burst read as the corpse exploding on landing.
           for (let i = 0; i < 10; i++) {
@@ -10675,6 +10696,15 @@ export function tick(s: GameState, dt: number) {
       }
     } else if (contact) Object.assign(w, contact);
     else w.y = ground(s, w.x);
+    if(isInfantry && !w.falling && w.soldierSettle){
+      const settle=w.soldierSettle;
+      const t=Math.min(1,Math.max(0,(w.age-settle.at)/settle.duration));
+      w.angle=settle.from+(settle.to-settle.from)*t*t*(3-2*t);
+      if(t===1){
+        w.angle=Math.atan2(Math.sin(w.angle),Math.cos(w.angle));
+        w.soldierSettle=undefined;
+      }
+    }
   }
   s.units = s.units.filter(
     (u) =>

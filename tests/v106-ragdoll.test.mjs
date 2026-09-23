@@ -80,6 +80,9 @@ function until(s, predicate, seconds = 12) {
   until(s, () => !s.wrecks.some((w) => w.id === firstId && w.falling), 6);
   const landed = s.wrecks.find((w) => w.id === firstId);
   assert.ok(landed, 'wreck must persist after landing');
+  // Impact stops translation; rotation now settles continuously rather than
+  // snapping to a prone angle on the very first contact frame.
+  until(s, () => !landed.soldierSettle, 2);
   assert.ok(
     Math.abs(landed.angle) <= 0.36,
     'landed body must settle into a sprawled angle',

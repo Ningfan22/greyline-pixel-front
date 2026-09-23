@@ -37,11 +37,11 @@ test('every role/action keeps appearance, fixed bones, one pixel grid and canoni
     const u={...base,...role,...patch},before=JSON.stringify(u),{image,pose:p}=soldierFrame(art,u,20);
     assert.equal(JSON.stringify(u),before);
     assert.deepEqual(p.appearance,soldierAppearance(role));
-    assert.equal(image.width,128);assert.equal(image.height,96);
+    assert.equal(image.width,128);assert.equal(image.height,128);
     for(const [a,b,length]of [[p.hip,p.neck,22],[p.hip,p.nearKnee,17],[p.nearKnee,p.nearFoot,17],
       [p.shoulder,p.nearElbow,12],[p.nearElbow,p.nearHand,13]])
       assert(Math.abs(distance(a,b)-length)<1e-6,`${u.id}/${u.member}/${p.action} bone length`);
-    const rgba=image.getContext('2d').getImageData(0,0,128,96).data;
+    const rgba=image.getContext('2d').getImageData(0,0,image.width,image.height).data;
     let opaque=0;
     for(let i=3;i<rgba.length;i+=4){assert(rgba[i]===0||rgba[i]===255,'all actions have hard pixel alpha');if(rgba[i])opaque++;}
     assert(opaque>150,`${u.id}/${p.action} is visibly drawn`);

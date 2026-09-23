@@ -105,6 +105,31 @@ export function solveLimb(root:Point,target:Point,a:number,b:number,bend=1) {
   const end:Point=[root[0]+dx,root[1]+dy],along=(a*a-b*b+d*d)/(2*d),h=Math.sqrt(Math.max(0,a*a-along*along));
   return {joint:[root[0]+dx/d*along-dy/d*h*bend,root[1]+dy/d*along+dx/d*h*bend] as Point,end};
 }
+/** Keep the canonical anatomy while fitting each boot to its own terrain
+ * sample. The gun muzzle remains the authoritative ballistic location. */
+function groundSoldierPose(p:SoldierPose,contact:Unit['soldierGround']):SoldierPose {
+  if(!contact||contact.weight<=0)return p;
+  // Kneel/prone rolls through a fully extended leg. Release ground shaping
+  // smoothly around that instant so an IK branch cannot flip a bent knee.
+  const weight=contact.weight*smooth(Math.abs(p.low-1.6)/.35);
+  const near:Point=add(p.nearFoot,[0,contact.near*weight]);
+  const far:Point=add(p.farFoot,[0,contact.far*weight]);
+  const reach=(dx:number)=>Math.sqrt(Math.max(0,34*34-dx*dx));
+  const nr=reach(near[0]-p.hip[0]),fr=reach(far[0]-p.hip[0]+1);
+  const lo=Math.max(near[1]-nr,far[1]-fr),hi=Math.min(near[1]+nr,far[1]+fr);
+  const y=Math.max(lo,Math.min(hi,p.hip[1]+(contact.hip??0)*weight)),shift:Point=[0,y-p.hip[1]];
+  const bend=(root:Point,joint:Point,end:Point)=>
+    ((end[0]-root[0])*(joint[1]-root[1])-(end[1]-root[1])*(joint[0]-root[0]))<0?-1:1;
+  const hip=add(p.hip,shift),farHip=add(hip,[-1,0]);
+  const nl=solveLimb(hip,near,17,17,bend(p.hip,p.nearKnee,p.nearFoot));
+  const fl=solveLimb(farHip,far,17,17,bend(add(p.hip,[-1,0]),p.farKnee,p.farFoot));
+  const shoulder=add(p.shoulder,shift),farShoulder=add(shoulder,[1,-1]);
+  const na=solveLimb(shoulder,p.nearHand,12,13,bend(p.shoulder,p.nearElbow,p.nearHand));
+  const fa=solveLimb(farShoulder,p.farHand,12,13,bend(add(p.shoulder,[1,-1]),p.farElbow,p.farHand));
+  return {...p,hip,neck:add(p.neck,shift),shoulder,head:add(p.head,shift),
+    nearKnee:nl.joint,nearFoot:nl.end,farKnee:fl.joint,farFoot:fl.end,
+    nearElbow:na.joint,nearHand:na.end,farElbow:fa.joint,farHand:fa.end};
+}
 function actionFor(u:SoldierBody,time:number):SoldierAction {
   if((u.hp??1)<=0||u.wounded)return 'casualty';
   if(u.surrendered)return 'surrender';
@@ -145,10 +170,63 @@ export interface SoldierPose {
   /** Anatomical order, never sorted by limb x position or by gait phase. */
   layers:readonly ['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm'];
 }
+export interface SoldierTurn {
+  at:number;duration:number;hip:Point;angles:number[];targets:number[];initialTargets:number[];head:Point;headAngle:number;bottom:number;
+}
+const boneAngle=(root:Point,end:Point)=>Math.atan2(end[1]-root[1],end[0]-root[0]);
+const angleDelta=(a:number,b:number)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
+const legAngles=(p:SoldierPose)=>[
+  boneAngle(p.hip,p.neck),boneAngle(p.hip,p.nearKnee),boneAngle(p.nearKnee,p.nearFoot),
+  boneAngle(add(p.hip,[-1,0]),p.farKnee),boneAngle(p.farKnee,p.farFoot),
+];
+/** Rebase the last visible anatomy into the new facing. Keep the same legs
+ * and use additive bone-angle offsets so the gait can keep advancing while
+ * turning; a moving target must not change a shortest-rotation branch. */
+export function beginSoldierTurn(u:Unit,previous:{x:number;y:number;facing:number;pose:SoldierPose},time:number) {
+  const current=soldierPose({...u,soldierTurn:undefined},time),old=previous.pose;
+  const flip=previous.facing*(u.facing||1),dx=(previous.x-u.x)*(u.facing||1),dy=previous.y-u.y;
+  const point=(p:Point,far=false):Point=>[p[0]*flip+dx+(far&&flip<0?-2:0),p[1]+dy];
+  const from={...old,hip:point(old.hip),neck:point(old.neck),head:point(old.head),
+    nearKnee:point(old.nearKnee),nearFoot:point(old.nearFoot),
+    farKnee:point(old.farKnee,true),farFoot:point(old.farFoot,true)};
+  const oldAngles=legAngles(from),newAngles=legAngles(current),angles=oldAngles.map((a,i)=>angleDelta(a,newAngles[i]));
+  const duration=Math.max(.35,...angles.map(a=>Math.abs(a)*.4));
+  u.soldierTurn={at:time,duration,angles,targets:newAngles,initialTargets:[...newAngles],hip:[from.hip[0]-current.hip[0],from.hip[1]-current.hip[1]],
+    head:[from.head[0]-from.neck[0]-current.head[0]+current.neck[0],from.head[1]-from.neck[1]-current.head[1]+current.neck[1]],
+    headAngle:angleDelta(old.headAngle*flip,current.headAngle),bottom:Math.max(from.nearFoot[1],from.farFoot[1])};
+}
+/** Unwrap target rotations in simulation. A simultaneous stance change can
+ * cross atan2's +/-PI seam; reselecting a shortest arc during the turn snaps
+ * a whole shin across the body. Canvas reads remain pure. */
+export function updateSoldierTurn(u:Unit,time:number) {
+  const turn=u.soldierTurn;if(!turn)return;
+  const targets=legAngles(soldierPose({...u,soldierTurn:undefined},time));
+  turn.targets=targets.map((a,i)=>turn.targets[i]+angleDelta(a,turn.targets[i]));
+}
+function turnSoldierPose(p:SoldierPose,u:SoldierBody,time:number):SoldierPose {
+  const turn=u.soldierTurn;if(!turn||u.wounded||u.surrendered)return p;
+  const t=smooth((time-turn.at)/turn.duration),weight=1-t;if(weight===0)return p;
+  // Fade the new gait in as the body turns. Adding a full-strength live gait
+  // to the old facing offset can fold a walking shin above its own pelvis.
+  const angles=turn.targets.map((a,i)=>a*t+(turn.initialTargets[i]+turn.angles[i])*weight);
+  const bone=(root:Point,a:number,length:number):Point=>add(root,[Math.cos(a)*length,Math.sin(a)*length]);
+  let hip=add(p.hip,[turn.hip[0]*weight,turn.hip[1]*weight]);
+  let neck=bone(hip,angles[0],22),nearKnee=bone(hip,angles[1],17),nearFoot=bone(nearKnee,angles[2],17),
+    farKnee=bone(add(hip,[-1,0]),angles[3],17),farFoot=bone(farKnee,angles[4],17);
+  const plane=mix(turn.bottom,Math.max(p.nearFoot[1],p.farFoot[1]),t);
+  const lift=['ground','bank','land'].includes(u.motion??'ground')?Math.max(0,nearFoot[1]-plane,farFoot[1]-plane):0;
+  if(lift){hip=add(hip,[0,-lift]);neck=add(neck,[0,-lift]);nearKnee=add(nearKnee,[0,-lift]);
+    farKnee=add(farKnee,[0,-lift]);nearFoot=add(nearFoot,[0,-lift]);farFoot=add(farFoot,[0,-lift]);}
+  const shoulder=add(neck,[-1,5]);
+  const near=solveLimb(shoulder,p.nearHand,12,13,1),far=solveLimb(add(shoulder,[1,-1]),p.farHand,12,13,1);
+  return {...p,hip,neck,shoulder,head:add(neck,[p.head[0]-p.neck[0]+turn.head[0]*weight,p.head[1]-p.neck[1]+turn.head[1]*weight]),
+    headAngle:p.headAngle+turn.headAngle*weight,nearKnee,nearFoot,farKnee,farFoot,
+    nearElbow:near.joint,nearHand:near.end,farElbow:far.joint,farHand:far.end};
+}
 /** Interpolate bone angles, not joint positions: a fall/recovery must keep
  * every limb's length and must begin at the exact last live pose. */
 export function blendSoldierPose(from:SoldierPose,to:SoldierPose,progress:number):SoldierPose {
-  const t=smooth(progress);if(t===1)return to;
+  const t=smooth(progress);if(t===0)return from;if(t===1)return to;
   const angle=(a:number,b:number)=>a+Math.atan2(Math.sin(b-a),Math.cos(b-a))*t;
   const bone=(root:Point,oldRoot:Point,oldEnd:Point,newRoot:Point,newEnd:Point,length:number):Point=>{
     const a=angle(Math.atan2(oldEnd[1]-oldRoot[1],oldEnd[0]-oldRoot[0]),Math.atan2(newEnd[1]-newRoot[1],newEnd[0]-newRoot[0]));
@@ -172,7 +250,8 @@ export function blendSoldierPose(from:SoldierPose,to:SoldierPose,progress:number
   // A rotating shin can otherwise cross the floor and disappear below the
   // sprite's boot anchor. Resolve contact by lifting the entire skeleton,
   // never by cutting off/stretching a leg or reassigning its identity.
-  const lift=Math.max(0,nearFoot[1]+3,farFoot[1]+3);
+  const plane=Math.max(-3,mix(Math.max(from.nearFoot[1],from.farFoot[1]),Math.max(to.nearFoot[1],to.farFoot[1]),t));
+  const lift=Math.max(0,nearFoot[1]-plane,farFoot[1]-plane);
   if(lift>0)for(const key of ['hip','neck','shoulder','head','nearKnee','farKnee','nearFoot','farFoot',
     'nearElbow','farElbow','nearHand','farHand','muzzle'] as const)result[key]=add(result[key],[0,-lift]);
   return result;
@@ -307,19 +386,43 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   const kneeBend=stance.legBend??(stance.low>1.5?1:-1);
   const nearLeg=solveLimb(hip,nearFoot,17,17,kneeBend),farLeg=solveLimb(add(hip,[-1,0]),farFoot,17,17,kneeBend);
   const nearArm=solveLimb(shoulder,nearHand,12,13,1),farArm=solveLimb(add(shoulder,[1,-1]),farHand,12,13,1);
-  const result:SoldierPose={appearance:soldierAppearance(u),weapon,action,hip,neck,shoulder,head,headAngle,
+  const result:SoldierPose=groundSoldierPose({appearance:soldierAppearance(u),weapon,action,hip,neck,shoulder,head,headAngle,
     nearKnee:nearLeg.joint,farKnee:farLeg.joint,nearFoot:nearLeg.end,farFoot:farLeg.end,
     nearElbow:nearArm.joint,farElbow:farArm.joint,nearHand:nearArm.end,farHand:farArm.end,
     muzzle,weaponAngle,weaponVisible,slung,phase,travel,low:stance.low,prop,propHand,
-    layers:['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm']};
+    layers:['farLeg','farArm','backpack','torso','head','nearLeg','weapon','nearArm']},u.soldierGround);
   if(action==='casualty'&&u.soldierFall)return blendSoldierPose(u.soldierFall,result,(u.woundedTime??0)/.7);
   if(action==='surrender'&&u.soldierSurrender&&time-u.soldierSurrender.at<.45)
     return blendSoldierPose(u.soldierSurrender.pose,result,(time-u.soldierSurrender.at)/.45);
+  let continuous=result;
   if(action!=='casualty'&&u.soldierRise&&time-u.soldierRise.at<.35)
-    return blendSoldierPose(u.soldierRise.pose,result,(time-u.soldierRise.at)/.35);
-  if(action!=='casualty'&&u.soldierLanding&&time-u.soldierLanding.at<u.soldierLanding.duration)
-    return blendSoldierPose(u.soldierLanding.pose,result,(time-u.soldierLanding.at)/u.soldierLanding.duration);
-  return result;
+    continuous=blendSoldierPose(u.soldierRise.pose,result,(time-u.soldierRise.at)/.35);
+  else if(action!=='casualty'&&u.soldierLanding&&time-u.soldierLanding.at<u.soldierLanding.duration)
+    continuous=blendSoldierPose(u.soldierLanding.pose,result,(time-u.soldierLanding.at)/u.soldierLanding.duration);
+  return turnSoldierPose(continuous,u,time);
+}
+
+/** Terrain sampling belongs to simulation, not canvas draws. No horizontal
+ * repositioning, damage, visibility or aiming rules are changed. */
+export function updateSoldierGround(u:Unit,floor:(x:number)=>number,time:number,dt:number) {
+  const old=u.soldierGround;
+  // A fall already owns its last live skeleton; do not move its destination
+  // while the body is rotating into it (the same rule as residual gait).
+  if(u.soldierFall&&u.wounded&&u.woundedTime<.7)return;
+  const grounded=['ground','bank','land'].includes(u.motion)&&!u.rappelling&&!u.parachuting&&u.climbing<=0;
+  if(!grounded){
+    if(old){old.weight=clamp(old.weight-dt/.12);if(old.weight===0)u.soldierGround=undefined;}
+    return;
+  }
+  const p=soldierPose({...u,soldierGround:undefined,soldierTurn:undefined},time),facing=u.facing||1;
+  const near=floor(u.x+p.nearFoot[0]*facing)-u.y,far=floor(u.x+p.farFoot[0]*facing)-u.y;
+  const hip=floor(u.x+p.hip[0]*facing)-u.y;
+  const follow=(before:number|undefined,target:number)=>{
+    const start=before===undefined?target:before+(old!.y-u.y);
+    return start+Math.max(-dt*30,Math.min(dt*30,target-start));
+  };
+  u.soldierGround={near:follow(old?.near,near),far:follow(old?.far,far),hip:follow(old?.hip,hip),
+    weight:clamp((old?.weight??0)+dt/.12),y:u.y};
 }
 
 /** Simulation-owned gait; every navigation branch is reconciled once after

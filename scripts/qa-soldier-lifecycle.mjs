@@ -37,7 +37,7 @@ for(const [id,c]of Object.entries(CARDS))if(c.members)for(let member=0;member<c.
       const {image,pose}=soldierFrame(art,body,s.time),actor=wreck??u;
       const x=col*256+128,y=row*320+326;
       ctx.fillStyle='#6d766b';ctx.fillRect(col*256+6,y,244,2);
-      ctx.drawImage(image,x-128+(actor.x-1500)*2,y+(actor.y-374)*2-192,256,192);
+      ctx.drawImage(image,x-128+(actor.x-1500)*2,y+(actor.y-374)*2-192,256,image.height*2);
       ctx.fillStyle='#17271e';ctx.font='12px monospace';
       ctx.fillText(`${mode} +${(frame/60).toFixed(2)}s`,col*256+8,row*320+51);
       ctx.fillText(`y=${actor.y.toFixed(1)} ${pose.action}`,col*256+8,row*320+69);
