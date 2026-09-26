@@ -1,5 +1,5 @@
 import { infantryGeometry } from './infantry-geometry';
-import {soldierMuzzle,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
+import {soldierMuzzle,soldierBusyMoving,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
 import { lobY, lobIntercept } from './lob-trajectory';
 import { tryVeteranReload, relayReloadActive } from './veteran-team';
@@ -230,7 +230,9 @@ export interface Unit {
   woundedFromPose?: Unit['pose'];
   /** Exact live skeleton at injury/death, never another generic idle body. */
   soldierFall?: SoldierPose;
-  soldierRise?: {at:number;pose:SoldierPose};
+  soldierRise?: {at:number;pose:SoldierPose;duration?:number};
+  soldierCrawled?: boolean;
+  soldierCrawlStart?: {at:number;pose:SoldierPose};
   soldierLanding?: {at:number;duration:number;pose:SoldierPose};
   soldierSurrender?: {at:number;pose:SoldierPose};
   soldierGround?: {near:number;far:number;hip?:number;weight:number;y:number};
@@ -2709,8 +2711,10 @@ function settleSortie(s: GameState, u: Unit, success: boolean) {
     );
 }
 function revive(u: Unit, time: number) {
-  u.soldierRise={at:time,pose:soldierPose(u,time)};
+  u.soldierRise={at:time,pose:soldierPose(u,time),duration:.7};
   u.soldierFall=undefined;
+  u.soldierCrawled=undefined;
+  u.soldierCrawlStart=undefined;
   u.wounded = false;
   u.woundedTime = 0;
   u.bleedOut = 0;
@@ -3101,7 +3105,7 @@ function retreatingFriendlyHit(
 type MuzzleBody = Pick<
   Unit,
   'id' | 'x' | 'y' | 'pose' | 'moving' | 'hullAngle'
-> & Partial<InfantryWeaponBody>;
+> & Partial<InfantryWeaponBody> & Partial<Pick<Unit,'rifleReady'>>;
 type FiringBody = MuzzleBody & Pick<Unit, 'side' | 'member'>;
 export function muzzleOffset(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).x;
@@ -3291,7 +3295,7 @@ function aaUmbrella(s: GameState, side: Side, x: number): boolean {
 }
 /** A forecast is a fresh settled body, never the current lowering clock. */
 function standingBody(u: MuzzleBody): MuzzleBody {
-  return {id:u.id,member:u.member,x:u.x,y:u.y,hullAngle:u.hullAngle,pose:'idle',moving:false};
+  return {id:u.id,member:u.member,x:u.x,y:u.y,hullAngle:u.hullAngle,pose:'idle',moving:false,rifleReady:1};
 }
 function standingMuzzleHeight(u: MuzzleBody) {
   return muzzleHeight(standingBody(u));
@@ -3304,7 +3308,10 @@ function firingHeight(
   planStanding = false,
 ): number | null {
   const c = CARDS[u.id],
-    height = muzzleHeight(u);
+    // Eligibility forecasts the shot after movement settles. A carried barrel
+    // must not hide the contact that would make a running soldier stop to aim.
+    aimed = c.members ? {...u,moving:false,gaitWeight:0,gaitRun:0,rifleReady:1} : u,
+    height = muzzleHeight(aimed);
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
@@ -3322,7 +3329,7 @@ function firingHeight(
       !directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty)
     );
   };
-  if (clear(u, height)) return height;
+  if (clear(aimed, height)) return height;
   // Only the stance planner may test a hypothetical standing shot. Target
   // selection must use the actual body: accepting a shot that needs a locked
   // stance made the soldier neither shoot nor look for a firing position.
@@ -3353,6 +3360,7 @@ function canFireFromCover(
         hullAngle: u.hullAngle,
         pose: u.pose,
         moving: false,
+        rifleReady: 1,
       },
       target.x,
       target.y -
@@ -5269,6 +5277,7 @@ function evadeArtillery(s: GameState, u: Unit, dt: number) {
 }
 function fireCoax(s: GameState, u: Unit) {
   if (u.secondaryCooldown > 0) return;
+  if (CARDS[u.id].members && soldierBusyMoving(u)) return;
   const personal = !!CARDS[u.id].armorOnly;
   const selfRange = personal ? 240 : 420;
   const selfHeight = personal ? (CARDS[u.id].members ? 38 : 30) : 42;
@@ -7138,7 +7147,7 @@ function recoverRetreat(s: GameState, u: Unit, dt: number) {
             (35 - u.personalMorale) / 100 + (55 - former.personalMorale) / 200,
           )
         : 0;
-    if (chance > 0 && rnd(s) < chance) {
+    if (chance > 0 && !soldierBusyMoving(u) && rnd(s) < chance) {
       // One brief low-morale clash per encounter, not a new hostile faction.
       u.conflictUntil = s.time + 0.7;
       u.personalMorale = Math.max(0, u.personalMorale - 3);
@@ -9603,8 +9612,9 @@ export function tick(s: GameState, dt: number) {
     // — but the hull keeps its face toward the enemy.
     const reversing =
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
-    if ((!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
-        u.id !== 'airborne_at' && (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly))
+    const secondaryWeapon = u.id !== 'airborne_at' &&
+      (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly);
+    if (!c.members && secondaryWeapon)
       fireCoax(s, u);
     // v172: stalemate break — a unit pinned in a static firefight against a
     // close, dug-in target it cannot damage (terrain intercepts every round)
@@ -9758,7 +9768,7 @@ export function tick(s: GameState, dt: number) {
       if (
         u.cooldown <= 0 &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
-        (!c.members || (!stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
+        (!c.members || (!soldierBusyMoving(u) && !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
         !overheated(s, u) &&
         !(
@@ -9788,6 +9798,9 @@ export function tick(s: GameState, dt: number) {
             u.exposedUntil + 1.4 + Math.min(1.0, u.suppression * 0.01),
           );
         }
+        // Commit the same shouldered transform used by the shot forecast;
+        // rendering, muzzle flash and the projectile now share this origin.
+        if(c.members)u.rifleReady=1;
         const point = muzzlePoint(u, tx),
           sx = point.x,
           sy = point.y;
@@ -10318,9 +10331,15 @@ export function tick(s: GameState, dt: number) {
       u.hullAngle += (contact.angle - u.hullAngle) * blend;
     } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
+    // Infantry's first stride is only known after the navigation branch.
+    // Check the sidearm here so starting a sprint/crawl cannot release a
+    // projectile before movement clears its muzzle flash in the same tick.
+    if (c.members && secondaryWeapon && !stanceTransitionActive(u, s.time) &&
+        !crouchMotionActive(u) && !proneMotionActive(u))
+      fireCoax(s, u);
   }
   for (const u of s.units) if (CARDS[u.id].members) {
-    if(u.soldierRise&&s.time-u.soldierRise.at>=.35)u.soldierRise=undefined;
+    if(u.soldierRise&&s.time-u.soldierRise.at>=(u.soldierRise.duration??.35))u.soldierRise=undefined;
     if(u.soldierLanding&&s.time-u.soldierLanding.at>=u.soldierLanding.duration)u.soldierLanding=undefined;
     stepCrouchLocomotion(u,s.time,dt);
     stepProneLocomotion(u,s.time,dt);

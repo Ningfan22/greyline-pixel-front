@@ -19,7 +19,7 @@ const {createGame,startGame,spawnUnit,refreshVision,H,muzzleOffset,muzzleHeight}
 const art=soldierArt(await loadImage('public/art/soldier-parts-v178.png'),await loadImage('public/art/soldier-equipment-v178.png'));
 const base={id:'infantry',uid:1,member:0,hp:100,pose:'idle',motion:'ground',moving:false,walk:0,fire:0,secondaryFire:0};
 const members=Object.entries(CARDS).filter(([,c])=>c.members).flatMap(([id,c])=>Array.from({length:c.members},(_,member)=>({id,member})));
-const states=[{}, {aimUntil:100,readyAt:0}, {fire:.2},
+const states=[{}, {aimUntil:100,readyAt:0,rifleReady:1}, {fire:.2},
   ...['walk','run','crouch','hunker','prone'].flatMap(pose=>[false,true].map(moving=>({pose,moving,walk:2.3,crouchTravel:moving?1:0,proneTravel:moving?1:0}))),
   ...['idle','crouch','prone'].flatMap(pose=>[{pose,ammo:0,reloadingStartAt:19.2,reloadingUntil:21},
     {pose,fragThrow:.6,fragThrowStartedAt:19.5},{pose,tending:true,tendingKind:'medical',tendingTime:1},
@@ -51,7 +51,7 @@ test('moving aim, fire and reload never replace or freeze the legs in any role',
   for(const role of members)for(const pose of ['walk','run','crouch','prone'])for(let walk=0;walk<8;walk+=.5){
     const u={...base,...role,pose,moving:true,walk,crouchTravel:1,proneTravel:1};
     const a=soldierPose(u,20);
-    for(const patch of [{aimUntil:100,readyAt:19.9},{fire:.2},{ammo:0,reloadingStartAt:19,reloadingUntil:21}]){
+    for(const patch of [{aimUntil:100,readyAt:19.9,rifleReady:1},{fire:.2},{ammo:0,reloadingStartAt:19,reloadingUntil:21}]){
       const b=soldierPose({...u,...patch},20);
       for(const key of ['hip','nearKnee','farKnee','nearFoot','farFoot'])assert.deepEqual(b[key],a[key]);
       assert.deepEqual(b.layers,a.layers);
@@ -82,9 +82,10 @@ test('gait wraps smoothly and front/back anatomical layers never reorder',()=>{
 test('gait follows actual displacement including reverse, lane movement and stationary flags',()=>{
   const u={...base,x:100,lane:0,facing:1,walk:3.5,gaitPhase:3.5,gaitWeight:1,moving:true};
   updateSoldierGait(u,{x:100,lane:0},1/60,20);assert.equal(u.gaitPhase,3.5);
-  u.x=101;updateSoldierGait(u,{x:100,lane:0},1/60,20);assert.equal(u.gaitPhase,3.625);
-  u.x=100.5;updateSoldierGait(u,{x:101,lane:0},1/60,20);assert.equal(u.gaitPhase,3.5625);
-  u.lane=1;updateSoldierGait(u,{x:100.5,lane:0},1/60,20);assert.equal(u.gaitPhase,3.6875);
+  // v182 shortens a complete walking cycle from 64 to 50 world pixels.
+  u.x=101;updateSoldierGait(u,{x:100,lane:0},1/60,20);assert.equal(u.gaitPhase,3.66);
+  u.x=100.5;updateSoldierGait(u,{x:101,lane:0},1/60,20);assert.equal(u.gaitPhase,3.58);
+  u.lane=1;updateSoldierGait(u,{x:100.5,lane:0},1/60,20);assert.equal(u.gaitPhase,3.74);
   const before=u.gaitPhase;u.x=500;updateSoldierGait(u,{x:100.5,lane:1},1/60,20);assert.equal(u.gaitPhase,before);
 });
 test('specialist roles and rifle escorts keep their own weapon through actions',()=>{
@@ -113,7 +114,7 @@ test('real renderer and ballistic origins use the unified soldier path for every
   for(const role of members){
     const s=createGame(178);startGame(s);s.units=[];s.scenery=[];s.walls=[];s.weather.disabled=true;s.time=20;
     spawnUnit(s,0,role.id,900,{member:role.member});const u=s.units.at(-1);s.units=[u];
-    Object.assign(u,{...base,...role,x:900,y:374,moving:true,pose:'walk',walk:2.3,aimUntil:100,readyAt:0});refreshVision(s);
+    Object.assign(u,{...base,...role,x:900,y:374,moving:true,pose:'walk',walk:2.3,aimUntil:100,readyAt:0,rifleReady:1});refreshVision(s);
     const expected=soldierFrame(full.soldiers,u,s.time),before=JSON.stringify(u);
     images=[];render(ctx,s,full,null,null,true,500,960);assert(images.includes(expected.image),role.id+'/'+role.member);
     assert.equal(JSON.stringify(u),before);

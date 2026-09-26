@@ -720,7 +720,11 @@ export function render(
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(Math.round(carrier.x), Math.round(carrier.y - 3));
-        ctx.lineTo(Math.round(u.x), Math.round(u.y - 51));
+        if(rig){
+          ctx.lineTo(Math.round(u.x+u.facing*rig.pose.farHand[0]),Math.round(u.y+3+rig.pose.farHand[1]));
+          ctx.lineTo(Math.round(u.x+u.facing*rig.pose.nearHand[0]),Math.round(u.y+3+rig.pose.nearHand[1]));
+          ctx.lineTo(Math.round(u.x+u.facing*8),Math.round(u.y+18));
+        }else ctx.lineTo(Math.round(u.x), Math.round(u.y - 51));
         ctx.stroke();
       }
     }

@@ -93,11 +93,15 @@ function costume(art:SoldierArt,p:SoldierPose) {
   }
   cached={near,far};art.uniforms.set(key,cached);return cached;
 }
-function segment(ctx:CanvasRenderingContext2D,image:HTMLCanvasElement,from:Point,to:Point) {
+function segment(ctx:CanvasRenderingContext2D,image:HTMLCanvasElement,from:Point,to:Point,openWrist=false) {
   ctx.save();ctx.translate(Math.round(from[0]),Math.round(from[1]));
   ctx.rotate(Math.atan2(to[1]-from[1],to[0]-from[0])-Math.PI/2);
   // Fixed dimensions, including overlapping joints. No pose can resize a limb.
-  ctx.drawImage(image,-Math.floor(image.width/2),-1);ctx.restore();
+  if(openWrist){
+    ctx.drawImage(image,0,0,image.width,11,-Math.floor(image.width/2),-1,image.width,11);
+    ctx.drawImage(image,1,11,4,3,-2,9,4,5); // continuous wrist beneath the separate palm
+  }
+  else ctx.drawImage(image,-Math.floor(image.width/2),-1);ctx.restore();
 }
 function at(ctx:CanvasRenderingContext2D,image:HTMLCanvasElement,p:Point,dx=0,dy=0,angle=0) {
   ctx.save();ctx.translate(Math.round(p[0]),Math.round(p[1]));if(angle)ctx.rotate(angle);
@@ -107,22 +111,61 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
   const {near:n,far:f}=costume(art,p);
   ctx.imageSmoothingEnabled=false;
   const leg=(parts:Parts,knee:Point,foot:Point,hip:Point)=>{
-    segment(ctx,parts.thigh,hip,knee);segment(ctx,parts.shin,knee,foot);at(ctx,parts.boot,foot,-4,-2);
+    const phase=p.phase+(parts===f?Math.PI:0),cycle=((phase/(2*Math.PI))%1+1)%1;
+    const ankle=cycle>.5&&p.low<1.5?Math.sin((cycle-.5)*Math.PI*4)*.22*p.travel:0;
+    const footAngle=parts===f?p.farFootAngle:p.nearFootAngle;
+    segment(ctx,parts.thigh,hip,knee);segment(ctx,parts.shin,knee,foot);at(ctx,parts.boot,foot,-4,-2,footAngle??ankle);
   };
-  const arm=(parts:Parts,root:Point,elbow:Point,hand:Point)=>{
-    segment(ctx,parts.upperArm,root,elbow);segment(ctx,parts.forearm,elbow,hand);
+  const handShape=(parts:Parts,hand:Point,shape:SoldierPose['nearHandShape'])=>{
+    if(!shape)return;
+    const x=Math.round(hand[0]),y=Math.round(hand[1]),glove=parts.forearm;
+    // Reuse the glove texture and palette, separating the palm and fingers
+    // from the forearm's fixed gun-gripping fist.
+    ctx.drawImage(glove,1,11,4,4,x-2,y-3,4,4);
+    for(let i=0;i<4;i++)ctx.drawImage(glove,2,11,1,3,x-2+i,y-(shape==='open'?7:4)-(i===1||i===2?1:0),1,shape==='open'?4:2);
+    ctx.drawImage(glove,2,11,2,3,x-4,y-3,2,3);
+  };
+  const arm=(parts:Parts,root:Point,elbow:Point,hand:Point,shape?:SoldierPose['nearHandShape'])=>{
+    segment(ctx,parts.upperArm,root,elbow);segment(ctx,parts.forearm,elbow,hand,!!shape);handShape(parts,hand,shape);
+  };
+  const equipment=(gun:HTMLCanvasElement,carry:number)=>{
+    if(p.weapon==='hmg'&&carry>.5){
+      ctx.drawImage(gun,0,0,gun.width,10,0,0,gun.width,10);
+      // Keep the feed box; only the deployed tripod folds onto the pack.
+      ctx.drawImage(gun,20,10,12,5,20,10,12,5);
+    }else if(p.weapon==='mortar'&&carry>.5){
+      // The source tube is diagonal: a rectangular strip amputated its lower
+      // half. Mask along the actual tube, leaving the unfolded bipod behind.
+      ctx.save();ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(23,2);
+      ctx.lineTo(8,31);ctx.lineTo(1,30);ctx.closePath();ctx.clip();
+      ctx.drawImage(gun,0,0);ctx.restore();
+    }else if((p.weapon==='lmg'||p.weapon==='sniper')&&p.travel>.01){
+      // Fold the bipod during travel, retaining the stock, trigger and feed.
+      const cut=p.weapon==='lmg'?8:7;
+      ctx.drawImage(gun,0,0,gun.width,cut,0,0,gun.width,cut);
+      ctx.drawImage(gun,0,cut,22,gun.height-cut,0,cut,22,gun.height-cut);
+    }else ctx.drawImage(gun,0,0);
   };
   leg(f,p.farKnee,p.farFoot,[p.hip[0]-1,p.hip[1]]);
-  arm(f,[p.shoulder[0]+1,p.shoulder[1]-1],p.farElbow,p.farHand);
+  if(!p.hideFarArm)arm(f,[p.shoulder[0]+1,p.shoulder[1]-1],p.farElbow,p.farHand,p.farHandShape);
   const spineAngle=Math.atan2(p.hip[1]-p.neck[1],p.hip[0]-p.neck[0])-Math.PI/2;
   at(ctx,p.weapon==='flame'?art.equipment.tanks:n.backpack,p.neck,-14,2,spineAngle);
+  if(p.weaponVisible&&(p.weaponCarry>.5||p.slung)&&(p.weapon==='hmg'||p.weapon==='mortar')){
+    const gear=art.equipment[p.weapon];
+    ctx.save();ctx.translate(Math.round(p.neck[0]),Math.round(p.neck[1]));ctx.rotate(spineAngle);
+    // Reuse the authored support pieces as a folded bundle on the pack.
+    // The gun/tube stays in the hands; the mount does not simply disappear.
+    if(p.weapon==='hmg')ctx.drawImage(gear,0,12,49,14,-18,4,6,23);
+    else {
+      ctx.drawImage(gear,0,28,25,5,-17,19,14,5);
+      ctx.drawImage(gear,16,12,9,20,-18,1,5,20);
+    }
+    ctx.restore();
+  }
   if(p.slung&&p.weaponVisible){
     const carried=p.weapon==='rifle'?n.rifle:art.equipment[p.weapon];
     ctx.save();ctx.translate(Math.round(p.neck[0]),Math.round(p.neck[1]));ctx.rotate(spineAngle+1.12);
-    if(p.weapon==='hmg'){
-      ctx.drawImage(carried,0,0,carried.width,10,-7,3,carried.width,10);
-      ctx.fillStyle='#3c4034';ctx.fillRect(-6,14,23,3);
-    }else ctx.drawImage(carried,-7,3);
+    ctx.translate(-7,3);equipment(carried,1);
     ctx.restore();
   }
   segment(ctx,n.torso,p.neck,p.hip);at(ctx,n.pelvis,p.hip,-6,-4,spineAngle);
@@ -130,25 +173,25 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
   leg(n,p.nearKnee,p.nearFoot,p.hip);
   if(p.weaponVisible&&!p.slung){
     const gun=p.weapon==='rifle'?n.rifle:art.equipment[p.weapon];
-    if(p.weapon==='hmg'&&(p.travel>.01||p.low<.9)){
-      // Carry the gun and a folded support, not a deployed floating tripod.
-      ctx.drawImage(gun,0,0,gun.width,10,Math.round(p.muzzle[0]-gun.width),Math.round(p.muzzle[1]-3),gun.width,10);
-      ctx.fillStyle='#3c4034';ctx.fillRect(Math.round(p.neck[0]-12),Math.round(p.neck[1]+4),3,23);
-    }else if(p.weapon==='mortar'&&p.travel>.01){
-      // The tube/baseplate stay with their crew while moving, at hand height.
-      at(ctx,gun,p.nearHand,-13,-16,-.45);
-    }else if(p.weapon==='mortar')at(ctx,gun,p.muzzle,-17,0);
-    else at(ctx,gun,p.muzzle,-gun.width,-3,p.weaponAngle);
+    ctx.save();ctx.translate(Math.round(p.weaponOrigin[0]),Math.round(p.weaponOrigin[1]));
+    ctx.rotate(p.weaponAngle);equipment(gun,p.weaponCarry);ctx.restore();
+    // The far forearm crosses over the fore-end. Painting it before the gun
+    // hid its glove and made the supporting hand appear to float underneath.
+    if(p.action==='ready')segment(ctx,f.forearm,p.farElbow,p.farHand);
     if(p.weapon==='flame'){
       ctx.strokeStyle='#302d22';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.neck[0]-8,p.neck[1]+16);
       ctx.quadraticCurveTo(p.hip[0]-11,p.hip[1]+9,p.nearHand[0],p.nearHand[1]);ctx.stroke();
     }
   }
   if(p.appearance.uniform==='medic')at(ctx,art.equipment.medical,p.hip,-10,-1);
-  arm(n,p.shoulder,p.nearElbow,p.nearHand);
+  arm(n,p.shoulder,p.nearElbow,p.nearHand,p.nearHandShape);
   if(p.prop){
     const hand=p.propHand==='far'?p.farHand:p.nearHand;
-    if(p.prop==='shovel'||p.prop==='wrench')at(ctx,art.equipment[p.prop],hand,-2,-5,p.prop==='shovel'?-.28:.25);
+    if(p.prop==='shovel'&&p.toolOrigin){
+      at(ctx,art.equipment.shovel,p.toolOrigin,0,0,p.toolAngle);
+      segment(ctx,f.forearm,p.farElbow,p.farHand);
+      segment(ctx,n.forearm,p.nearElbow,p.nearHand);
+    }else if(p.prop==='shovel'||p.prop==='wrench')at(ctx,art.equipment[p.prop],hand,-2,-5,p.prop==='shovel'?-.28:.25);
     else if(p.prop==='rocketRound'||p.prop==='mortarRound'||p.prop==='shell'){
       const x=Math.round(hand[0]),y=Math.round(hand[1]),long=p.prop==='rocketRound';
       ctx.fillStyle='#646146';ctx.fillRect(x-1,y-(long?9:5),3,long?15:9);

@@ -4,7 +4,7 @@ import {createRequire} from 'node:module';
 const {createCanvas,loadImage}=createRequire(import.meta.url)('@napi-rs/canvas');
 globalThis.document={createElement:()=>createCanvas(1,1)};
 const {soldierArt,soldierFrame,paintSoldier}=await import('../game/soldier-art.ts');
-const {soldierPose,soldierAppearance,updateSoldierGait}=await import('../game/soldier-pose.ts');
+const {soldierPose,soldierAppearance,updateSoldierGait,soldierFootPlanted,soldierBodyBottom}=await import('../game/soldier-pose.ts');
 const {CARDS}=await import('../game/cards.ts');
 const {createGame,startGame,spawnUnit,explode,tick}=await import('../game/engine.ts');
 const art=soldierArt(await loadImage('public/art/soldier-parts-v178.png'),await loadImage('public/art/soldier-equipment-v178.png'));
@@ -39,13 +39,16 @@ test('all 145 member roles retain body parts and pixel scale in the complete syn
     assert(count>150,`${role.id}/${action} invisible`);
   }
 });
-test('both anatomical feet stay planted in world space, including backward movement and moving upper-body actions',()=>{
-  for(const role of roles)for(const pose of ['walk','run','crouch','hunker','prone'])for(const direction of [-1,1])for(const facing of [-1,1]){
+test('walking, running and crouching support feet stay planted through backward movement and upper-body actions',()=>{
+  // A low crawl drags its trailing boots while the elbow pulls the torso;
+  // its limb continuity and full-body cycle are covered in v184.
+  for(const role of roles)for(const pose of ['walk','run','crouch','hunker'])for(const direction of [-1,1])for(const facing of [-1,1]){
     for(let phase=.1;phase<7.9;phase+=.2){
-      const leg=phase<4?'nearFoot':'farFoot';
       for(const patch of [{},{fire:.2},{ammo:0,reloadingStartAt:19,reloadingUntil:21},{draggingUid:99},{tactic:'retreat'}]){
         const u={...base,...role,...patch,pose,facing,x:500,lane:0,moving:true,gaitWeight:1,gaitPhase:phase,
           crouchTravel:1,proneTravel:1};
+        const leg=soldierFootPlanted(u)?'nearFoot':soldierFootPlanted(u,true)?'farFoot':null;
+        if(!leg)continue; // The running flight phase deliberately has no support foot.
         const a=soldierPose(u,20);u.x+=direction*.01;updateSoldierGait(u,{x:500,lane:0},1/6000,20);
         const b=soldierPose(u,20);
         assert(Math.abs(a[leg][0]*facing+500-(b[leg][0]*facing+u.x))<1e-7,`${role.id}/${pose}/${leg} slides`);
@@ -122,7 +125,9 @@ test('falls begin at the actual moving skeleton and keep continuous fixed-length
     for(let frame=0;frame<=84;frame++){
       const p=soldierPose({...base,...role,pose:'prone',wounded:true,woundedTime:frame/120,soldierFall:from},20+frame/120);
       for(const key of bodyKeys)assert(dist(last[key],p[key])<(frame===0?1e-8:4),`${role.id}/${pose}/${frame}/${key} teleports`);
-      assert(p.nearFoot[1]<=-3+1e-8&&p.farFoot[1]<=-3+1e-8,'falling feet cannot pass through the ground');
+      // Rotated boots have a different bottom from standing ankle + 3.
+      // Preserve the hit frame, then check actual body-part bounds.
+      if(frame>0)assert(soldierBodyBottom(p)<=1e-8,'falling body parts pass through the ground');
       for(const [a,b,l]of [[p.hip,p.neck,22],[p.hip,p.nearKnee,17],[p.nearKnee,p.nearFoot,17],
         [p.shoulder,p.nearElbow,12],[p.nearElbow,p.nearHand,13]])assert(Math.abs(dist(a,b)-l)<1e-7);
       assert.deepEqual(p.appearance,from.appearance);last=p;

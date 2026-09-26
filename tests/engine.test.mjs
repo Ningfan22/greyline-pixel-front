@@ -2893,6 +2893,8 @@ check('标枪越过近处遮挡升空，随后俯冲命中可见坦克', () => {
     u.cooldown = u.secondaryCooldown = 100;
   }
   a.cooldown = 0;
+  // Isolate missile flight from the operator's initial lowering drill.
+  settledBody(s, a);
   s.players[0].recon = 10;
   s.scenery = [
     {
@@ -3978,6 +3980,10 @@ check('不同战术成员都能选用实际炮击生成的宽浅坑，并在掩�
       explode(s, x(900), 366, 68, 0, side);
       const u = v13MovementSolo(s, side, 'infantry', x(860));
       u.tactic = tactic;
+      // This fixture measures sustained fire from cover, not the initial
+      // 2.4-second lowering drill. The new shoulder-mounted rifle can fire
+      // from prone here, so begin in the requested settled firing posture.
+      settledBody(s,u,tactic==='prone'?'prone':tactic==='crouch'?'crouch':'idle');
       const target = v13MovementSolo(s, 1 - side, 'infantry', x(1220));
       target.hp = target.maxHp = 10000;
       target.cooldown = 100;

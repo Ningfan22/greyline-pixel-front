@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {CARDS,createGame,startGame,spawnUnit,tick,ground,explode} from '../game/engine.ts';
-import {soldierPose,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn} from '../game/soldier-pose.ts';
+import {soldierPose,soldierMuzzle,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn} from '../game/soldier-pose.ts';
 const roles=Object.entries(CARDS).filter(([,c])=>c.members).flatMap(([id,c])=>
   Array.from({length:c.members},(_,member)=>({id,member})));
 const angularDistance=(a,b)=>Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)));
@@ -52,7 +52,7 @@ test('a helper approaching from either side never teleports its patient onto the
     else assert.equal(u.draggingUid,undefined,'stationary medical posts must release the drag bond');
   }
 });
-test('every role turns both ways without swapping the world positions of its anatomical legs or moving the ballistic muzzle',()=>{
+test('every role turns both ways without swapping its anatomical legs or separating its visible and ballistic muzzle',()=>{
   const bad=[];
   for(const role of roles)for(const facing of [-1,1])for(const pose of ['idle','walk','run','crouch','prone'])for(let phase=0;phase<8;phase++){
     const u={...role,uid:1,hp:100,x:1500,y:374,lane:0,facing,climbing:0,pose,motion:'ground',
@@ -70,8 +70,9 @@ test('every role turns both ways without swapping the world positions of its ana
         const change=Math.hypot(u.x+p[key][0]*u.facing-last.x-last.pose[key][0]*last.facing,u.y+p[key][1]-last.y-last.pose[key][1]);
         if(change>6)bad.push({role,facing,pose,phase,frame,key,change});
       }
-      const unturned=soldierPose({...u,soldierTurn:undefined},time);
-      assert.deepEqual(p.muzzle,unturned.muzzle,'turning animation must not alter the shot origin');
+      const shot=soldierMuzzle(u);
+      assert(Math.hypot(p.muzzle[0]-shot.x,p.muzzle[1]+shot.height+3)<1e-8,
+        'the shot origin must follow the real shoulder-mounted weapon throughout a turn');
       for(const [a,b]of [['hip','nearKnee'],['nearKnee','nearFoot'],['farKnee','farFoot']])
         assert(Math.abs(Math.hypot(p[a][0]-p[b][0],p[a][1]-p[b][1])-17)<1e-6);
       last={x:u.x,y:u.y,facing:u.facing,pose:p};
@@ -98,10 +99,10 @@ test('turning during a kneel/prone transition unwraps target angles without a kn
     }
   }
 });
-test('moving uphill and downhill keeps each anatomical supporting boot planted during aim, fire and reload',()=>{
+test('walking, running and crouching uphill/downhill keep the supporting boot planted during upper-body actions',()=>{
   const bad=[];
   for(const role of roles)for(const facing of [-1,1])for(const slope of [-.2,.2])
-    for(const pose of ['walk','run','crouch','prone'])for(const key of ['nearFoot','farFoot']){
+    for(const pose of ['walk','run','crouch'])for(const key of ['nearFoot','farFoot']){
     const floor=x=>374+(Math.floor(x)-1500)*slope;
     const u={...role,uid:1,hp:100,x:1500,y:374,lane:0,facing,climbing:0,pose,motion:'ground',
       moving:true,walk:0,gaitWeight:1,gaitRun:pose==='run'?1:0,gaitPhase:key==='nearFoot'?1:5,
