@@ -171,6 +171,8 @@ export interface Card {
   burstSize?: number;
   burstPause?: number;
   armorOnly?: boolean;
+  /** An anti-armor primary weapon may also fire at the enemy base. */
+  canAttackBase?: boolean;
   attackRun?: 'strafe' | 'bomb';
   sortieAmmo?: number;
   returnCost?: number;
@@ -760,7 +762,7 @@ export const CARDS: Record<CardId, Card> = {
     'helicopter',
     'air_assault',
     '机降突击队',
-    5,
+    4,
     '直升机飞往指定落点，索降五人后撤离。',
     {
       en: 'AIR ASSAULT TEAM',
@@ -775,9 +777,9 @@ export const CARDS: Record<CardId, Card> = {
       altitude: 154,
       targetGround: true,
       airlift: 'paratroopers',
-      tag: '机降 · 纵深突袭',
+      tag: '步兵 · 机降突袭',
       detail:
-        '5费派遣无武装运输直升机（300生命）。拖牌松手位置决定落点，避开两端基地480距离；飞抵后逐一索降5名空降兵，共220生命，随后撤回己方。运输机被击落时尚未下机的士兵一同损失，已下机者继续作战。',
+        '4费派遣无武装运输直升机（300生命），按步兵卡归类。拖牌松手位置决定落点，避开两端基地480距离；飞抵后逐一索降5名空降兵，共220生命，随后撤回己方。运输机被击落时尚未下机的士兵一同损失，已下机者继续作战。',
     },
   ),
   pickup: variant('ifv', 'pickup', '机枪皮卡', 2, '廉价机动机枪车，压制步兵', {
@@ -2074,6 +2076,8 @@ export const CARDS: Record<CardId, Card> = {
       speed: 66,
       armorMultiplier: 2.2,
       armorOnly: true,
+      canAttackBase: true,
+      baseMultiplier: 0.2,
       infantryMultiplier: 0.35,
       airdrop: true,
       targetGround: true,
@@ -2082,7 +2086,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'marine',
       tag: '空降 · 装甲猎杀',
       detail:
-        '5费4人220生命，直接伞降目标区域。两名火箭手各每6.5秒发射60伤火箭，射程460、对装甲乘2.2，主武器只打载具；两名步枪护卫各每1.1秒4伤、射程340。射程短于地面反坦克组，依靠落点形成侧后交叉火力。',
+        '5费4人220生命，直接伞降目标区域。两名火箭手各每6.5秒发射60伤火箭，射程460、对装甲乘2.2；不向普通步兵发射火箭，到敌方基地后可用20%伤害攻坚。两名步枪护卫各每1.1秒4伤、射程340。',
     },
   ),
   rapid_insertion: variant(

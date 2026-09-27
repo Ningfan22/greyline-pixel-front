@@ -309,7 +309,7 @@ for (const side of [0, 1]) {
     () => {
       const s = arena(),
         { u, token } = deploy(s, side, 'air_assault', x(1350));
-      assert.equal(CARDS.air_assault.cost, 5);
+      assert.equal(CARDS.air_assault.cost, 4);
       assert.equal(u.x, x(112));
       assert.equal(troopers(s, side).length, 0);
       assert.equal(u.airlift.x, x(1350));

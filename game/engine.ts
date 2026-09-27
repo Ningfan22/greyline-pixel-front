@@ -8969,7 +8969,7 @@ export function tick(s: GameState, dt: number) {
   const baseInRange =
     !target &&
     !c.airOnly &&
-    !c.armorOnly &&
+    (!c.armorOnly || c.canAttackBase) &&
     (c.attackRun !== 'strafe' ||
       (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
     Math.abs(baseX - u.x) <= range &&
@@ -9727,7 +9727,7 @@ export function tick(s: GameState, dt: number) {
       !ambushHold &&
       !mobileBurstStep &&
       !stalemated &&
-      (!c.armorOnly || !!target) &&
+      (!c.armorOnly || !!target || (c.canAttackBase && baseInRange)) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
       !displacing &&

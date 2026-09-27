@@ -65,7 +65,7 @@ test('short bonds and stronger overdraft fund an insertion, while borrowed over-
   tick(s,0.1);
   assert.equal(p.energy,15);
   assert(use(s,0,'air_assault',2500).ok);
-  assert.equal(p.energy,10);
+  assert.equal(p.energy,15-CARDS.air_assault.cost);
   assert(s.units.some(u=>u.side===0&&u.id==='air_assault'));
   assert.equal(ECONOMY_RULES.levyPayout,4);
 });

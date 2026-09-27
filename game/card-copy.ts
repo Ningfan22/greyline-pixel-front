@@ -62,7 +62,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   air_assault: {
     en: 'AIR ASSAULT TEAM',
-    typeLabel: '直升机机降',
+    typeLabel: '机降步兵',
     ability: '纵深投送',
     rule: '飞赴落点，索降五人后撤。',
     flavor: '说好的门到门呢。',
@@ -769,7 +769,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AIRBORNE AT TEAM',
     typeLabel: '空降反甲',
     ability: '敌后伞降',
-    rule: '双火箭手伞降，双步枪护卫。',
+    rule: '火箭猎甲，也可攻击敌方基地。',
     flavor: '坦克的后方，从来不安全。',
   },
   rapid_insertion: {

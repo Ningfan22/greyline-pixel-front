@@ -250,10 +250,10 @@ export default function DeckBuilder({
   const visible = pool.filter(
     (c) =>
       (type === 'all' ||
-        (type === 'infantry' && c.members) ||
+        (type === 'infantry' && (c.members || c.airlift)) ||
         (type === 'artillery' && c.emplacement) ||
         (type === 'armor' && (c.armored || c.vehicle)) ||
-        (type === 'air' && c.air) ||
+        (type === 'air' && c.air && !c.airlift) ||
         (type === 'skill' && c.type === 'skill')) &&
       (cost === 'all' || cost === '6'
         ? cost === 'all' || c.cost >= 6
