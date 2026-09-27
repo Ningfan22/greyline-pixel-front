@@ -33,12 +33,12 @@ export const ECONOMY_RULES = {
   logisticsStep: 0.3,
   maxLogistics: 2,
   minimumBaseInterval: 3,
-  bondDelay: 18,
+  bondDelay: 6,
   bondPayout: 3,
   maxBonds: 2,
   overdraftDuration: 25,
-  overdraftPenalty: 1.5,
-  overdraftPayout: 5,
+  overdraftPenalty: 1.6,
+  overdraftPayout: 7,
   suppressPenalty: 2,
   productionDuration: 15,
   productionBoost: 0.62,
@@ -46,8 +46,8 @@ export const ECONOMY_RULES = {
   forwardHqInterval: 0.5,
   forwardHqCapPenalty: 2,
   levyDuration: 12,
-  levyPenalty: 1.35,
-  levyPayout: 3,
+  levyPenalty: 1.5,
+  levyPayout: 4,
   ewarfarePenalty: 1.6,
 } as const;
 export interface EconomyPlayer {
@@ -186,9 +186,13 @@ export function applyEconomy(
 }
 export function updateEconomy(s: EconomyMatch, side: 0 | 1, dt: number): void {
   const p = s.players[side];
-  p.energy = Math.min(energyLimit(p), p.energy + dt / energyInterval(s, side));
+  // Borrowed command points above the normal cap remain spendable. Natural
+  // recharge pauses until the balance drops below that cap.
+  if (p.energy < energyLimit(p))
+    p.energy = Math.min(energyLimit(p), p.energy + dt / energyInterval(s, side));
   if (p.bondDueAt != null && s.time + 1e-8 >= p.bondDueAt) {
-    p.energy = Math.min(energyLimit(p), p.energy + ECONOMY_RULES.bondPayout);
+    p.energy = Math.max(p.energy,
+      Math.min(energyLimit(p), p.energy + ECONOMY_RULES.bondPayout));
     p.bondDueAt = null;
   }
 }

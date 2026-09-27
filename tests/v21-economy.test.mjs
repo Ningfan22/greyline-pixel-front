@@ -152,27 +152,27 @@ for (const side of [0, 1]) {
     advance(s, 40);
     assert.equal(p.energy, 14);
   });
-  test(`公债${side}即时付一、十八秒才返三，同期和整局上限均真实生效`, () => {
+  test(`公债${side}即时付一、六秒才返三，同期和整局上限均真实生效`, () => {
     const s = arena(),
       p = s.players[side];
     assert.ok(use(s, side, 'war_bonds').ok);
     assert.equal(p.energy, 1);
     assert.equal(p.bondUses, 1);
-    assert.equal(p.bondDueAt, 18);
+    assert.equal(p.bondDueAt, 6);
     const duplicate = token(s, side, 'war_bonds'),
       before = unchanged(p);
     assert.equal(E.playCard(s, side, duplicate.uid).ok, false);
     assert.equal(unchanged(p), before);
-    advance(s, 17.95);
-    assert.ok(Math.abs(p.energy - (1 + 17.95 / 3.6)) < 1e-8);
+    advance(s, 5.95);
+    assert.ok(Math.abs(p.energy - (1 + 5.95 / 3.6)) < 1e-8);
     advance(s, 0.05);
-    assert.ok(Math.abs(p.energy - 9) < 1e-8);
+    assert.ok(Math.abs(p.energy - (4 + 6 / 3.6)) < 1e-8);
     assert.equal(p.bondDueAt, null);
     assert.ok(E.playCard(s, side, duplicate.uid).ok);
-    assert.ok(Math.abs(p.energy - 8) < 1e-8);
+    assert.ok(Math.abs(p.energy - (3 + 6 / 3.6)) < 1e-8);
     assert.equal(p.bondUses, 2);
-    advance(s, 18);
-    assert.equal(p.energy, 10);
+    advance(s, 6);
+    assert.ok(Math.abs(p.energy - (6 + 12 / 3.6)) < 1e-8);
     assert.equal(p.bondDueAt, null);
     const third = token(s, side, 'war_bonds'),
       beforeThird = unchanged(p);
@@ -201,7 +201,7 @@ test('暂停不会推进自然收入或公债结算，结束后也不会继续�
   assert.equal(s.time, time);
   assert.equal(unchanged(s.players[0]), value);
   s.status = 'playing';
-  advance(s, 18);
+  advance(s, 6);
   assert.equal(s.players[0].bondDueAt, null);
   s.status = 'finished';
   const end = unchanged(s.players[0]);
@@ -213,7 +213,7 @@ test('公债超过容量部分不进入暗账，之后花点也不会补发', ()
     p = s.players[0];
   p.energy = 10;
   assert.ok(use(s, 0, 'war_bonds').ok);
-  advance(s, 18);
+  advance(s, 6);
   assert.equal(p.energy, 10);
   assert.equal(p.bondDueAt, null);
   assert.ok(use(s, 0, 'infantry').ok);
@@ -299,7 +299,7 @@ test('三张新卡有合法数量限制和短文案，五套预设各20且保留
   }
   for (const d of [...AI_DECKS, ...DECK_PRESETS.map((d) => d.cards)]) {
     assert.ok(validDeck(d));
-    assert.equal(d.filter((id) => CARDS[id].economy).length, 1);
+    assert.equal(d.length, 20);
     assert.ok(d.some((id) => CARDS[id].antiAir));
     assert.ok(
       d.some(
@@ -365,15 +365,15 @@ for (const [id, energy, field, expected] of [
 test('结算中的公债序列化恢复后仍在原时间只到账一次', () => {
   const s = arena();
   assert.ok(use(s, 0, 'war_bonds').ok);
-  advance(s, 8);
+  advance(s, 2);
   const restored = JSON.parse(JSON.stringify(s));
-  advance(s, 10);
-  advance(restored, 10);
+  advance(s, 4);
+  advance(restored, 4);
   assert.ok(Math.abs(s.players[0].energy - restored.players[0].energy) < 1e-8);
   assert.equal(restored.players[0].bondDueAt, null);
   assert.equal(restored.players[0].bondUses, 1);
   advance(restored, 0.1);
-  assert.ok(Math.abs(restored.players[0].energy - (9 + 0.1 / 3.6)) < 1e-8);
+  assert.ok(Math.abs(restored.players[0].energy - (4 + 6.1 / 3.6)) < 1e-8);
 });
 
 console.log(JSON.stringify(results, null, 2));

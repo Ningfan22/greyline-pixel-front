@@ -505,9 +505,9 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     en: 'SIGNAL JAMMING',
     cost: 2,
     type: 'skill',
-    tag: '干扰 · 抽牌',
-    description: '封锁敌方主动抽牌 9 秒',
-    detail: '封锁敌方主动抽牌 9 秒；不影响补给卡。重复使用刷新时长。',
+    tag: '干扰 · 出牌封锁',
+    description: '敌方 15 秒无法主动出牌',
+    detail: '切断敌方指挥链路 15 秒，期间无法主动打出任何卡牌；仍可抽牌。重复使用只刷新封锁时间。',
     atlas: 9,
   },
   smoke: {
@@ -624,26 +624,26 @@ export const CARDS: Record<CardId, Card> = {
         '支付2点，指挥点上限永久增加2，最多从10扩至14。不立即补充指挥点；达到14后不可继续使用。',
     },
   ),
-  war_bonds: variant('supply', 'war_bonds', '战时公债', 1, '十八秒后到账三点', {
+  war_bonds: variant('supply', 'war_bonds', '战时公债', 1, '六秒后到账三点', {
     en: 'WAR BONDS',
     economy: 'bonds',
     tag: '发展 · 延迟回报',
     detail:
-      '支付1点，18秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
+      '支付1点，6秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
   }),
-  overdraft: variant('supply', 'overdraft', '透支指挥', 1, '立即获得5点指挥点，25秒内回点放缓', {
+  overdraft: variant('supply', 'overdraft', '透支指挥', 1, '立即获得7点指挥点，25秒内回点放缓', {
     en: 'OVERDRAFT',
     economy: 'overdraft',
     tag: '发展 · 透支爆发',
     detail:
-      '立即获得5点指挥点（可超过上限），代价是25秒内指挥点回复间隔延长50%。透支未结清前不能再次使用。快攻流派的起手爆发牌。',
+      '立即获得7点指挥点（可超过上限），代价是25秒内指挥点回复间隔延长60%。透支未结清前不能再次使用。适合先机降或伞降，再封锁对手反制。',
   }),
-  signal_jam: variant('jam', 'signal_jam', '电磁干扰', 1, '封锁敌方出牌4秒', {
+  signal_jam: variant('jam', 'signal_jam', '电磁干扰', 1, '封锁敌方出牌12秒', {
     en: 'SIGNAL JAM',
     effect: 'signal_jam',
     tag: '干扰 · 短时封锁',
     detail:
-      '释放电磁干扰，敌方4秒内无法打出任何卡牌。低费快攻封锁牌，适合打断对手的关键部署或连招。',
+      '释放电磁干扰，敌方12秒内无法打出任何卡牌；仍可抽牌。适合掩护机降、伞降和前线突击。',
   }),
   airborne_insertion: variant(
     'infantry',
@@ -1678,13 +1678,13 @@ export const CARDS: Record<CardId, Card> = {
     'supply_interdiction',
     '补给拦截',
     2,
-    '敌方下 3 张牌费用 +2',
+    '敌方下 4 张牌费用 +2',
     {
       en: 'SUPPLY INTERDICTION',
       effect: 'interdict',
       tag: '干扰 · 加价封锁',
       detail:
-        '拦截敌方补给线，敌方接下来打出的3张牌每张费用额外+2。持续施压型封锁，让对手每一张关键牌都来得更慢。',
+        '拦截敌方补给线，敌方接下来打出的4张牌每张费用额外+2。手牌显示加价后的实际费用，打出一张消耗一次拦截。',
     },
   ),
   spoof_attack: variant(
@@ -1947,15 +1947,15 @@ export const CARDS: Record<CardId, Card> = {
   command_lockdown: variant(
     'jam',
     'command_lockdown',
-    '全面静默',
+    '全线静默',
     1,
-    '双方 3 秒内都无法打出任何卡牌',
+    '双方 20 秒内都无法打出任何卡牌',
     {
       en: 'COMMAND LOCKDOWN',
       effect: 'ceasefire',
       tag: '双向 · 出牌封锁',
       detail:
-        '全频段电磁静默覆盖整个战场，3秒内双方都无法打出任何卡牌。与只锁敌方的电磁干扰不同，这是一张双刃剑——在己方铺场完毕、对手正要反扑时打出，能让对手的反制牌烂在手里。适合打时间差的控制流。',
+        '全频段电磁静默覆盖整个战场，20秒内双方都无法主动打出卡牌；仍可抽牌。先完成机降或伞降部署，再用静默争取推进时间。',
     },
   ),
   emergency_levy: variant(
@@ -1963,13 +1963,13 @@ export const CARDS: Record<CardId, Card> = {
     'emergency_levy',
     '紧急征发',
     1,
-    '立即获得 3 点指挥点，12 秒内回点放缓',
+    '立即获得 4 点指挥点，12 秒内回点放缓',
     {
       en: 'EMERGENCY LEVY',
       economy: 'levy',
       tag: '快攻 · 即时爆发',
       detail:
-        '立即获得3点指挥点（可超过上限），代价是12秒内指挥点回复间隔延长35%。比透支指挥更轻量的爆发牌，适合中期抢节奏。',
+        '立即获得4点指挥点（可超过上限），代价是12秒内指挥点回复间隔延长50%。比透支指挥更短的爆发牌，适合抢先打出机降或伞降。',
     },
   ),
   battlefield_salvage: variant(
@@ -2020,13 +2020,13 @@ export const CARDS: Record<CardId, Card> = {
     'logistics_strike',
     '后勤斩首',
     2,
-    '敌方立即失去 3 点指挥点',
+    '敌方立即失去 5 点指挥点',
     {
       en: 'LOGISTICS STRIKE',
       effect: 'logistics_strike',
       tag: '干扰 · 资源打击',
       detail:
-        '打击敌方后勤节点，敌方立即失去3点指挥点。在对手攒费准备打出关键牌时使用，直接打断其节奏。',
+        '打击敌方后勤节点，敌方立即失去5点指挥点，最低降至0。在对手攒费准备打出关键牌时使用，直接打断其节奏。',
     },
   ),
   freq_hop: variant(
@@ -2843,9 +2843,9 @@ Object.assign(CARDS.rally, {
 });
 Object.assign(CARDS.jam, {
   cost: 1,
-  description: '封锁敌方主动抽牌9秒',
+  description: '敌方15秒无法主动出牌',
   detail:
-    '封锁敌方主动抽牌9秒；不影响补给卡和部署抽牌。重复使用刷新时间，不累加。',
+    '切断敌方指挥链路15秒，期间无法主动打出任何卡牌；仍可抽牌。重复使用只刷新封锁时间。',
 });
 Object.assign(CARDS.smoke, {
   cost: 1,

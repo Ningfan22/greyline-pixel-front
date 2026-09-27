@@ -150,7 +150,7 @@ export const W = 3840,
   H = 480,
   DURATION = 600,
   MAX_HP = 1000,
-  DRAW_TIME = 9,
+  DRAW_TIME = 1,
   ENERGY_TIME = ECONOMY_RULES.baseInterval,
   MAX_HAND = 6;
 export const DRAW_COST = 2,
@@ -1210,6 +1210,9 @@ export function cardCost(card: HandCard) {
   const c = CARDS[card.id];
   return card.returnedOnce && c.sortie ? (c.returnCost ?? c.cost) : c.cost;
 }
+export function payableCardCost(p: Pick<Player, 'taxCards'>, card: HandCard) {
+  return cardCost(card) + ((p.taxCards ?? 0) > 0 ? 2 : 0);
+}
 export function cardReadyIn(s: GameState, card: HandCard) {
   return Math.max(0, (card.readyAt ?? 0) - s.time);
 }
@@ -1477,7 +1480,7 @@ export function playCard(
   if (index < 0) return { ok: false, message: '这张卡牌已不在手牌中' };
   const token = p.hand[index],
     c = CARDS[token.id],
-    cost = cardCost(token) + ((p.taxCards ?? 0) > 0 ? 2 : 0);
+    cost = payableCardCost(p, token);
   if (c.internal) return {ok:false,message:'运输机体不能单独出牌'};
   if (cardReadyIn(s, token) > 0)
     return {
@@ -1627,7 +1630,7 @@ export function playCard(
           u.secondaryCooldown = Math.max(u.secondaryCooldown, 3);
         }
     if (c.effect === 'signal_jam' && !hopImmune)
-      foe.jam = Math.max(foe.jam, 4);
+      foe.lockoutUntil = Math.max(foe.lockoutUntil ?? 0, s.time + 12);
     if (c.effect === 'forced_march')
       for (const u of own) u.forceMarchUntil = s.time + 12;
     if (c.effect === 'cyber_suppression' && !hopImmune) {
@@ -1640,7 +1643,7 @@ export function playCard(
     if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
     if (c.effect === 'blackout' && !hopImmune) foe.blackoutUntil = s.time + 8;
     if (c.effect === 'interdict' && !hopImmune)
-      foe.taxCards = (foe.taxCards ?? 0) + 3;
+      foe.taxCards = (foe.taxCards ?? 0) + 4;
     if (c.effect === 'spoof' && !hopImmune) foe.spoofUntil = s.time + 3;
     if (c.effect === 'radar_jam' && !hopImmune) foe.radarJamUntil = s.time + 8;
     if (c.effect === 'entrench') {
@@ -1651,11 +1654,12 @@ export function playCard(
       }
     }
     // ── v120 new effects ─────────────────────────────────────────────
-    if (c.effect === 'lockout' && !hopImmune) foe.lockoutUntil = s.time + 3;
-    // v132: 全面静默——双方同时封锁出牌，双刃剑
+    if (c.effect === 'lockout' && !hopImmune)
+      foe.lockoutUntil = Math.max(foe.lockoutUntil ?? 0, s.time + 3);
+    // Full-line silence blocks both command chains after this card resolves.
     if (c.effect === 'ceasefire') {
-      foe.lockoutUntil = s.time + 3;
-      p.lockoutUntil = s.time + 3;
+      foe.lockoutUntil = Math.max(foe.lockoutUntil ?? 0, s.time + 20);
+      p.lockoutUntil = Math.max(p.lockoutUntil ?? 0, s.time + 20);
     }
     if (c.effect === 'salvage') {
       const pool = p.discard.filter((t) => {
@@ -1677,7 +1681,7 @@ export function playCard(
     if (c.effect === 'sensor_blind' && !hopImmune)
       foe.sensorBlindUntil = s.time + 6;
     if (c.effect === 'logistics_strike' && !hopImmune)
-      foe.energy = Math.max(0, foe.energy - 3);
+      foe.energy = Math.max(0, foe.energy - 5);
     if (c.effect === 'freq_hop') p.freqHopUntil = s.time + 8;
     if (c.effect === 'ewarfare' && !hopImmune) foe.ewarfareUntil = s.time + 5;
     if (c.effect === 'smoke_screen')
@@ -1742,7 +1746,8 @@ export function playCard(
     draw(s, side, 2);
   } else if (c.id === 'jam') {
     const foe = s.players[side === 0 ? 1 : 0];
-    if ((foe.freqHopUntil ?? 0) <= s.time) foe.jam = Math.max(foe.jam, 9);
+    if ((foe.freqHopUntil ?? 0) <= s.time)
+      foe.lockoutUntil = Math.max(foe.lockoutUntil ?? 0, s.time + 15);
   }
   const message =
     side === 0
@@ -5719,6 +5724,8 @@ function inferArchetype(s: GameState): string {
 
 function updateAI(s: GameState) {
   const p = s.players[1];
+  // Interdiction taxes the AI's next plays; affordability uses the real price.
+  const cardCost = (h: HandCard) => payableCardCost(p, h);
   const own = s.units.filter((u) => u.side === 1 && isCombatant(u));
   // Every enemy-dependent branch below uses this visible set, never hidden units
   // or the opposing player's hand, energy, or deck.
@@ -6270,7 +6277,8 @@ function updateAI(s: GameState) {
       } else if (c.economy) {
         const peaceful =
           !battle && !emergency && !armor.length && !armedAir.length;
-        if (peaceful && !economyBlock(p, c.economy, s.time)) {
+        if ((peaceful || (archetype === 'blitz' && c.economy === 'overdraft')) &&
+            !economyBlock(p, c.economy, s.time)) {
           if (
             c.economy === 'logistics' &&
             screens >= 2 &&
@@ -6296,7 +6304,7 @@ function updateAI(s: GameState) {
             s.time < DURATION - 60 &&
             p.hand.length >= 2
           )
-            score = archetype === 'assault' ? 20 : 13;
+            score = archetype === 'blitz' ? 25 : archetype === 'assault' ? 20 : 13;
           if (
             c.economy === 'production' &&
             s.time < DURATION - 120 &&
@@ -6318,7 +6326,7 @@ function updateAI(s: GameState) {
           (battle || pushing) &&
           (p.levyUntil ?? 0) < s.time
         )
-          score = archetype === 'assault' ? 18 : 12;
+          score = archetype === 'blitz' ? 22 : archetype === 'assault' ? 18 : 12;
       } else if (c.id === 'antitank_mine') {
         x = armor
           .flatMap((v) => [v.x + 120, v.x + 220, v.x + 320])
@@ -6437,9 +6445,9 @@ function updateAI(s: GameState) {
         if (battle && foes.some((u) => CARDS[u.id].air || weaponCard(u).guided))
           score = 25;
       } else if (c.id === 'jam') {
-        if (battle && cohorts >= 2 && s.players[0].jam <= 0) score = 8;
+        if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) <= s.time) score = 14;
       } else if (c.effect === 'signal_jam') {
-        if (battle && cohorts >= 2 && s.players[0].jam <= 0) score = 11;
+        if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) <= s.time) score = 17;
       } else if (c.effect === 'forced_march') {
         if (battle && own.filter((u) => CARDS[u.id].members).length >= 3)
           score = groundFoes.length ? 15 : 8;
@@ -6515,11 +6523,20 @@ function updateAI(s: GameState) {
       } else if (c.effect === 'lockout') {
         if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) < s.time)
           score = 12;
+      } else if (c.effect === 'ceasefire') {
+        const insertionReady = p.hand.some((h2) =>
+          h2.uid !== h.uid &&
+          (CARDS[h2.id].airlift || CARDS[h2.id].airdrop) &&
+          cardReadyIn(s, h2) <= 0 && cardCost(h2) <= p.energy);
+        if (!insertionReady && !emergency && battle && cohorts >= 2 &&
+            (s.players[0].lockoutUntil ?? 0) <= s.time &&
+            (p.lockoutUntil ?? 0) <= s.time)
+          score = 17;
       } else if (c.effect === 'salvage') {
         if (
           p.hand.length <= MAX_HAND - 1 &&
           p.discard.some(
-            (t) => CARDS[t.id].type === 'unit' && cardCost(t) <= 3,
+            (t) => CARDS[t.id].type === 'unit' && CARDS[t.id].cost <= 3,
           )
         )
           score = 22;
@@ -6534,7 +6551,7 @@ function updateAI(s: GameState) {
         if (battle && (s.players[0].sensorBlindUntil ?? 0) < s.time)
           score = 10;
       } else if (c.effect === 'logistics_strike') {
-        if (battle && s.players[0].energy >= 4) score = 14;
+        if (battle && s.players[0].energy >= 4) score = 17;
       } else if (c.effect === 'freq_hop') {
         if (battle && (p.freqHopUntil ?? 0) < s.time) score = 11;
       } else if (c.effect === 'ewarfare') {
@@ -6642,13 +6659,18 @@ function updateAI(s: GameState) {
           score += 5;
         if (c.id === 'freq_hop') score += 3;
       } else if (archetype === 'blitz') {
-        // v120: 透支快攻——爆发经济与封锁牌优先，廉价班组填线
+        // Buy a rapid insertion with borrowed points, then block counterplay.
         if (
+          c.id === 'overdraft' ||
           c.id === 'emergency_levy' ||
           c.id === 'command_lockdown' ||
-          c.id === 'shock_action'
+          c.id === 'signal_jam' ||
+          c.id === 'jam' ||
+          c.id === 'war_bonds'
         )
           score += 5;
+        if (c.id === 'air_assault' || c.id === 'paratroopers' || c.id === 'airborne_insertion')
+          score += 6;
         if (c.id === 'fire_team' || c.id === 'battlefield_salvage')
           score += 4;
       }
@@ -6903,6 +6925,22 @@ function updateAI(s: GameState) {
     }
     // If no draw pool remains, ordinary affordable defence is still preferable
     // to waiting forever. Fall through to the existing choice logic.
+  }
+
+  // A blitz hand should borrow points for a ready insertion instead of
+  // waiting naturally for the expensive card and leaving its burst card idle.
+  if (archetype === 'blitz' && !emergency && (p.lockoutUntil ?? 0) <= s.time) {
+    const insertion = p.hand.find((h) =>
+      cardReadyIn(s, h) <= 0 &&
+      (CARDS[h.id].airlift || CARDS[h.id].airdrop) &&
+      cardCost(h) > p.energy + 1e-6);
+    const burst = options.find((o) =>
+      (CARDS[o.h.id].economy === 'overdraft' || CARDS[o.h.id].economy === 'levy') &&
+      cardCost(o.h) <= p.energy + 1e-6 &&
+      (!insertion || cardCost(insertion) <= p.energy +
+        (CARDS[o.h.id].economy === 'overdraft'
+          ? ECONOMY_RULES.overdraftPayout : ECONOMY_RULES.levyPayout) - cardCost(o.h) + 1e-6));
+    if (insertion && burst && playCard(s, 1, burst.h.uid).ok) return;
   }
 
   // Proactive tactics: fight the next battle on the AI's terms, not just react.
@@ -10878,7 +10916,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
           ? p.hand.map((h) => ({
               ...h,
               ...CARDS[h.id],
-              cost: cardCost(h),
+              cost: payableCardCost(p, h),
               readyIn: cardReadyIn(s, h),
             }))
           : [],
@@ -10886,6 +10924,8 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       discardCount: i === viewer ? p.discard.length : 0,
       drawIn: p.drawIn,
       jam: p.jam,
+      lockoutIn: Math.max(0, (p.lockoutUntil ?? 0) - s.time),
+      taxCards: i === viewer ? (p.taxCards ?? 0) : 0,
       morale: p.morale,
       recon: p.recon,
       captures: p.captures,

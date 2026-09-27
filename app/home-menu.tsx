@@ -146,7 +146,7 @@ function Guide() {
         <p>
           把卡牌拖出底部扇形区域后松手，即可使用；拖回则取消。长按查看详情。单位从己方基地出发，烟幕、地雷和机降落点使用松手位置。机降直升机会飞抵落点后放下步兵，途中可被防空击落。
         </p>
-        <p>点击牌堆，消耗 2 点指挥点抽牌，冷却 9 秒。手牌最多 6 张。</p>
+        <p>点击牌堆，消耗 2 点指挥点抽牌，冷却 1 秒。手牌最多 6 张。</p>
         <p>
           双方开局 2 点，每 3.6 秒恢复 1
           点。后勤可加快回点，扩编可增加上限；难度设置会注明 AI 的额外回点速度。
@@ -253,7 +253,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v186</small>
+          <small>GREYLINE · v187</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (

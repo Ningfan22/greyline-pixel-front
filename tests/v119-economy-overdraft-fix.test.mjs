@@ -79,7 +79,7 @@ test('overdraft card still works (positive regression on the else-if chain)', ()
   p.energy = 2;
   const r = use(s, 0, 'overdraft');
   assert.equal(r.ok, true, r.message);
-  assert.equal(p.energy, 6, 'pay 1, gain 5 → net +4');
+  assert.equal(p.energy, 8, 'pay 1, gain 7 → net +6');
   assert.ok(p.overdraftUntil > s.time, 'overdraftUntil should be set');
   return { energy: p.energy, overdraftUntil: p.overdraftUntil };
 });

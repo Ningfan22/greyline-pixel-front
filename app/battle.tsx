@@ -701,7 +701,7 @@ export default function Battle({
     register({
       name: 'draw_battle_card',
       description:
-        '消耗 2 点指挥点抽取 1 张卡，抽牌后冷却 9 秒。手牌已满、受干扰或资源不足时不消耗资源。',
+        '消耗 2 点指挥点抽取 1 张卡，抽牌后冷却 1 秒。手牌已满、受干扰或资源不足时不消耗资源。',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -1424,8 +1424,10 @@ export default function Battle({
               .length
           }
           <i />
-          {enemy.jam > 0
-            ? `通讯干扰 ${Math.ceil(enemy.jam)}s`
+          {enemy.lockoutIn > 0
+            ? `敌方出牌封锁 ${Math.ceil(enemy.lockoutIn)}s`
+            : enemy.jam > 0
+            ? `敌方抽牌受扰 ${Math.ceil(enemy.jam)}s`
             : `敌军 ${view.units.filter((u) => u.side === 1 && u.hp > 0).length} 个单位`}
         </span>
       </div>
@@ -1686,7 +1688,11 @@ export default function Battle({
               <span>{p.hand.length} / 6</span>
             </div>
             <span>
-              {p.jam > 0 ? (
+              {p.lockoutIn > 0 ? (
+                `指挥链路中断 · ${Math.ceil(p.lockoutIn)}s`
+              ) : p.taxCards > 0 ? (
+                `补给受阻 · 下 ${p.taxCards} 张牌费用 +2`
+              ) : p.jam > 0 ? (
                 <>
                   <Radio size={13} />
                   通讯受扰 · {Math.ceil(p.jam)}s
@@ -1931,7 +1937,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v186
+          GREYLINE <i /> 林间前线 · v187
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -2013,8 +2019,8 @@ export default function Battle({
                   <h3>合理分配指挥点</h3>
                   <p>
                     开局随机 6 张手牌、2 指挥点，基础每 3.6 秒恢复 1 点，上限
-                    10。战地后勤可加快恢复，指挥扩编可提升上限，战时公债可在18秒后回款。主动点击牌堆，消耗
-                    2 点抽 1 张，冷却 9
+                    10。战地后勤可加快恢复，指挥扩编可提升上限，战时公债可在6秒后回款。主动点击牌堆，消耗
+                    2 点抽 1 张，冷却 1
                     秒；不再自动抽牌。补给技能按卡面费用结算，无需额外支付抽牌费用。
                   </p>
                 </div>

@@ -68,9 +68,9 @@ test('unprotected artillery and idle AT do not consume the opening screen budget
   tick(s, 0.05);
   assert.equal(s.players[1].played, 0);
   assert.ok(s.players[1].energy >= 4);
-  for (let i = 0; i < 140 && s.players[1].drawIn < 8; i++) tick(s, 0.05);
+  for (let i = 0; i < 140 && s.players[1].deck.length; i++) tick(s, 0.05);
   assert.ok(s.players[1].hand.some((h) => h.id === 'infantry'));
-  assert.ok(s.players[1].drawIn > 8);
+  assert.ok(s.players[1].drawIn > 0.9);
   assert.ok(s.players[1].energy < 4);
   return {
     hand: s.players[1].hand.map((h) => h.id),
