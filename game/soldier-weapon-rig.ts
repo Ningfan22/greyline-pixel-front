@@ -76,10 +76,11 @@ export function weaponPlacement(weapon:SoldierWeapon,shoulder:Point,low:number,t
     // In a settled prone pose the operator is already on the ground; keep the
     // mounted body close to the shoulder instead of lifting the whole support
     // to the upright emplacement height. Upright/carry transforms stay intact.
-    const proneMounted=low>=1.9;
+    const proneMounted=Math.max(0,Math.min(1,(low-1.65)/.35));
+    const settle=proneMounted*proneMounted*(3-2*proneMounted);
     const deployed:Point=weapon==='hmg'
-      ?[shoulder[0]+1,ground-(proneMounted?21:28)]
-      :[3,ground-(proneMounted?27:35)];
+      ?[shoulder[0]+1,ground-28+7*settle]
+      :[3,ground-35+8*settle];
     origin=[deployed[0]+(origin[0]-deployed[0])*carry,deployed[1]+(origin[1]-deployed[1])*carry];
     angle=carry?angle*carry:0;
     // Slide the emplacement horizontally into the operator's reach. Keep its

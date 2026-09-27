@@ -39,10 +39,10 @@ test('aimed weapons keep the butt or tube in shoulder contact while prone arms c
   }
 });
 test('heavy supports stay grounded; carried weapons rotate together with both grip points',()=>{
-  for(const [id,bottom] of [['heavy_mg',25],['light_mortar',32]])for(const pose of ['idle','crouch','prone']){
+  for(const [id,bottom,proneBottom] of [['heavy_mg',25,21],['light_mortar',32,26]])for(const pose of ['idle','crouch','prone']){
     const p=soldierPose({...base,id,pose},20);
     assert.equal(p.weaponAngle,0);
-    assert.equal(p.weaponOrigin[1]+bottom,-3);
+    assert.equal(p.weaponOrigin[1]+(pose==='prone'?proneBottom:bottom),pose==='prone'?(id==='heavy_mg'?0:-1):-3);
     const carried=soldierPose({...base,id,pose:'walk',moving:true,gaitWeight:1,gaitPhase:2},20);
     assert.equal(carried.weaponCarry,1);assert.notEqual(carried.weaponAngle,0);
   }

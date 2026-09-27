@@ -129,7 +129,19 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
     segment(ctx,parts.upperArm,root,elbow);segment(ctx,parts.forearm,elbow,hand,!!shape);handShape(parts,hand,shape);
   };
   const equipment=(gun:HTMLCanvasElement,carry:number)=>{
-    if(p.weapon==='hmg'&&carry>.5){
+    const proneMount=Math.max(0,Math.min(1,(p.low-1.65)/.35));
+    const settle=proneMount*proneMount*(3-2*proneMount);
+    if(settle>0&&carry<.5&&p.weapon==='hmg'){
+      // The lower tripod telescopes when the operator lies behind the gun.
+      // Keep the receiver, sights and hand grips at their rigid gun sockets.
+      ctx.drawImage(gun,0,0,49,13,0,0,49,13);
+      ctx.drawImage(gun,0,13,49,13,0,13,49,13-5*settle);
+    }else if(settle>0&&carry<.5&&p.weapon==='mortar'){
+      // The base plate/bipod settles onto the ground without raising the tube
+      // and the hands that grip its upper half.
+      ctx.drawImage(gun,0,0,25,18,0,0,25,18);
+      ctx.drawImage(gun,0,18,25,15,0,18,25,15-7*settle);
+    }else if(p.weapon==='hmg'&&carry>.5){
       ctx.drawImage(gun,0,0,gun.width,10,0,0,gun.width,10);
       // Keep the feed box; only the deployed tripod folds onto the pack.
       ctx.drawImage(gun,20,10,12,5,20,10,12,5);

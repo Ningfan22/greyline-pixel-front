@@ -35,6 +35,8 @@ next-env.d.ts
 /dist/
 /dist-pages/
 /docs/*
+!/docs/index.html
+!/docs/assets/
 !/docs/copyright/
 /output/
 /.wrangler/

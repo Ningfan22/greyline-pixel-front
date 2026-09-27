@@ -6809,7 +6809,12 @@ function updateAI(s: GameState) {
     const strongInPool = p.deck.filter(
       (h) => requiredPower(h.id) >= 0.8,
     );
-    const counter = counterChoices[0];
+    // A tank at the HQ cannot wait for a stronger card's future CP. Use the
+    // strongest counter we can deploy now, while a distant threat still lets
+    // the AI save for its best held answer.
+    const counter = emergency
+      ? counterChoices.find(choice => cardCost(choice.h) <= p.energy + 1e-6) ?? counterChoices[0]
+      : counterChoices[0];
     const weakAlreadyDeployed =
       counter && own.some((u) => u.id === counter.h.id && isCombatant(u));
     if (
@@ -6821,6 +6826,14 @@ function updateAI(s: GameState) {
       if (cardCost(counter.h) <= p.energy + 1e-6)
         playCard(s, 1, counter.h.uid, counter.x);
       return; // Save for the effective held counter before any command or rifle squad.
+    }
+
+    // Searching a deck with no strong answer cannot help the immediate base
+    // fight. Put an affordable body on the line before buying more draws.
+    if (emergency && !strongInPool.length) {
+      const defender = options.find(o =>
+        CARDS[o.h.id].type === 'unit' && cardCost(o.h) <= p.energy + 1e-6);
+      if (defender && playCard(s, 1, defender.h.uid, defender.x).ok) return;
     }
 
     const canSearch = p.deck.length > 0;

@@ -328,7 +328,7 @@ function restingFallPose(p:SoldierPose,variant:number):SoldierPose {
   const specs=[
     {lean:1.48,legs:[[2.94,.25],[2.88,.35]],arms:[[.85,-1.10],[.70,-.85]],nod:.08},
     {lean:-1.45,legs:[[-.30,.58],[-.42,.78]],arms:[[.45,-1.20],[.65,-1.35]],nod:-.08},
-    {lean:1.57,legs:[[2.68,.70],[2.85,.45]],arms:[[1.05,-1.45],[.75,-1.0]],nod:.03},
+    {lean:1.16,legs:[[2.52,.70],[3.08,.45]],arms:[[.98,-1.35],[.52,-1.0]],nod:.03},
     {lean:-1.30,legs:[[-1.55,2.15],[-1.80,2.30]],arms:[[.10,-1.70],[.45,-1.60]],nod:.12},
   ][variant];
   const bone=(root:Point,a:number,length:number):Point=>add(root,[Math.cos(a)*length,Math.sin(a)*length]);
