@@ -2491,7 +2491,7 @@ export const CARDS: Record<CardId, Card> = {
       range: 550, speed: 190, antiAir: true, patrol: true, patrolTime: 30,
       tag: '航空 · 护航机炮',
     }),
-  ground_attack_jet: variant('helicopter', 'ground_attack_jet', '对地攻击机', 5,
+  ground_attack_jet: variant('helicopter', 'ground_attack_jet', '低空强击机', 5,
     '高速对地机炮扫射，持续时间较短，优先打击地面密集目标。', {
       air: true, airframe: 'interceptor', hp: 175, damage: 24, rate: 0.22,
       range: 680, speed: 470, attackRun: 'strafe', antiAir: false,
@@ -2656,7 +2656,7 @@ Object.assign(CARDS.paratroopers, {
   detail:
     '3费5人220生命。点击战场指定落点，五名伞兵在降落伞下下降，着陆前不能开火。无精锐空降的强度与机降直升机的索降投送；原先地面加速由机动增援班承担。',
 });
-for (const id of ['ifv','tow_ifv','sam_vehicle','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','scout_car','light_tank','mlrs'] as const)
+for (const id of ['ifv','tow_ifv','sam_vehicle','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','scout_car','light_tank'] as const)
   CARDS[id].armorTier = 1;
 for (const id of ['tank','flame_tank'] as const) CARDS[id].armorTier = 2;
 CARDS.heavy_tank.armorTier = 3;
