@@ -288,13 +288,14 @@ for (const side of [0, 1]) {
       );
       for (const row of rows) {
         assert(row.enemyShots > 20, 'the opposing weapon really fires');
-        assert(row.ownShots > 0, 'some members provide actual return fire');
+        assert(kind === 'tank' ? row.ownShots === 0 : row.ownShots > 0,
+          'rifles do not waste ammunition against tank armor');
         assert(row.low >= 12 && row.lowFrameRatio > 0.5);
         assert(
           row.dispersed > 0 || row.separatedPairs > 0,
           'crowded living members must separate along depth or X, not only change animation',
         );
-        assert(row.fallback >= 6 && row.coveredFrames > 40);
+        assert(row.fallback >= 6 && (kind === 'tank' || row.coveredFrames > 40));
         assert.equal(
           row.exposedAllFleeFrames,
           0,

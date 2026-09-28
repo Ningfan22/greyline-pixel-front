@@ -16,7 +16,7 @@ function drop(s,side,id,x){const token={id,uid:++s.uid};s.players[side].hand=[to
   const n=s.units.length;assert(playCard(s,side,token.uid,x).ok);return s.units.slice(n);}
 
 test('only rapid cards gain a landing sprint; parachute exposure never consumes its eight seconds',()=>{
-  for(const side of [0,1])for(const id of ['rapid_insertion','recon_jump','pathfinders','airborne_at']){
+  for(const side of [0,1])for(const id of ['rapid_insertion','recon_jump','pathfinders','airborne_at','paratroopers']){
     const s=arena(),units=drop(s,side,id,1800);setOrder(s,side,'hold');
     assert(units.every(u=>!(u.rapidUntil>0)));
     let landed;
@@ -34,7 +34,7 @@ test('rope insertion preserves the actual cargo role and respects an existing pl
   for(const side of [0,1])for(const id of ['paratroopers','infantry','recon_jump']){
     const s=arena(),u=one(s,side,id,1700,{rappelling:true,rappellingStartAt:0,y:373,
       squadOrder:'attack',squadOrderUntil:100,rapidUntil:0});setOrder(s,side,'hold');tick(s,1/60);
-    assert(!u.rappelling);assert.equal(u.rapidUntil,id==='paratroopers'?s.time+8:0);
+    assert(!u.rappelling);assert.equal(u.rapidUntil,0);
     assert.equal(u.squadOrder,'attack');
   }
 });

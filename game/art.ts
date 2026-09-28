@@ -920,6 +920,7 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
+  if (c.fortification) return c.fortification === 'wire' ? [110,32] : [112,64];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];

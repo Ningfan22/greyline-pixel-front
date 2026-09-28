@@ -19,6 +19,10 @@ export type Ammunition =
   | 'mortar'
   | 'drone';
 export function ammunition(id: CardId, member = 0): Ammunition {
+  if (id === 'fort_machinegun') return 'machinegun';
+  if (id === 'fort_aa') return 'autocannon';
+  if (id === 'escort_gunship') return 'machinegun';
+  if (id === 'ground_attack_jet') return 'autocannon';
   if (id === 'flame_tank' || id === 'flame_team' && member === 0) return 'flame';
   if ((id === 'flame_team' || id === 'light_mortar') && member > 0) return 'rifle';
   if (id === 'mlrs') return 'rocket';

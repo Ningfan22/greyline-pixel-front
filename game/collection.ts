@@ -38,7 +38,12 @@ export interface CollectionState {
   adsWatched: number;
   /** 测试金币是否已发放，保证只发一次。 */
   testGoldGranted?: boolean;
+  fortificationReleaseGranted?: boolean;
 }
+export const NEW_RELEASE_CARDS: CardId[] = [
+  'fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire',
+  'rapid_reinforcements','escort_gunship','ground_attack_jet','field_gun','siege_gun',
+];
 
 /** 初始牌库：30 种、共 45 张，覆盖默认「机步协同」编队。 */
 export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
@@ -72,6 +77,16 @@ export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
   fortify: 1,
   aa_gun: 1,
   anti_tank_gun: 1,
+  fort_bunker: 1,
+  fort_machinegun: 1,
+  fort_aa: 1,
+  fort_spawn: 1,
+  fort_wire: 1,
+  rapid_reinforcements: 1,
+  escort_gunship: 1,
+  ground_attack_jet: 1,
+  field_gun: 1,
+  siege_gun: 1,
 };
 
 export function rarityOf(id: CardId): Rarity {
@@ -181,6 +196,7 @@ export function starterState(): CollectionState {
     packsOpened: 0,
     adsWatched: 0,
     testGoldGranted: false,
+    fortificationReleaseGranted: true,
   };
 }
 
@@ -201,6 +217,7 @@ export function loadCollection(): CollectionState {
           packsOpened: parsed.packsOpened ?? 0,
           adsWatched: parsed.adsWatched ?? 0,
           testGoldGranted: parsed.testGoldGranted ?? false,
+          fortificationReleaseGranted: parsed.fortificationReleaseGranted ?? false,
         };
       }
     }
@@ -231,6 +248,12 @@ export function loadCollection(): CollectionState {
   if (!state.testGoldGranted) {
     state.gold += TEST_GOLD_GRANT;
     state.testGoldGranted = true;
+    saveCollection(state);
+  }
+  if (!state.fortificationReleaseGranted) {
+    for (const id of NEW_RELEASE_CARDS)
+      state.owned[id] = Math.max(1, state.owned[id] ?? 0);
+    state.fortificationReleaseGranted = true;
     saveCollection(state);
   }
   return state;

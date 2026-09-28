@@ -252,6 +252,7 @@ export default function DeckBuilder({
       (type === 'all' ||
         (type === 'infantry' && (c.members || c.airlift)) ||
         (type === 'artillery' && c.emplacement) ||
+        (type === 'fortification' && c.type === 'fortification') ||
         (type === 'armor' && (c.armored || c.vehicle)) ||
         (type === 'air' && c.air && !c.airlift) ||
         (type === 'skill' && c.type === 'skill')) &&
@@ -335,7 +336,11 @@ export default function DeckBuilder({
                   ? `${CARDS[id].members} 人`
                   : CARDS[id].type === 'skill'
                     ? '指令'
-                    : '载具'}
+                    : CARDS[id].type === 'fortification'
+                      ? '工事'
+                      : CARDS[id].emplacement
+                        ? '火炮'
+                        : '载具'}
               </small>
             </span>
             {pending ? <ArrowLeft size={14} /> : <X size={13} />}
@@ -517,6 +522,7 @@ export default function DeckBuilder({
                 ['infantry', '步兵'],
                 ['armor', '载具'],
                 ['artillery', '火炮'],
+                ['fortification', '工事'],
                 ['air', '航空'],
                 ['skill', '指令'],
               ].map(([v, label]) => (

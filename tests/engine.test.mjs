@@ -506,7 +506,7 @@ const duel = (id, distance) => {
   spawnUnit(s, 0, id, 1100);
   const u = s.units[0];
   s.units = [u];
-  spawnUnit(s, 1, 'tank', 1100 + distance);
+  spawnUnit(s, 1, ['rocket', 'tank'].includes(id) ? 'tank' : 'infantry', 1100 + distance);
   const target = s.units[1];
   target.cooldown = 1e6;
   target.secondaryCooldown = 1e6;
@@ -687,8 +687,8 @@ check('卧姿狙击手有真实射线时保持卧姿开火，不为每枪起立'
   assert.equal(u.pose, 'prone');
   assert.equal(u.muzzleY, muzzlePoint(u, s.units[1].x).y);
 });
-check('121种资源、合法20张自选卡组、双方两点随机起手且无免费单位', () => {
-  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 121);
+check('131种资源、合法20张自选卡组、双方零点随机起手且无免费单位', () => {
+  assert.equal(Object.values(CARDS).filter(c=>!c.internal).length, 131);
   assert(validDeck(DECK));
   const prefix = DECK.slice(0, 19);
   const extraCopy = prefix.find(

@@ -126,7 +126,17 @@ export type CardId =
   | 'mlrs'
   | 'scout_car'
   | 'flame_tank'
-  | 'light_mortar';
+  | 'light_mortar'
+  | 'rapid_reinforcements'
+  | 'escort_gunship'
+  | 'ground_attack_jet'
+  | 'field_gun'
+  | 'siege_gun'
+  | 'fort_bunker'
+  | 'fort_machinegun'
+  | 'fort_aa'
+  | 'fort_spawn'
+  | 'fort_wire';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -145,7 +155,7 @@ export interface Card {
   name: string;
   en: string;
   cost: number;
-  type: 'unit' | 'skill';
+  type: 'unit' | 'skill' | 'fortification';
   tag: string;
   description: string;
   detail: string;
@@ -206,6 +216,11 @@ export interface Card {
   /** Seconds needed to open a fixed medical post after deployment. */
   medicalSetup?: number;
   armored?: boolean;
+  /** Minimum projectile penetration tier required for direct bullet damage. */
+  armorTier?: 0 | 1 | 2 | 3;
+  fortification?: 'bunker' | 'machinegun' | 'aa' | 'spawn' | 'wire';
+  buildTime?: number;
+  garrisonCapacity?: number;
   /** A ground vehicle body; armor damage resistance still requires armored. */
   vehicle?: boolean;
   vehicleSupport?: 'repair' | 'command' | 'mine_clear';
@@ -595,6 +610,19 @@ function variant(
     description,
     detail: description,
     ...changes,
+  };
+}
+function fortCard(
+  id: CardId, name: string, cost: number, kind: NonNullable<Card['fortification']>,
+  hp: number, buildTime: number, capacity: number, detail: string,
+  weapon: Partial<Card> = {},
+): Card {
+  return {
+    id, name, en: 'FIELD FORTIFICATION', cost, type: 'fortification',
+    tag: '工事 · 阵地建设', description: detail, detail, atlas: 6,
+    hp, damage: 0, range: 0, speed: 0, rate: 1, sight: kind === 'wire' ? 0 : 330,
+    static: true, targetGround: true, fortification: kind,
+    buildTime, garrisonCapacity: capacity, ...weapon,
   };
 }
 export const CARDS: Record<CardId, Card> = {
@@ -2451,6 +2479,50 @@ export const CARDS: Record<CardId, Card> = {
         '2费2人、全组100生命：1名迫击炮手与1名步枪护卫。炮手每3.6秒一发26伤害、半径22，射程100–580，曲射越障。护卫每1.1秒3伤害、射程340。早期低费支援，范围和射程小，不能充当重型炮兵。',
     },
   ),
+  rapid_reinforcements: variant('infantry', 'rapid_reinforcements', '机动增援班', 3,
+    '从己方基地快速入场，八秒急行军，开火后恢复常速。', {
+      members: 5, hp: 220, damage: 28, range: 400, speed: 82,
+      infantryAbility: 'rapid', doctrine: 'assault', uniform: 'marine',
+      tag: '快援 · 地面急行军',
+    }),
+  escort_gunship: variant('helicopter', 'escort_gunship', '护航武装直升机', 5,
+    '持续巡航，机炮兼顾低空目标，防护低于专用武装直升机。', {
+      air: true, airframe: 'rocket_heli', hp: 170, damage: 14, rate: 0.42,
+      range: 550, speed: 190, antiAir: true, patrol: true, patrolTime: 30,
+      tag: '航空 · 护航机炮',
+    }),
+  ground_attack_jet: variant('helicopter', 'ground_attack_jet', '对地攻击机', 5,
+    '高速对地机炮扫射，持续时间较短，优先打击地面密集目标。', {
+      air: true, airframe: 'interceptor', hp: 175, damage: 24, rate: 0.22,
+      range: 680, speed: 470, attackRun: 'strafe', antiAir: false,
+      flightTime: 18, tag: '航空 · 对地扫射',
+    }),
+  field_gun: variant('artillery', 'field_gun', '轻型野战炮', 3,
+    '部署较快的轻型炮，近程支援，需友军提供目标视野。', {
+      type: 'unit', hp: 145, damage: 31, rate: 6.5, range: 950,
+      minRange: 170, speed: 0, static: true, indirect: true,
+      radius: 26, emplacement: 'howitzer', targetGround: false,
+      tag: '炮兵 · 快速支援',
+    }),
+  siege_gun: variant('artillery', 'siege_gun', '攻城重炮', 6,
+    '超重炮缓慢装填，远距离大范围压制已发现目标。', {
+      type: 'unit', hp: 280, damage: 95, rate: 17, range: 1600,
+      minRange: 400, speed: 0, static: true, indirect: true,
+      radius: 54, emplacement: 'howitzer', targetGround: false,
+      tag: '炮兵 · 远程重击',
+    }),
+  fort_bunker: fortCard('fort_bunker', '钢筋碉堡', 4, 'bunker', 420, 8, 4,
+    '可见地面建造8秒，最多4名友军自动进驻，掩护射击。'),
+  fort_machinegun: fortCard('fort_machinegun', '机枪堡垒', 4, 'machinegun', 320, 7, 2,
+    '可见地面建造7秒，自动压制前方敌军，最多2名友军进驻。',
+    {damage: 7, range: 540, rate: 0.18, antiAir: true}),
+  fort_aa: fortCard('fort_aa', '防空阵地', 4, 'aa', 300, 7, 2,
+    '可见地面建造7秒，拦截敌方飞机，最多2名友军进驻。',
+    {damage: 28, range: 800, rate: 1.2, antiAir: true, airOnly: true}),
+  fort_spawn: fortCard('fort_spawn', '前线复活点', 5, 'spawn', 360, 10, 3,
+    '可见地面建造10秒，最多3名友军进驻；后续地面步兵可从此增援。'),
+  fort_wire: fortCard('fort_wire', '铁丝网', 1, 'wire', 175, 4, 0,
+    '可见地面建造4秒，不能进驻，阻滞敌军步兵推进。'),
 };
 export function modelOf(id: CardId): BaseCardId {
   return CARDS[id].model ?? (id as BaseCardId);
@@ -2576,12 +2648,18 @@ Object.assign(CARDS.rangers, {
     '4费4人180生命，观察720、射程500。连续停步且未射击2秒后，下一发对步兵伤害乘1.8；移动打断，不能攻击未发现目标。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.paratroopers, {
-  infantryAbility: 'rapid',
-  tag: '快援 · 入场冲刺',
-  description: '入场8秒内加速增援，首发射击后恢复常速。',
+  airdrop: true,
+  targetGround: true,
+  infantryAbility: undefined,
+  tag: '空降 · 标准伞兵班',
+  description: '指定落点伞降五人，低费快速形成落地步兵阵地。',
   detail:
-    '3费5人220生命。部署后8秒内正常推进移速乘1.8；首次射击立即结束加速，后撤不享受加速。仍从己方基地入场。',
+    '3费5人220生命。点击战场指定落点，五名伞兵在降落伞下下降，着陆前不能开火。无精锐空降的强度与机降直升机的索降投送；原先地面加速由机动增援班承担。',
 });
+for (const id of ['ifv','tow_ifv','sam_vehicle','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','scout_car','light_tank','mlrs'] as const)
+  CARDS[id].armorTier = 1;
+for (const id of ['tank','flame_tank'] as const) CARDS[id].armorTier = 2;
+CARDS.heavy_tank.armorTier = 3;
 Object.assign(CARDS.mountain, {
   infantryAbility: 'mountain_fire',
   tag: '山地 · 掩体远射',

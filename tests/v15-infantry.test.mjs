@@ -137,7 +137,7 @@ for (const side of [0, 1]) {
       const distances = [];
       for (const enabled of [false, true]) {
         const s = v15Arena(),
-          u = v15Solo(s, side, 'paratroopers', x(600));
+          u = v15Solo(s, side, 'rapid_reinforcements', x(600));
         if (!enabled) u.rapidUntil = 0;
         v15Run(s, 1);
         distances.push((u.x - x(600)) * dir);
@@ -405,7 +405,7 @@ v15Check(
       for (const rapid of [false, true]) {
         const s = v15Arena(),
           start = side ? W - 1000 : 1000,
-          u = v15Solo(s, side, 'paratroopers', start);
+          u = v15Solo(s, side, 'rapid_reinforcements', start);
         u.tactic = 'retreat';
         u.personalMorale = 20;
         u.retreatUntil = 100;

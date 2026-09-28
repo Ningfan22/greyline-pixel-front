@@ -170,6 +170,11 @@ export interface HandCard {
   returnedOnce?: boolean;
 }
 export interface Unit {
+  buildUntil?: number;
+  garrisonUid?: number;
+  garrisonSlot?: number;
+  respawnCharges?: number;
+  respawnAt?: number;
   squadOrder?: SquadOrder;
   squadOrderX?: number;
   squadOrderUntil?: number;
@@ -1095,11 +1100,14 @@ export function spawnUnit(
     i < (cargo ? cargo.member + 1 : count);
     i++
   ) {
-    const px = cargo ? x : positions[i],
+    const px = cargo || c.fortification ? x : positions[i],
       hp = c.hp! / count;
     s.units.push({
       uid: ++s.uid,
       id,
+      buildUntil: c.fortification ? s.time + (c.buildTime ?? 0) : undefined,
+      respawnCharges: c.fortification === 'spawn' ? 3 : undefined,
+      respawnAt: c.fortification === 'spawn' ? s.time + (c.buildTime ?? 0) + 15 : undefined,
       side,
       x: px,
       y: c.air
@@ -1499,7 +1507,7 @@ export function playCard(
   const economyBlocked = c.economy && economyBlock(p, c.economy, s.time);
   if (economyBlocked) return { ok: false, message: economyBlocked };
   if (
-    c.type === 'unit' &&
+    (c.type === 'unit' || c.type === 'fortification') &&
     x !== undefined &&
     (!Number.isFinite(x) || x < 0 || x > W)
   )
@@ -1513,6 +1521,12 @@ export function playCard(
     return {ok:false,message:'滑翔机需要平缓空地，请避开房屋、树干和残骸'};
   // Airdrop units descend onto the selected point; airlift transports still enter at HQ.
   if (c.airdrop) x = landingX ?? undefined;
+  else if (c.type === 'fortification') {
+    if (x === undefined || !pointVisible(s, side, x, ground(s,x)-24))
+      return {ok:false,message:'工事只能建在己方当前视线可见的地面'};
+    if (s.units.some(u => CARDS[u.id].fortification && u.hp > 0 && Math.abs(u.x-x!) < 95))
+      return {ok:false,message:'工事之间需要留出至少95距离'};
+  }
   else if (c.type === 'unit') x = side === 0 ? 112 : W - 112;
   if (
     c.targetGround &&
@@ -1538,9 +1552,14 @@ export function playCard(
   p.played++;
   if (c.economy) {
     applyEconomy(p, c.economy, s.time);
-  } else if (c.type === 'unit') {
+  } else if (c.type === 'unit' || c.type === 'fortification') {
     const spawnedAt = s.units.length;
-    spawnUnit(s, side, c.insertion==='glider' ? 'glider_transport' : c.id, x!);
+    const forward = c.type === 'unit' && !c.air && !!c.members && !c.airdrop
+      ? s.units.filter(u => u.side === side && u.hp > 0 && CARDS[u.id].fortification === 'spawn' &&
+          (u.buildUntil ?? 0) <= s.time).sort((a,b) => side === 0 ? b.x-a.x : a.x-b.x)[0]
+      : undefined;
+    spawnUnit(s, side, c.insertion==='glider' ? 'glider_transport' : c.id,
+      c.type === 'fortification' ? x! : forward ? forward.x + (side === 0 ? 70 : -70) : x!);
     if(c.insertion==='glider')prepareGlider(s,s.units.at(-1)!,landingX!);
     if (c.airlift)
       s.units.at(-1)!.airlift = {
@@ -2380,6 +2399,7 @@ function hitUnit(
   attackerUid?: number,
   blastX?: number,
   blastY?: number,
+  sourceAmmo?: Ammunition,
 ) {
   if (!canTakeDamage(u)) return;
   const c = CARDS[u.id];
@@ -2388,6 +2408,9 @@ function hitUnit(
       ? s.units.find((q) => q.uid === attackerUid)
       : undefined;
   const attackerCard = attacker ? CARDS[attacker.id] : undefined;
+  if (source === 'bullet' && attacker && (c.armorTier ?? 0) > 0 &&
+      armorPenetrationTier(sourceAmmo ?? ammunition(attacker.id, attacker.member), attackerCard) < c.armorTier!)
+    return;
   const protection =
     u.pose === 'prone'
       ? 0.7
@@ -2404,6 +2427,7 @@ function hitUnit(
         (attackerCard?.infantryAbility === 'flusher' ? 1 : 1 - cover) *
         (source === 'blast' ? (c.blastProtection ?? 1) : 1) *
         (c.trait === 'armor_vest' ? 0.88 : 1) *
+        (u.garrisonUid !== undefined ? source === 'blast' ? 0.65 : 0.35 : 1) *
         (attackerCard?.infantryAbility === 'anti_materiel' &&
         (c.armored || c.vehicle)
           ? 2.5
@@ -2533,6 +2557,14 @@ function hitUnit(
     }
   }
 }
+/** Small arms cannot slowly erode a sealed hull; heavier ammunition must meet its tier. */
+export function armorPenetrationTier(ammo: Ammunition, weapon?: Card): number {
+  if (weapon?.infantryAbility === 'anti_materiel') return 1;
+  if (ammo === 'ap' || ammo === 'cannon') return 3;
+  if (ammo === 'rocket') return 2;
+  if (ammo === 'autocannon' || ammo === 'drone') return 1;
+  return 0;
+}
 function finishDeath(
   s: GameState,
   u: Unit,
@@ -2594,6 +2626,15 @@ function finishDeath(
       friend.decisionIn = 0;
     }
   const c = CARDS[u.id];
+  if (c.fortification) {
+    for (const occupant of s.units)
+      if (occupant.garrisonUid === u.uid) {
+        occupant.garrisonUid = undefined;
+        occupant.garrisonSlot = undefined;
+      }
+    burst(s,u.x,u.y-18,c.fortification === 'wire' ? 24 : 45,'wreck');
+    return;
+  }
   // v106: infantry caught inside a blast are thrown clear — the body flies,
   // tumbles on a spin axis and crumples where it lands, instead of dropping
   // in place like a bullet casualty. Power falls off with distance from the
@@ -3960,8 +4001,10 @@ function moveSoldier(
   dt: number,
   mayTraverse = true,
 ) {
-  if (!dir || speed <= 0 || localUnitOrder(s, u) === 'watch' ||
+  if (!dir || speed <= 0 || u.garrisonUid !== undefined || localUnitOrder(s, u) === 'watch' ||
       (u.motion === 'ground' && stanceTransitionActive(u, s.time))) return;
+  if (s.units.some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
+      (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
@@ -4311,6 +4354,7 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
     (!airborneTarget(target) || c.antiAir || rifleRotorTarget(source, target)) &&
     (!c.airOnly || airborneTarget(target)) &&
     (!c.armorOnly || t.armored || t.vehicle) &&
+    (c.indirect || (t.armorTier ?? 0) === 0 || armorPenetrationTier(ammunition(source.id, source.member), c) >= t.armorTier!) &&
     distance >= (c.minRange ?? 0) &&
     distance <= unitRange(s, source) + margin &&
     (c.indirect ||
@@ -6274,6 +6318,18 @@ function updateAI(s: GameState) {
         }
         // Avoid continuously buying a specialised role already covered by own units.
         score -= Math.min(6, groups(own.filter((u) => u.id === c.id)) * 2);
+      } else if (c.type === 'fortification') {
+        const desired = Math.max(120, Math.min(W-120, front +
+          (c.fortification === 'wire' ? -95 : c.fortification === 'spawn' ? 340 : 170)));
+        const sites = [desired,desired+110,desired-110,W-220];
+        x = sites.find(site => pointVisible(s,1,site,ground(s,site)-24) &&
+          s.units.every(u => !CARDS[u.id].fortification || u.hp <= 0 || Math.abs(u.x-site)>=95));
+        score = x === undefined ? -100 : c.fortification === 'aa'
+          ? armedAir.length ? 25 : -4
+          : c.fortification === 'wire' ? foot.length ? 18 : 5
+          : c.fortification === 'spawn' ? cohorts >= 3 && s.time > 60 ? 16 : -8
+          : c.fortification === 'machinegun' ? foot.length ? 23 : 12
+          : cohorts >= 2 ? 18 : 4;
       } else if (c.economy) {
         const peaceful =
           !battle && !emergency && !armor.length && !armedAir.length;
@@ -7670,6 +7726,63 @@ function firstAidHotZone(s: GameState, u: Unit): boolean {
   return false;
 }
 
+/** Occupants remain real soldiers with their own weapons and health. */
+function maintainFortifications(s: GameState) {
+  const forts = s.units.filter(f => f.hp > 0 && CARDS[f.id].fortification &&
+    (f.buildUntil ?? 0) <= s.time);
+  for (const u of s.units) {
+    if (u.garrisonUid === undefined) continue;
+    const host = forts.find(f => f.uid === u.garrisonUid);
+    if (!host || u.hp <= 0 || u.wounded || u.surrendered || u.parachuting ||
+        Math.abs(u.x - host.x) > 95) {
+      u.garrisonUid = undefined;
+      u.garrisonSlot = undefined;
+      continue;
+    }
+    const cap = CARDS[host.id].garrisonCapacity ?? 0;
+    u.x = host.x + ((u.garrisonSlot ?? 0) - (cap-1)/2) * 15;
+    u.y = ground(s,u.x);
+    u.cover = Math.max(u.cover,0.72);
+    u.moving = false;
+    u.motion = 'ground';
+  }
+  for (const host of forts) {
+    const cap = CARDS[host.id].garrisonCapacity ?? 0;
+    if (cap > 0) {
+      const used = new Set(s.units.filter(u => u.garrisonUid === host.uid).map(u => u.garrisonSlot));
+      for (const u of s.units) {
+        if (used.size >= cap) break;
+        if (u.side !== host.side || u.garrisonUid !== undefined || !CARDS[u.id].members ||
+            !isCombatant(u) || u.parachuting || u.rappelling || Math.abs(u.x-host.x) > 36)
+          continue;
+        const slot = Array.from({length:cap},(_,i)=>i).find(i=>!used.has(i));
+        if (slot === undefined) break;
+        used.add(slot);
+        u.garrisonUid = host.uid;
+        u.garrisonSlot = slot;
+        u.x = host.x + (slot-(cap-1)/2)*15;
+        u.y = ground(s,u.x);
+        u.cover = Math.max(u.cover,0.72);
+        u.moving = false;
+        u.motion = 'ground';
+      }
+    }
+    if (CARDS[host.id].fortification === 'spawn' && (host.respawnCharges ?? 0) > 0 &&
+        s.time >= (host.respawnAt ?? Infinity)) {
+      const casualty = s.wrecks.find(w => w.side === host.side && !w.revived &&
+        !!CARDS[w.cardId].members && Math.abs(w.x-host.x) < 480 && w.age < 35);
+      if (casualty) {
+        casualty.revived = true;
+        host.respawnCharges = (host.respawnCharges ?? 1) - 1;
+        host.respawnAt = s.time + 18;
+        spawnUnit(s,host.side,casualty.cardId,host.x+(host.side===0?55:-55),
+          {member:casualty.member ?? 0});
+        notify(s,`${CARDS[host.id].name}恢复一名阵亡士兵`, 'good', [host.side]);
+      }
+    }
+  }
+}
+
 export function tick(s: GameState, dt: number) {
   if (s.status !== 'playing') return;
   dt = Math.min(0.05, Math.max(0, dt));
@@ -7686,6 +7799,7 @@ export function tick(s: GameState, dt: number) {
     if (CARDS[u.id].air)
       (airPositions ??= new Map()).set(u.uid, { x: u.x, y: u.y });
   s.time = Math.min(s.campaign?.duration ?? DURATION, s.time + dt);
+  maintainFortifications(s);
   updateComeback(s, { damage: hitUnit, spawn: spawnUnit, draw });
   s.shake = Math.max(0, s.shake - dt * 24);
   // Wind slowly shifts direction and strength, carrying smoke and dust.
@@ -7984,6 +8098,12 @@ export function tick(s: GameState, dt: number) {
         ((s.players[u.side].spoofUntil ?? 0) > s.time ? -1 : 1)) as 1 | -1,
       enemySide: Side = u.side === 0 ? 1 : 0,
       baseX = enemySide === 0 ? 70 : W - 70;
+    if (c.fortification && (u.buildUntil ?? 0) > s.time) {
+      u.fire = 0;
+      u.moving = false;
+      u.y = ground(s,u.x);
+      continue;
+    }
     if (u.parachuting) {
       u.fire = 0;
       u.secondaryFire = 0;
@@ -8353,13 +8473,13 @@ export function tick(s: GameState, dt: number) {
       flyLoiterMunition(s, u, dt);
       continue;
     }
-    const controlledNavigation = stepUnitControl(s, u, dt);
+    const controlledNavigation = u.garrisonUid === undefined && stepUnitControl(s, u, dt);
     if (u.id === 'mortar_carrier' && controlledNavigation) {
       u.displaceGoal = null;
       if (u.moving) u.carrierSettleUntil = s.time + CARRIER_SETTLE;
     }
     const localOrder = localUnitOrder(s, u);
-    const order = c.members
+    const order = u.garrisonUid !== undefined ? 'hold' : c.members
       ? infantryOrder(s, u)
       : localOrder
         ? localOrder === 'watch'
@@ -8758,6 +8878,8 @@ export function tick(s: GameState, dt: number) {
         (!airborneTarget(v) || c.antiAir || rifleRotorTarget(u, v)) &&
         (!c.airOnly || airborneTarget(v)) &&
         (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
+        (c.indirect || (CARDS[v.id].armorTier ?? 0) === 0 ||
+          armorPenetrationTier(primaryAmmo,c) >= CARDS[v.id].armorTier!) &&
         (!c.patrolTime || !u.patrolExiting) &&
         (!c.sortie ||
           (v.x - u.x) * (c.patrolTime ? u.facing : dir) >
@@ -10511,7 +10633,7 @@ export function tick(s: GameState, dt: number) {
         notify(s, '撤退队员进入友军射线，发生误伤', 'warn', [friendly.u.side]);
         friendly.u.friendlyWarnAt = s.time;
       }
-      hitUnit(s, friendly.u, p.damage, p.side, 0, 'bullet', p.sourceUid);
+      hitUnit(s, friendly.u, p.damage, p.side, 0, 'bullet', p.sourceUid, undefined, undefined, p.ammunition);
       bulletImpact(s, p.x, p.y, 'cloth', Math.sign(p.tx - p.startX));
       continue;
     }
@@ -10600,6 +10722,9 @@ export function tick(s: GameState, dt: number) {
             cover,
             'bullet',
             p.sourceUid,
+            undefined,
+            undefined,
+            p.ammunition,
           );
           if (p.ammunition === 'ap')
             s.blasts.push({

@@ -15,6 +15,13 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
+  const existing: Partial<Record<CardId, CardId>> = {
+    rapid_reinforcements:'infantry', escort_gunship:'rocket_heli',
+    ground_attack_jet:'strike_jet', field_gun:'artillery', siege_gun:'heavy_barrage',
+    fort_bunker:'fortify', fort_machinegun:'machinegun', fort_aa:'aa_gun',
+    fort_spawn:'forward_hq', fort_wire:'minefield',
+  };
+  if (existing[id]) return cardPictureUrl(existing[id]!);
   if(id==='glider_transport')return cardPictureUrl('glider_assault');
   if (
     id === 'field_logistics' ||
@@ -52,6 +59,13 @@ export function cardStats(id: CardId, cost = CARDS[id].cost) {
         ['携带', `${copyLimit(id)}张`],
         ['目标', c.targetGround ? '落点' : '全局'],
       ]
+    : c.type === 'fortification'
+    ? [
+        ['工期',`${c.buildTime ?? 0}秒`],
+        ['生命',String(c.hp ?? '—')],
+        ['驻守',c.garrisonCapacity ? `${c.garrisonCapacity}人` : '不可'],
+        ['射程',c.range ? String(c.range) : '—'],
+      ]
     : [
         [
           '编制',
@@ -68,8 +82,8 @@ export function cardStats(id: CardId, cost = CARDS[id].cost) {
         ['生命', String(c.hp ?? '—')],
         ['火力', String(c.damage || '—')],
         [
-          c.range ? '射程' : '视野',
-          String(c.range || c.sight || (c.observer ? 820 : '—')),
+          c.armorTier ? '护甲' : c.range ? '射程' : '视野',
+          c.armorTier ? String(c.armorTier) : String(c.range || c.sight || (c.observer ? 820 : '—')),
         ],
       ];
 }

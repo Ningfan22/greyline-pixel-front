@@ -70,6 +70,7 @@ export function buildingStage(p: Scenery) {
   return health < full * 0.48 || broken > 0 ? 2 : health < full * 0.83 ? 1 : 0;
 }
 export interface Wreck {
+  revived?: boolean;
   /** Empty unpowered transport, not a destroyed/burning vehicle. */
   abandoned?: boolean;
   /** Its one-use warhead has already detonated; landing only raises dust. */
@@ -616,7 +617,7 @@ export function pointVisibleWith(
   y: number,
   candidates?: Unit[],
 ) {
-  if (Math.abs(x - (side === 0 ? 70 : 3770)) < 200 && y > floorAt(s, x) - 170)
+  if (Math.abs(x - (side === 0 ? 70 : 3770)) < 360 && y > floorAt(s, x) - 170)
     return true;
   if (
     s.flares.some(
@@ -627,7 +628,8 @@ export function pointVisibleWith(
     return true;
   const pool = candidates ?? s.units;
   return pool.some((u) => {
-    if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered)
+    if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered ||
+        (CARDS[u.id].fortification && (u.buildUntil ?? 0) > s.time))
       return false;
     const range =
       sightRange(u) *

@@ -349,9 +349,9 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   },
   paratroopers: {
     en: 'PARATROOPERS',
-    typeLabel: '轻装步兵',
-    ability: '快速增援',
-    rule: '入场短时加速，开火即止。',
+    typeLabel: '伞降步兵',
+    ability: '指定空降',
+    rule: '指定落点，伞降五人。',
     flavor: '落地先数人，再数敌人。',
   },
   rangers: {
@@ -863,4 +863,14 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     rule: '短点射，借友军掩护换位。',
     flavor: '枪管换得比水勤。',
   },
+  rapid_reinforcements: {en:'RAPID REINFORCEMENTS',typeLabel:'机动步兵',ability:'地面快援',rule:'基地入场，八秒加速。',flavor:'走公路，也能赶上。'},
+  escort_gunship: {en:'ESCORT GUNSHIP',typeLabel:'护航航空',ability:'空地机炮',rule:'巡航空地压制三十秒。',flavor:'低飞才看得清。'},
+  ground_attack_jet: {en:'GROUND ATTACK JET',typeLabel:'对地航空',ability:'高速扫射',rule:'快速通场，机炮打地面。',flavor:'目视目标，准备进入。'},
+  field_gun: {en:'LIGHT FIELD GUN',typeLabel:'轻型炮兵',ability:'快速支援',rule:'近程快射，需友军观察。',flavor:'炮小，活儿不少。'},
+  siege_gun: {en:'SIEGE HOWITZER',typeLabel:'重型炮兵',ability:'远程重击',rule:'缓慢装填，大范围炮击。',flavor:'声音先到，土后到。'},
+  fort_bunker: {en:'CONCRETE BUNKER',typeLabel:'工事',ability:'四人驻守',rule:'可见区域建设八秒。',flavor:'墙比命令更可靠。'},
+  fort_machinegun: {en:'MG FORT',typeLabel:'工事',ability:'固定压制',rule:'建设七秒，可驻两人。',flavor:'枪口留下，战线就留下。'},
+  fort_aa: {en:'AA POSITION',typeLabel:'工事',ability:'防空火力',rule:'建设七秒，可驻两人。',flavor:'天空也得设防。'},
+  fort_spawn: {en:'FORWARD POST',typeLabel:'工事',ability:'前线增援',rule:'建设十秒，步兵前出。',flavor:'援军从这里再出发。'},
+  fort_wire: {en:'BARBED WIRE',typeLabel:'工事',ability:'阻滞推进',rule:'建设四秒，不可驻守。',flavor:'它只需拖住三秒。'},
 };

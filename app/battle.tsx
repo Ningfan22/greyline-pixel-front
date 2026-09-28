@@ -1657,8 +1657,12 @@ export default function Battle({
                 )}
                 <span className="target-hint">
                   <Crosshair size={13} />
-                  {card.type === 'unit'
-                    ? '拖出手牌区松手，从己方基地入场'
+                  {card.type === 'fortification'
+                    ? '拖到己方可见地面建造，完成前无法使用'
+                    : card.airdrop
+                      ? '拖到战场指定伞降落点'
+                    : card.type === 'unit'
+                      ? '拖出手牌区松手，从己方基地入场'
                     : card.targetGround
                       ? '拖出手牌区，以松手位置为目标'
                       : '拖出手牌区松手使用'}
@@ -1937,7 +1941,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v189
+          GREYLINE <i /> 林间前线 · v190
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
