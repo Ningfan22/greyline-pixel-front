@@ -15,13 +15,11 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
-  const existing: Partial<Record<CardId, CardId>> = {
-    rapid_reinforcements:'infantry', escort_gunship:'rocket_heli',
-    ground_attack_jet:'strike_jet', field_gun:'artillery', siege_gun:'heavy_barrage',
-    fort_bunker:'fortify', fort_machinegun:'machinegun', fort_aa:'aa_gun',
-    fort_spawn:'forward_hq', fort_wire:'minefield',
-  };
-  if (existing[id]) return cardPictureUrl(existing[id]!);
+  if (id === 'rapid_reinforcements' || id === 'escort_gunship' ||
+      id === 'ground_attack_jet' || id === 'field_gun' || id === 'siege_gun' ||
+      id === 'fort_bunker' || id === 'fort_machinegun' || id === 'fort_aa' ||
+      id === 'fort_spawn' || id === 'fort_wire')
+    return assetUrl(`/art/v190/cards/${id}.webp`);
   if(id==='glider_transport')return cardPictureUrl('glider_assault');
   if (
     id === 'field_logistics' ||

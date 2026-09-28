@@ -83,86 +83,30 @@ import {
   transportCrewSlot,
 } from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
-function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number) {
-  const kind = CARDS[u.id].fortification!;
-  const x = Math.round(u.x), y = Math.round(u.y);
+function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art) {
+  const [w, h] = unitSize(u.id);
   const total = CARDS[u.id].buildTime ?? 1;
-  const progress = Math.max(0, Math.min(1, 1 - ((u.buildUntil ?? time) - time) / total));
+  const remaining = Math.max(0, (u.buildUntil ?? time) - time);
+  const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+  drawSprite(ctx, art.generatedSprites[u.id], u.x, u.y, w, h, u.side === 1, 0.35 + 0.65 * progress);
+  if (remaining <= 0) return;
+  const x = Math.round(u.x);
+  const y = Math.round(u.y - h - 5);
   ctx.save();
-  ctx.fillStyle = '#403d31';
-  ctx.fillRect(x-54,y-8,108,8);
-  if (progress < 1) {
-    ctx.fillStyle = '#74694e';
-    ctx.fillRect(x-48,y-9,96*progress,5);
-    for (const dx of [-46,0,46]) {
-      ctx.fillStyle = '#5d5340';
-      ctx.fillRect(x+dx,y-47,4,39);
-      ctx.fillStyle = '#938365';
-      ctx.fillRect(x+dx-3,y-47,10,3);
-    }
-    ctx.strokeStyle = '#b7a678';
-    ctx.beginPath();
-    ctx.moveTo(x-45,y-44);ctx.lineTo(x+46,y-17);
-    ctx.moveTo(x+46,y-44);ctx.lineTo(x-45,y-17);
-    ctx.stroke();
-    ctx.fillStyle = '#f1dfae';
-    ctx.font = 'bold 10px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(`建设 ${Math.ceil((u.buildUntil ?? time)-time)}秒`,x,y-53);
-    ctx.restore();
-    return;
-  }
-  if (kind === 'wire') {
-    ctx.strokeStyle = '#a8a69a';ctx.lineWidth = 2;
-    for(const dx of [-44,-22,0,22,44]) {ctx.beginPath();ctx.moveTo(x+dx,y-9);ctx.lineTo(x+dx,y-35);ctx.stroke();}
-    for(const dy of [-31,-23,-15]) {ctx.beginPath();ctx.moveTo(x-47,y+dy);ctx.lineTo(x+47,y+dy+2);ctx.stroke();}
-    ctx.fillStyle='#c1beb1';
-    for(let dx=-42;dx<=42;dx+=10)for(const dy of [-31,-23,-15]){
-      ctx.fillRect(x+dx,y+dy-3,2,7);
-    }
-  } else {
-    ctx.fillStyle = kind === 'bunker' ? '#696e63' : kind === 'spawn' ? '#655f4c' : '#596352';
-    ctx.fillRect(x-49,y-38,98,31);
-    ctx.fillStyle = '#333b32';
-    ctx.fillRect(x-53,y-45,106,9);
-    ctx.fillStyle = '#7d8673';
-    ctx.fillRect(x-50,y-44,100,4);
-    for(let dx=-44;dx<43;dx+=22){ctx.fillStyle='#777667';ctx.fillRect(x+dx,y-12,20,5);}
-    if(kind==='bunker'){
-      ctx.fillStyle='#1c2925';ctx.fillRect(x-34,y-31,68,9);
-      ctx.fillStyle='#a1a58c';ctx.fillRect(x-36,y-33,72,2);
-    } else if(kind==='machinegun'){
-      ctx.fillStyle='#1c2725';ctx.fillRect(x-20,y-31,40,13);
-      ctx.fillStyle='#2e3030';ctx.fillRect(x+(u.side===0?13:-50),y-27,38,4);
-      ctx.fillStyle='#b2ac82';ctx.fillRect(x-30,y-14,60,6);
-    } else if(kind==='aa'){
-      ctx.fillStyle='#29362f';ctx.fillRect(x-18,y-44,36,18);
-      ctx.fillStyle='#3f4440';
-      for(let i=0;i<2;i++)ctx.fillRect(x-4+i*9,y-75,5,37);
-      ctx.fillStyle='#d8bb80';ctx.fillRect(x-2,y-78,16,3);
-    } else {
-      ctx.fillStyle='#d5c49b';ctx.fillRect(x-5,y-52,4,24);
-      ctx.fillStyle=u.side===0?'#a5d4ce':'#d18d72';ctx.fillRect(x-1,y-51,24,12);
-      ctx.fillStyle='#efede1';ctx.fillRect(x+8,y-49,4,8);ctx.fillRect(x+6,y-47,8,4);
-      ctx.fillStyle='#ddd5ad';ctx.font='9px monospace';ctx.textAlign='center';
-      ctx.fillText(`${u.respawnCharges ?? 0}次复员`,x,y-56);
-    }
-  }
+  ctx.fillStyle = '#302f26';
+  ctx.fillRect(x - 43, y - 6, 86, 5);
+  ctx.fillStyle = '#d9c58c';
+  ctx.fillRect(x - 43, y - 6, Math.round(86 * progress), 5);
+  ctx.fillStyle = '#f1dfae';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`建设 ${Math.ceil(remaining)}秒`, x, y - 9);
   ctx.restore();
 }
-function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number) {
-  const direction = u.side === 0 ? 1 : -1;
-  for(let i=0;i<2;i++){
-    const x=Math.round(u.x+direction*(i===0?-31:24));
-    const floor=Math.round(u.y);
-    const work=i===0 ? Math.sin(time*2.5+u.uid)*2 : u.fire>0 ? -5 : Math.sin(time*1.8+u.uid)*2;
-    ctx.fillStyle='#2f372e';ctx.fillRect(x-7,floor-19,5,19);ctx.fillRect(x+3,floor-18,5,18);
-    ctx.fillStyle='#657058';ctx.fillRect(x-8,floor-40,17,24);
-    ctx.fillStyle='#a08c6b';ctx.fillRect(x-5,floor-50,11,10);
-    ctx.fillStyle='#4e5a43';ctx.fillRect(x-7,floor-53,15,6);
-    ctx.fillStyle='#ab936e';ctx.fillRect(x+direction*5,floor-35+work,12,5);
-    ctx.fillStyle='#47513d';ctx.fillRect(x+direction*13,floor-31+work,5,5);
-  }
+function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, art: Art) {
+  const crew = art.generatedSprites.artillery_crew;
+  if (!crew) return;
+  drawSprite(ctx, crew, u.x + (u.side === 0 ? -36 : 36), u.y + 3, 78, 48, u.side === 1);
 }
 // Supersonic rounds that whip past the camera leave a brief white streak.
 // Render-layer only: the simulation never knows these exist.
@@ -866,7 +810,7 @@ export function render(
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);
     if (c.fortification) {
-      drawFortification(ctx,u,s.time);
+      drawFortification(ctx,u,s.time,art);
     } else if (barrelBand) {
       drawTankSprite(
         ctx,
@@ -896,7 +840,7 @@ export function render(
         c.armored || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
       );
     }
-    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time);
+    if (c.emplacement && !isDead && !art.generatedSprites[u.id]) drawArtilleryCrew(ctx,u,art);
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
     // Stationary infantry in cover get a per-unit prop (sandbags for deep

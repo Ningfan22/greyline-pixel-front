@@ -37,6 +37,7 @@ import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  generatedSprites: Partial<Record<CardId | 'artillery_crew', HTMLImageElement>>;
   soldiers?: SoldierArt;
   comeback: ComebackArtV18;
   digging: DigArtV18;
@@ -571,6 +572,11 @@ function atlasFrames(
   );
 }
 export function loadArt() {
+  const generatedSpriteIds = [
+    'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
+    'escort_gunship', 'ground_attack_jet', 'field_gun', 'siege_gun',
+    'artillery_crew',
+  ] as const;
   cached ??= Promise.all([
     Promise.all([
       loadImage('/art/battlefield-v3.png'),
@@ -624,6 +630,7 @@ export function loadArt() {
     loadDigArtV18(),
     loadMineArtV18(),
     loadComebackArtV18(),
+    Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
   ]).then(
     ([
       [
@@ -678,6 +685,7 @@ export function loadArt() {
       digging,
       mines,
       comeback,
+      generatedSpriteImages,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -753,6 +761,7 @@ export function loadArt() {
         glider[6],
       );
       return {
+        generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
         comeback,
         digging,
@@ -819,7 +828,7 @@ export function loadArt() {
 }
 export function drawSprite(
   ctx: CanvasRenderingContext2D,
-  frame: HTMLCanvasElement | undefined,
+  frame: HTMLCanvasElement | HTMLImageElement | undefined,
   x: number,
   y: number,
   w: number,
@@ -850,7 +859,7 @@ export function drawSprite(
  */
 export function drawTankSprite(
   ctx: CanvasRenderingContext2D,
-  frame: HTMLCanvasElement | undefined,
+  frame: HTMLCanvasElement | HTMLImageElement | undefined,
   x: number,
   y: number,
   w: number,
@@ -896,6 +905,7 @@ export function cardFrame(art: Art, index: number) {
 }
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
+  if (art.generatedSprites[id]) return art.generatedSprites[id];
   if(id==='glider_transport')return art.glider[frame%art.glider.length];
   if (c.members)
     return uniformFrame(art.adults[adultIdentity(id)].actions20[0], c.uniform);
@@ -920,7 +930,16 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
-  if (c.fortification) return c.fortification === 'wire' ? [110,32] : [112,64];
+  if (c.fortification) {
+    if (c.fortification === 'wire') return [116, 34];
+    if (c.fortification === 'aa') return [112, 82];
+    if (c.fortification === 'spawn') return [118, 64];
+    return [112, 64];
+  }
+  if (id === 'siege_gun') return [210, 110];
+  if (id === 'field_gun') return [175, 96];
+  if (id === 'ground_attack_jet') return [198, 84];
+  if (id === 'escort_gunship') return [220, 110];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];
