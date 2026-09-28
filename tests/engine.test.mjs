@@ -708,7 +708,7 @@ check('121种资源、合法20张自选卡组、双方两点随机起手且无�
     const s = createGame(seed, DECK, ai);
     assert.equal(s.units.length, 0);
     s.players.forEach((p, i) => {
-      assert.equal(p.energy, 2);
+      assert.equal(p.energy, 0);
       assert.equal(energyLimit(p), 10);
       assert.equal(p.hand.length, 6);
       assert.equal(p.deck.length, 14);

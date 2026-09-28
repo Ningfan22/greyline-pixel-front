@@ -1262,7 +1262,7 @@ export default function Battle({
               <p>准备好了，就继续推进。</p>
               <p className="match-rules-note">
                 {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}{' '}
-                · 双方开局2点
+                · 双方开局0点
               </p>
               {mission && <p>{mission.goal}</p>}
               {mission && (
@@ -1937,7 +1937,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v188
+          GREYLINE <i /> 林间前线 · v189
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -2018,7 +2018,7 @@ export default function Battle({
                   <span>03 / 补给</span>
                   <h3>合理分配指挥点</h3>
                   <p>
-                    开局随机 6 张手牌、2 指挥点，基础每 3.6 秒恢复 1 点，上限
+                    开局随机 6 张手牌、0 指挥点，基础每 3.6 秒恢复 1 点，上限
                     10。战地后勤可加快恢复，指挥扩编可提升上限，战时公债可在6秒后回款。主动点击牌堆，消耗
                     2 点抽 1 张，冷却 1
                     秒；不再自动抽牌。补给技能按卡面费用结算，无需额外支付抽牌费用。
@@ -2038,7 +2038,7 @@ export default function Battle({
                 <p>
                   AI 从独立组建的 20 张牌库抽牌。当前难度：
                   {DIFFICULTY_LABEL[difficulty]}，{DIFFICULTY_BONUS[difficulty]}
-                  。双方开局均为2点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。
+                  。双方开局均为0点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。
                 </p>
               </div>
               <button className="primary-button" onClick={closePanel}>

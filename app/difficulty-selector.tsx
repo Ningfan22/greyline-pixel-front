@@ -21,7 +21,7 @@ export default function DifficultySelector({
   return (
     <fieldset className={styles.difficulty}>
       <legend>对手难度</legend>
-      <p>双方开局均为 2 点指挥点。资源优势只影响 AI 回点速度。</p>
+      <p>双方开局均为 0 点指挥点。资源优势只影响 AI 回点速度。</p>
       <div>
         {(['standard', 'veteran', 'elite'] as const).map((id) => (
           <button

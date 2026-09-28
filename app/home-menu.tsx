@@ -148,7 +148,7 @@ function Guide() {
         </p>
         <p>点击牌堆，消耗 2 点指挥点抽牌，冷却 1 秒。手牌最多 6 张。</p>
         <p>
-          双方开局 2 点，每 3.6 秒恢复 1
+          双方开局 0 点，每 3.6 秒恢复 1
           点。后勤可加快回点，扩编可增加上限；难度设置会注明 AI 的额外回点速度。
         </p>
       </div>
@@ -253,7 +253,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v188</small>
+          <small>GREYLINE · v189</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (

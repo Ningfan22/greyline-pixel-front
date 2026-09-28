@@ -67,12 +67,12 @@ function squad(s, side, id, x) {
   return s.units.slice(n);
 }
 
-test('双方起始两点、上限十点，默认老练优势显式保存在可序列化状态', () => {
+test('双方起始零点、上限十点，默认老练优势显式保存在可序列化状态', () => {
   const s = E.createGame(1);
   assert.equal(DEFAULT_DIFFICULTY, 'veteran');
   assert.deepEqual(
     s.players.map((p) => p.energy),
-    [2, 2],
+    [0, 0],
   );
   assert.deepEqual(s.players.map(energyLimit), [10, 10]);
   assert.deepEqual(
@@ -86,16 +86,16 @@ test('双方起始两点、上限十点，默认老练优势显式保存在可�
   E.startGame(s);
   assert.deepEqual(
     s.players.map((p) => p.energy),
-    [2, 2],
+    [0, 0],
   );
 });
 for (const difficulty of ['standard', 'veteran', 'elite'])
   test(`${difficulty}仅AI自然回点按公开倍率增加，双方基准规则一致`, () => {
     const s = arena(difficulty);
     advance(s, 7.2);
-    assert.ok(Math.abs(s.players[0].energy - 4) < 1e-8);
+    assert.ok(Math.abs(s.players[0].energy - 2) < 1e-8);
     assert.ok(
-      Math.abs(s.players[1].energy - (2 + 2 * DIFFICULTY_RATE[difficulty])) <
+      Math.abs(s.players[1].energy - 2 * DIFFICULTY_RATE[difficulty]) <
         1e-8,
     );
     assert.equal(s.players[0].economyRate, 1);
@@ -105,7 +105,7 @@ for (const difficulty of ['standard', 'veteran', 'elite'])
       intervals: [energyInterval(s, 0), energyInterval(s, 1)],
     };
   });
-test('两点慢开局不能立即购买六费坦克，双方失败均不扣费不消耗卡', () => {
+test('零点慢开局不能立即购买六费坦克，双方失败均不扣费不消耗卡', () => {
   const s = arena();
   for (const side of [0, 1]) {
     const h = token(s, side, 'tank'),
@@ -155,6 +155,7 @@ for (const side of [0, 1]) {
   test(`公债${side}即时付一、六秒才返三，同期和整局上限均真实生效`, () => {
     const s = arena(),
       p = s.players[side];
+    p.energy = 2;
     assert.ok(use(s, side, 'war_bonds').ok);
     assert.equal(p.energy, 1);
     assert.equal(p.bondUses, 1);
@@ -193,6 +194,7 @@ test('精锐和两级后勤叠加有明确总下限，不产生隐藏或无限�
 });
 test('暂停不会推进自然收入或公债结算，结束后也不会继续到账', () => {
   const s = arena();
+  s.players[0].energy = 2;
   assert.ok(use(s, 0, 'war_bonds').ok);
   s.status = 'paused';
   const time = s.time,
@@ -364,6 +366,7 @@ for (const [id, energy, field, expected] of [
   });
 test('结算中的公债序列化恢复后仍在原时间只到账一次', () => {
   const s = arena();
+  s.players[0].energy = 2;
   assert.ok(use(s, 0, 'war_bonds').ok);
   advance(s, 2);
   const restored = JSON.parse(JSON.stringify(s));

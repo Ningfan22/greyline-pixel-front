@@ -26,7 +26,7 @@ export const DIFFICULTY_RATE: Record<Difficulty, number> = {
   elite: 1.3,
 };
 export const ECONOMY_RULES = {
-  initial: 2,
+  initial: 0,
   baseCap: 10,
   maxCap: 14,
   baseInterval: 3.6,
