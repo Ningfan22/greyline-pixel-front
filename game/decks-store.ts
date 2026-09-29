@@ -42,10 +42,12 @@ function sanitizeDeck(
   if (!raw || typeof raw !== 'object') return null;
   const candidate = raw as Partial<DeckSlot>;
   if (!Array.isArray(candidate.cards)) return null;
+  const rawCards: unknown[] = candidate.cards;
+  const migrated = rawCards.filter(
+    (id): id is string => typeof id === 'string',
+  ).map(id => id === 'ground_attack_jet' ? 'strike_jet' : id) as CardId[];
   const cards = clampToCollection(
-    candidate.cards.filter(
-      (id): id is CardId => typeof id === 'string',
-    ),
+    migrated,
     collection,
   ).slice(0, DECK_SIZE);
   return {

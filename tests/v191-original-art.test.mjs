@@ -7,13 +7,12 @@ import test from 'node:test';
 const root = fileURLToPath(new URL('../public/art/v190/', import.meta.url));
 const deployedRoot = fileURLToPath(new URL('../docs/art/v190/', import.meta.url));
 const cardIds = [
-  'rapid_reinforcements', 'escort_gunship', 'ground_attack_jet', 'field_gun',
+  'rapid_reinforcements', 'escort_gunship', 'field_gun',
   'siege_gun', 'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
 ];
 const spriteIds = [
-  'escort_gunship', 'ground_attack_jet', 'field_gun', 'siege_gun',
-  'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
-  'artillery_crew',
+  'escort_gunship', 'fort_bunker', 'fort_machinegun', 'fort_aa',
+  'fort_spawn', 'fort_wire',
 ];
 
 test('every new card and battlefield object ships distinct authored image data', () => {

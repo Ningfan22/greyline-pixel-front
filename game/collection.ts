@@ -42,7 +42,7 @@ export interface CollectionState {
 }
 export const NEW_RELEASE_CARDS: CardId[] = [
   'fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire',
-  'rapid_reinforcements','escort_gunship','ground_attack_jet','field_gun','siege_gun',
+  'rapid_reinforcements','escort_gunship','field_gun','siege_gun',
 ];
 
 /** 初始牌库：30 种、共 45 张，覆盖默认「机步协同」编队。 */
@@ -84,7 +84,7 @@ export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
   fort_wire: 1,
   rapid_reinforcements: 1,
   escort_gunship: 1,
-  ground_attack_jet: 1,
+  strike_jet: 1,
   field_gun: 1,
   siege_gun: 1,
 };
@@ -254,6 +254,16 @@ export function loadCollection(): CollectionState {
     for (const id of NEW_RELEASE_CARDS)
       state.owned[id] = Math.max(1, state.owned[id] ?? 0);
     state.fortificationReleaseGranted = true;
+    saveCollection(state);
+  }
+  // v192 removes the duplicate stationary jet. Preserve cards already earned
+  // before the removal by converting ownership to the original strike jet.
+  const owned = state.owned as Partial<Record<string, number>>;
+  const redundantJets = owned.ground_attack_jet ?? 0;
+  if (redundantJets > 0) {
+    state.owned.strike_jet = Math.min(copyLimit('strike_jet'),
+      (state.owned.strike_jet ?? 0) + redundantJets);
+    delete owned.ground_attack_jet;
     saveCollection(state);
   }
   return state;

@@ -129,7 +129,6 @@ export type CardId =
   | 'light_mortar'
   | 'rapid_reinforcements'
   | 'escort_gunship'
-  | 'ground_attack_jet'
   | 'field_gun'
   | 'siege_gun'
   | 'fort_bunker'
@@ -2490,12 +2489,6 @@ export const CARDS: Record<CardId, Card> = {
       air: true, airframe: 'rocket_heli', hp: 170, damage: 14, rate: 0.42,
       range: 550, speed: 190, antiAir: true, patrol: true, patrolTime: 30,
       tag: '航空 · 护航机炮',
-    }),
-  ground_attack_jet: variant('helicopter', 'ground_attack_jet', '低空强击机', 5,
-    '高速对地机炮扫射，持续时间较短，优先打击地面密集目标。', {
-      air: true, airframe: 'interceptor', hp: 175, damage: 24, rate: 0.22,
-      range: 680, speed: 470, attackRun: 'strafe', antiAir: false,
-      flightTime: 18, tag: '航空 · 对地扫射',
     }),
   field_gun: variant('artillery', 'field_gun', '轻型野战炮', 3,
     '部署较快的轻型炮，近程支援，需友军提供目标视野。', {

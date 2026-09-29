@@ -110,7 +110,7 @@ test('indirect guns still acquire spotted armored targets and launch shells',()=
 });
 
 test('new air, gun and fortification cards are playable and preset decks stay valid',()=>{
-  for(const id of ['escort_gunship','ground_attack_jet','field_gun','siege_gun','fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire'])
+  for(const id of ['escort_gunship','strike_jet','field_gun','siege_gun','fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire'])
     assert(CARDS[id]);
   for(const deck of [...DECK_PRESETS.map(d=>d.cards),...AI_DECKS]){
     assert.equal(deck.length,20);

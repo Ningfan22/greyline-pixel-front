@@ -103,10 +103,33 @@ function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number,
   ctx.fillText(`建设 ${Math.ceil(remaining)}秒`, x, y - 9);
   ctx.restore();
 }
-function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, art: Art) {
-  const crew = art.generatedSprites.artillery_crew;
-  if (!crew) return;
-  drawSprite(ctx, crew, u.x + (u.side === 0 ? -36 : 36), u.y + 3, 78, 48, u.side === 1);
+function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art) {
+  if (!art.soldiers) return;
+  const direction = u.side === 0 ? 1 : -1;
+  // The original gun remains its own sprite. Each operator is an instance of
+  // the existing infantry rig, with a separate stance and hand-work phase.
+  for (let member = 0; member < 2; member++) {
+    const body = {
+      id: 'infantry' as const,
+      uid: u.uid * 2 + member,
+      member,
+      hp: 100,
+      pose: 'crouch' as const,
+      motion: 'ground' as const,
+      facing: direction,
+      moving: false,
+      gaitWeight: 0,
+      walk: 0,
+      fire: 0,
+      secondaryFire: 0,
+      scavengeUntil: time + 1,
+      digElapsed: time + member * 0.85,
+    };
+    const rig = soldierFrame(art.soldiers, body, time);
+    drawSprite(ctx, rig.image, u.x - direction * (40 + member * 30),
+      u.y + infantryDepth(u.lane) + 3 + rig.image.height - rig.anchorY,
+      rig.image.width, rig.image.height, direction < 0);
+  }
 }
 // Supersonic rounds that whip past the camera leave a brief white streak.
 // Render-layer only: the simulation never knows these exist.
@@ -840,7 +863,7 @@ export function render(
         c.armored || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
       );
     }
-    if (c.emplacement && !isDead && !art.generatedSprites[u.id]) drawArtilleryCrew(ctx,u,art);
+    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art);
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
     // Stationary infantry in cover get a per-unit prop (sandbags for deep

@@ -9576,8 +9576,8 @@ export function tick(s: GameState, dt: number) {
               scavengeGoalX ??
               rescuedGoalX ??
               u.coverGoal ??
-              u.firingGoal ??
               u.dispersionGoal ??
+              u.firingGoal ??
               null);
     const seeking =
       !withdrawing &&
@@ -9595,10 +9595,13 @@ export function tick(s: GameState, dt: number) {
       target &&
       (u.lastCombatShotAt ?? -100) >= (u.dispersionStartedAt ?? s.time) &&
       coveringMate(s, u, target, true);
+    const evading = !!(c.members && u.dispersionGoal !== undefined &&
+      Math.abs(u.dispersionGoal - u.x) > 3);
     // A ready weapon gets a short stable firing window before another ground move.
     const contactFire = !!(
       c.members &&
       target &&
+      !evading &&
       // A safe cover/withdrawal move owns its initial rise and first step.
       // Cooldown expiry cannot cancel it halfway and restart it next frame.
       !(Math.max(u.crouchStepCommittedUntil ?? 0,u.proneStepCommittedUntil ?? 0) > s.time &&
@@ -9849,6 +9852,7 @@ export function tick(s: GameState, dt: number) {
       !ambushHold &&
       !mobileBurstStep &&
       !stalemated &&
+      !evading &&
       (!c.armorOnly || !!target || (c.canAttackBase && baseInRange)) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
       (!seeking || contactFire) &&
@@ -10451,6 +10455,7 @@ export function tick(s: GameState, dt: number) {
       c.members &&
       u.motion === 'ground' &&
       !u.moving &&
+      (u.stillFor ?? 0) >= 0.65 &&
       (u.contactUntil ?? 0) <= s.time &&
       (u.heardContactAt ?? 0) > s.time - 1.2
     ) {

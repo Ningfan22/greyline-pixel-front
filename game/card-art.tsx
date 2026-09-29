@@ -16,7 +16,7 @@ const ADDITIONAL_CARD_ART = new Set([
 ]);
 export function cardPictureUrl(id: CardId) {
   if (id === 'rapid_reinforcements' || id === 'escort_gunship' ||
-      id === 'ground_attack_jet' || id === 'field_gun' || id === 'siege_gun' ||
+      id === 'field_gun' || id === 'siege_gun' ||
       id === 'fort_bunker' || id === 'fort_machinegun' || id === 'fort_aa' ||
       id === 'fort_spawn' || id === 'fort_wire')
     return assetUrl(`/art/v190/cards/${id}.webp`);

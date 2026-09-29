@@ -37,7 +37,7 @@ import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
-  generatedSprites: Partial<Record<CardId | 'artillery_crew', HTMLImageElement>>;
+  generatedSprites: Partial<Record<CardId, HTMLImageElement>>;
   soldiers?: SoldierArt;
   comeback: ComebackArtV18;
   digging: DigArtV18;
@@ -574,8 +574,7 @@ function atlasFrames(
 export function loadArt() {
   const generatedSpriteIds = [
     'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
-    'escort_gunship', 'ground_attack_jet', 'field_gun', 'siege_gun',
-    'artillery_crew',
+    'escort_gunship',
   ] as const;
   cached ??= Promise.all([
     Promise.all([
@@ -936,9 +935,6 @@ export function unitSize(id: CardId): [number, number] {
     if (c.fortification === 'spawn') return [118, 64];
     return [112, 64];
   }
-  if (id === 'siege_gun') return [210, 110];
-  if (id === 'field_gun') return [175, 96];
-  if (id === 'ground_attack_jet') return [198, 84];
   if (id === 'escort_gunship') return [220, 110];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
