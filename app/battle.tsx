@@ -42,8 +42,8 @@ import {
   DURATION,
   MAX_HP,
   playCard,
+  playLockoutMessage,
   requestDraw,
-  DRAW_COST,
   DRAW_TIME,
   snapshot,
   startGame,
@@ -766,6 +766,8 @@ export default function Battle({
     }
     if (view.status === 'finished') return;
     choose(selected === h.uid ? null : h.uid);
+    const lockout = playLockoutMessage(p.lockoutIn);
+    if (lockout) toast(lockout);
   };
   const canvasX = (clientX: number) => {
     const rect = canvas.current!.getBoundingClientRect();
@@ -1652,6 +1654,11 @@ export default function Battle({
                   </button>
                 </div>
                 <p>{card.detail}</p>
+                {p.lockoutIn > 0 && (
+                  <p className="command-block-notice">
+                    {playLockoutMessage(p.lockoutIn)}
+                  </p>
+                )}
                 {card.readyIn > 0 && (
                   <p>整备中 · {Math.ceil(card.readyIn)} 秒后可再次派遣</p>
                 )}
@@ -1693,13 +1700,13 @@ export default function Battle({
             </div>
             <span>
               {p.lockoutIn > 0 ? (
-                `指挥链路中断 · ${Math.ceil(p.lockoutIn)}s`
+                `禁止出牌 ${Math.ceil(p.lockoutIn)}s${p.jam > 0 ? ` · 禁止抽牌 ${Math.ceil(p.jam)}s` : ''}`
               ) : p.taxCards > 0 ? (
                 `补给受阻 · 下 ${p.taxCards} 张牌费用 +2`
               ) : p.jam > 0 ? (
                 <>
                   <Radio size={13} />
-                  通讯受扰 · {Math.ceil(p.jam)}s
+                  禁止抽牌 · {Math.ceil(p.jam)}s
                 </>
               ) : p.hand.length === 6 ? (
                 '手牌已满 · 打出卡牌腾出空位'
@@ -1725,7 +1732,7 @@ export default function Battle({
                         zIndex: selected === h.uid ? 30 : i + 1,
                       } as CSSProperties
                     }
-                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 ? 'unaffordable' : ''} ${draggedCard?.uid === h.uid ? 'is-dragging' : ''}`}
+                    className={`tactical-card ${c.type} ${selected === h.uid ? 'selected' : ''} ${p.energy < c.cost || c.readyIn > 0 || p.lockoutIn > 0 ? 'unaffordable' : ''} ${p.lockoutIn > 0 ? 'play-locked' : ''} ${draggedCard?.uid === h.uid ? 'is-dragging' : ''}`}
                     onClick={() => {
                       if (heldClick.current === h.uid) {
                         heldClick.current = null;
@@ -1844,14 +1851,16 @@ export default function Battle({
                     onLostPointerCapture={interruptCardHold}
                     onContextMenu={(e) => e.preventDefault()}
                     draggable={false}
-                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}。拖出手牌区松手使用，长按查看详情。`}
+                    aria-label={`${i + 1}，${c.name}，${c.cost}指挥点，${c.description}。${playLockoutMessage(p.lockoutIn) ?? '拖出手牌区松手使用'}，长按查看详情。`}
                     aria-pressed={selected === h.uid}
                   >
                     <CardFace id={c.id} cost={c.cost} eager />
                     <kbd className="hand-card-key">{i + 1}</kbd>
-                    {(c.readyIn > 0 || c.returnedOnce) && (
+                    {(p.lockoutIn > 0 || c.readyIn > 0 || c.returnedOnce) && (
                       <span className="hand-card-status">
-                        {c.readyIn > 0
+                        {p.lockoutIn > 0
+                          ? `禁出 ${Math.ceil(p.lockoutIn)}s`
+                          : c.readyIn > 0
                           ? `整备 ${Math.ceil(c.readyIn)}s`
                           : '返航 · 补给费用'}
                       </span>
@@ -1870,17 +1879,10 @@ export default function Battle({
           </div>
         </div>
         <button
-          className="deck-pile"
+          className={`deck-pile ${p.jam > 0 ? 'draw-locked' : ''}`}
           onClick={drawCard}
-          disabled={
-            !active ||
-            p.energy < DRAW_COST ||
-            p.hand.length >= 6 ||
-            p.jam > 0 ||
-            p.drawIn > 0 ||
-            p.deckCount === 0
-          }
-          aria-label="消耗 2 点指挥点抽一张牌"
+          disabled={!active}
+          aria-label={p.jam > 0 ? `禁止抽牌，还需 ${Math.ceil(p.jam)} 秒，点击查看原因` : '消耗 2 点指挥点抽一张牌；无法抽牌时点击查看原因'}
         >
           <img
             className="deck-card-back"
@@ -1888,7 +1890,7 @@ export default function Battle({
             alt="牌堆"
             draggable={false}
           />
-          <span className="deck-label">{p.deckCount ? '抽牌 · 2 点' : '牌库已耗尽'}</span>
+          <span className="deck-label">{p.jam > 0 ? '禁止抽牌' : p.deckCount ? '抽牌 · 2 点' : '牌库已耗尽'}</span>
           <strong>
             {p.deckCount}
             <small> 张</small>
@@ -1897,7 +1899,7 @@ export default function Battle({
             {p.deckCount === 0
               ? '用过的牌不会自动洗回'
               : p.jam > 0
-              ? `受扰 ${Math.ceil(p.jam)}s`
+              ? `通讯受扰 ${Math.ceil(p.jam)}s · 可点击`
               : p.drawIn > 0
                 ? `${Math.ceil(p.drawIn)}s 冷却`
                 : p.hand.length >= 6
@@ -1914,7 +1916,7 @@ export default function Battle({
         (() => {
           const h = p.hand.find((h) => h.uid === draggedCard.uid);
           if (!h) return null;
-          const blocked = h.readyIn > 0 || p.energy < h.cost;
+          const blocked = p.lockoutIn > 0 || h.readyIn > 0 || p.energy < h.cost;
           return createPortal(
             <div
               className={`dragged-card ${draggedCard.outside ? 'can-release' : ''} ${blocked ? 'drag-blocked' : ''}`}
@@ -1927,7 +1929,9 @@ export default function Battle({
             >
               <CardFace id={h.id} cost={h.cost} eager />
               <span className="drag-release-label">
-                {h.readyIn > 0
+                {p.lockoutIn > 0
+                  ? `禁出 ${Math.ceil(p.lockoutIn)}s`
+                  : h.readyIn > 0
                   ? `整备 ${Math.ceil(h.readyIn)}s`
                   : p.energy < h.cost
                     ? '指挥点不足'
@@ -1941,7 +1945,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v192
+          GREYLINE <i /> 林间前线 · v193
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

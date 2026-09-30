@@ -284,12 +284,12 @@ export const AI_DECKS: CardId[][] = [
     'supply',
     'supply',
     'supply_team',
-    'rapid_reinforcements',
+    'scouts',
     'air_assault',
     'bomber',
     'strike_jet',
     'signal_jam',
-    'emp',
+    'interceptor',
   ],
   // 纵深反击
   [

@@ -1224,6 +1224,11 @@ export function payableCardCost(p: Pick<Player, 'taxCards'>, card: HandCard) {
 export function cardReadyIn(s: GameState, card: HandCard) {
   return Math.max(0, (card.readyAt ?? 0) - s.time);
 }
+export function playLockoutMessage(seconds: number): string | null {
+  return seconds > 0
+    ? `指挥链路中断，还需 ${Math.ceil(seconds)} 秒，暂时无法出牌`
+    : null;
+}
 export function requestDraw(
   s: GameState,
   side: Side,
@@ -1495,13 +1500,13 @@ export function playCard(
       ok: false,
       message: `返航补给中，还需 ${Math.ceil(cardReadyIn(s, token))} 秒`,
     };
+  const lockout = playLockoutMessage((p.lockoutUntil ?? 0) - s.time);
+  if (lockout) return { ok: false, message: lockout };
   if (p.energy + 1e-6 < cost)
     return {
       ok: false,
       message: `还需要 ${Math.ceil(cost - p.energy)} 点指挥点`,
     };
-  if ((p.lockoutUntil ?? 0) > s.time)
-    return { ok: false, message: '指挥链路被切断，无法出牌' };
   const blocked = c.comeback && comebackBlock(s, side, c.comeback);
   if (blocked) return { ok: false, message: blocked };
   const economyBlocked = c.economy && economyBlock(p, c.economy, s.time);
@@ -6034,6 +6039,17 @@ function updateAI(s: GameState) {
   // Keep newly deployed reinforcements mobile; local cover orders defend the line.
   commandAiSquads(s, own, foes, staging);
 
+  // A play lock does not block drawing. Prepare a small hand while the link is
+  // down, but only when points would otherwise cap or the hand is nearly empty.
+  if ((p.lockoutUntil ?? 0) > s.time) {
+    if (
+      p.jam <= 0 && p.drawIn <= 0 && p.deck.length > 0 &&
+      p.hand.length < MAX_HAND && p.energy >= DRAW_COST &&
+      (p.energy >= energyLimit(p) - 1 || p.hand.length <= 2 && p.energy >= DRAW_COST + 2)
+    ) requestDraw(s, 1);
+    return;
+  }
+
   const options = p.hand
     .filter((h) => cardReadyIn(s, h) <= 0)
     .map((h) => {
@@ -6890,8 +6906,18 @@ function updateAI(s: GameState) {
     // A tank at the HQ cannot wait for a stronger card's future CP. Use the
     // strongest counter we can deploy now, while a distant threat still lets
     // the AI save for its best held answer.
-    const counter = emergency
-      ? counterChoices.find(choice => cardCost(choice.h) <= p.energy + 1e-6) ?? counterChoices[0]
+    const threatOnLine =
+      (seekArmor && armor.some((v) => fighters.some((u) => !CARDS[u.id].air && Math.abs(v.x - u.x) < 500))) ||
+      (seekAir && armedAir.some((v) => fighters.some((u) => Math.abs(v.x - u.x) < 500)));
+    const liveCounterOnLine = own.some((u) =>
+      u.hp >= u.maxHp * 0.35 && u.tactic !== 'retreat' &&
+      ((seekArmor && counterPower(u.id, 'armor') >= 0.35) ||
+        (seekAir && counterPower(u.id, 'air') >= 0.35)));
+    const affordableCounter = counterChoices.find((choice) =>
+      cardCost(choice.h) <= p.energy + 1e-6 &&
+      requiredPower(choice.h.id) >= 0.35);
+    const counter = (emergency || (threatOnLine && !liveCounterOnLine))
+      ? affordableCounter ?? counterChoices[0]
       : counterChoices[0];
     const weakAlreadyDeployed =
       counter && own.some((u) => u.id === counter.h.id && isCombatant(u));
@@ -6997,6 +7023,15 @@ function updateAI(s: GameState) {
         (CARDS[o.h.id].economy === 'overdraft'
           ? ECONOMY_RULES.overdraftPayout : ECONOMY_RULES.levyPayout) - cardCost(o.h) + 1e-6));
     if (insertion && burst && playCard(s, 1, burst.h.uid).ok) return;
+    // Once borrowed points arrive, use the ready insertion before a routine
+    // rifle squad or a lock that would also stop our own hand.
+    if ((p.overdraftUntil ?? 0) > s.time) {
+      const fundedInsertion = p.hand.find((h) =>
+        cardReadyIn(s, h) <= 0 &&
+        (CARDS[h.id].airlift || CARDS[h.id].airdrop) &&
+        cardCost(h) <= p.energy + 1e-6);
+      if (fundedInsertion && playCard(s, 1, fundedInsertion.uid).ok) return;
+    }
   }
 
   // Proactive tactics: fight the next battle on the AI's terms, not just react.

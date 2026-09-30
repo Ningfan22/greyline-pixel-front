@@ -4383,6 +4383,15 @@ footer button {
   opacity: 0.62;
   cursor: not-allowed;
 }
+.game-shell .deck-pile.draw-locked:not(:disabled) .deck-card-back {
+  border-color: #c67868;
+  box-shadow: 4px 3px 0 #633327, 7px 6px 0 #2a1a18;
+}
+.game-shell .deck-pile.draw-locked .deck-label,
+.game-shell .deck-pile.draw-locked .deck-sub,
+.command-block-notice {
+  color: #f0ad96;
+}
 .game-shell .deck-pile:not(:disabled) .deck-card-back {
   border-color: #ead294;
   box-shadow:
@@ -4913,6 +4922,10 @@ footer button {
 }
 .game-shell .tactical-card > .printed-card {
   flex: none;
+}
+.game-shell .tactical-card.play-locked > .printed-card {
+  outline: 3px solid #c77968;
+  outline-offset: -3px;
 }
 .hand-card-key {
   position: absolute;
