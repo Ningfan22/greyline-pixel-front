@@ -76,9 +76,7 @@ import {
   ordersForUnit,
 } from '@/game/squad-orders';
 import { unitSelectionBounds } from '@/game/selection-render';
-import SquadMenu, { type SquadStatusRow } from './squad-menu';
-import { ammoSummary, ammoRatio, SUPPLY_CARRY } from '@/game/ammo-logistics';
-import { isImmobilized, TRACK_REPAIR_SECONDS } from '@/game/vehicle-damage';
+import SquadMenu from './squad-menu';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
 import {
   MISSIONS,
@@ -774,61 +772,6 @@ export default function Battle({
       : Math.min(...selectedMembers.map((u) => unitSelectionBounds(u).y)) - 18
     : 0;
   const squadTrench = view.entrenchments.find((t) => t.squad === selectedSquad);
-  const squadStatus: SquadStatusRow[] = selectedMembers.map((unit, index) => {
-    const weapons = ammoSummary(unit);
-    const specification = CARDS[unit.id];
-    const individual = !!specification.members;
-    const immobilized = isImmobilized(unit);
-    let ammunition = weapons
-      .map((weapon) =>
-        individual
-          ? `${weapon.label} ${weapon.loaded} / ${weapon.reserve}`
-          : `${weapon.label} ${weapon.total}/${weapon.maxTotal}`,
-      )
-      .join(' · ');
-    if (unit.id === 'supply_team')
-      ammunition += ` · 补给包 ${Math.floor(unit.supplyStock ?? SUPPLY_CARRY)}/${SUPPLY_CARRY}`;
-    if (specification.sortieAmmo)
-      ammunition = `架次弹药 ${Math.max(0, specification.sortieAmmo - unit.shots)}/${specification.sortieAmmo}`;
-    const state = immobilized
-      ? (unit.trackRepairProgress ?? 0) > 0
-        ? `履带维修 ${Math.round(((unit.trackRepairProgress ?? 0) / TRACK_REPAIR_SECONDS) * 100)}%`
-        : '履带损坏 · 等待维修'
-      : unit.resupplyState === 'supplying'
-        ? '正在补弹 · 满弹后继续前进'
-        : unit.resupplyState === 'waiting'
-          ? '弹药不足 · 等待补给送达'
-          : unit.resupplyState === 'withdrawing'
-            ? '低弹撤离 · 寻找补给'
-            : specification.armored && (unit.trackIntegrity ?? 100) < 100
-              ? `履带受损 · 完整度 ${Math.round(unit.trackIntegrity ?? 100)}%`
-              : (unit.reloadingUntil ?? 0) > view.time
-                ? '换弹中'
-                : (unit.secondaryReloadUntil ?? 0) > view.time
-                  ? individual
-                    ? '自卫枪换弹中'
-                    : '机枪换弹中'
-                  : weapons.length
-                    ? '弹药充足'
-                    : specification.air
-                      ? '航空任务'
-                      : '非战斗人员';
-    return {
-      id: unit.uid,
-      label: individual
-        ? `${index + 1}号`
-        : specification.air
-          ? '飞机'
-          : specification.emplacement
-            ? '炮组'
-            : specification.type === 'fortification'
-              ? '工事'
-              : '载具',
-      ammunition: ammunition || '—',
-      state,
-      warning: immobilized || !!unit.resupplyState || ammoRatio(unit) <= 0.3,
-    };
-  });
   const selectCard = (h: HandCard) => {
     didDrag.current = false;
     if (view.status === 'ready') {
@@ -1217,7 +1160,6 @@ export default function Battle({
                   : undefined)
               }
               progress={squadTrench?.progress}
-              status={squadStatus}
               onOrder={(order) => {
                 const result = setSquadOrder(
                   game.current,
@@ -2114,7 +2056,7 @@ export default function Battle({
                     战场横跨多个屏幕，左右拖动、滚轮或 A/D
                     移动视野，也可点击小地图。拖出底部扇形手牌区后松手即使用，拖回区域内松手取消；长按查看卡牌。普通单位从己方基地入场。炮兵随前线护卫牵引，到达有效射程后架设固定。烟幕、地雷、弹药空投等落点卡牌以松手位置为目标。每个班组由
                     2–7
-                    名独立士兵组成。点击己方小队，可查看每人的弹匣、备弹及补给状态，并选择据守、撤退、进攻、警戒或伴随。步兵随移动中的坦克推进，坦克停车接敌后步兵主动前出；坦克遭近距离威胁会倒车拉开距离。据守约六秒挖好全队共用的战壕并布置两枚地雷，每队一次；撤退会交替掩护，到位后警戒。房屋与废墟可以绕行穿过，仍提供掩护；只有真实墙体和明显陡坎需要攀越。
+                    名独立士兵组成。血条下的细线显示剩余弹药。点击己方小队可选择据守、撤退、进攻、警戒或伴随。步兵随移动中的坦克推进，坦克停车接敌后步兵主动前出；坦克遭近距离威胁会倒车拉开距离。据守约六秒挖好全队共用的战壕并布置两枚地雷，每队一次；撤退会交替掩护，到位后警戒。房屋与废墟可以绕行穿过，仍提供掩护；只有真实墙体和明显陡坎需要攀越。
                   </p>
                 </div>
                 <div>

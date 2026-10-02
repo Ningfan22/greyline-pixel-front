@@ -2,6 +2,7 @@ import { mapDefinition, type MapId } from './maps';
 import {soldierFrame} from './soldier-art';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
+import { ammoProfile, ammoRatio, AMMO_LOW_RATIO } from './ammo-logistics';
 import { infantryGeometry } from './infantry-geometry';
 import { crouchTravelAmount } from './crouch-locomotion';
 import { proneTravelAmount } from './prone-locomotion';
@@ -1061,6 +1062,15 @@ export function render(
       Math.round(bw * Math.max(0, u.hp / u.maxHp)),
       3,
     );
+    const ammunitionRatio = ammoProfile(u).primary ? ammoRatio(u)
+      : c.sortieAmmo ? Math.max(0, (c.sortieAmmo - u.shots) / c.sortieAmmo) : null;
+    if (ammunitionRatio !== null) {
+      // One quiet line directly below health; no counters or extra panel.
+      ctx.fillStyle = '#23362dbb';
+      ctx.fillRect(u.x - bw / 2, by + 5, bw, 2);
+      ctx.fillStyle = ammunitionRatio <= AMMO_LOW_RATIO ? '#d49e65' : '#b9b56e';
+      ctx.fillRect(u.x - bw / 2, by + 5, Math.round(bw * Math.max(0, Math.min(1, ammunitionRatio))), 2);
+    }
   }
   if (!coverDrawn) drawCoverProps(true);
   for (const u of sorted)
