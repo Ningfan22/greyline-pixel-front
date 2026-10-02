@@ -58,7 +58,7 @@ test('short bonds and stronger overdraft fund an insertion, while borrowed over-
   p.energy = 9;
   assert(use(s,0,'overdraft').ok);
   assert.equal(p.energy,15);
-  assert.equal(energyInterval(s,0),3.6 * 1.6);
+  assert.equal(energyInterval(s,0),ECONOMY_RULES.baseInterval * ECONOMY_RULES.overdraftPenalty);
   p.bondDueAt = s.time + 0.05;
   advance(s,0.05);
   assert.equal(p.energy,15);

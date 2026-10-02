@@ -39,6 +39,8 @@ export interface CollectionState {
   /** 测试金币是否已发放，保证只发一次。 */
   testGoldGranted?: boolean;
   fortificationReleaseGranted?: boolean;
+  /** v195: front-line resupply is available without opening another card pack. */
+  ammoReleaseGranted?: boolean;
 }
 export const NEW_RELEASE_CARDS: CardId[] = [
   'fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire',
@@ -51,6 +53,7 @@ export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
   fire_team: 2,
   antiarmor: 2,
   supply: 2,
+  ammo: 1,
   scouts: 2,
   machinegun: 2,
   rocket: 2,
@@ -197,6 +200,7 @@ export function starterState(): CollectionState {
     adsWatched: 0,
     testGoldGranted: false,
     fortificationReleaseGranted: true,
+    ammoReleaseGranted: true,
   };
 }
 
@@ -218,6 +222,7 @@ export function loadCollection(): CollectionState {
           adsWatched: parsed.adsWatched ?? 0,
           testGoldGranted: parsed.testGoldGranted ?? false,
           fortificationReleaseGranted: parsed.fortificationReleaseGranted ?? false,
+          ammoReleaseGranted: parsed.ammoReleaseGranted ?? false,
         };
       }
     }
@@ -254,6 +259,11 @@ export function loadCollection(): CollectionState {
     for (const id of NEW_RELEASE_CARDS)
       state.owned[id] = Math.max(1, state.owned[id] ?? 0);
     state.fortificationReleaseGranted = true;
+    saveCollection(state);
+  }
+  if (!state.ammoReleaseGranted) {
+    state.owned.ammo = Math.max(1, state.owned.ammo ?? 0);
+    state.ammoReleaseGranted = true;
     saveCollection(state);
   }
   // v192 removes the duplicate stationary jet. Preserve cards already earned

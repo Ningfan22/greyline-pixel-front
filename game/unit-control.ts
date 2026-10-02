@@ -1,5 +1,6 @@
 import { CARDS } from './cards';
 import type { GameState, Unit } from './engine';
+import { isImmobilized } from './vehicle-damage';
 
 export function fixedWingUnit(u: Pick<Unit, 'id'>) {
   const c = CARDS[u.id];
@@ -23,6 +24,15 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   let order = localUnitOrder(s, u);
   if(u.glider)return false;
+  if (isImmobilized(u)) {
+    u.moving = false;
+    u.vx = 0;
+    return true;
+  }
+  // A close-contact reverse temporarily owns a parked hull's navigation.
+  // The engine carries its watch anchor back with the actual vehicle.
+  if (!c.air && order === 'watch' && (u.vehicleReverseUntil ?? 0) > s.time)
+    return false;
   if (c.members || !order || order === 'attack' || u.hp <= 0 || u.surrendered)
     return false;
   if (fixedWingUnit(u) && c.patrolTime) {
@@ -50,9 +60,10 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
         ? -240
         : maxX + 240
       : (u.squadOrderX ?? u.x);
+    const speed = (c.speed ?? 0) * (c.air ? 1 : 0.8 * 0.65);
     const change = Math.max(
-      -(c.speed ?? 0) * dt,
-      Math.min((c.speed ?? 0) * dt, goal - u.x),
+      -speed * dt,
+      Math.min(speed * dt, goal - u.x),
     );
     u.x += change;
     if (c.air && change) u.facing = Math.sign(change);

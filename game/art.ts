@@ -37,6 +37,7 @@ import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  ammoCrate?: HTMLImageElement;
   generatedSprites: Partial<Record<CardId, HTMLImageElement>>;
   soldiers?: SoldierArt;
   comeback: ComebackArtV18;
@@ -630,6 +631,7 @@ export function loadArt() {
     loadMineArtV18(),
     loadComebackArtV18(),
     Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
+    loadImage('/art/v195-logistics/ammo-crate.png'),
   ]).then(
     ([
       [
@@ -685,6 +687,7 @@ export function loadArt() {
       mines,
       comeback,
       generatedSpriteImages,
+      ammoCrate,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -760,6 +763,7 @@ export function loadArt() {
         glider[6],
       );
       return {
+        ammoCrate,
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
         comeback,

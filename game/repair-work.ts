@@ -1,6 +1,7 @@
 import { CARDS } from './cards';
 import type { GameState, Unit } from './engine';
 import { armorHalf } from './vehicle-geometry';
+import { isImmobilized, vehicleNeedsRepair } from './vehicle-damage';
 
 // The tool reaches the nearest hull end; the mechanic never has to stand
 // inside the tank's centre. This is work reach, not a healing aura.
@@ -37,7 +38,7 @@ export function pickRepairVehicle(s: GameState, u: Unit): Unit | undefined {
   for (const v of s.units) {
     const card = CARDS[v.id];
     if (v === u || v.side !== u.side || v.hp <= 0 || v.wounded || v.surrendered ||
-        !card.armored || card.air || card.vehicleSupport || v.hp >= v.maxHp ||
+        !card.armored || card.air || card.vehicleSupport || !vehicleNeedsRepair(v) ||
         Math.abs(v.x-u.x) > 300) continue;
     const preferred = v.uid === u.repairTargetUid && u.repairSide !== undefined ? u.repairSide
       : u.x < v.x ? -1 : u.x > v.x ? 1 : u.side === 0 ? -1 : 1;
@@ -48,8 +49,9 @@ export function pickRepairVehicle(s: GameState, u: Unit): Unit | undefined {
     const side = reachable(preferred) ? preferred : reachable(other) ? other : undefined;
     if (side === undefined) continue;
     if (v.uid === u.repairTargetUid) { assigned = v; assignedSide = side; }
-    if (!best || v.hp/v.maxHp < best.hp/best.maxHp ||
-        (v.hp/v.maxHp === best.hp/best.maxHp && Math.abs(v.x-u.x) < Math.abs(best.x-u.x))) {
+    if (!best || (isImmobilized(v) && !isImmobilized(best)) ||
+        (isImmobilized(v) === isImmobilized(best) && (v.hp/v.maxHp < best.hp/best.maxHp ||
+        (v.hp/v.maxHp === best.hp/best.maxHp && Math.abs(v.x-u.x) < Math.abs(best.x-u.x))))) {
       best = v; bestSide = side;
     }
   }

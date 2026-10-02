@@ -618,6 +618,30 @@ export function render(
   }
   const sourceOffsets = new Map<number, { x: number; y: number }>();
   drawCoverProps(false);
+  for (const box of s.ammoCrates ?? []) {
+    if (box.x < camera - 100 || box.x > camera + viewportWidth + 100 ||
+        box.expiresAt <= s.time ||
+        box.side !== 0 && !pointVisible(s, 0, box.x, ground(s, box.x) - 24)) continue;
+    const descent = Math.max(0, Math.min(1, (box.landAt - s.time) / 3));
+    const y = ground(s, box.x) - descent * 220;
+    ctx.save();
+    if (descent > 0 && art.parachute.length) {
+      const canopy = art.parachute[0];
+      ctx.drawImage(canopy, box.x - 38, y - 102, 76, 88);
+    }
+    if (art.ammoCrate) ctx.drawImage(art.ammoCrate, 80, 230, 1385, 610, box.x - 28, y - 25, 56, 25);
+    ctx.textAlign = 'center';
+    ctx.font = '10px monospace';
+    ctx.fillStyle = '#e2dcb6';
+    ctx.fillText(descent > 0 ? '弹药空投' : box.stock >= 1 ? '弹药箱' : '弹药耗尽', box.x, y - 31);
+    if (descent === 0) {
+      ctx.fillStyle = '#1c211ee6';
+      ctx.fillRect(box.x - 24, y + 4, 48, 4);
+      ctx.fillStyle = '#b9b56e';
+      ctx.fillRect(box.x - 24, y + 4, 48 * box.stock / box.maxStock, 4);
+    }
+    ctx.restore();
+  }
   const layer = (u: GameState['units'][number]) =>
     CARDS[u.id].fortification ? 2 : CARDS[u.id].air
       ? 3
@@ -1259,8 +1283,9 @@ export function render(
   if (c && hover !== null && s.status === 'playing') {
     const y = visibleGround(hover);
     if (c.targetGround) {
-      const validFort = !c.fortification || (pointVisible(s,0,hover,ground(s,hover)-24) &&
-        s.units.every(u => !CARDS[u.id].fortification || u.hp <= 0 || Math.abs(u.x-hover)>=95));
+      const validFort = c.effect === 'ammo' ? pointVisible(s, 0, hover, ground(s, hover) - 24)
+        : !c.fortification || (pointVisible(s,0,hover,ground(s,hover)-24) &&
+          s.units.every(u => !CARDS[u.id].fortification || u.hp <= 0 || Math.abs(u.x-hover)>=95));
       ctx.strokeStyle = validFort ? '#f9e0a2' : '#e9826b';
       ctx.lineWidth = 2;
       ctx.setLineDash([7, 6]);
@@ -1280,6 +1305,11 @@ export function render(
         ctx.font = 'bold 11px sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(validFort ? `${c.name} · ${c.buildTime}秒建设` : '此处不可建设',hover,y-55);
+      } else if (c.effect === 'ammo') {
+        ctx.fillStyle = validFort ? '#f9e0a2' : '#e9826b';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(validFort ? '弹药空投 · 3秒后落地' : '视线外不可空投', hover, y - 55);
       }
       ctx.setLineDash([]);
       ctx.beginPath();

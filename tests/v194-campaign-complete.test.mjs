@@ -126,7 +126,7 @@ test('saved six-mission campaigns unlock mission seven and all twenty chapters c
 });
 
 for (const m of MISSIONS) {
-  test(`${m.id}: recommended and enemy decks, night, mission resources, authored troops and real AI operate for twenty seconds`, (t) => {
+  test(`${m.id}: recommended and enemy decks, night, mission resources, authored troops and real AI operate for thirty seconds`, (t) => {
     const s = fresh(m);
     assert.equal(s.status, 'ready');
     assert.equal(s.time, 0);
@@ -145,9 +145,10 @@ for (const m of MISSIONS) {
       assert.equal(s.campaign.objectiveIndex, 0);
     }
     startGame(s);
-    advance(s, 20);
+    // v195: 5.5s recharge gives opening armor its real paid deployment budget.
+    advance(s, 30);
     assert.equal(s.status, 'playing', `${m.id}: the mission ends before its opening develops`);
-    assert.ok(Math.abs(s.time - 20) < 1e-8);
+    assert.ok(Math.abs(s.time - 30) < 1e-8);
     assert.ok(s.players[1].played > 0, `${m.id}: AI never played a card`);
     assert.equal(s.players[0].played, 0);
     assert.ok(s.units.every((u) => Number.isFinite(u.x) && Number.isFinite(u.y) && Number.isFinite(u.hp)));

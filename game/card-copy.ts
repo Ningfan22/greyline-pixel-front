@@ -92,7 +92,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ARMORED RECOVERY VEHICLE',
     typeLabel: '装甲后勤',
     ability: '前线抢修',
-    rule: '停车修复附近一辆受损装甲。',
+    rule: '停车抢修，断履带六秒修复。',
     flavor: '拖回坦克，拖不回人。',
   },
   command_vehicle: {
@@ -260,7 +260,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FIELD REPAIRS',
     typeLabel: '装甲后勤',
     ability: '战地抢修',
-    rule: '单车立即抢修，再持续恢复。',
+    rule: '优先抢修断履带，再持续恢复。',
     flavor: '修得好坦克，修不好命。',
   },
   precision: {
@@ -316,7 +316,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'LOGISTICS LIAISON',
     typeLabel: '补给班组',
     ability: '部署补给',
-    rule: '部署抽一张牌，提供较远视野。',
+    rule: '部署抽一张牌，补充附近友军弹药。',
     flavor: '谁打补给车，谁今晚没饭。',
   },
   strike_jet: {
@@ -526,8 +526,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AMMUNITION AIRDROP',
     typeLabel: '空投补给',
     ability: '空投弹药',
-    rule: '立即抽三张牌，手牌上限六张。',
-    flavor: '弹药箱落地，战争暂停十秒。',
+    rule: '可见落点投放弹药箱，附近友军补弹。',
+    flavor: '箱子落在哪里，战线就接在哪里。',
   },
   emp: {
     en: 'ELECTROMAGNETIC BLOCKADE',
@@ -670,7 +670,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FIELD MECHANICS',
     typeLabel: '装甲抢修',
     ability: '随车抢修',
-    rule: '接近受损装甲，停车维修。',
+    rule: '优先修断履带，六秒恢复机动。',
     flavor: '桥是工兵修的，命是坦克的。',
   },
   naval_gunfire: {

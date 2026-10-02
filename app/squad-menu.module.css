@@ -91,3 +91,62 @@
   font-size: 10px;
   text-shadow: 1px 1px #16291e;
 }
+.status {
+  position: absolute;
+  top: 112px;
+  width: 100%;
+  padding: 5px 8px;
+  background: #172b22f5;
+  border: 1px solid #7b8d66;
+  box-shadow: 2px 3px #0b1b14aa;
+  pointer-events: auto;
+}
+.statusHeading {
+  color: #b9c6a5;
+  font-size: 10px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #5b70504d;
+}
+.statusRows {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #8a9b6b #172b22;
+}
+.statusRow {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  min-height: 32px;
+  padding-top: 5px;
+  color: #e0dec0;
+  line-height: 1.2;
+}
+.statusRow b {
+  min-width: 32px;
+  font-weight: normal;
+  color: #b2c5a4;
+}
+.statusRow div {
+  flex: 1;
+}
+.statusRow span {
+  display: block;
+  font-size: 10px;
+}
+.statusRow small {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  color: #a4b299;
+}
+.warning span,
+.warning small {
+  color: #edb177;
+}
+.status ~ .progress {
+  top: 102px;
+}
+.status ~ .progress span {
+  display: none;
+}

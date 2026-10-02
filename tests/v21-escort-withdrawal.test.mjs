@@ -187,7 +187,7 @@ for (const side of [0, 1]) {
       'two squads occupy distinct rear slots',
     );
   });
-  test(`side ${side}: escorts fire real volleys at nearby infantry without stepping ahead of their tank`, () => {
+  test(`side ${side}: escorts cover contact and take the front when their tank backs away`, () => {
     const s = arena(side),
       tank = add(s, side, 'tank', 1380)[0],
       own = add(s, side, 'infantry', 1260),
@@ -207,7 +207,7 @@ for (const side of [0, 1]) {
     assert(
       own
         .filter(isCombatant)
-        .every((u) => (tank.x - u.x) * (side ? -1 : 1) > 70),
+        .some((u) => (u.x - tank.x) * (side ? -1 : 1) > 0),
     );
   });
   test(`side ${side}: explicit orders survive nearby tanks, attack leaves escort, and escort reselects the nearest tank`, () => {

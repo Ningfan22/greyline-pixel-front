@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as E from '../game/engine.ts';
-import { energyInterval } from '../game/economy.ts';
+import { ECONOMY_RULES, energyInterval } from '../game/economy.ts';
 
 const results = [];
 function test(name, fn) {
@@ -54,7 +54,7 @@ test('war_production pays 2 and gains 2 without triggering overdraft', () => {
     energyInterval(s, 0) < before,
     'recharge interval should shrink during production',
   );
-  assert.ok(Math.abs(energyInterval(s, 0) - (before - 0.62)) < 1e-9);
+  assert.ok(Math.abs(energyInterval(s, 0) - (before - ECONOMY_RULES.productionBoost)) < 1e-9);
   return { energy: p.energy, interval: energyInterval(s, 0) };
 });
 
@@ -69,7 +69,7 @@ test('forward_hq upgrades recharge without triggering overdraft', () => {
   assert.equal(p.forwardHq, true);
   assert.equal(p.energyCap, 8, 'cap should drop from 10 to 8');
   assert.equal(p.overdraftUntil, null, 'overdraft must not fire');
-  assert.ok(Math.abs(energyInterval(s, 0) - (before - 0.5)) < 1e-9);
+  assert.ok(Math.abs(energyInterval(s, 0) - (before - ECONOMY_RULES.forwardHqInterval)) < 1e-9);
   return { cap: p.energyCap, interval: energyInterval(s, 0) };
 });
 

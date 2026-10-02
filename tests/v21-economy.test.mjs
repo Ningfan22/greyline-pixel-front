@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import * as E from '../game/engine.ts';
 import {
   DIFFICULTY_RATE,
+  ECONOMY_RULES,
   DEFAULT_DIFFICULTY,
   energyInterval,
   energyLimit,
@@ -80,7 +81,7 @@ test('双方起始零点、上限十点，默认老练优势显式保存在可�
     [1, 1.15],
   );
   assert.ok(s.players.every((p) => p.difficulty === 'veteran'));
-  assert.ok(Math.abs(energyInterval(s, 1) - 3.6 / 1.15) < 1e-10);
+  assert.ok(Math.abs(energyInterval(s, 1) - ECONOMY_RULES.baseInterval / 1.15) < 1e-10);
   const saved = JSON.parse(JSON.stringify(s));
   assert.equal(energyInterval(saved, 1), energyInterval(s, 1));
   E.startGame(s);
@@ -92,7 +93,7 @@ test('双方起始零点、上限十点，默认老练优势显式保存在可�
 for (const difficulty of ['standard', 'veteran', 'elite'])
   test(`${difficulty}仅AI自然回点按公开倍率增加，双方基准规则一致`, () => {
     const s = arena(difficulty);
-    advance(s, 7.2);
+    advance(s, ECONOMY_RULES.baseInterval * 2);
     assert.ok(Math.abs(s.players[0].energy - 2) < 1e-8);
     assert.ok(
       Math.abs(s.players[1].energy - 2 * DIFFICULTY_RATE[difficulty]) <
@@ -124,12 +125,12 @@ for (const side of [0, 1]) {
     assert.ok(use(s, side, 'field_logistics').ok);
     assert.equal(p.energy, 7);
     assert.equal(p.logisticsLevel, 1);
-    assert.ok(Math.abs(energyInterval(s, side) - 3.3) < 1e-10);
-    advance(s, 3.3);
+    assert.ok(Math.abs(energyInterval(s, side) - 5.05) < 1e-10);
+    advance(s, 5.05);
     assert.ok(Math.abs(p.energy - 8) < 1e-8);
     assert.ok(use(s, side, 'field_logistics').ok);
     assert.equal(p.logisticsLevel, 2);
-    assert.equal(energyInterval(s, side), 3);
+    assert.equal(energyInterval(s, side), 4.6);
     const h = token(s, side, 'field_logistics'),
       before = unchanged(p);
     assert.equal(E.playCard(s, side, h.uid).ok, false);
@@ -149,7 +150,7 @@ for (const side of [0, 1]) {
       before = unchanged(p);
     assert.equal(E.playCard(s, side, h.uid).ok, false);
     assert.equal(unchanged(p), before);
-    advance(s, 40);
+    advance(s, 50);
     assert.equal(p.energy, 14);
   });
   test(`公债${side}即时付一、六秒才返三，同期和整局上限均真实生效`, () => {
@@ -165,15 +166,15 @@ for (const side of [0, 1]) {
     assert.equal(E.playCard(s, side, duplicate.uid).ok, false);
     assert.equal(unchanged(p), before);
     advance(s, 5.95);
-    assert.ok(Math.abs(p.energy - (1 + 5.95 / 3.6)) < 1e-8);
+    assert.ok(Math.abs(p.energy - (1 + 5.95 / ECONOMY_RULES.baseInterval)) < 1e-8);
     advance(s, 0.05);
-    assert.ok(Math.abs(p.energy - (4 + 6 / 3.6)) < 1e-8);
+    assert.ok(Math.abs(p.energy - (4 + 6 / ECONOMY_RULES.baseInterval)) < 1e-8);
     assert.equal(p.bondDueAt, null);
     assert.ok(E.playCard(s, side, duplicate.uid).ok);
-    assert.ok(Math.abs(p.energy - (3 + 6 / 3.6)) < 1e-8);
+    assert.ok(Math.abs(p.energy - (3 + 6 / ECONOMY_RULES.baseInterval)) < 1e-8);
     assert.equal(p.bondUses, 2);
     advance(s, 6);
-    assert.ok(Math.abs(p.energy - (6 + 12 / 3.6)) < 1e-8);
+    assert.ok(Math.abs(p.energy - (6 + 12 / ECONOMY_RULES.baseInterval)) < 1e-8);
     assert.equal(p.bondDueAt, null);
     const third = token(s, side, 'war_bonds'),
       beforeThird = unchanged(p);
@@ -187,7 +188,7 @@ test('精锐和两级后勤叠加有明确总下限，不产生隐藏或无限�
   p.energy = 10;
   assert.ok(use(s, 1, 'field_logistics').ok);
   assert.ok(use(s, 1, 'field_logistics').ok);
-  assert.equal(energyInterval(s, 1), 3 / 1.3);
+  assert.equal(energyInterval(s, 1), 4.6 / 1.3);
   const h = token(s, 1, 'field_logistics');
   for (let i = 0; i < 10; i++) assert.equal(E.playCard(s, 1, h.uid).ok, false);
   assert.equal(p.logisticsLevel, 2);
@@ -221,7 +222,7 @@ test('公债超过容量部分不进入暗账，之后花点也不会补发', ()
   assert.ok(use(s, 0, 'infantry').ok);
   assert.equal(p.energy, 8);
   advance(s, 0.05);
-  assert.ok(Math.abs(p.energy - (8 + 0.05 / 3.6)) < 1e-8);
+  assert.ok(Math.abs(p.energy - (8 + 0.05 / ECONOMY_RULES.baseInterval)) < 1e-8);
 });
 test('AI安稳且已有屏障时正常付费投资后勤，前线可见敌军时不贪发展', () => {
   const sample = (enemy) => {
@@ -358,7 +359,7 @@ for (const [id, energy, field, expected] of [
     assert.equal(safe.players[1][field], expected);
     assert.ok(
       Math.abs(
-        safe.players[1].energy - (energy + 0.05 / 3.6 - CARDS[id].cost),
+        safe.players[1].energy - (energy + 0.05 / ECONOMY_RULES.baseInterval - CARDS[id].cost),
       ) < 1e-8,
     );
     assert.equal(danger.players[1][field], field === 'bondUses' ? 0 : 10);
@@ -376,7 +377,7 @@ test('结算中的公债序列化恢复后仍在原时间只到账一次', () =>
   assert.equal(restored.players[0].bondDueAt, null);
   assert.equal(restored.players[0].bondUses, 1);
   advance(restored, 0.1);
-  assert.ok(Math.abs(restored.players[0].energy - (4 + 6.1 / 3.6)) < 1e-8);
+  assert.ok(Math.abs(restored.players[0].energy - (4 + 6.1 / ECONOMY_RULES.baseInterval)) < 1e-8);
 });
 
 console.log(JSON.stringify(results, null, 2));

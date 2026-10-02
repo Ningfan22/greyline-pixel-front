@@ -1,7 +1,7 @@
 import { CARDS, modelOf, type CardId } from './cards';
 import { unitSelectionBounds } from './selection-render';
 import { fixedWingUnit } from './unit-control';
-import { obstacleBoxes, pointVisible } from './world';
+import { obstacleBoxes, pointVisible, visibleToSide } from './world';
 import type { GameState, Side, Unit } from './engine';
 import { digWorkSettled } from './support-work';
 
@@ -39,7 +39,7 @@ export const SQUAD_ORDERS: {
   {
     id: 'escort',
     label: '伴随',
-    description: '分散跟随最近友方坦克，在后方掩护交战',
+    description: '分散跟随最近友方坦克，坦克接敌停稳后前出进攻',
   },
 ];
 export const TRENCH_DEPTH = 36;
@@ -347,6 +347,8 @@ export function setSquadOrder(
     u.escortLane = undefined;
     u.escortScanAt = 0;
     u.escortLostAt = undefined;
+    u.escortHaltSince = undefined;
+    u.escortAdvanceGoal = undefined;
     u.withdrawHeavyUid = undefined;
     u.withdrawStandby = false;
     u.squadOrderX =
@@ -426,6 +428,47 @@ function updateEscorts(s: GameState) {
       for (const u of members) u.escortScanAt = s.time + 0.6;
     }
     if (tank) {
+      // A moving tank owns its rear escort slots. Once it has really halted
+      // under visible ground contact, infantry take the front instead of
+      // waiting indefinitely behind the hull. Keep the new attack order so
+      // a short vehicle movement cannot repeatedly pull them backwards.
+      const contactHalt = !tank.moving &&
+        (tank.vehicleReverseUntil ?? 0) <= s.time &&
+        s.units.some(v => v.side !== tank!.side && living(v) &&
+          !v.parachuting && !CARDS[v.id].air && (CARDS[v.id].damage ?? 0) > 0 &&
+          (v.x - tank!.x) * dir >= -20 &&
+          Math.abs(v.x - tank!.x) <= (CARDS[tank!.id].range ?? 500) + 80 &&
+          visibleToSide(s, tank!.side, v));
+      if (contactHalt) {
+        const haltedSince = first.escortHaltSince ?? s.time;
+        for (const u of members) u.escortHaltSince = haltedSince;
+        if (s.time - haltedSince >= 0.85) {
+          for (const [i, u] of members.entries()) {
+            u.squadOrder = 'attack';
+            u.squadOrderUntil = Infinity;
+            u.escortTankUid = undefined;
+            u.escortGoal = undefined;
+            u.escortLane = undefined;
+            u.escortHaltSince = undefined;
+            let goal = tank.x + dir * (65 + Math.floor(i / 2) * 24);
+            for (const enemy of s.units) {
+              if (enemy.side === u.side || !living(enemy) || enemy.parachuting || CARDS[enemy.id].air ||
+                  !visibleToSide(s, u.side, enemy) || (enemy.x - u.x) * dir < 0) continue;
+              const stop = enemy.x - dir * 105;
+              if ((stop - goal) * dir < 0) goal = stop;
+            }
+            u.escortAdvanceGoal = Math.max(80, Math.min(s.terrain.length - 80,
+              (goal - u.x) * dir > 0 ? goal : u.x));
+            u.coverGoal = null;
+            u.firingGoal = null;
+            u.dispersionGoal = undefined;
+            u.decisionIn = 0;
+          }
+          continue;
+        }
+      } else {
+        for (const u of members) u.escortHaltSince = undefined;
+      }
       const preceding = [...groups.entries()].filter(
         ([id, group]) =>
           id < first.squad &&
@@ -447,6 +490,7 @@ function updateEscorts(s: GameState) {
       }
     } else {
       for (const u of members) {
+        u.escortHaltSince = undefined;
         if (u.escortTankUid !== undefined) {
           u.escortLostAt = s.time;
           u.escortGoal = Math.max(

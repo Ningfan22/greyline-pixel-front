@@ -133,9 +133,9 @@ for (const side of [0, 1]) {
   });
 }
 
-// B. A healthy tank holds its ground and fights.
+// B. A healthy tank holds a safe firing distance and fights.
 for (const side of [0, 1]) {
-  check(`B${side}. healthy tank does not reverse`, () => {
+  check(`B${side}. healthy tank does not reverse at a safe distance`, () => {
     const s = arena();
     const t = tank(s, side, mx(side, 1500));
     t.hp = 650; // full
@@ -217,7 +217,7 @@ for (const side of [0, 1]) {
     screen(s, side, mx(side, 1380)); // 120px behind
     assert.ok(runUntil(s, () => reversing(t, s), 1) !== null, 'reverse starts');
     assert.ok(
-      runUntil(s, () => (t.vehicleReverseUntil ?? 0) === 0, 5) !== null,
+      runUntil(s, () => (t.vehicleReverseUntil ?? 0) === 0, 8) !== null,
       'the reverse clears when it arrives',
     );
     assert.ok(
