@@ -78,7 +78,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'TOW MISSILE CARRIER',
     typeLabel: '反坦克战车',
     ability: '双武器协同',
-    rule: '导弹猎甲，机枪独立压制。',
+    rule: '双联陶式猎甲，机枪独立掩护。',
     flavor: '一枚导弹，全连三个月的饷。',
   },
   mortar_carrier: {
@@ -162,7 +162,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MORTAR TEAM',
     typeLabel: '迫击炮组',
     ability: '曲射压制',
-    rule: '七秒曲射，近敌保持距离。',
+    rule: '十秒曲射，近敌保持距离。',
     flavor: '炮弹飞一会儿，正好抽根烟。',
   },
   ifv: {

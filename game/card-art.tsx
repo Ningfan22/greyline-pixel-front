@@ -8,13 +8,13 @@ import { rarityOf } from './collection';
 
 const ADDITIONAL_CARD_ART = new Set([
   'pickup',
-  'tow_ifv',
   'mortar_carrier',
   'recovery_vehicle',
   'command_vehicle',
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
+  if (id === 'tow_ifv') return assetUrl('/art/v196-tow/tow-card.webp');
   if (id === 'rapid_reinforcements' || id === 'escort_gunship' ||
       id === 'field_gun' || id === 'siege_gun' ||
       id === 'fort_bunker' || id === 'fort_machinegun' || id === 'fort_aa' ||

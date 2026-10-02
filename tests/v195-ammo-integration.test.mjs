@@ -51,8 +51,9 @@ function total(u, channel = 'primary') {
 }
 function lowRifle(u) {
   const spec = ammoProfile(u).primary;
-  u.ammo = spec.mag;
-  u.ammoReserve = Math.floor((spec.mag + spec.reserve) * 0.3) - spec.mag;
+  const total = Math.floor((spec.mag + spec.reserve) * 0.3);
+  u.ammo = Math.min(spec.mag, total);
+  u.ammoReserve = total - u.ammo;
   u.reloadingUntil = 0;
 }
 

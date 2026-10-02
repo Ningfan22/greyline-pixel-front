@@ -32,16 +32,16 @@ const TANKS: Record<string, TankGeometry> = {
     coaxY: 90.85,
   },
   tow_ifv: {
-    size: [240, 138],
-    spriteOffset: -0.66,
+    // Dedicated tracked TOW carrier, measured against tow-sprite.png.
+    size: [200, 125],
+    spriteOffset: 3,
     spriteGroundInset: 0,
-    half: 108,
-    hullHeight: 94,
-    muzzleX: 2.65,
-    muzzleY: 127.29,
-    coaxX: 53.7,
-    coaxY: 106.74,
-    barrelBand: [-30, -135, 45, -100],
+    half: 96,
+    hullHeight: 66,
+    muzzleX: 6.4,
+    muzzleY: 99,
+    coaxX: 55,
+    coaxY: 74,
   },
   mortar_carrier: {
     size: [210, 127],
@@ -127,7 +127,6 @@ export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {
   mortar_carrier: 0.68,
   command_vehicle: 0.72,
   recovery_vehicle: 0.86,
-  tow_ifv: 0.82,
   pickup: 0.84,
 };
 for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {

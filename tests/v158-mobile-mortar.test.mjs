@@ -16,6 +16,10 @@ function arena(side=0,id='mortar_carrier',gap=360,x=1700) {
   return {s,u,enemy,dir,one};
 }
 const run=(s,t,dt=1/60)=>{for(let i=0;i<Math.round(t/Math.min(dt,.05));i++)tick(s,dt);};
+// Ground carriers now reverse more slowly than normal travel. Timing tests
+// allow that physical journey plus firing recoil, without weakening the
+// assertions against shooting while moving or turning the hull away.
+const reverseTravel=(u,distance)=>distance/(CARDS[u.id].speed*u.pace*.8*.65)+.6;
 function launch(s,u){for(let i=0;i<180&&u.shots===0;i++)tick(s,1/60);assert.equal(u.shots,1);}
 
 test('carrier displaces after its first shell, without waiting for enemy sound intelligence, on both sides',()=>{
@@ -27,13 +31,13 @@ test('carrier displaces after its first shell, without waiting for enemy sound i
     const shell=s.projectiles.find(p=>p.sourceUid===u.uid);assert(shell?.shell);const origin=shell.startX;
     run(s,.15);assert.equal(u.x,start,'let the authored firing recoil finish');
     let moves=0;
-    for(let i=0;i<210;i++){const x=u.x,shots=u.shots;tick(s,1/60);
+    for(let i=0;i<Math.ceil(reverseTravel(u,96)*60);i++){const x=u.x,shots=u.shots;tick(s,1/60);
       if(u.x!==x){moves++;assert.equal(u.shots,shots);assert.equal(u.facing,dir);assert((u.x-start)*dir<=0);}
       assert(Math.abs(u.x-start)<=96.001);
     }
     assert(moves>20);assert(Math.abs(u.x-goal)<=2,JSON.stringify({side,x:u.x,goal,pending:u.displaceGoal,time:s.time,shots:u.shots}));assert.equal(u.displaceGoal,null);
     assert.equal(shell.startX,origin,'a launched shell does not follow its departing carrier');
-    run(s,6);assert(u.shots>=2,'normal reload/fire resumes at the new position');
+    run(s,CARDS[u.id].rate+1);assert(u.shots>=2,'normal reload/fire resumes at the new position');
   }
 });
 
@@ -42,7 +46,7 @@ test('hold suppresses new scoots and cancels one already under way without stran
     const {s,u}=arena(side);if(!during)setOrder(s,side,'hold');launch(s,u);
     if(during){run(s,1);assert(u.displaceGoal!=null);setOrder(s,side,'hold');}
     const x=u.x;run(s,.5);assert.equal(u.x,x);assert(u.displaceGoal==null);
-    const shots=u.shots;run(s,9);assert(u.shots>shots);assert.equal(u.x,x);
+    const shots=u.shots;run(s,CARDS[u.id].rate+1);assert(u.shots>shots);assert.equal(u.x,x);
   }
 });
 
@@ -53,7 +57,7 @@ test('short range room and a friendly map edge never create an unreachable or os
     const x=u.x;run(s,3,.1);assert.equal(u.x,x);
     const b=arena(side,'mortar_carrier',360,side?W-145:145);launch(b.s,b.u);
     const goal=b.u.displaceGoal;assert.equal((b.u.x-goal)*b.dir,65);
-    run(b.s,3,.2);assert(Math.abs(b.u.x-goal)<=2,JSON.stringify({side,x:b.u.x,goal,pending:b.u.displaceGoal,time:b.s.time}));assert.equal(b.u.displaceGoal,null);
+    run(b.s,reverseTravel(b.u,65),.2);assert(Math.abs(b.u.x-goal)<=2,JSON.stringify({side,x:b.u.x,goal,pending:b.u.displaceGoal,time:b.s.time}));assert.equal(b.u.displaceGoal,null);
     assert.equal(b.u.facing,dir);
     const c=arena(side),start=c.u.x;
     assert.equal(carrierScootGoal(c.u,start+dir*655,'advance',W),null);
@@ -88,28 +92,31 @@ test('foot mortar retains sustained first-shot fire and a hidden target does not
   refreshVision(full.s);run(full.s,2);
   assert(crew.every(v=>v.shots===1&&v.displaceGoal==null),JSON.stringify(crew.map(v=>({shots:v.shots,site:v.mortarSiteShots,goal:v.displaceGoal,x:v.x,pose:v.pose}))));
   const relocated=new Set();
-  for(let i=0;i<540&&relocated.size<crew.length;i++){
+  for(let i=0;i<Math.ceil((CARDS.mortar.rate+5)*60)&&relocated.size<crew.length;i++){
     tick(full.s,1/60);for(const v of crew)if(v.displaceGoal!=null){assert(v.shots>=2);relocated.add(v.uid);}
   }
   assert.equal(relocated.size,crew.length,'every located crew member relocates after its own second round');
-  const b=arena();b.enemy.x=4000;refreshVision(b.s);run(b.s,1);
+  const b=arena(),before=b.u.x;b.enemy.x=4000;refreshVision(b.s);run(b.s,1);
   assert.equal(b.u.shots,0);assert(b.u.displaceGoal==null);
-  assert(b.u.x>=1747,'normal movement must not stop for a firing-settle delay after each track step');
+  assert(b.u.x-before>=CARDS.mortar_carrier.speed*.8*.8,'normal movement must not stop for a firing-settle delay after each track step');
   b.u.shots=1;b.u.cooldown=0;const x=b.u.x;run(b.s,1);
-  assert(b.u.x>=x+47,'after reloading, a battery without sight may continuously seek a new firing line');
+  assert(b.u.x>=x+CARDS.mortar_carrier.speed*.8*.8,'after reloading, a battery without sight may continuously seek a new firing line');
 });
 
 test('the carrier finishes a stable stop before firing even if its reload is accelerated',()=>{
   const {s,u,one}=arena();one(0,'scouts',u.x+80);refreshVision(s);launch(s,u);run(s,.5);assert(u.moving);
   u.cooldown=0;const shots=u.shots;
-  while(u.displaceGoal!=null){tick(s,1/60);assert.equal(u.shots,shots);}
+  for(let i=0;i<Math.ceil(reverseTravel(u,96)*60)&&u.displaceGoal!=null;i++){
+    tick(s,1/60);assert.equal(u.shots,shots);
+  }
+  assert(u.displaceGoal==null,'the carrier must complete its backward bound within a physical travel window');
   const stopped=s.time;run(s,.3);assert.equal(u.shots,shots);
   run(s,.5);assert(u.shots>shots,JSON.stringify({x:u.x,shots:u.shots,goal:u.displaceGoal,settle:u.carrierSettleUntil,time:s.time,moving:u.moving}));assert(s.time-stopped>=.55);
 });
 
 test('losing sight at the new position does not immediately undo the bound or permit blind fire',()=>{
   const {s,u}=arena();launch(s,u);const goal=u.displaceGoal;
-  run(s,4);assert(Math.abs(u.x-goal)<=2);assert.equal(u.shots,1);
+  run(s,reverseTravel(u,96));assert(Math.abs(u.x-goal)<=2);assert.equal(u.shots,1);
   run(s,2);assert(Math.abs(u.x-goal)<=2);assert.equal(u.shots,1);
 });
 
@@ -119,6 +126,6 @@ test('a selected local withdrawal replaces automatic scooting and the mortar can
     Object.assign(u,{squadOrder:'retreat',squadOrderUntil:100,squadOrderX:u.x-dir*60,cooldown:0});
     const shots=u.shots;tick(s,1/60);assert.equal(u.displaceGoal,null);assert(u.moving);
     for(let i=0;i<65;i++){tick(s,1/60);assert.equal(u.shots,shots);}
-    run(s,1.2);assert(u.shots>shots);assert.equal(u.squadOrder,'watch');
+    run(s,reverseTravel(u,60)+.55);assert(u.shots>shots);assert.equal(u.squadOrder,'watch');
   }
 });

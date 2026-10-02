@@ -77,8 +77,13 @@ check('mortar ammunition without legacy shell flag also skips rubble and still h
  assert.ok(terrainIntercept(s,x,360,x,390,false,false,true));assert.ok(projectileIntercept(s,p,x,360,x,390));return{ray};
 });
 for(const side of [0,1])check(`side${side} actual rifle still stops on an authored tank wreck`,()=>{
- const{s,p,original}=launch(side,'infantry');assert.equal(p.ammunition,'rifle');assert.equal(p.radius,0);cover(s,'tank',(p.startX+p.tx)/2);
+ const{s,p,original}=launch(side,'infantry');assert.equal(p.ammunition,'rifle');assert.equal(p.radius,0);
+ // Place the solid wreck beyond the existing near-muzzle cover exemption.
+ // A midpoint fixture can put the intersection wholly in the exempt half
+ // once the shooter correctly picks an exposed upper-body aim point.
+ cover(s,'tank',p.tx);
  const crossing=pathSamples(p).map(({previous:a,next:b})=>sceneryIntercept(s,a.x,a.y,b.x,b.y)).find(Boolean);assert.ok(crossing);
+ assert.ok(Math.hypot(crossing.x-p.startX,crossing.y-p.startY)>Math.hypot(p.tx-p.startX,p.ty-p.startY)*.5,'the real collider lies beyond the muzzle exemption');
  until(s,()=>!s.projectiles.includes(p));assert.ok(p.life<=0);assert.ok(Math.abs(p.x-original.tx)>25);assert.equal(s.blasts.length,0);assert.ok(s.particles.some(f=>f.kind==='impact'||f.kind==='spark'||f.kind==='dust'));
  return evidence(`rifle-${side}-tank`,s,original,{stopped:{x:p.x,y:p.y},expectedCoverX:crossing.x});
 });

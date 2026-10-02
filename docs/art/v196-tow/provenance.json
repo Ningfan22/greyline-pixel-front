@@ -1,0 +1,12 @@
+{
+  "mode": "built-in image_gen",
+  "generatedDate": "2026-10-03",
+  "design": "Original Greyline tracked TOW missile carrier; five road wheels, raised twin-tube launcher, separate defensive machine gun",
+  "assets": [
+    { "original": "tow-sprite.png", "served": "tow-sprite.webp", "prompt": "tow-sprite.prompt.txt", "role": "transparent battlefield sprite" },
+    { "original": "tow-card-original.png", "served": "tow-card.webp", "prompt": "tow-card.prompt.txt", "role": "exclusive unit card illustration", "designReference": "tow-sprite.png" },
+    { "original": "tow-wreck.png", "served": "tow-wreck.webp", "prompt": "tow-wreck.prompt.txt", "role": "transparent destroyed sprite", "designReference": "tow-sprite.png" }
+  ],
+  "encoding": "Lossless WebP; all decoded RGBA pixels are identical to the generated PNG originals",
+  "integration": "Crop measured transparent margins and uniformly scale the complete authored sprites. No procedural vehicle, track, launcher or wreck drawing."
+}

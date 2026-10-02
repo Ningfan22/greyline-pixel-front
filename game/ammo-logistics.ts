@@ -19,6 +19,9 @@ export const AMMO_CRATE_LIFE = 180;
 export const AMMO_LOW_RATIO = 0.3;
 export const SUPPLY_CARRY = 400;
 const profiles = new Map<string, { primary: MagazineSpec | null; secondary: MagazineSpec | null }>();
+export function usesPersonalSidearm(u: Pick<Unit, 'id'>) {
+  return !!CARDS[u.id].armorOnly && u.id !== 'tow_ifv';
+}
 
 /** Each soldier owns his load. Main gun and sidearm/coax never share a pool. */
 export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
@@ -28,7 +31,7 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   let primary = magazine(u.id, u.member);
   if (c.air || c.internal || isPrecisionObserver(u) || !(c.damage! > 0)) primary = null;
   else if (!primary) {
-    const count = kind === 'cannon' || kind === 'ap' ? 36
+    const count = u.id === 'tow_ifv' ? 8 : kind === 'cannon' || kind === 'ap' ? 36
       : kind === 'mortar' ? 30 : kind === 'rocket' ? (c.members ? 6 : 12)
       : kind === 'grenade' ? 24 : kind === 'autocannon' ? 240
       : kind === 'flame' ? 48 : kind === 'machinegun' ? 600 : 180;
@@ -36,7 +39,7 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   }
   const secondary = !c.air && u.id !== 'airborne_at' &&
     (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly) && primary
-    ? c.armorOnly ? { mag: 30, reserve: 90, reload: 2.5 } : { mag: 250, reserve: 750, reload: 4 }
+    ? usesPersonalSidearm(u) ? { mag: 30, reserve: 90, reload: 2.5 } : { mag: 250, reserve: 750, reload: 4 }
     : null;
   const profile = { primary, secondary };
   profiles.set(key, profile);
@@ -51,7 +54,7 @@ export function ammoSummary(u: Pick<Unit, 'id' | 'member' | 'ammo' | 'ammoReserv
       const loaded = ready === undefined ? spec!.mag : Math.max(0, ready);
       const reserve = spare === undefined ? spec!.reserve : Math.max(0, spare);
       const maxTotal = spec!.mag + spec!.reserve;
-      return { label: channel === 'secondary' ? CARDS[u.id].armorOnly ? '自卫枪弹' : '同轴机枪弹' : names[kind], channel, loaded, reserve, capacity: spec!.mag, total: loaded + reserve, maxTotal, ratio: (loaded + reserve) / maxTotal };
+      return { label: channel === 'secondary' ? usesPersonalSidearm(u) ? '自卫枪弹' : '同轴机枪弹' : names[kind], channel, loaded, reserve, capacity: spec!.mag, total: loaded + reserve, maxTotal, ratio: (loaded + reserve) / maxTotal };
     });
 }
 export function ammoRatio(u: Unit) {

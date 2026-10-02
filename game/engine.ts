@@ -22,7 +22,7 @@ import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
-import { ammoProfile, ammoRatio, initializeAmmo, advanceSecondaryReload, planAmmoResupply, type AmmoCrate, AMMO_CRATE_STOCK, AMMO_CRATE_LIFE } from './ammo-logistics';
+import { ammoProfile, ammoRatio, initializeAmmo, advanceSecondaryReload, planAmmoResupply, usesPersonalSidearm, type AmmoCrate, AMMO_CRATE_STOCK, AMMO_CRATE_LIFE } from './ammo-logistics';
 import {
   advanceCampaign,
   campaignResult,
@@ -402,6 +402,13 @@ export interface Unit {
   stalemateStartX?: number;
   /** v172: until this time, contactSafeX uses the reduced stalemate close gap. */
   stalemateCloseUntil?: number;
+  /** A held firing post can sidestep its obstruction without becoming an attack. */
+  firingWatchAnchorX?: number;
+  /** Consecutive rounds stopped by terrain/scenery, rather than ordinary aim misses. */
+  blockedFireTargetUid?: number;
+  blockedFireCount?: number;
+  /** A planned firing-position bound may approach a visible contact, but never pass it. */
+  firingCloseUntil?: number;
   /** Shoot-and-scoot: indirect-fire teams displace to this x once the enemy
    * sound rangers have refined a fix on their current position. */
   displaceGoal?: number | null;
@@ -3391,7 +3398,7 @@ function firingHeight(
   ty: number,
   planStanding = false,
 ): number | null {
-  const c = CARDS[u.id],
+  const c = weaponCard(u),
     // Eligibility forecasts the shot after movement settles. A carried barrel
     // must not hide the contact that would make a running soldier stop to aim.
     aimed = c.members ? {...u,moving:false,gaitWeight:0,gaitRun:0,rifleReady:1} : u,
@@ -3401,6 +3408,15 @@ function firingHeight(
   const softCover = isCoverBullet(ammunition(u.id, u.member));
   const clear = (shooter: MuzzleBody, h: number) => {
     const point = muzzlePoint(shooter, tx, h);
+    // A barrel wholly inside a surviving wall or rubble cannot shoot out by
+    // using the projectile's near-cover exemption. Rise or leave that pocket.
+    if (c.members && obstacleBoxes(s).some(box => !box.foliage &&
+        ((point.x > box.x && point.x < box.x + box.w &&
+          point.y > box.y && point.y < box.y + box.h) ||
+         (shooter.x > box.x && shooter.x < box.x + box.w &&
+          shooter.y - h > box.y && shooter.y - h < box.y + box.h)))) return false;
+    if (c.members && sceneryIntercept(s, shooter.x, shooter.y - h,
+        point.x, point.y, false, true)) return false;
     // A long prone barrel cannot start a projectile through solid soil.
     // Small arms may clear nearby scenery; heavy ordnance still checks it.
     if (
@@ -3424,6 +3440,36 @@ function firingHeight(
   return null;
 }
 
+/** Prefer a real exposed upper-body point over an obscured body centre.
+ * The second point stays inside the soldier's hit body; it is not a shot
+ * over the enemy's head. Forecasts and the committed projectile share it. */
+function firingSolution(
+  s: GameState,
+  u: FiringBody,
+  target: CoverTarget,
+  planStanding = false,
+  requireClearCover = false,
+): { height: number; targetY: number } | null {
+  const centre = bodyHeight({ ...target, pose: target.pose ?? 'prone' });
+  const upper = target.id && CARDS[target.id].members ? centre * 1.35 : centre;
+  let covered: { height: number; targetY: number } | null = null;
+  for (const targetY of [target.y - centre, target.y - upper]) {
+    const height = firingHeight(s, u, target.x, targetY, planStanding);
+    if (height === null) continue;
+    const shooter = planStanding && height === standingMuzzleHeight(u) ? standingBody(u) :
+      CARDS[u.id].members ? { ...u, moving: false, gaitWeight: 0, gaitRun: 0, rifleReady: 1 } : u;
+    const origin = muzzlePoint(shooter, target.x, height);
+    if (!sceneryIntercept(s, origin.x, origin.y, target.x, targetY, false, true))
+      return { height, targetY };
+    // Longstanding probability protection still applies to intervening depth
+    // scenery, but a body actually buried in the obstruction has no shot point.
+    if (!obstacleBoxes(s).some(box => !box.foliage && target.x >= box.x &&
+        target.x <= box.x + box.w && targetY >= box.y && targetY <= box.y + box.h))
+      covered ??= { height, targetY };
+  }
+  return requireClearCover ? null : covered;
+}
+
 type CoverTarget = Pick<Unit, 'x' | 'y'> &
   Partial<Pick<Unit, 'pose' | 'id' | 'moving'>>;
 function canFireFromCover(
@@ -3433,7 +3479,7 @@ function canFireFromCover(
   target: CoverTarget,
 ) {
   return (
-    firingHeight(
+    firingSolution(
       s,
       {
         id: u.id,
@@ -3446,13 +3492,7 @@ function canFireFromCover(
         moving: false,
         rifleReady: 1,
       },
-      target.x,
-      target.y -
-        bodyHeight({
-          id: target.id,
-          moving: target.moving,
-          pose: target.pose ?? 'prone',
-        }),
+      target,
     ) !== null
   );
 }
@@ -3776,7 +3816,7 @@ export function coveringMate(
       distance <= unitRange(s, v) &&
       distance >= (c.minRange ?? 0) &&
       visibleToSide(s, v.side, target) &&
-      firingHeight(s, v, target.x, target.y - bodyHeight(target)) !== null &&
+      firingSolution(s, v, target) !== null &&
       ((!requireShot && v.cooldown <= 0) ||
         s.time - (v.lastCombatShotAt ?? -Infinity) <=
           Math.max(0.8, c.rate! * 1.35))
@@ -3798,13 +3838,16 @@ export function coveringMate(
 
 function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
   const range = unitRange(s, u),
-    currentDistance = Math.abs(target.x - u.x);
+    currentDistance = Math.abs(target.x - u.x),
+    localPost = infantryOrder(s, u) === 'hold',
+    anchor = u.squadOrder === 'watch' ? (u.squadOrderX ?? u.firingWatchAnchorX ?? u.x) :
+      (u.firingWatchAnchorX ?? u.x);
   // Reposition around this contact; never turn an obstructed ray into an unlimited charge.
   const insideCover = obstacleBoxes(s).some(
     (b) => !b.foliage && u.x > b.x - 16 && u.x < b.x + b.w + 16,
   );
   const minimumDistance = Math.min(
-    range * (insideCover ? 0.38 : 0.62),
+    insideCover ? Math.max(56, (CARDS[u.id].minRange ?? 0) + 25) : range * 0.62,
     currentDistance,
   );
   let best: number | null = null,
@@ -3818,13 +3861,14 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
     if (
       x < 125 ||
       x > W - 125 ||
+      (localPost && Math.abs(x - anchor) > 32) ||
       distance < minimumDistance ||
       distance > range
     )
       continue;
     if (
       obstacleBoxes(s).some(
-        (b) => !b.foliage && x > b.x - 10 && x < b.x + b.w + 10,
+        (b) => !b.foliage && !b.rubble && x > b.x - 10 && x < b.x + b.w + 10,
       )
     )
       continue;
@@ -3842,7 +3886,8 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
       )
     )
       continue;
-    if (!canFireFromCover(s, u, x, target)) continue;
+    if (!firingSolution(s, { ...u, x, y: ground(s, x), moving: false,
+      rifleReady: 1 }, target, true, true)) continue;
     const score = craterCover(s, x, target.x) * 20 - Math.abs(offset);
     if (score > bestScore) {
       bestScore = score;
@@ -4002,6 +4047,8 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   const stalemateClose = (u.stalemateCloseUntil ?? 0) > s.time;
   const gap = stalemateClose
     ? STALEMATE_CLOSE_GAP
+    : (u.firingCloseUntil ?? 0) > s.time
+      ? 56
     : CARDS[u.id].members
       ? 105
       : 150;
@@ -4039,13 +4086,16 @@ function moveSoldier(
   dt: number,
   mayTraverse = true,
 ) {
-  if (!dir || speed <= 0 || u.garrisonUid !== undefined || localUnitOrder(s, u) === 'watch' ||
+  const watchAdjustment = u.firingGoal != null && u.firingWatchAnchorX !== undefined &&
+    Math.abs(u.firingGoal - u.firingWatchAnchorX) <= 32;
+  if (!dir || speed <= 0 || u.garrisonUid !== undefined ||
+      (localUnitOrder(s, u) === 'watch' && !watchAdjustment) ||
       (u.motion === 'ground' && stanceTransitionActive(u, s.time))) return;
   // All ground walking shares the slower battle pace, including support
   // tasks. A baseward step stays below ordinary walking even under a rush
   // or movement buff; the soldier has to keep watching the contact ahead.
   const baseward = dir === (u.side === 0 ? -1 : 1);
-  speed = (baseward ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * 0.65 : speed) * 0.8;
+  speed = (baseward ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * 0.65 : speed) * 0.55;
   if (s.units.some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
@@ -4401,7 +4451,7 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
     distance >= (c.minRange ?? 0) &&
     distance <= unitRange(s, source) + margin &&
     (c.indirect ||
-      firingHeight(s, source, target.x, target.y - bodyHeight(target)) !== null)
+      firingSolution(s, source, target) !== null)
   );
 }
 function tacticalPressure(s: GameState, source: Unit, target: Unit) {
@@ -5396,9 +5446,27 @@ function fireCoax(s: GameState, u: Unit) {
   if (ammoProfile(u).secondary && (u.secondaryAmmo ?? 0) <= 0) return;
   if (u.secondaryCooldown > 0) return;
   if (CARDS[u.id].members && soldierBusyMoving(u)) return;
-  const personal = !!CARDS[u.id].armorOnly;
+  const personal = usesPersonalSidearm(u);
   const selfRange = personal ? 240 : 420;
-  const selfHeight = personal ? (CARDS[u.id].members ? 38 : 30) : 42;
+  const selfHeight = personal ? (CARDS[u.id].members ? muzzleHeight(u) : 30) : 42;
+  const coaxAim = (v: Unit): number | null => {
+    const p = muzzlePoint(u, v.x, selfHeight, true);
+    if (smokeBlocks(s, u.side, u.x, v.x) || obstacleBoxes(s).some(box => !box.foliage &&
+        ((p.x > box.x && p.x < box.x + box.w && p.y > box.y && p.y < box.y + box.h) ||
+         (CARDS[u.id].members && u.x > box.x && u.x < box.x + box.w &&
+          u.y - selfHeight > box.y && u.y - selfHeight < box.y + box.h)))) return null;
+    if (CARDS[u.id].members && sceneryIntercept(s, u.x, u.y - selfHeight,
+        p.x, p.y, false, true)) return null;
+    const centre = bodyHeight(v);
+    let covered: number | null = null;
+    for (const y of [v.y - centre, v.y - centre * 1.35]) {
+      if (terrainIntercept(s, p.x, p.y, v.x, y, true)) continue;
+      if (!sceneryIntercept(s, p.x, p.y, v.x, y, false, true)) return y;
+      if (!obstacleBoxes(s).some(box => !box.foliage && v.x >= box.x &&
+          v.x <= box.x + box.w && y >= box.y && y <= box.y + box.h)) covered ??= y;
+    }
+    return covered;
+  };
   const target = s.units
     .filter(
       (v) =>
@@ -5415,14 +5483,9 @@ function fireCoax(s: GameState, u: Unit) {
                 : 1),
     )
     .sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))
-    .find((v) => {
-      const p = muzzlePoint(u, v.x, selfHeight, true);
-      return (
-        !smokeBlocks(s, u.side, u.x, v.x) &&
-        !terrainIntercept(s, p.x, p.y, v.x, v.y - bodyHeight(v), true)
-      );
-    });
+    .find((v) => coaxAim(v) !== null);
   if (!target) return;
+  const targetY = coaxAim(target)!;
   if (ammoProfile(u).secondary) u.secondaryAmmo = Math.max(0, u.secondaryAmmo! - 1);
   const point = muzzlePoint(u, target.x, selfHeight, true),
     sx = point.x,
@@ -5435,7 +5498,7 @@ function fireCoax(s: GameState, u: Unit) {
   u.secondaryMuzzleX = sx;
   u.secondaryMuzzleY = sy;
   u.secondaryAngle = Math.atan2(
-    target.y - bodyHeight(target) - sy,
+    targetY - sy,
     target.x - sx,
   );
   muzzleParticles(s, u, 'machinegun', sx, sy, true);
@@ -5444,14 +5507,14 @@ function fireCoax(s: GameState, u: Unit) {
     ? 1.4
     : u.secondaryShots % 4 === 0
       ? 1.2
-      : 0.12;
+      : u.id === 'tow_ifv' ? 0.18 : 0.12;
   u.secondaryFire = 0.09;
   s.projectiles.push({
     sourceUid: u.uid,
     x: sx,
     y: sy,
     tx: target.x,
-    ty: target.y - bodyHeight(target),
+    ty: targetY,
     side: u.side,
     targetUid: target.uid,
     base: null,
@@ -5673,7 +5736,7 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
       (!c.airOnly || CARDS[v.id].air) &&
       Math.abs(v.x - u.x) >= (c.minRange ?? 0) &&
       Math.abs(v.x - u.x) <= unitRange(s, u) &&
-      firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
+      firingSolution(s, u, v) !== null,
   );
   if (canEngage || u.shots > 0) {
     u.emplaced = true;
@@ -5914,7 +5977,7 @@ function updateAI(s: GameState) {
     )
       return 0;
     if (distance >= (c.minRange ?? 0) && distance <= unitRange(s, u))
-      return firingHeight(s, u, target.x, target.y - bodyHeight(target)) !==
+      return firingSolution(s, u, target) !==
         null
         ? 1
         : 0;
@@ -8515,7 +8578,12 @@ export function tick(s: GameState, dt: number) {
     const morale = s.players[u.side].morale > 0;
     const syn = unitSynergy(s, u, s.time);
     u.injuryCooldown = Math.max(0, u.injuryCooldown - dt);
-    const weaponStep = dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
+    // Observation improves aim; supplies replenish rounds. Neither makes a
+    // mortar crew's physical loading cycle shorter than its advertised rate.
+    const mortarLoading = !!c.indirect &&
+      (u.id === 'mortar' || u.id === 'light_mortar' || u.id === 'mortar_carrier');
+    const weaponStep = mortarLoading ? dt :
+      dt * (syn.supply_run ? 1.6 : 1) * (syn.recon_spot ? 1.3 : 1);
     u.cooldown -= weaponStep;
     // Work flags are reset at tick start; retain last tick's occupied hands.
     if (!launcherBusy) advanceLauncherDrill(u, s.time, weaponStep);
@@ -8657,8 +8725,8 @@ export function tick(s: GameState, dt: number) {
           Math.abs(enemy.x - u.x) <= unitRange(s, u) + 120 &&
           [0, 12, 24].some(step => {
             const x = u.x + dir * step;
-            return firingHeight(s, { ...lowBody, x, y: ground(s, x) },
-              enemy.x, enemy.y - bodyHeight(enemy), true) === standingMuzzleHeight(u);
+            return firingSolution(s, { ...lowBody, x, y: ground(s, x) },
+              enemy, true)?.height === standingMuzzleHeight(u);
           }))) {
         desiredPose = 'idle';
         setStance(u, s.time, 'idle');
@@ -9135,8 +9203,15 @@ export function tick(s: GameState, dt: number) {
       candidates[0] ??
       airContact ??
       (u.lastThreat && u.lastThreat.until > s.time ? u.lastThreat : null);
+    const failedContact = candidates.find(v => v.uid === u.blockedFireTargetUid);
+    const ineffectiveCoverFire = !!(c.members && !c.indirect &&
+      (u.blockedFireCount ?? 0) >= 3 && failedContact &&
+      !firingSolution(s, u, failedContact, false, true));
+    if (failedContact && !ineffectiveCoverFire && firingSolution(s, u, failedContact, false, true))
+      u.blockedFireCount = 0;
     let target = candidates.find(
-      (v) => firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
+      (v) => !(ineffectiveCoverFire && v.uid === failedContact!.uid) &&
+        firingSolution(s, u, v) !== null,
     );
     if (
       target &&
@@ -9152,7 +9227,7 @@ export function tick(s: GameState, dt: number) {
             v.motion === 'ground' &&
             (v.stillFor ?? 0) >= 0.65 &&
             Math.abs(v.x - protectedTarget.x) <= 90 &&
-            firingHeight(s, u, v.x, v.y - bodyHeight(v)) !== null,
+            firingSolution(s, u, v) !== null,
         ) ?? target;
     }
     if (
@@ -9479,10 +9554,17 @@ export function tick(s: GameState, dt: number) {
     if (
       blockedContact &&
       !coverShot &&
-      order !== 'hold' &&
+      u.garrisonUid === undefined &&
       !treating &&
       !withdrawing
     ) {
+      // A useless old cover anchor must not outrank the new firing position.
+      u.coverGoal = null;
+      if (order === 'hold') {
+        if (u.squadOrder === 'watch') u.firingWatchAnchorX = u.squadOrderX ?? u.x;
+        else u.firingWatchAnchorX ??= u.x;
+      }
+      else u.firingWatchAnchorX = undefined;
       if (
         u.firingGoal != null &&
         ((!u.firingTransit && !canFireFromCover(s, u, u.firingGoal, threat!)) ||
@@ -9492,9 +9574,9 @@ export function tick(s: GameState, dt: number) {
       if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null) {
         u.firingGoal = nearbyFiringPosition(s, u, threat!);
         u.firingTransit = false;
-        if (u.firingGoal === null) {
+        if (u.firingGoal === null && order !== 'hold') {
           const toward = Math.sign(threat!.x - u.x);
-          const standoff = Math.max(140, (c.minRange ?? 0) + 25);
+          const standoff = Math.max(56, (c.minRange ?? 0) + 25);
           const available = Math.abs(threat!.x - u.x) - standoff;
           if (available > 4) {
             // Walk a depth passage beside the obstacle, then reassess the firing ray.
@@ -9504,7 +9586,13 @@ export function tick(s: GameState, dt: number) {
         }
         u.firingSearchAt = s.time + 0.7;
       }
-    } else u.firingGoal = null;
+      if (u.firingGoal != null && candidates[0] &&
+          (u.firingGoal - u.x) * dir > 0 && order !== 'hold')
+        u.firingCloseUntil = s.time + 1;
+    } else {
+      u.firingGoal = null;
+      if (order !== 'hold') u.firingWatchAnchorX = undefined;
+    }
     // Combat engineers push to a breachable wall instead of stopping to trade
     // rifle shots — their job is demolition, and the breach only triggers from
     // moveSoldier, so they must keep moving the last stretch under fire.
@@ -9810,7 +9898,7 @@ export function tick(s: GameState, dt: number) {
     ) {
       // Peek rhythm: pop up to fire, drop back behind cover to reload.
       if (!isHeavyGunner(u) && s.time >= (u.stanceLockUntil ?? 0) &&
-          firingHeight(s, u, threat.x, threat.y - 20, true) === standingMuzzleHeight(u))
+          firingSolution(s, u, threat, true)?.height === standingMuzzleHeight(u))
         peekShouldExpose(s, u);
       const peekExposed = !isHeavyGunner(u) && (u.exposedUntil ?? 0) > s.time;
       if (peekExposed) {
@@ -9845,7 +9933,7 @@ export function tick(s: GameState, dt: number) {
         (u.firingGoal==null))
       tryVeteranReload(s,u,v=>Math.abs(v.x-target.x)<=unitRange(s,v) &&
         visibleToSide(s,v.side,target) &&
-        firingHeight(s,v,target.x,target.y-bodyHeight(target))!==null);
+        firingSolution(s,v,target)!==null);
     const reloadingUnderContact =
       c.members &&
       (u.observingHoldUntil ?? 0) <= s.time &&
@@ -9954,6 +10042,7 @@ export function tick(s: GameState, dt: number) {
      c.members &&
      !c.indirect &&
      !breachRun &&
+     order !== 'hold' &&
      order !== 'rush' &&
      u.ammo !== 0 &&
      Math.abs(target.x - u.x) <= range * 0.62
@@ -9977,6 +10066,7 @@ export function tick(s: GameState, dt: number) {
      c.members &&
      !c.indirect &&
      !breachRun &&
+     order !== 'hold' &&
      threat
    ) {
       // v172b: blocked-contact stalemate — the unit has a threat it cannot
@@ -10026,7 +10116,7 @@ export function tick(s: GameState, dt: number) {
       }
       let tx = target ? target.x : coverShot ? coverShot.x : counterBattery ? counterBattery.x : reconFire ? reconFire.x : baseX;
       let ty = target
-        ? target.y - bodyHeight(target)
+        ? (firingSolution(s, u, target)?.targetY ?? target.y - bodyHeight(target))
         : coverShot
           ? coverShot.y
           : counterBattery
@@ -10156,7 +10246,8 @@ export function tick(s: GameState, dt: number) {
           u.cooldown =
             c.burstSize && (u.shots + 1) % c.burstSize === 0
               ? c.burstPause!
-              : c.rate! * (closeBurst ? 0.65 : 1) * (spotted ? 0.7 : 1);
+              : c.rate! * (closeBurst && !mortarLoading ? 0.65 : 1) *
+                (spotted && !mortarLoading ? 0.7 : 1);
           const gunBurst = machinegunBurst(u);
           if (u.id === 'grenadiers') {
             u.launcherCycleDuration = u.cooldown;
@@ -10801,6 +10892,16 @@ export function tick(s: GameState, dt: number) {
     }
     if (impact) {
       p.life = 0;
+      if (p.sourceUid !== undefined && p.targetUid !== null &&
+          isCoverBullet(p.ammunition ?? 'rifle')) {
+        const shooter = unitByUid(s, p.sourceUid), victim = unitByUid(s, p.targetUid);
+        if (shooter && CARDS[shooter.id].members && victim &&
+            visibleToSide(s, shooter.side, victim)) {
+          shooter.blockedFireCount = shooter.blockedFireTargetUid === victim.uid
+            ? (shooter.blockedFireCount ?? 0) + 1 : 1;
+          shooter.blockedFireTargetUid = victim.uid;
+        }
+      }
       if (p.ammunition === 'flame') flameImpact(s, p, impact.x, impact.y);
       else if (p.radius)
         explode(
@@ -10859,9 +10960,16 @@ export function tick(s: GameState, dt: number) {
               : CARDS[u.id].air
                 ? 80
                 : 18) &&
-          !projectileIntercept(s, p, p.x, p.y, u.x, u.y - bodyHeight(u))
+          // The projectile already traversed its complete physical ray. An
+          // upper-body hit must not invent a last turn down into rubble just
+          // because the old centre point sits below the exposed head/shoulders.
+          (CARDS[u.id].members
+            ? p.ty >= u.y - infantryGeometry(u).bodyHeight * 1.6 && p.ty <= u.y - 2
+            : !projectileIntercept(s, p, p.x, p.y, u.x, u.y - bodyHeight(u)))
         ) {
           connected = true;
+          const shooter = p.sourceUid === undefined ? undefined : unitByUid(s, p.sourceUid);
+          if (shooter?.blockedFireTargetUid === u.uid) shooter.blockedFireCount = 0;
           const cover =
             CARDS[u.id].members && u.motion === 'ground' && !u.climbing
               ? craterCover(s, u.x, p.startX) *

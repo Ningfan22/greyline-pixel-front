@@ -28,6 +28,7 @@ import { wreckVariants } from './wreck-variants';
 import { paintedTankWrecks } from './tank-wreck-art';
 import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
+import { towMissileCarrierFrame } from './tow-vehicle-art';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
@@ -330,7 +331,6 @@ export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
 const VEHICLE_TINTS: Record<string, [number, number, number]> = {
   // IFV-family variants (share reinforcements[0])
   pickup: [1.06, 0.86, 0.62], // rusty sand-primered technical
-  tow_ifv: [0.86, 0.9, 0.72], // lighter drab, missile carrier
   mortar_carrier: [0.72, 0.74, 0.66], // dark grey-green
   recovery_vehicle: [0.9, 0.82, 0.6], // tan engineering
   command_vehicle: [0.78, 0.84, 0.92], // blue-grey comms
@@ -632,6 +632,8 @@ export function loadArt() {
     loadComebackArtV18(),
     Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
     loadImage('/art/v195-logistics/ammo-crate.png'),
+    loadImage('/art/v196-tow/tow-sprite.webp'),
+    loadImage('/art/v196-tow/tow-wreck.webp'),
   ]).then(
     ([
       [
@@ -688,6 +690,8 @@ export function loadArt() {
       comeback,
       generatedSpriteImages,
       ammoCrate,
+      towSprite,
+      towWreck,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -761,6 +765,7 @@ export function loadArt() {
         supportVehicles,
         extra.fpvSheet,
         glider[6],
+        towWreck,
       );
       return {
         ammoCrate,
@@ -781,7 +786,10 @@ export function loadArt() {
         wrecks: wreckFramesMap,
         wreckVariants: {...wreckVariants(wreckFramesMap,paintedTankWrecks(tankWreckSheet)),
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
-        mobileVehicles: mobileVehicleFrames(mobileVehicles, supportVehicles),
+        mobileVehicles: {
+          ...mobileVehicleFrames(mobileVehicles, supportVehicles),
+          tow_ifv: [towMissileCarrierFrame(towSprite)],
+        },
         background,
         mapBackgrounds: extra.mapBackgrounds,
         terrain,

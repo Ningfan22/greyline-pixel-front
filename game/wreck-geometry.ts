@@ -2,6 +2,7 @@ import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
 import { VEHICLE_SCALE } from './vehicle-geometry';
 import { paintedTankWreckGeometry } from './tank-wreck-geometry';
+import { TOW_WRECK_CROP, TOW_WRECK_SIZE } from './tow-vehicle-art';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
@@ -31,7 +32,7 @@ export type WreckKind =
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'tow';
   source: Rect;
   width: number;
   height: number;
@@ -78,21 +79,23 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     [0.131, 0.769, 0.909],
     9.5,
   ),
-  tow_ifv: shape(
-    'mobile',
-    [1599, 473, 351, 195],
-    240,
-    [
-      [0.063, 0.538, 0.809, 0.231],
-      [0.131, 0.8, 0.678, 0.128],
-      [0.088, 0.385, 0.199, 0.138],
-      [0.578, 0.364, 0.205, 0.159],
-      [0.604, 0.215, 0.202, 0.062],
-      [0.926, 0.795, 0.043, 0.072],
+  tow_ifv: {
+    atlas: 'tow',
+    source: [...TOW_WRECK_CROP],
+    width: TOW_WRECK_SIZE[0],
+    height: TOW_WRECK_SIZE[1],
+    parts: [
+      [.05, .63, .76, .06],
+      [.17, .79, .5, .14],
+      [.15, .96, .67, .028],
+      [.03, .49, .19, .15],
+      [.45, .54, .145, .095],
+      [.8, .61, .105, .07],
+      [.43, .285, .08, .028],
     ],
-    [0.14, 0.823, 0.954],
-    4.44,
-  ),
+    support: [.1, .87, 1],
+    spriteOffset: 3,
+  },
   mortar_carrier: shape(
     'support',
     [1185, 102, 307, 153],

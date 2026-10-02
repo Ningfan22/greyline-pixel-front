@@ -70,7 +70,7 @@ export function magazine(id: CardId, member = 0): MagazineSpec | null {
   if (kind === 'machinegun') return { mag: 100, reserve: 200, reload: 4.0 };
   if (kind === 'rifle') {
     if (id === 'sniper' || id === 'sniper_team') return { mag: 5, reserve: 25, reload: 3.0 };
-    return { mag: 30, reserve: 150, reload: 2.5 };
+    return { mag: 30, reserve: 60, reload: 2.5 };
   }
   return null;
 }

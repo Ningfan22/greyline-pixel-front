@@ -69,7 +69,11 @@ test('tank shells and coax ammunition are separate stores and coax reload never 
 for(const side of [0,1]) {
   test(`side ${side}: thirty percent latches withdrawal and partial refill cannot resume the advance`,()=>{
     const s=arena(side),x=mirrored(s,side,1600),u=one(s,side,'infantry',x);
-    ratio(u,.31);assert.equal(planAmmoResupply(s,u,0),null);
+    const profile=ammoProfile(u).primary;
+    // The first whole round above the cutoff stays out of withdrawal. With
+    // 90 rounds, flooring 31 percent would accidentally produce exactly 30.
+    total(u,'primary',Math.floor((profile.mag+profile.reserve)*AMMO_LOW_RATIO)+1);
+    assert.equal(planAmmoResupply(s,u,0),null);
     ratio(u,AMMO_LOW_RATIO);
     u.escortTankUid=123;u.escortGoal=x;u.coverGoal=x;u.firingGoal=x;u.withdrawGoal=x;
     const base=mirrored(s,side,110);

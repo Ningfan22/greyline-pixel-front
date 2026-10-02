@@ -2,7 +2,7 @@ import { transparentSheet } from './sprite-atlas';
 import { tankGeometry } from './vehicle-geometry';
 
 type Crop = [number, number, number, number];
-/** Measured tight source bounds; TOW frames cross the nominal 5-column grid. */
+/** Measured tight source bounds for the remaining authored legacy vehicles. */
 export const MOBILE_FRAMES: Record<
   string,
   { atlas: 'mobile' | 'support'; crops: Crop[]; wheelBand: number }
@@ -16,16 +16,6 @@ export const MOBILE_FRAMES: Record<
       [1205, 164, 340, 190],
     ],
     wheelBand: 68,
-  },
-  tow_ifv: {
-    atlas: 'mobile',
-    crops: [
-      [36, 454, 362, 208],
-      [435, 454, 361, 208],
-      [830, 454, 358, 208],
-      [1218, 454, 361, 208],
-    ],
-    wheelBand: 63,
   },
   mortar_carrier: {
     atlas: 'support',
