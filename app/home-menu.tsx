@@ -253,7 +253,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v193</small>
+          <small>GREYLINE · v194</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (

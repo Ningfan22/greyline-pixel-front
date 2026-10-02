@@ -50,6 +50,38 @@
     16px/1.75 system-ui,
     sans-serif;
 }
+.task {
+  border-top: 1px solid #4d6047;
+  border-bottom: 1px solid #4d6047;
+  padding: 10px 0;
+  margin-bottom: 14px;
+}
+.task > span {
+  display: block;
+  color: #d4ba75;
+  font-size: 11px;
+}
+.task p {
+  margin: 5px 0;
+  color: #c5d0b8;
+  font:
+    12px/1.65 system-ui,
+    sans-serif;
+}
+.task strong {
+  display: block;
+  font:
+    11px/1.6 system-ui,
+    sans-serif;
+  color: #e5d89c;
+  margin-bottom: 5px;
+}
+.task small {
+  color: #99ad94;
+  font:
+    10px/1.5 system-ui,
+    sans-serif;
+}
 .controls {
   display: flex;
   gap: 12px;
@@ -115,6 +147,45 @@
   color: #b8c4a8;
   font-size: 11px;
 }
+.radioIdentity {
+  display: flex;
+  height: 100%;
+  min-height: 210px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 12px 42px;
+  color: #b9c8a8;
+  background: #24352a;
+}
+.radioIdentity > small {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-align: center;
+}
+.radioIdentity > strong {
+  font: 15px/1.5 var(--pixel, monospace);
+  text-align: center;
+}
+.radioIdentity > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+}
+.radioIdentity i {
+  display: block;
+  width: 6px;
+  height: 17px;
+  background: #a1b17d;
+}
+.radioIdentity i:nth-child(2n) {
+  height: 29px;
+}
+.radioIdentity i:nth-child(3) {
+  height: 40px;
+}
 @media (max-height: 540px), (max-width: 700px) {
   .dialogue {
     width: min(564px, calc(100vw - 24px));
@@ -143,6 +214,13 @@
     line-height: 1.65;
     min-height: 69px;
     margin: 5px 0 12px;
+  }
+  .task {
+    padding: 7px 0;
+    margin-bottom: 10px;
+  }
+  .task p {
+    font-size: 11px;
   }
   .controls {
     gap: 10px;

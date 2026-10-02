@@ -598,17 +598,19 @@ export function render(
   if (s.campaign?.objective === 'capture') {
     const x = s.campaign.objectiveX,
       y = ground(s, x);
+    const objectiveText = `${s.campaign.objectiveLabel ?? '电台'} ${Math.floor(s.campaign.captureProgress)}/${s.campaign.captureRequired ?? 15}秒`;
+    const labelWidth = Math.max(110, objectiveText.length * 10);
     ctx.save();
     ctx.fillStyle = '#ddc787';
     ctx.fillRect(x - 1, y - 87, 2, 64);
     ctx.fillRect(x + 1, y - 87, 26, 16);
     ctx.fillStyle = '#263b31ee';
-    ctx.fillRect(x - 47, y - 112, 98, 21);
+    ctx.fillRect(x - labelWidth / 2, y - 112, labelWidth, 21);
     ctx.fillStyle = '#efe3b9';
     ctx.textAlign = 'center';
     ctx.font = '11px monospace';
     ctx.fillText(
-      `电台 ${Math.floor(s.campaign.captureProgress)}/15秒`,
+      objectiveText,
       x,
       y - 98,
     );

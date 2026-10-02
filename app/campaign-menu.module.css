@@ -10,7 +10,7 @@
   background: #1c2b22ed;
   border-left: 4px solid #d4ba75;
   margin-bottom: 20px;
-  max-width: 760px;
+  max-width: none;
 }
 .heading p {
   margin-bottom: 0 !important;
@@ -33,6 +33,117 @@
   max-width: 620px;
   margin-bottom: 26px;
 }
+.progressRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 18px;
+}
+.progressRow > div {
+  width: min(360px, 100%);
+}
+.progressRow strong {
+  font-size: 15px;
+  color: #e7d8a2;
+}
+.progressTrack {
+  display: block;
+  width: 100%;
+  appearance: none;
+  height: 8px;
+  margin-top: 10px;
+  border: 1px solid #657052;
+  background: #122019;
+  overflow: hidden;
+}
+.progressTrack::-webkit-progress-bar {
+  background: #122019;
+}
+.progressTrack::-webkit-progress-value {
+  background: #cab77a;
+}
+.progressTrack::-moz-progress-bar {
+  background: #cab77a;
+}
+.progressRow button {
+  flex-shrink: 0;
+  background: #d2c28c;
+  border: 2px solid;
+  border-color: #efe1ac #7a744e #7a744e #efe1ac;
+  box-shadow: 3px 3px #0f1e16;
+  color: #24341e;
+  padding: 11px 16px;
+  font: 18px var(--pixel, monospace);
+  cursor: pointer;
+  text-align: left;
+}
+.progressRow button small {
+  display: block;
+  margin-top: 5px;
+  font:
+    11px/1.5 system-ui,
+    sans-serif;
+}
+.acts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.acts button {
+  min-width: 0;
+  padding: 13px 14px;
+  color: #b7c3a7;
+  background: #203225f5;
+  border: 2px solid #46533d;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.acts button[aria-pressed='true'] {
+  border-color: #d4ba75;
+  background: #4c5d3d;
+  color: #f1e2ac;
+}
+.acts small,
+.acts strong {
+  display: block;
+}
+.acts small {
+  font-size: 11px;
+  margin-bottom: 7px;
+}
+.acts strong {
+  font-size: 19px;
+}
+.ending {
+  background: #1c2b22f5;
+  border: 2px solid #bca66b;
+  padding: 18px 22px;
+  margin: 0 0 18px;
+}
+.ending > span {
+  color: #d4ba75;
+  font-size: 12px;
+}
+.ending h2 {
+  font-size: 25px;
+  color: #efe2ad;
+  margin: 12px 0;
+}
+.ending p {
+  font:
+    14px/1.8 system-ui,
+    sans-serif;
+  color: #bcc7b3;
+}
+.ending small {
+  color: #a9b69f;
+  font:
+    12px/1.6 system-ui,
+    sans-serif;
+}
 .dossier {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr);
@@ -47,7 +158,7 @@
   background: #203225;
 }
 .chapters button {
-  min-height: 92px;
+  min-height: 88px;
   padding: 12px 14px;
   text-align: left;
   color: #bdc4aa;
@@ -56,6 +167,9 @@
   border-bottom: 2px solid #46533d;
   font: inherit;
   cursor: pointer;
+}
+.chapters button:hover {
+  background: #35462d;
 }
 .chapters button[aria-current] {
   background: #4c5d3d;
@@ -232,6 +346,26 @@
     margin: 8px 0 14px;
     font-size: 12px;
   }
+  .progressRow {
+    margin-top: 12px;
+  }
+  .progressRow strong {
+    font-size: 13px;
+  }
+  .progressRow button {
+    font-size: 16px;
+    padding: 9px 12px;
+  }
+  .acts button {
+    padding: 10px;
+  }
+  .acts small {
+    font-size: 10px;
+    margin-bottom: 5px;
+  }
+  .acts strong {
+    font-size: 16px;
+  }
   .dossier {
     grid-template-columns: 134px minmax(0, 1fr);
   }
@@ -287,6 +421,32 @@
   }
 }
 @media (max-width: 620px) {
+  .campaign {
+    padding: 14px 12px;
+  }
+  .heading {
+    padding: 12px;
+  }
+  .progressRow {
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .progressRow > div {
+    width: auto;
+    flex: 1;
+  }
+  .progressRow button {
+    max-width: 55%;
+    font-size: 15px;
+    padding: 8px;
+  }
+  .progressRow button small {
+    font-size: 10px;
+  }
+  .acts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
   .dossier {
     grid-template-columns: 1fr;
   }
@@ -303,14 +463,14 @@
     min-height: 78px;
   }
   .chapters strong {
-    font-size: 16px;
+    font-size: 13px;
     margin: 9px 0;
   }
   .chapters small {
-    font-size: 9px;
+    font-size: 8px;
   }
   .chapters span {
-    font-size: 10px;
+    font-size: 9px;
   }
   .difficulty > div {
     flex-direction: column;

@@ -78,7 +78,12 @@ import {
 import { unitSelectionBounds } from '@/game/selection-render';
 import SquadMenu from './squad-menu';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
-import { missionById, type MissionId } from '@/game/campaign';
+import {
+  MISSIONS,
+  missionById,
+  missionDeckName,
+  type MissionId,
+} from '@/game/campaign';
 import { createCampaignGame } from '@/game/campaign-game';
 import CampaignDialogue from './campaign-dialogue';
 import { DIFFICULTY_LABEL, DIFFICULTY_BONUS } from './difficulty-selector';
@@ -144,6 +149,15 @@ export default function Battle({
   const dialogueOpenRef = useRef(!!missionId),
     dialogueResume = useRef(true);
   const timeLimit = view.campaign?.duration ?? DURATION;
+  const finalMission = mission?.id === MISSIONS[MISSIONS.length - 1].id;
+  const captureStages = mission?.capturePoints?.length ?? 1;
+  const captureRequired = view.campaign?.captureRequired ?? 15;
+  const missionStatus =
+    mission?.objective === 'capture'
+      ? `${captureStages > 1 ? `${(view.campaign?.objectiveIndex ?? 0) + 1}/${captureStages} · ` : ''}${view.campaign?.objectiveLabel ?? '电台'} ${Math.floor(view.campaign?.captureProgress ?? 0)} / ${captureRequired}秒`
+      : mission?.objective === 'defend'
+        ? '守住己方指挥部'
+        : '摧毁敌方指挥部';
   useEffect(() => {
     if (
       missionId &&
@@ -806,6 +820,7 @@ export default function Battle({
           missionId={missionId}
           open={dialogueOpen}
           onClose={closeDialogue}
+          objectiveStatus={view.time > 0 ? missionStatus : undefined}
         />
       )}
       <div className="mobile-battle-hud">
@@ -889,13 +904,7 @@ export default function Battle({
             aria-label={`查看任务简报：${mission.goal}`}
           >
             <strong>{mission.title}</strong>
-            <span>
-              {mission.objective === 'capture'
-                ? `控制电台 ${view.campaign.captureProgress.toFixed(0)} / 15秒`
-                : mission.objective === 'defend'
-                  ? '守住己方指挥部'
-                  : '摧毁敌方指挥部'}
-            </span>
+            <span>{missionStatus}</span>
           </button>
         )}
       <header className="masthead">
@@ -995,11 +1004,7 @@ export default function Battle({
               onClick={openDialogue}
               aria-label="查看任务简报"
             >
-              {mission.objective === 'capture'
-                ? `电台 ${view.campaign.captureProgress.toFixed(0)} / 15秒`
-                : mission.objective === 'defend'
-                  ? '守住己方指挥部'
-                  : '摧毁敌方指挥部'}
+              {missionStatus}
             </button>
           ) : (
             <div className="clock-dots">
@@ -1264,7 +1269,10 @@ export default function Battle({
               <p>准备好了，就继续推进。</p>
               <p className="match-rules-note">
                 {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}{' '}
-                · 双方开局0点
+                ·{' '}
+                {mission
+                  ? `己方开局${mission.startingEnergy ?? 2}点 · 敌方开局0点`
+                  : '双方开局0点'}
               </p>
               {mission && <p>{mission.goal}</p>}
               {mission && (
@@ -1364,7 +1372,9 @@ export default function Battle({
               </span>
               <h2>
                 {view.result === 0
-                  ? '作战胜利'
+                  ? finalMission
+                    ? '战役通关'
+                    : '作战胜利'
                   : view.result === 1
                     ? '防线失守'
                     : '双方平局'}
@@ -1380,6 +1390,13 @@ export default function Battle({
                       ? '调整部署，下一次夺回前线。'
                       : '双方坚守阵地，再来一局。'}
               </p>
+              {mission && view.result === 0 && (
+                <p className="match-rules-note">
+                  {finalMission
+                    ? '断线之地 · 最终任务完成。战役档案已保存，可返回查看结局或重玩任务。'
+                    : '本关已完成，进度已保存。下一关任务与编队已解锁。'}
+                </p>
+              )}
               <div className="result-stats">
                 <span>
                   <b>{p.kills}</b>击退单位
@@ -1393,16 +1410,20 @@ export default function Battle({
               </div>
               {mission && view.result === 0 && onNextMission && (
                 <button className="primary-button" onClick={onNextMission}>
-                  进入下一章
+                  进入下一关
                   <ArrowRight size={17} />
                 </button>
               )}
               <button className="primary-button" onClick={reset}>
-                {mission ? '重打本章' : '再来一局'}
+                {mission ? '重玩本关' : '再来一局'}
                 <RotateCcw size={17} />
               </button>
               <button className="text-button mobile-exit" onClick={onExit}>
-                {mission ? '返回战役' : '返回整备'}
+                {mission
+                  ? finalMission && view.result === 0
+                    ? '查看战役档案'
+                    : '返回战役'
+                  : '返回整备'}
               </button>
             </div>
           </div>
@@ -1429,8 +1450,8 @@ export default function Battle({
           {enemy.lockoutIn > 0
             ? `敌方出牌封锁 ${Math.ceil(enemy.lockoutIn)}s`
             : enemy.jam > 0
-            ? `敌方抽牌受扰 ${Math.ceil(enemy.jam)}s`
-            : `敌军 ${view.units.filter((u) => u.side === 1 && u.hp > 0).length} 个单位`}
+              ? `敌方抽牌受扰 ${Math.ceil(enemy.jam)}s`
+              : `敌军 ${view.units.filter((u) => u.side === 1 && u.hp > 0).length} 个单位`}
         </span>
       </div>
       <div className="map-strip">
@@ -1668,11 +1689,11 @@ export default function Battle({
                     ? '拖到己方可见地面建造，完成前无法使用'
                     : card.airdrop
                       ? '拖到战场指定伞降落点'
-                    : card.type === 'unit'
-                      ? '拖出手牌区松手，从己方基地入场'
-                    : card.targetGround
-                      ? '拖出手牌区，以松手位置为目标'
-                      : '拖出手牌区松手使用'}
+                      : card.type === 'unit'
+                        ? '拖出手牌区松手，从己方基地入场'
+                        : card.targetGround
+                          ? '拖出手牌区，以松手位置为目标'
+                          : '拖出手牌区松手使用'}
                 </span>
               </>
             ) : (
@@ -1861,8 +1882,8 @@ export default function Battle({
                         {p.lockoutIn > 0
                           ? `禁出 ${Math.ceil(p.lockoutIn)}s`
                           : c.readyIn > 0
-                          ? `整备 ${Math.ceil(c.readyIn)}s`
-                          : '返航 · 补给费用'}
+                            ? `整备 ${Math.ceil(c.readyIn)}s`
+                            : '返航 · 补给费用'}
                       </span>
                     )}
                   </button>
@@ -1872,7 +1893,11 @@ export default function Battle({
                 <div className="empty-hand">
                   <Layers3 size={30} />
                   <p>手牌已用尽</p>
-                  <span>{p.deckCount ? '点击牌堆，消耗 2 点抽牌' : '牌库已耗尽，继续指挥场上部队'}</span>
+                  <span>
+                    {p.deckCount
+                      ? '点击牌堆，消耗 2 点抽牌'
+                      : '牌库已耗尽，继续指挥场上部队'}
+                  </span>
                 </div>
               )}
             </div>
@@ -1882,7 +1907,11 @@ export default function Battle({
           className={`deck-pile ${p.jam > 0 ? 'draw-locked' : ''}`}
           onClick={drawCard}
           disabled={!active}
-          aria-label={p.jam > 0 ? `禁止抽牌，还需 ${Math.ceil(p.jam)} 秒，点击查看原因` : '消耗 2 点指挥点抽一张牌；无法抽牌时点击查看原因'}
+          aria-label={
+            p.jam > 0
+              ? `禁止抽牌，还需 ${Math.ceil(p.jam)} 秒，点击查看原因`
+              : '消耗 2 点指挥点抽一张牌；无法抽牌时点击查看原因'
+          }
         >
           <img
             className="deck-card-back"
@@ -1890,7 +1919,13 @@ export default function Battle({
             alt="牌堆"
             draggable={false}
           />
-          <span className="deck-label">{p.jam > 0 ? '禁止抽牌' : p.deckCount ? '抽牌 · 2 点' : '牌库已耗尽'}</span>
+          <span className="deck-label">
+            {p.jam > 0
+              ? '禁止抽牌'
+              : p.deckCount
+                ? '抽牌 · 2 点'
+                : '牌库已耗尽'}
+          </span>
           <strong>
             {p.deckCount}
             <small> 张</small>
@@ -1899,12 +1934,12 @@ export default function Battle({
             {p.deckCount === 0
               ? '用过的牌不会自动洗回'
               : p.jam > 0
-              ? `通讯受扰 ${Math.ceil(p.jam)}s · 可点击`
-              : p.drawIn > 0
-                ? `${Math.ceil(p.drawIn)}s 冷却`
-                : p.hand.length >= 6
-                  ? '手牌已满'
-                  : '点击抽牌 / R'}
+                ? `通讯受扰 ${Math.ceil(p.jam)}s · 可点击`
+                : p.drawIn > 0
+                  ? `${Math.ceil(p.drawIn)}s 冷却`
+                  : p.hand.length >= 6
+                    ? '手牌已满'
+                    : '点击抽牌 / R'}
           </span>
           <div className="draw-progress">
             <i style={{ width: `${(1 - p.drawIn / DRAW_TIME) * 100}%` }} />
@@ -1932,12 +1967,12 @@ export default function Battle({
                 {p.lockoutIn > 0
                   ? `禁出 ${Math.ceil(p.lockoutIn)}s`
                   : h.readyIn > 0
-                  ? `整备 ${Math.ceil(h.readyIn)}s`
-                  : p.energy < h.cost
-                    ? '指挥点不足'
-                    : draggedCard.outside
-                      ? '松手使用'
-                      : '拖出手牌区使用'}
+                    ? `整备 ${Math.ceil(h.readyIn)}s`
+                    : p.energy < h.cost
+                      ? '指挥点不足'
+                      : draggedCard.outside
+                        ? '松手使用'
+                        : '拖出手牌区使用'}
               </span>
             </div>,
             document.body,
@@ -1945,7 +1980,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v193
+          GREYLINE <i /> 林间前线 · v194
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -1975,7 +2010,9 @@ export default function Battle({
             {panel === 'card'
               ? inspectionCard?.tag
               : panel === 'deck'
-                ? `${playerDeck.length} 张自选牌库 · 双方独立抽牌 · 牌库耗尽后不再自动补充。`
+                ? mission
+                  ? `${missionDeckName(mission.id)} · ${playerDeck.length} 张任务借用卡 · 牌库耗尽后不再自动补充。`
+                  : `${playerDeck.length} 张自选牌库 · 双方独立抽牌 · 牌库耗尽后不再自动补充。`
                 : '灰线 / 林间前线 · 单线即时卡牌对战'}
           </DialogDescription>
           {panel === 'card' && inspectionCard ? (

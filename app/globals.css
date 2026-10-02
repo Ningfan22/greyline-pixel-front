@@ -6289,3 +6289,136 @@ body:has(.game-shell.touch-battle) {
   letter-spacing: 2px;
   pointer-events: none;
 }
+
+/* Reserve the hand console before sizing the desktop battlefield. Its full
+   canvas rectangle remains visible and maps directly to pointer coordinates. */
+.game-shell:not(.touch-battle) {
+  --battle-console-height: 246px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  padding-bottom: var(--battle-console-height);
+  overflow: hidden;
+}
+.game-shell:not(.touch-battle) > .masthead,
+.game-shell:not(.touch-battle) > .match-bar,
+.game-shell:not(.touch-battle) > .battle-ticker,
+.game-shell:not(.touch-battle) > .map-strip,
+.game-shell:not(.touch-battle) > .orders-bar,
+.game-shell:not(.touch-battle) > .casualty-readout,
+.game-shell:not(.touch-battle) > footer {
+  flex-shrink: 0;
+}
+.game-shell:not(.touch-battle) > .masthead {
+  height: 72px;
+}
+.game-shell:not(.touch-battle) > .match-bar {
+  height: 84px;
+}
+.game-shell:not(.touch-battle) > .battlefield {
+  flex: 1 1 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+}
+.game-shell:not(.touch-battle) > .battle-ticker {
+  height: 32px;
+}
+.game-shell:not(.touch-battle) > .map-strip {
+  padding: 5px 0;
+}
+.game-shell:not(.touch-battle) > .orders-bar {
+  min-height: 40px;
+  padding-block: 3px;
+}
+.game-shell:not(.touch-battle) > .casualty-readout {
+  padding-block: 2px;
+}
+.game-shell:not(.touch-battle) > footer {
+  padding-block: 7px;
+}
+.game-shell:not(.touch-battle) > .command {
+  height: var(--battle-console-height);
+}
+.game-shell:not(.touch-battle) .hand-and-deck,
+.game-shell:not(.touch-battle) .hand-cards {
+  height: 194px;
+}
+.game-shell:not(.touch-battle) .pause-card,
+.game-shell:not(.touch-battle) .result-card {
+  width: min(570px, calc(100% - 24px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+@media (max-height: 800px) and (min-width: 901px) {
+  .game-shell:not(.touch-battle) {
+    --battle-console-height: 220px;
+  }
+  .game-shell:not(.touch-battle) > .masthead {
+    height: 54px;
+  }
+  .game-shell:not(.touch-battle) > .match-bar {
+    height: 66px;
+  }
+  .game-shell:not(.touch-battle) > .battle-ticker {
+    height: 28px;
+  }
+  .game-shell:not(.touch-battle) > .orders-bar {
+    min-height: 34px;
+    padding-block: 1px;
+  }
+  .game-shell:not(.touch-battle) > footer {
+    display: none;
+  }
+  .game-shell:not(.touch-battle) > .command {
+    padding-block: 10px;
+  }
+  .game-shell:not(.touch-battle) .hand-and-deck,
+  .game-shell:not(.touch-battle) .hand-cards {
+    height: 164px;
+  }
+  .game-shell:not(.touch-battle) .tactical-card {
+    width: 124px;
+    min-width: 124px;
+    max-width: 124px;
+  }
+  .game-shell:not(.touch-battle) .command-panel .selection-detail {
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+}
+@media (max-width: 900px) {
+  .game-shell:not(.touch-battle) {
+    --battle-console-height: 300px;
+  }
+  .game-shell:not(.touch-battle) > .masthead {
+    height: 60px;
+  }
+  .game-shell:not(.touch-battle) > .match-bar {
+    height: 70px;
+  }
+  .game-shell:not(.touch-battle) > footer {
+    display: none;
+  }
+  .game-shell:not(.touch-battle) .hand-and-deck,
+  .game-shell:not(.touch-battle) .hand-cards {
+    height: 150px;
+  }
+}
+.game-shell:not(.touch-battle) > .battlefield:has(> .pause-scrim),
+.game-shell:not(.touch-battle) > .battlefield:has(> .start-scrim) {
+  overflow: visible;
+  z-index: 45;
+}
+.game-shell:not(.touch-battle) .pause-scrim,
+.game-shell:not(.touch-battle) .start-scrim {
+  position: fixed;
+  inset: 0;
+}
+.game-shell:not(.touch-battle) .start-scrim .launch {
+  width: min(460px, calc(100vw - 24px));
+  min-width: 0;
+}

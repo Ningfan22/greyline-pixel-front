@@ -14,6 +14,7 @@ import {
   isMissionId,
   advanceCampaign,
   campaignResult,
+  missionDeck,
 } from '../game/campaign.ts';
 
 const out = 'output/v22-story-qa';
@@ -52,14 +53,19 @@ function bare(m) {
     captureProgress: 0,
     waveIndex: m.waves.length,
     hintIndex: m.phaseHints.length,
+    reinforcementIndex: m.reinforcements?.length ?? 0,
     initialCamera: m.camera,
   };
   return s;
 }
 check(
-  'six sequential chapters preserve saved IDs and all original three deployments, deadlines and wave timings',
+  'twenty sequential chapters preserve all six saved IDs and the original three deployments, deadlines and wave timings',
   () => {
-    assert.equal(MISSIONS.length, 6);
+    assert.equal(MISSIONS.length, 20);
+    assert.deepEqual(MISSIONS.slice(0, 6).map((m) => m.id), [
+      'salt-road', 'ridge-relay', 'river-counterattack',
+      'canopy-signal', 'last-convoy', 'silent-terminal',
+    ]);
     assert.deepEqual(
       MISSIONS.slice(0, 3).map((m) => m.id),
       ['salt-road', 'ridge-relay', 'river-counterattack'],
@@ -126,13 +132,14 @@ for (const m of MISSIONS)
   check(
     `${m.id}: deterministic initialization and 20 real seconds with normal AI, economy and finite terrain`,
     () => {
-      const s = createCampaignGame(22022, DECK, m.id, 'veteran');
-      assert.deepEqual(s, createCampaignGame(22022, DECK, m.id, 'veteran'));
+      const deck = missionDeck(m.id);
+      const s = createCampaignGame(22022, deck, m.id, 'veteran');
+      assert.deepEqual(s, createCampaignGame(22022, deck, m.id, 'veteran'));
       assert.equal(s.status, 'ready');
       assert.equal(s.mapId, m.mapId);
       assert.deepEqual(
         s.players.map((p) => p.energy),
-        [2, 2],
+        [m.startingEnergy ?? 2, 0],
       );
       const expected = m.opening.reduce(
         (n, d) => n + (CARDS[d.id].members ?? 1),
@@ -207,6 +214,7 @@ for (const m of MISSIONS)
       startGame(s);
       s.aiIn = 1e9;
       s.campaign.waveIndex = m.waves.length;
+      s.campaign.reinforcementIndex = m.reinforcements?.length ?? 0;
       s.time = m.phaseHints[0].at - DT / 2;
       s.status = 'paused';
       const energy = s.players.map((p) => p.energy),
@@ -251,7 +259,7 @@ for (const m of MISSIONS)
       return { hints: m.phaseHints.length };
     },
   );
-for (const m of MISSIONS.slice(3))
+for (const m of MISSIONS.slice(3, 6))
   check(
     `${m.id}: new chapter victory, defeat and announced reinforcement rules use the real campaign APIs`,
     () => {

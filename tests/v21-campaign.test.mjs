@@ -25,6 +25,9 @@ import {
 
 const out = path.resolve('output/v21-campaign-qa');
 fs.mkdirSync(out, { recursive: true });
+// Preserve the original scenarios' contracts; the full four-act campaign has
+// separate objective, reinforcement and initialization coverage in v194.
+const LEGACY_MISSIONS = MISSIONS.slice(0, 6);
 const results = [],
   failures = [],
   DT = 1 / 30;
@@ -68,7 +71,7 @@ function goalState(id) {
 function advance(s, seconds) {
   for (let i = 0; i < Math.round(seconds / DT); i++) tick(s, DT);
 }
-for (const m of MISSIONS) {
+for (const m of LEGACY_MISSIONS) {
   check(
     `${m.id}: creates repeatably with authored map, real completed earth and armed mines`,
     () => {
@@ -227,7 +230,7 @@ check(
     };
   },
 );
-for (const m of MISSIONS)
+for (const m of LEGACY_MISSIONS)
   check(
     `${m.id}: timed waves spawn once and pause/ready never advances them`,
     () => {
@@ -276,13 +279,14 @@ for (const m of MISSIONS)
       };
     },
   );
-for (const m of MISSIONS)
+for (const m of LEGACY_MISSIONS)
   check(
     `${m.id}: reinforcements played by either side start at their actual HQ`,
     () => {
       const s = fresh(m.id);
       startGame(s);
       for (const side of [0, 1]) {
+        s.players[side].energy = 2;
         const card = { uid: ++s.uid, id: 'militia' };
         s.players[side].hand = [card];
         const before = s.units.length;
@@ -437,7 +441,7 @@ check(
     };
   },
 );
-for (const m of MISSIONS)
+for (const m of LEGACY_MISSIONS)
   check(
     `${m.id}: official chapter parameters operate for 30 seconds with real economy/AI`,
     () => {

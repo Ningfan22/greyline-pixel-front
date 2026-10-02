@@ -7,7 +7,14 @@ import DeckBuilder from './deck-builder';
 import HomeMenu, { type LobbyPage } from './home-menu';
 import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
-import { isMissionId, MISSIONS, type MissionId } from '@/game/campaign';
+import {
+  isMissionId,
+  MISSIONS,
+  missionById,
+  missionDeck,
+  missionUnlocked,
+  type MissionId,
+} from '@/game/campaign';
 import {
   loadCollection,
   validDeckWithCollection,
@@ -97,17 +104,22 @@ export default function Home() {
     return true;
   };
   const begin = (chosen: CardId[], missionId?: MissionId) => {
-    if (!collection || !validDeckWithCollection(chosen, collection)) return;
+    if (!loaded || !collection) return;
+    if (missionId) {
+      if (!missionUnlocked(missionId, completed)) return;
+    } else if (!validDeckWithCollection(chosen, collection)) return;
+    const mission = missionId ? missionById(missionId) : null;
+    const battleDeck = missionId ? missionDeck(missionId) : chosen;
     void getBattleAudio().unlock();
     const seed = Date.now();
     setMatch({
       seed,
-      player: [...chosen],
+      player: [...battleDeck],
       ai: chooseAiDeck(seed),
-      mapId,
+      mapId: mission?.mapId ?? mapId,
       missionId,
       difficulty,
-      night,
+      night: mission ? !!mission.night : night,
     });
     setPage('battle');
   };
@@ -213,7 +225,7 @@ export default function Home() {
           }
           onDeleteDeck={(id) =>
             setDeckStore((prev) =>
-              prev ? deleteDeckSlot(prev, id) ?? prev : prev,
+              prev ? (deleteDeckSlot(prev, id) ?? prev) : prev,
             )
           }
           onRenameDeck={(name) =>
