@@ -2,7 +2,7 @@ import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
 import { VEHICLE_SCALE } from './vehicle-geometry';
 import { paintedTankWreckGeometry } from './tank-wreck-geometry';
-import { TOW_WRECK_CROP, TOW_WRECK_SIZE } from './tow-vehicle-art';
+import { VEHICLE_ART_V197, isV197Vehicle } from './vehicle-art-v197';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
@@ -27,12 +27,13 @@ export type WreckKind =
   | 'bomber'
   | 'pickup'
   | 'tow_ifv'
+  | 'mlrs'
   | 'mortar_carrier'
   | 'recovery_vehicle'
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'tow';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197';
   source: Rect;
   width: number;
   height: number;
@@ -80,21 +81,32 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     9.5,
   ),
   tow_ifv: {
-    atlas: 'tow',
-    source: [...TOW_WRECK_CROP],
-    width: TOW_WRECK_SIZE[0],
-    height: TOW_WRECK_SIZE[1],
+    atlas: 'v197',
+    source: [...VEHICLE_ART_V197.tow_ifv.wreckCrop],
+    width: VEHICLE_ART_V197.tow_ifv.wreckSize[0],
+    height: VEHICLE_ART_V197.tow_ifv.wreckSize[1],
     parts: [
-      [.05, .63, .76, .06],
-      [.17, .79, .5, .14],
-      [.15, .96, .67, .028],
-      [.03, .49, .19, .15],
-      [.45, .54, .145, .095],
-      [.8, .61, .105, .07],
-      [.43, .285, .08, .028],
+      [.05, .54, .76, .075],
+      [.14, .77, .6, .15],
+      [.16, .94, .6, .025],
+      [.04, .44, .23, .15],
+      [.76, .5, .12, .08],
+      [.42, .13, .075, .025],
     ],
-    support: [.1, .87, 1],
-    spriteOffset: 3,
+    support: [.07, .9, 1],
+    spriteOffset: 0,
+  },
+  mlrs: {
+    atlas: 'v197',
+    source: [...VEHICLE_ART_V197.mlrs.wreckCrop],
+    width: VEHICLE_ART_V197.mlrs.wreckSize[0],
+    height: VEHICLE_ART_V197.mlrs.wreckSize[1],
+    parts: [
+      [.04, .61, .75, .07], [.13, .8, .61, .14], [.16, .94, .64, .025],
+      [.71, .5, .095, .08], [.19, .34, .11, .12],
+      [.39, .23, .12, .12], [.69, .135, .035, .12],
+    ],
+    support: [.07, .93, 1], spriteOffset: 0,
   },
   mortar_carrier: shape(
     'support',
@@ -156,20 +168,17 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     [0.075, 0.558, 0.89],
     44.92,
   ),
-  light_tank: shape(
-    'ground',
-    [17, 159, 413, 193],
-    220,
-    [
-      [0.056, 0.699, 0.6, 0.223],
-      [0.063, 0.482, 0.194, 0.207],
-      [0.252, 0.549, 0.225, 0.187],
-      [0.477, 0.554, 0.186, 0.171],
-      [0.264, 0.192, 0.281, 0.192],
-      [0.731, 0.855, 0.109, 0.073],
+  light_tank: {
+    atlas: 'v197',
+    source: [...VEHICLE_ART_V197.light_tank.wreckCrop],
+    width: VEHICLE_ART_V197.light_tank.wreckSize[0],
+    height: VEHICLE_ART_V197.light_tank.wreckSize[1],
+    parts: [
+      [.04, .56, .79, .07], [.15, .76, .54, .16], [.15, .94, .55, .027],
+      [.025, .43, .19, .15], [.385, .28, .135, .1], [.695, .385, .12, .06],
     ],
-    [0.056, 0.656, 0.959],
-  ),
+    support: [.07, .91, 1], spriteOffset: 3,
+  },
   tank: shape(
     'ground',
     [452, 160, 421, 191],
@@ -414,6 +423,7 @@ export function wreckKind(id: CardId): WreckKind {
 }
 export function wreckGeometry(id: CardId,cause: 'bullet'|'blast'|'burn'='bullet') {
   const kind=wreckKind(id);
+  if (isV197Vehicle(kind)) return WRECKS[kind];
   return paintedTankWreckGeometry(kind,cause) ?? WRECKS[kind];
 }
 type Placement = {

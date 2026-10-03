@@ -189,7 +189,7 @@ for (const side of [0, 1]) {
     const primary = total(tow), secondary = total(tow, 'secondary');
     const observed = shotsSeen(s, tow);
     run(s, 2.1, observed.capture);
-    assert.equal(primary, 8); assert.equal(secondary, 1000);
+    assert.equal(primary, 8); assert.equal(secondary, 500);
     assert.equal(tow.shots, 0, 'missiles cannot be wasted against riflemen');
     assert.equal(total(tow), primary);
     assert(tow.secondaryShots > 0, 'the vehicle MG must cover beyond personal-sidearm range');
@@ -215,7 +215,7 @@ for (const side of [0, 1]) {
     });
     assert.equal(times.length, 2, 'the vehicle must actually engage visible armour');
     assert(times[1] - times[0] >= 7.5 - DT);
-    assert.equal(total(tow), 6); assert.equal(total(tow, 'secondary'), 1000);
+    assert.equal(total(tow), 6); assert.equal(total(tow, 'secondary'), 500);
     assert.equal(tow.secondaryShots, 0, 'the MG cannot consume its pool by firing on a tank');
     assert.equal(observed.projectiles.size, 2);
     assert([...observed.projectiles.values()].every(p => p.ammunition === 'rocket' && p.damage === 96 && p.targetUid === target.uid));
@@ -231,7 +231,7 @@ test('the rifle tuning applies to escorts without stripping machine-gun belts, s
   }
   for (const [id, member, expected] of [['machinegun', 0, 300], ['lmg_team', 0, 240],
     ['heavy_mg', 0, 450], ['sniper', 0, 30], ['sniper_team', 0, 30], ['rocket', 0, 6],
-    ['mortar', 0, 30], ['tank', 0, 36]]) {
+    ['mortar', 0, 30], ['tank', 0, 12]]) {
     const p = ammoProfile({ id, member }).primary;
     assert.equal(p.mag + p.reserve, expected, `${id} is not an ordinary rifle load`);
   }

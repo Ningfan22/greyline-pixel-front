@@ -197,6 +197,10 @@ for (const side of [0, 1]) {
     foes.forEach((u) => {
       u.squadOrder = 'watch';
       u.squadOrderX = u.x;
+      // Isolate escort geometry from random deaths of the leading rifleman
+      // during this short observation window. Friendly fire and both sides'
+      // normal health stay real; combat survivability is covered separately.
+      u.cooldown = u.secondaryCooldown = 1e9;
     });
     refreshVision(s);
     advance(s, 10);

@@ -1,11 +1,23 @@
 import type { GameState, Side, Unit } from './engine';
 import { CARDS } from './cards';
 import { nearUnits } from './spatial';
+import { ammunition } from './ballistics';
+import { stanceTransitionActive } from './infantry-action-timing';
+import { crouchMotionActive } from './crouch-locomotion';
+import { proneMotionActive } from './prone-locomotion';
 
 export const AMBUSH_SETUP = 3;
 export const AMBUSH_REVEAL = 8;
 export const AMBUSH_FIRE_RANGE = 300;
 export const GUIDE_RADIUS = 220;
+export const ANTI_TANK_SETUP = 1.4;
+export const ANTI_TANK_REVEAL = 4;
+
+/** Rifle guards stay visible: only the actual ground rocket operators conceal themselves. */
+export function isAntiTankOperator(u: Pick<Unit, 'id' | 'member'>) {
+  return ['antiarmor', 'javelin', 'airborne_at', 'rocket'].includes(u.id) &&
+    ammunition(u.id, u.member) === 'rocket';
+}
 
 /** Touchdown restores each card's own ground role, not a shared super-sprint. */
 export function finishInfantryInsertion(u: Unit, time: number) {
@@ -34,6 +46,18 @@ export function canPrepareAmbush(u: Unit, time: number) {
 
 export function ambushConcealed(u: Unit, time: number) {
   return canPrepareAmbush(u, time) && (u.camouflageFor ?? 0) >= AMBUSH_SETUP;
+}
+
+export function canPrepareAntiTank(u: Unit, time: number) {
+  return isAntiTankOperator(u) && available(u) &&
+    !stanceTransitionActive(u, time) && !crouchMotionActive(u) && !proneMotionActive(u) &&
+    ['prone', 'crouch', 'hunker'].includes(u.pose) && u.suppression < 40 &&
+    u.fire <= 0 && u.secondaryFire <= 0 && (u.fragThrow ?? 0) <= 0 &&
+    time >= (u.antiTankRevealedUntil ?? 0);
+}
+
+export function antiTankConcealed(u: Unit, time: number) {
+  return canPrepareAntiTank(u, time) && (u.antiTankConcealFor ?? 0) >= ANTI_TANK_SETUP;
 }
 
 export function pathfinderReady(s: GameState, u: Unit) {

@@ -28,7 +28,7 @@ import { wreckVariants } from './wreck-variants';
 import { paintedTankWrecks } from './tank-wreck-art';
 import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
-import { towMissileCarrierFrame } from './tow-vehicle-art';
+import { V197_VEHICLE_IDS, vehicleAssetV197, vehicleFrameV197 } from './vehicle-art-v197';
 import { loadV16Art } from './art-v16';
 import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
@@ -337,7 +337,6 @@ const VEHICLE_TINTS: Record<string, [number, number, number]> = {
   mine_clearer: [0.95, 0.88, 0.66], // desert mine-plough
   aa_gun: [0.7, 0.74, 0.68], // dark air-defence
   sam_vehicle: [0.66, 0.7, 0.78], // slate blue
-  mlrs: [0.74, 0.7, 0.58], // olive-drab rocket launcher
   scout_car: [0.82, 0.86, 0.8], // pale recon grey-green
   // Helicopter-family variants (share aircraft atlases)
   rocket_heli: [0.82, 0.78, 0.62], // desert attack
@@ -403,7 +402,7 @@ function stableTracks(list: HTMLCanvasElement[], height: number) {
     return out;
   });
 }
-function buildEmplacements(img: HTMLImageElement) {
+export function buildEmplacements(img: HTMLImageElement) {
   const source = surface(img.width, img.height),
     ctx = source.getContext('2d')!;
   ctx.drawImage(img, 0, 0);
@@ -472,22 +471,26 @@ function buildEmplacements(img: HTMLImageElement) {
             data.data[to + 3] = 255;
           }
       ic.putImageData(data, 0, 0);
-      const base = croppedFrame(
-        isolated,
-        [0, 0, isolated.width, isolated.height],
-        80,
-        48,
-      );
+      // Sample the original painted gun directly at its final world size.
+      // The former 80x48 intermediary erased detail before a second enlargement.
+      const [worldWidth, worldHeight] = [[190, 100], [190, 95], [150, 105]][index];
+      const base = surface(worldWidth, worldHeight), bc = base.getContext('2d')!;
+      bc.imageSmoothingEnabled = false;
+      const scale = Math.min((worldWidth - 2) / isolated.width, (worldHeight - 2) / isolated.height);
+      const drawWidth = isolated.width * scale, drawHeight = isolated.height * scale;
+      bc.drawImage(isolated, 0, 0, isolated.width, isolated.height,
+        (worldWidth - drawWidth) / 2, worldHeight - drawHeight, drawWidth, drawHeight);
       const frames = [0, 1, 2, 3].map((frame) => {
-        const out = surface(80, 48),
+        const out = surface(worldWidth, worldHeight),
           c = out.getContext('2d')!;
         c.imageSmoothingEnabled = false;
         c.drawImage(base, 0, 0);
         // Recoil moves the barrel layer; wheels and stabilizers keep their anchor.
-        const shift = frame === 1 ? 2 : frame === 2 ? 1 : 0;
+        const shift = frame === 1 ? 4 : frame === 2 ? 2 : 0;
         if (shift) {
-          c.clearRect(40, 0, 40, 35);
-          c.drawImage(base, 40, 0, 40, 35, 40 - shift, 0, 40, 35);
+          const [x, y, w, h] = [[98, 37, 92, 28], [112, 54, 78, 15], [70, 0, 65, 73]][index];
+          c.clearRect(x, y, w, h);
+          c.drawImage(base, x, y, w, h, x - shift, y, w, h);
         }
         return out;
       });
@@ -632,8 +635,10 @@ export function loadArt() {
     loadComebackArtV18(),
     Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
     loadImage('/art/v195-logistics/ammo-crate.png'),
-    loadImage('/art/v196-tow/tow-sprite.webp'),
-    loadImage('/art/v196-tow/tow-wreck.webp'),
+    Promise.all(V197_VEHICLE_IDS.map(async id => ({ id,
+      sprite: await loadImage(vehicleAssetV197(id, 'sprite')),
+      wreck: await loadImage(vehicleAssetV197(id, 'wreck')),
+    }))),
   ]).then(
     ([
       [
@@ -690,8 +695,7 @@ export function loadArt() {
       comeback,
       generatedSpriteImages,
       ammoCrate,
-      towSprite,
-      towWreck,
+      v197Vehicles,
     ]) => {
       const background = surface(640, 214),
         ctx = background.getContext('2d')!;
@@ -765,7 +769,8 @@ export function loadArt() {
         supportVehicles,
         extra.fpvSheet,
         glider[6],
-        towWreck,
+        Object.fromEntries(v197Vehicles.map(({ id, wreck }) => [id, wreck])) as
+          Record<(typeof V197_VEHICLE_IDS)[number], HTMLImageElement>,
       );
       return {
         ammoCrate,
@@ -784,11 +789,16 @@ export function loadArt() {
         grenadeLauncher: grenadeLauncher.cycle,
         glider,
         wrecks: wreckFramesMap,
-        wreckVariants: {...wreckVariants(wreckFramesMap,paintedTankWrecks(tankWreckSheet)),
+        wreckVariants: {...wreckVariants(wreckFramesMap,{
+          ...paintedTankWrecks(tankWreckSheet),
+          ...Object.fromEntries(V197_VEHICLE_IDS.map(id => [id, {
+            bullet: [wreckFramesMap[id]], blast: [wreckFramesMap[id]], burn: [wreckFramesMap[id]],
+          }])),
+        }),
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
-          tow_ifv: [towMissileCarrierFrame(towSprite)],
+          ...Object.fromEntries(v197Vehicles.map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite)]])),
         },
         background,
         mapBackgrounds: extra.mapBackgrounds,

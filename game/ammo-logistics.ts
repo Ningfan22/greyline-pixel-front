@@ -2,6 +2,8 @@ import { CARDS, modelOf } from './cards';
 import { ammunition, magazine, type MagazineSpec } from './ballistics';
 import { isPrecisionObserver } from './precision-team';
 import { isImmobilized } from './vehicle-damage';
+import { hasVehicleFuel, vehicleFuelRatio, vehicleOutOfFuel,
+  VEHICLE_FUEL_CAPACITY, VEHICLE_FUEL_RANGE, VEHICLE_FUEL_REFILL_RATE } from './vehicle-logistics';
 import type { GameState, Side, Unit } from './engine';
 
 export interface AmmoCrate {
@@ -31,7 +33,10 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   let primary = magazine(u.id, u.member);
   if (c.air || c.internal || isPrecisionObserver(u) || !(c.damage! > 0)) primary = null;
   else if (!primary) {
-    const count = u.id === 'tow_ifv' ? 8 : kind === 'cannon' || kind === 'ap' ? 36
+    const count = u.id === 'tow_ifv' ? 8
+      : kind === 'cannon' && modelOf(u.id) === 'tank'
+        ? u.id === 'light_tank' ? 14 : u.id === 'heavy_tank' ? 10 : 12
+      : kind === 'cannon' || kind === 'ap' ? 36
       : kind === 'mortar' ? 30 : kind === 'rocket' ? (c.members ? 6 : 12)
       : kind === 'grenade' ? 24 : kind === 'autocannon' ? 240
       : kind === 'flame' ? 48 : kind === 'machinegun' ? 600 : 180;
@@ -39,7 +44,7 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   }
   const secondary = !c.air && u.id !== 'airborne_at' &&
     (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly) && primary
-    ? usesPersonalSidearm(u) ? { mag: 30, reserve: 90, reload: 2.5 } : { mag: 250, reserve: 750, reload: 4 }
+    ? usesPersonalSidearm(u) ? { mag: 30, reserve: 90, reload: 2.5 } : { mag: 250, reserve: 250, reload: 4 }
     : null;
   const profile = { primary, secondary };
   profiles.set(key, profile);
@@ -61,11 +66,15 @@ export function ammoRatio(u: Unit) {
   const rows = ammoSummary(u);
   return rows.length ? Math.min(...rows.map((row) => row.ratio)) : 1;
 }
+export function logisticsRatio(u: Unit) {
+  return Math.min(ammoRatio(u), vehicleFuelRatio(u));
+}
 export function initializeAmmo(u: Unit) {
   const { primary, secondary } = ammoProfile(u);
   if (u.ammo === undefined) { u.ammo = primary?.mag ?? -1; u.ammoReserve = primary?.reserve ?? 0; }
   if (secondary && u.secondaryAmmo === undefined) { u.secondaryAmmo = secondary.mag; u.secondaryAmmoReserve = secondary.reserve; }
   if (u.id === 'supply_team' && u.supplyStock === undefined) u.supplyStock = SUPPLY_CARRY;
+  if (hasVehicleFuel(u) && u.fuel === undefined) u.fuel = VEHICLE_FUEL_CAPACITY;
 }
 export function advanceSecondaryReload(u: Unit, time: number) {
   const spec = ammoProfile(u).secondary;
@@ -83,6 +92,7 @@ const living = (u: Unit) => u.hp > 0 && !u.wounded && !u.surrendered && !u.parac
 function sources(s: GameState, u: Unit): Source[] {
   const neededCosts = ammoSummary(u).filter(row => row.total < row.maxTotal)
     .map(row => roundCost(u, row.channel === 'secondary'));
+  if (hasVehicleFuel(u) && vehicleFuelRatio(u) < 1) neededCosts.push(1);
   const minimumCost = neededCosts.length ? Math.min(...neededCosts) : 1;
   const base = { x: u.side === 0 ? 110 : s.terrain.length - 110, radius: 140, base: true };
   return [base,
@@ -113,6 +123,30 @@ function refill(u: Unit, source: Source, dt: number) {
     if (u.ammo! > 0 && row.channel === 'primary') { u.reloadingUntil = 0; u.tacticalReload = false; }
     if (secondary && u.secondaryAmmo! > 0) u.secondaryReloadUntil = undefined;
   }
+  if (hasVehicleFuel(u) && vehicleFuelRatio(u) < 1) {
+    u.fuelSupplyProgress = (u.fuelSupplyProgress ?? 0) + dt * VEHICLE_FUEL_REFILL_RATE;
+    const stock = source.base ? Infinity : source.unit ? source.unit.supplyStock ?? SUPPLY_CARRY : source.crate!.stock;
+    const give = Math.min(VEHICLE_FUEL_CAPACITY - u.fuel!, Math.floor(u.fuelSupplyProgress), stock);
+    if (give > 0) {
+      u.fuel! += give;
+      u.fuelSupplyProgress -= give;
+      if (source.unit) source.unit.supplyStock = Math.max(0, stock - give);
+      if (source.crate) source.crate.stock = Math.max(0, stock - give);
+    }
+  }
+}
+
+/** Keep enough fuel to reach a usable rear source, even before the generic
+ * 30% warning. A nearly empty pack must not promise a safe refuelling stop. */
+function fuelNeedsReturn(u: Unit, available: Source[]) {
+  if (!hasVehicleFuel(u)) return false;
+  const dir = u.side === 0 ? 1 : -1;
+  const usefulRefill = Math.min(30, VEHICLE_FUEL_CAPACITY - (u.fuel ?? VEHICLE_FUEL_CAPACITY));
+  const rear = available.filter(p => (p.x - u.x) * dir <= p.radius &&
+    (p.base || (p.stock ?? 0) >= usefulRefill));
+  const distance = Math.min(...rear.map(p => Math.max(0, Math.abs(p.x - u.x) - p.radius)));
+  return vehicleFuelRatio(u) <= Math.max(AMMO_LOW_RATIO,
+    Math.min(0.95, distance / VEHICLE_FUEL_RANGE + 0.06));
 }
 
 /** Persistent retreat: a partial magazine or depleted crate cannot turn a unit around. */
@@ -123,7 +157,8 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   const needsStock = u.id === 'supply_team' && u.supplyStock! <= SUPPLY_CARRY * AMMO_LOW_RATIO;
   if (u.id === 'supply_team' && Math.abs(u.x - baseX) <= 140)
     u.supplyStock = Math.min(SUPPLY_CARRY, u.supplyStock! + dt * 80);
-  if (!u.resupplyState && (ammoRatio(u) <= AMMO_LOW_RATIO || needsStock)) {
+  let available = sources(s, u);
+  if (!u.resupplyState && (ammoRatio(u) <= AMMO_LOW_RATIO || fuelNeedsReturn(u, available) || needsStock)) {
     u.resupplyState = 'withdrawing'; u.resupplyReturnX = u.x;
     u.squadOrder = 'attack'; u.squadOrderX = undefined;
     u.squadOrderUntil = Infinity;
@@ -131,17 +166,19 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
     u.coverGoal = null; u.firingGoal = null; u.withdrawGoal = undefined;
     u.garrisonUid = undefined;
   }
-  let available = sources(s, u);
   const nearby = available.filter((p) => Math.abs(p.x - u.x) <= p.radius).sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
   if (nearby) refill(u, nearby, dt);
   if (!u.resupplyState) return null;
   // A later watch/escort click cannot strand a low-ammo man halfway home.
   u.squadOrder = 'attack'; u.squadOrderX = undefined; u.squadOrderUntil = Infinity;
   u.garrisonUid = undefined;
-  if (ammoRatio(u) >= 0.999 && (!needsStock && (u.id !== 'supply_team' || u.supplyStock! >= SUPPLY_CARRY - 0.1))) {
+  const fullySupplied = ammoRatio(u) >= 0.999 &&
+    (!hasVehicleFuel(u) || u.fuel! >= VEHICLE_FUEL_CAPACITY - 1e-7);
+  if (fullySupplied && (!needsStock && (u.id !== 'supply_team' || u.supplyStock! >= SUPPLY_CARRY - 0.1))) {
     u.resupplyState = undefined; u.resupplyGoal = undefined;
     u.tactic = 'advance'; u.squadOrder = 'attack'; u.decisionIn = 0;
     u.ammoSupplyProgress = 0; u.secondarySupplyProgress = 0;
+    u.fuelSupplyProgress = 0;
     return null;
   }
   available = sources(s, u);
@@ -150,7 +187,7 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   const source = (needsStock || u.id === 'supply_team' && u.supplyStock! < SUPPLY_CARRY - 0.1)
     ? available[0] : (behind.length ? behind : available).sort((a, b) => Math.max(0, Math.abs(a.x - u.x) - a.radius) - Math.max(0, Math.abs(b.x - u.x) - b.radius))[0];
   u.resupplyGoal = source.x;
-  const cannotMove = !!CARDS[u.id].static || isImmobilized(u);
+  const cannotMove = !!CARDS[u.id].static || isImmobilized(u) || vehicleOutOfFuel(u);
   u.resupplyState = Math.abs(u.x - source.x) <= source.radius ? 'supplying' : cannotMove ? 'waiting' : 'withdrawing';
   if (u.resupplyState === 'waiting') return null;
   return u.resupplyState === 'supplying' ? u.x : source.x;

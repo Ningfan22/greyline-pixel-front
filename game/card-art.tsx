@@ -5,6 +5,7 @@ import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
 import { rarityOf } from './collection';
+import { isV197Vehicle, vehicleAssetV197 } from './vehicle-art-v197';
 
 const ADDITIONAL_CARD_ART = new Set([
   'pickup',
@@ -14,7 +15,7 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPictureUrl(id: CardId) {
-  if (id === 'tow_ifv') return assetUrl('/art/v196-tow/tow-card.webp');
+  if (isV197Vehicle(id)) return assetUrl(vehicleAssetV197(id, 'card'));
   if (id === 'rapid_reinforcements' || id === 'escort_gunship' ||
       id === 'field_gun' || id === 'siege_gun' ||
       id === 'fort_bunker' || id === 'fort_machinegun' || id === 'fort_aa' ||

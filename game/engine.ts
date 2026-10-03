@@ -10,7 +10,7 @@ import { pickRepairVehicle, clearRepairAssignment, repairStation, atRepairContac
 import { damageVehicleTracks, advanceTrackRepair, isImmobilized, vehicleNeedsRepair } from './vehicle-damage';
 import { gliderLanding, prepareGlider, stepGlider, gliderDust, airborneTarget, type GliderFlight } from './glider';
 import { HEAVY_MG_SETUP, isHeavyGunner, heavyMGReady, machinegunBurst, lightMGBound } from './machinegun-team';
-import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady, finishInfantryInsertion } from './infantry-specialties';
+import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, landingGuide, pathfinderReady, finishInfantryInsertion, isAntiTankOperator, canPrepareAntiTank, ANTI_TANK_REVEAL } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
 import { isBattleTank, infantryConcentrations, tankTargetPriority, tankPurchaseBonus } from './tank-doctrine';
@@ -22,7 +22,8 @@ import { blastDuration } from './blast-animation';
 import { localUnitOrder, stepUnitControl } from './unit-control';
 import { heightfieldIntercept } from './terrain-ray';
 import { energyInterval } from './economy';
-import { ammoProfile, ammoRatio, initializeAmmo, advanceSecondaryReload, planAmmoResupply, usesPersonalSidearm, type AmmoCrate, AMMO_CRATE_STOCK, AMMO_CRATE_LIFE } from './ammo-logistics';
+import { ammoProfile, logisticsRatio, initializeAmmo, advanceSecondaryReload, planAmmoResupply, usesPersonalSidearm, type AmmoCrate, AMMO_CRATE_STOCK, AMMO_CRATE_LIFE } from './ammo-logistics';
+import { vehicleTravelX } from './vehicle-logistics';
 import {
   advanceCampaign,
   campaignResult,
@@ -161,10 +162,6 @@ export const DRAW_COST = 2,
 export const AIR_ALTITUDE = 232,
   DROP_HEIGHT = 26,
   CLIMB_HEIGHT = 28;
-/** v172: seconds of ineffective close-range fire before a unit breaks off to maneuver. */
-const STALEMATE_BREAK_S = 35;
-/** v172: a stalemated unit closes to this gap before resuming fire from the new angle. */
-const STALEMATE_CLOSE_GAP = 30;
 export interface HandCard {
   uid: number;
   id: CardId;
@@ -288,6 +285,9 @@ export interface Unit {
   secondaryReloadUntil?: number;
   ammoSupplyProgress?: number;
   secondarySupplyProgress?: number;
+  /** Driving fuel shares the supply indicator, never the ammunition stores. */
+  fuel?: number;
+  fuelSupplyProgress?: number;
   supplyStock?: number;
   resupplyState?: 'withdrawing' | 'supplying' | 'waiting';
   resupplyGoal?: number;
@@ -377,6 +377,8 @@ export interface Unit {
   stillFor?: number;
   ambushFor?: number;
   camouflageFor?: number;
+  antiTankConcealFor?: number;
+  antiTankRevealedUntil?: number;
   camouflageRevealedUntil?: number;
   rapidUntil?: number;
   smokeAssaultSpent?: boolean;
@@ -392,16 +394,6 @@ export interface Unit {
   breachShots?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
-  /** v172: stalemate detection — uid of the target tracked for ineffective fire. */
-  stalemateTargetUid?: number;
-  /** v172: last observed hp of the tracked stalemate target. */
-  stalemateTargetHp?: number;
-  /** v172: when the current no-damage streak against the tracked target began. */
-  stalemateSince?: number;
-  /** v172: unit x when the stalemate began, so a maneuver resets the clock. */
-  stalemateStartX?: number;
-  /** v172: until this time, contactSafeX uses the reduced stalemate close gap. */
-  stalemateCloseUntil?: number;
   /** A held firing post can sidestep its obstruction without becoming an attack. */
   firingWatchAnchorX?: number;
   /** Consecutive rounds stopped by terrain/scenery, rather than ordinary aim misses. */
@@ -430,6 +422,12 @@ export interface Unit {
   vehicleReverseReason?: 'damage' | 'close';
   /** v91.1: a mauled vehicle that has made its fallback bound and is holding the line. */
   vehicleReverseHeld?: boolean;
+  /** Last genuinely observed contact at the fallback line; brief sight loss is not an advance order. */
+  vehicleContactUntil?: number;
+  /** A real coax/sidearm engagement counts as combat even without a primary-weapon target. */
+  secondaryCombatUntil?: number;
+  minimumRangeThreatUid?: number;
+  minimumRangeHoldUntil?: number;
   withdrawGroup?: number;
   withdrawAssessAt?: number;
   withdrawPressureSince?: number;
@@ -2486,6 +2484,11 @@ function hitUnit(
     u.camouflageFor = 0;
     u.camouflageRevealedUntil = s.time + AMBUSH_REVEAL;
   }
+  if (actual > 0 && isAntiTankOperator(u)) {
+    u.antiTankConcealFor = 0;
+    u.antiTankRevealedUntil = s.time + ANTI_TANK_REVEAL;
+    s.visionIn = 0;
+  }
   // v109: blast hits that chunk a squad spray blood and equipment
   // fragments off the impact point — bullets poke, blasts shred.
   if (c.members && source === 'blast' && actual > u.maxHp * 0.08) {
@@ -2606,7 +2609,8 @@ function hitUnit(
 export function armorPenetrationTier(ammo: Ammunition, weapon?: Card): number {
   if (weapon?.infantryAbility === 'anti_materiel') return 1;
   if (ammo === 'ap' || ammo === 'cannon') return 3;
-  if (ammo === 'rocket') return 2;
+  if (ammo === 'rocket')
+    return weapon?.guided && ['javelin', 'tow_ifv', 'attack_drone'].includes(weapon.id) ? 3 : 2;
   if (ammo === 'autocannon' || ammo === 'drone') return 1;
   return 0;
 }
@@ -3203,7 +3207,7 @@ export function muzzleOffset(u: MuzzleBody) {
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleX;
   if (CARDS[u.id].emplacement)
-    return CARDS[u.id].emplacement === 'aa_gun' ? 45 : 90;
+    return CARDS[u.id].emplacement === 'aa_gun' ? 45 : 93;
   if (CARDS[u.id].airframe)
     return CARDS[u.id].airframe === 'rocket_heli'
       ? 72
@@ -3226,10 +3230,10 @@ export function muzzleHeight(u: MuzzleBody) {
   if (tank) return tank.muzzleY;
   if (CARDS[u.id].emplacement)
     return CARDS[u.id].emplacement === 'aa_gun'
-      ? 92
+      ? 99
       : CARDS[u.id].emplacement === 'at_gun'
-        ? 30
-        : 60;
+        ? 28
+        : 55.5;
   return CARDS[u.id].air
     ? 16
     : modelOf(u.id) === 'mortar'
@@ -4040,14 +4044,8 @@ function orderedWithdrawal(s: GameState, u: Unit) {
 export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   const dir = u.side === 0 ? 1 : -1;
   if (CARDS[u.id].air || (proposedX - u.x) * dir <= 0) return proposedX;
-  // v172: a stalemated unit (ineffective close-range fire against a dug-in
-  // target) closes the distance to gain a flatter trajectory that clears the
-  // terrain lip intercepting its shots. The reduced gap persists briefly so
-  // the unit is not pushed back when it stops to try firing from the new angle.
-  const stalemateClose = (u.stalemateCloseUntil ?? 0) > s.time;
-  const gap = stalemateClose
-    ? STALEMATE_CLOSE_GAP
-    : (u.firingCloseUntil ?? 0) > s.time
+  // Only a planned local firing position can reduce the ordinary contact gap.
+  const gap = (u.firingCloseUntil ?? 0) > s.time
       ? 56
     : CARDS[u.id].members
       ? 105
@@ -4490,6 +4488,7 @@ function effectiveHeavyCounter(s: GameState, friend: Unit, foe: Unit) {
   const weapon = weaponCard(friend),
     ammo = ammunition(friend.id, friend.member);
   return (
+    friend.ammo !== 0 &&
     ((CARDS[foe.id].air &&
       weapon.antiAir &&
       ammo !== 'rifle' &&
@@ -4594,13 +4593,10 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     u.withdrawUntil = s.time + 1.5;
     return;
   }
-  // v173: if the squad has been pinned in standby long enough, resume the
-  // advance instead of standing forever. Staying pinned hands the initiative
-  // to the enemy; the withdrawal logic re-evaluates on next contact, and AT
-  // support that has since closed distance will hold. Uses a standby-local
-  // timestamp because side-level vision keeps the heavy "seen" via a
-  // distant spotter even when this squad cannot engage it.
-  if (s.time - (u.withdrawStandbySince ?? s.time) > 30) {
+  // Lost contact eventually permits a probe. A still-visible tank covering
+  // this lane does not become safe merely because standby lasted 30 seconds.
+  if (!seen && (u.withdrawUnderFireUntil ?? 0) <= s.time &&
+      s.time - (u.withdrawStandbySince ?? s.time) > 30) {
     clear();
     return;
   }
@@ -4712,12 +4708,17 @@ function planVehicleReverse(s: GameState, u: Unit) {
   const dir = u.side === 0 ? 1 : -1;
   let threatDist = Infinity;
   let closeDist = Infinity;
+  let contactInRange = false;
   for (const v of s.units) {
-    if (v.side === u.side || !isCombatant(v) || CARDS[v.id].air ||
+    if (v.side === u.side || !visibleToSide(s, u.side, v)) continue;
+    if (!isCombatant(v) || CARDS[v.id].air ||
         v.rappelling || v.parachuting || v.glider) continue;
-    if (!visibleToSide(s, u.side, v)) continue;
     const d = Math.abs(v.x - u.x);
-    if (d > 700) continue;
+    const primaryMatch = !c.airOnly && (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle);
+    const reach = primaryMatch ? unitRange(s, u) : CARDS[v.id].members ? 420 : 0;
+    if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0 && d <= Math.max(360, reach))
+      contactInRange = true;
+    if (d > Math.max(700, reach)) continue;
     if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0)
       closeDist = Math.min(closeDist, d);
     const w = weaponCard(v);
@@ -4729,11 +4730,14 @@ function planVehicleReverse(s: GameState, u: Unit) {
     )
       threatDist = d;
   }
-  // A close enemy threatens the hull even when the vehicle is healthy.
-  // Separate entry / release distances prevent forward-reverse jitter.
-  const closeDanger = closeDist <= 220;
+  // Completing a reverse creates a firing line. Crossing the entry threshold
+  // is not evidence the contact has gone: otherwise the next tick drives back
+  // into it, particularly when only the coax can engage an infantry target.
+  const rushing = !localUnitOrder(s, u) && s.players[u.side].order === 'rush';
+  const closeDanger = closeDist <= 220 && !(rushing && u.hp >= u.maxHp * 0.55);
+  if (contactInRange) u.vehicleContactUntil = s.time + 3;
   if (u.vehicleReverseHeld && u.vehicleReverseReason === 'close' && !closeDanger) {
-    if (closeDist < 340) return;
+    if (contactInRange || s.time < (u.vehicleContactUntil ?? 0)) return;
     u.vehicleReverseHeld = false;
     u.vehicleReverseReason = undefined;
   }
@@ -4844,8 +4848,9 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const enemyPower = pressures.reduce((n, v) => n + v.power, 0);
   const unsupportedHeavy = pressures.find(
     ({ foe, power }) =>
-      power >= 8 &&
-      (CARDS[foe.id].armored || sustainedAirThreat(foe)) &&
+      // A slow HE gun can kill a rifleman in one shot despite modest average
+      // DPS. Armour the squad cannot penetrate still requires real AT cover.
+      ((CARDS[foe.id].armored && power > 0) || (sustainedAirThreat(foe) && power >= 8)) &&
       squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
       !friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
   );
@@ -4949,6 +4954,9 @@ function prepareInfantry(s: GameState, u: Unit, dt: number) {
     u.emplacementSetupUntil = s.time + Math.max(0, HEAVY_MG_SETUP - (u.stillFor ?? 0));
   if (u.id === 'ambush_squad')
     u.camouflageFor = canPrepareAmbush(u, s.time) ? (u.camouflageFor ?? 0) + dt : 0;
+  if (isAntiTankOperator(u))
+    u.antiTankConcealFor = settled && canPrepareAntiTank(u, s.time)
+      ? (u.antiTankConcealFor ?? 0) + dt : 0;
   u.ambushFor =
     settled && u.fire <= 0 && s.time - (u.lastCombatShotAt ?? -Infinity) > 0.3
       ? (u.ambushFor ?? 0) + dt
@@ -5495,6 +5503,7 @@ function fireCoax(s: GameState, u: Unit) {
       Math.abs(target.x - sx) / FLIGHT.machinegun.speed,
     );
   u.secondaryShots++;
+  u.secondaryCombatUntil = s.time + 2;
   u.secondaryMuzzleX = sx;
   u.secondaryMuzzleY = sy;
   u.secondaryAngle = Math.atan2(
@@ -5510,6 +5519,7 @@ function fireCoax(s: GameState, u: Unit) {
       : u.id === 'tow_ifv' ? 0.18 : 0.12;
   u.secondaryFire = 0.09;
   s.projectiles.push({
+    uid: ++s.uid,
     sourceUid: u.uid,
     x: sx,
     y: sy,
@@ -6592,8 +6602,8 @@ function updateAI(s: GameState) {
       } else if (c.id === 'morale') {
         if (battle && cohorts >= 2 && p.morale <= 0) score = 22;
       } else if (c.effect === 'ammo') {
-        const needy = own.filter(u => !CARDS[u.id].air && ammoRatio(u) < 0.6);
-        const candidate = needy.sort((a, b) => ammoRatio(a) - ammoRatio(b)).find(u =>
+        const needy = own.filter(u => !CARDS[u.id].air && logisticsRatio(u) < 0.6);
+        const candidate = needy.sort((a, b) => logisticsRatio(a) - logisticsRatio(b)).find(u =>
           pointVisible(s, 1, u.x, ground(s, u.x) - 24) &&
           !(s.ammoCrates ?? []).some(box => box.side === 1 && box.stock >= 120 && box.expiresAt > s.time + 8 && Math.abs(box.x - u.x) < 180));
         if (candidate) {
@@ -8875,7 +8885,7 @@ export function tick(s: GameState, dt: number) {
       } else if (!c.static && !isImmobilized(u) && Math.abs(delta) > 1) {
         const before = u.x;
         const speed = c.speed! * 0.8 * (moveDir !== dir ? 0.65 : 1);
-        u.x = contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * Math.min(Math.abs(delta), speed * dt))));
+        u.x = vehicleTravelX(u, contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * Math.min(Math.abs(delta), speed * dt)))));
         u.moving = Math.abs(u.x - before) > 0.001;
         u.facing = dir;
         u.walk += Math.abs(u.x - before) * 0.04;
@@ -9340,22 +9350,39 @@ export function tick(s: GameState, dt: number) {
           )
           .sort((a, b) => b.hits - a.hits || b.life - a.life)[0] ?? null;
     }
-    // A howitzer's dead zone excludes that target, not a separate valid distant target.
-    const closeThreat =
+    // Fixed batteries can still serve a distant target. A mobile crew first
+    // clears its dead zone, then holds that firing line instead of advancing
+    // straight back across the same minimum-range boundary.
+    let closeThreat =
       c.minRange &&
       !(
-        (c.emplacement === 'howitzer' || u.id === 'tow_ifv') &&
+        c.static && c.emplacement === 'howitzer' &&
         (target || baseInRange || counterBattery)
       )
         ? nearUnits(s, u.x, c.minRange!, scanNearScratch).find(
             (v) =>
               v.side !== u.side &&
-              isCombatant(v) &&
               visibleToSide(s, u.side, v) &&
+              isCombatant(v) &&
               !CARDS[v.id].air &&
               Math.abs(v.x - u.x) < c.minRange!,
           )
         : null;
+    if (c.minRange && !c.static && !c.air && order !== 'rush') {
+      const remembered = u.minimumRangeThreatUid === undefined ? undefined :
+        s.units.find(v => v.uid === u.minimumRangeThreatUid && visibleToSide(s, u.side, v));
+      const contact = closeThreat ?? (remembered && isCombatant(remembered) && !CARDS[remembered.id].air ? remembered : null);
+      if (contact) {
+        const distance = Math.abs(contact.x - u.x);
+        if (distance <= range) u.minimumRangeHoldUntil = s.time + 3;
+        if (distance < c.minRange + 80) {
+          closeThreat = contact;
+          u.minimumRangeThreatUid = contact.uid;
+        }
+      } else if ((u.minimumRangeHoldUntil ?? 0) <= s.time) {
+        u.minimumRangeThreatUid = undefined;
+      }
+    }
     let withdrawing = !!(
       c.members &&
       (u.withdrawUntil ?? 0) > s.time &&
@@ -9576,7 +9603,7 @@ export function tick(s: GameState, dt: number) {
         u.firingTransit = false;
         if (u.firingGoal === null && order !== 'hold') {
           const toward = Math.sign(threat!.x - u.x);
-          const standoff = Math.max(56, (c.minRange ?? 0) + 25);
+          const standoff = Math.max(140, range * 0.5, (c.minRange ?? 0) + 80);
           const available = Math.abs(threat!.x - u.x) - standoff;
           if (available > 4) {
             // Walk a depth passage beside the obstacle, then reassess the firing ray.
@@ -10031,68 +10058,13 @@ export function tick(s: GameState, dt: number) {
       (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly);
     if (!c.members && secondaryWeapon)
       fireCoax(s, u);
-    // v172: stalemate break — a unit pinned in a static firefight against a
-    // close, dug-in target it cannot damage (terrain intercepts every round)
-    // breaks off and maneuvers instead of burning the clock until the draw.
-    // Once the unit has closed to point-blank range it resumes fire: the
-    // flatter trajectory may clear the terrain that blocked long-range shots.
-   let stalemated = false;
-   if (
-     target &&
-     c.members &&
-     !c.indirect &&
-     !breachRun &&
-     order !== 'hold' &&
-     order !== 'rush' &&
-     u.ammo !== 0 &&
-     Math.abs(target.x - u.x) <= range * 0.62
-   ) {
-     if (u.stalemateTargetUid !== target.uid) {
-       u.stalemateTargetUid = target.uid;
-       u.stalemateTargetHp = target.hp;
-       u.stalemateSince = s.time;
-     } else if (target.hp < (u.stalemateTargetHp ?? target.hp) - 0.01) {
-       // Fire is effective — reset the clock.
-       u.stalemateTargetHp = target.hp;
-       u.stalemateSince = s.time;
-     } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
-       if (Math.abs(target.x - u.x) > STALEMATE_CLOSE_GAP) {
-         stalemated = true;
-         u.stalemateCloseUntil = s.time + 2;
-       }
-     }
-   } else if (
-     blockedContact &&
-     c.members &&
-     !c.indirect &&
-     !breachRun &&
-     order !== 'hold' &&
-     threat
-   ) {
-      // v172b: blocked-contact stalemate — the unit has a threat it cannot
-      // acquire as a target (terrain blocks the firing ray) and the
-      // blockedContact drill cannot find a firing position. After the
-      // grace period it maneuvers to close the distance, where the flatter
-      // trajectory may clear the obstacle.
-      if (u.stalemateTargetUid !== threat.uid) {
-        u.stalemateTargetUid = threat.uid;
-        u.stalemateSince = s.time;
-      } else if (s.time - (u.stalemateSince ?? s.time) >= STALEMATE_BREAK_S) {
-        if (Math.abs(threat.x - u.x) > STALEMATE_CLOSE_GAP) {
-          stalemated = true;
-          u.stalemateCloseUntil = s.time + 2;
-        }
-      }
-    } else {
-    u.stalemateTargetUid = undefined;
-    u.stalemateSince = undefined;
-  }
+    // Real obstruction feedback drives the bounded firing search above;
+    // elapsed time alone never turns ineffective fire into a point-blank charge.
    if (
      (c.damage ?? 0) > 0 &&
       !relayReloadActive(u,s.time) &&
       !ambushHold &&
       !mobileBurstStep &&
-      !stalemated &&
       !evading &&
       (!c.armorOnly || !!target || (c.canAttackBase && baseInRange)) &&
       (target || coverShot || baseInRange || counterBattery || reconFire) &&
@@ -10270,6 +10242,11 @@ export function tick(s: GameState, dt: number) {
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
+          if (kind === 'rocket' && isAntiTankOperator(u)) {
+            u.antiTankConcealFor = 0;
+            u.antiTankRevealedUntil = s.time + ANTI_TANK_REVEAL;
+            s.visionIn = 0;
+          }
           const total = Math.max(
             c.indirect ? 2 : flight.minimum,
             Math.abs(tx - sx) / flight.speed,
@@ -10513,10 +10490,11 @@ export function tick(s: GameState, dt: number) {
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
           !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
-         (!target || breachRun || stalemated) &&
+         ((!target && (u.secondaryCombatUntil ?? 0) <= s.time) || breachRun) &&
          !baseInRange &&
-          (!blockedContact || stalemated) &&
+          !blockedContact &&
          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
+         ((u.minimumRangeHoldUntil ?? 0) <= s.time || order === 'rush') &&
         (!c.members || order !== 'hold') &&
         !u.vehicleReverseHeld))
     ) {
@@ -10549,7 +10527,7 @@ export function tick(s: GameState, dt: number) {
           moveWant = pinned ? 'prone' : 'crouch';
         } else if (order === 'prone') {
           moveWant = 'prone';
-        } else if (withdrawing || escortAhead || retreating) {
+        } else if (withdrawing || escortAhead || retreating || closeThreat) {
           moveWant = 'walk';
         } else if (u.tactic === 'prone') {
           moveWant = 'prone';
@@ -10669,7 +10647,7 @@ export function tick(s: GameState, dt: number) {
         const before = u.x;
         const scooting = u.id === 'mortar_carrier' && displacing && !closeThreat && !reversing;
         const distance = scooting ? Math.min(speed * dt, Math.abs(u.displaceGoal! - u.x)) : speed * dt;
-        u.x = contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * distance)));
+        u.x = vehicleTravelX(u, contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * distance))));
         u.moving = Math.abs(u.x - before) > 0.001;
         // A reversing vehicle keeps its hull aimed at the threat it is
         // backing away from — only the tracks carry it out of the kill zone.

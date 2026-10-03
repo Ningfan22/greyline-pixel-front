@@ -8,6 +8,7 @@ import {tankGeometry} from '../game/vehicle-geometry.ts';
 import {createGame,startGame} from '../game/engine.ts';
 import {sceneryIntercept} from '../game/world.ts';
 import {createHash} from 'node:crypto';
+import {fileURLToPath} from 'node:url';
 const {createCanvas,loadImage}=createRequire(import.meta.url)('@napi-rs/canvas');
 globalThis.document={createElement:()=>createCanvas(1,1)};
 
@@ -47,10 +48,10 @@ test('remaining authored wrecks retain mirrored support and their original solid
   }
 });
 
-test('nine distinct complete paintings have clean frame borders and solid cover follows their actual alpha',async()=>{
-  const im=await loadImage(new URL('../public/art/tank-wreck-frames-v162.png',import.meta.url).pathname);
+test('six remaining complete paintings have clean frame borders and solid cover follows their actual alpha',async()=>{
+  const im=await loadImage(fileURLToPath(new URL('../public/art/tank-wreck-frames-v162.png',import.meta.url)));
   const families=paintedTankWrecks(im),hashes=new Set();
-  for(const id of ['light_tank','tank','heavy_tank'])for(const cause of ['bullet','blast','burn']){
+  for(const id of ['tank','heavy_tank'])for(const cause of ['bullet','blast','burn']){
     const frame=families[id][cause][0],g=wreckGeometry(id,cause);
     assert.equal(frame.width,g.width);assert.equal(frame.height,g.height);
     const d=frame.getContext('2d').getImageData(0,0,384,192).data;
@@ -65,11 +66,11 @@ test('nine distinct complete paintings have clean frame borders and solid cover 
     }
     assert(Math.abs((g.support[1]-g.support[0])*g.width-tankGeometry(id).half*2)<.001);
   }
-  assert.equal(hashes.size,9);
+  assert.equal(hashes.size,6);
 });
 
 test('cause-specific wreck cover blocks real rays through metal but not empty sky, mirrored on slopes',()=>{
-  for(const id of ['light_tank','tank','heavy_tank'])for(const cause of ['bullet','blast','burn'])for(const facing of [-1,1]){
+  for(const id of ['tank','heavy_tank'])for(const cause of ['bullet','blast','burn'])for(const facing of [-1,1]){
     const s=createGame(162);startGame(s);s.units=[];s.scenery=[];s.walls=[];
     const w={id:1,cardId:id,cause,x:1500,y:374,angle:0,side:0,facing,falling:false};
     for(const slope of [-.1,0,.1]){
@@ -88,7 +89,7 @@ test('cause-specific wreck cover blocks real rays through metal but not empty sk
     assert.equal(mirror.length,boxes.length);
     for(let i=0;i<boxes.length;i++)assert(Math.abs(mirror[i].x+mirror[i].w+boxes[i].x-3000)<1e-7);
   }
-  for(const id of ['light_tank','tank','heavy_tank']){
+  for(const id of ['tank','heavy_tank']){
     assert.notDeepEqual(wreckGeometry(id,'bullet').parts,wreckGeometry(id,'blast').parts);
     assert.notDeepEqual(wreckGeometry(id,'blast').parts,wreckGeometry(id,'burn').parts);
   }

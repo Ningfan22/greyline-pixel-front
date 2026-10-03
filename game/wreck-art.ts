@@ -1,6 +1,6 @@
 import { transparentSheet } from './sprite-atlas';
 import { WRECKS, type WreckKind } from './wreck-geometry';
-import { towMissileCarrierWreckFrame } from './tow-vehicle-art';
+import { vehicleFrameV197, isV197Vehicle, type V197VehicleId } from './vehicle-art-v197';
 
 /** Extract authored wrecks; no live sprite, tint or vertical compression is used. */
 export function wreckFrames(
@@ -10,7 +10,7 @@ export function wreckFrames(
   support: HTMLImageElement,
   fpv: HTMLImageElement,
   glider: HTMLCanvasElement,
-  tow: HTMLImageElement,
+  authoredVehicles: Record<V197VehicleId, HTMLImageElement>,
 ) {
   const sheets = {
     ground: transparentSheet(ground),
@@ -19,18 +19,17 @@ export function wreckFrames(
     support: transparentSheet(support),
     fpv,
     glider,
-    tow,
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {
-      if (id === 'tow_ifv') return [id, towMissileCarrierWreckFrame(tow)];
+      if (isV197Vehicle(id)) return [id, vehicleFrameV197(id, authoredVehicles[id], true)];
       const frame = document.createElement('canvas');
       frame.width = shape.width;
       frame.height = shape.height;
       const ctx = frame.getContext('2d')!;
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(
-        sheets[shape.atlas],
+        sheets[shape.atlas as keyof typeof sheets],
         ...shape.source,
         0,
         0,

@@ -248,7 +248,7 @@ test('a depleted forward crate cannot trap a partly refilled soldier at the empt
 
 test('stock that cannot buy even one needed shell is unusable and cannot trap a tank', () => {
   const s = arena(), tank = add(s, 0, 'tank', 1000);
-  tank.ammo = 10; tank.ammoReserve = 0;
+  tank.ammo = Math.floor(ammoProfile(tank).primary.mag * .3); tank.ammoReserve = 0;
   tank.cooldown = tank.secondaryCooldown = 1e9;
   s.ammoCrates = [{ uid: ++s.uid, side: 0, x: 1000, stock: 5, maxStock: 5, landAt: 0, expiresAt: 180 }];
   run(s, 2);

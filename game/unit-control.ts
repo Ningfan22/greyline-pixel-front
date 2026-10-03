@@ -1,6 +1,7 @@
 import { CARDS } from './cards';
 import type { GameState, Unit } from './engine';
 import { isImmobilized } from './vehicle-damage';
+import { vehicleOutOfFuel, vehicleTravelX } from './vehicle-logistics';
 
 export function fixedWingUnit(u: Pick<Unit, 'id'>) {
   const c = CARDS[u.id];
@@ -24,7 +25,7 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   let order = localUnitOrder(s, u);
   if(u.glider)return false;
-  if (isImmobilized(u)) {
+  if (isImmobilized(u) || vehicleOutOfFuel(u)) {
     u.moving = false;
     u.vx = 0;
     return true;
@@ -53,7 +54,7 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
       const dir = u.patrolDir || u.facing || (u.side === 0 ? 1 : -1);
       u.x += dir * Math.max(36, (c.speed ?? 160) * 0.3) * dt;
       u.facing = dir;
-    } else u.x = anchor;
+    } else u.x = vehicleTravelX(u, anchor);
   } else if (order === 'retreat' && !c.static) {
     const goal = fixedWingUnit(u)
       ? u.side === 0
@@ -65,7 +66,7 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
       -speed * dt,
       Math.min(speed * dt, goal - u.x),
     );
-    u.x += change;
+    u.x = vehicleTravelX(u, u.x + change);
     if (c.air && change) u.facing = Math.sign(change);
     if (fixedWingUnit(u)) {
       u.patrolExiting = true;

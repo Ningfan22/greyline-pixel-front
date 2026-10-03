@@ -57,7 +57,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'FPV STRIKE DRONE',
     typeLabel: '一次性反甲',
     ability: '一费俯冲',
-    rule: '航时二十四秒，撞击消耗。',
+    rule: '六百内锁甲，撞击消耗。',
     flavor: '回收押金就别交了。',
   },
   air_assault: {
@@ -78,7 +78,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'TOW MISSILE CARRIER',
     typeLabel: '反坦克战车',
     ability: '双武器协同',
-    rule: '双联陶式猎甲，机枪独立掩护。',
+    rule: '制导穿重甲，机枪独立掩护。',
     flavor: '一枚导弹，全连三个月的饷。',
   },
   mortar_carrier: {
@@ -127,7 +127,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ROCKET SQUAD',
     typeLabel: '火力支援',
     ability: '远距爆破',
-    rule: '齐射后慢装填，可对空。',
+    rule: '低姿准备，泛用群伤与对空。',
     flavor: '尾焰比敌人先清场。',
   },
   tank: {
@@ -274,7 +274,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'JAVELIN TEAM',
     typeLabel: '制导反甲',
     ability: '专注反甲',
-    rule: '重弹只打车，小枪近卫。',
+    rule: '低姿准备，远距制导穿重甲。',
     flavor: '锁定之后，坦克可以开始祷告了。',
   },
   anti_tank_gun: {
@@ -316,7 +316,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'LOGISTICS LIAISON',
     typeLabel: '补给班组',
     ability: '部署补给',
-    rule: '部署抽一张牌，补充附近友军弹药。',
+    rule: '部署抽牌，补充弹药与车辆油料。',
     flavor: '谁打补给车，谁今晚没饭。',
   },
   strike_jet: {
@@ -414,7 +414,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ANTI-TANK TEAM',
     typeLabel: '反装甲兵',
     ability: '混编反甲',
-    rule: 'RPG慢装填，步枪护卫。',
+    rule: '低姿准备，RPG猎甲、步枪护卫。',
     flavor: '坦克最怕的不是坦克，是他们。',
   },
   manpads: {
@@ -491,21 +491,21 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'RECON QUADCOPTER',
     typeLabel: '侦察无人机',
     ability: '前线观察',
-    rule: '助邻近友军增程并穿烟瞄准。',
+    rule: '扩大观察，助友军增程与穿烟。',
     flavor: '电池比情报先耗尽。',
   },
   attack_drone: {
     en: 'ARMED UAV',
     typeLabel: '察打无人机',
     ability: '通场反甲',
-    rule: '单次反甲，返航整备后低费再战。',
+    rule: '通场制导穿重甲，整备后低费再战。',
     flavor: '飞行员在一千公里外喝咖啡。',
   },
   loiter_drone: {
     en: 'LOITERING MUNITION',
     typeLabel: '巡飞弹药',
     ability: '巡飞猎炮',
-    rule: '待机六十秒，确认炮位后俯冲。',
+    rule: '五百四十内确认，六十秒待机。',
     flavor: '它不回来，也不需要回来。',
   },
   interceptor: {
@@ -526,7 +526,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AMMUNITION AIRDROP',
     typeLabel: '空投补给',
     ability: '空投弹药',
-    rule: '可见落点投放弹药箱，附近友军补弹。',
+    rule: '可见落点投箱，补弹与车辆油料。',
     flavor: '箱子落在哪里，战线就接在哪里。',
   },
   emp: {
@@ -769,7 +769,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'AIRBORNE AT TEAM',
     typeLabel: '空降反甲',
     ability: '敌后伞降',
-    rule: '火箭猎甲，也可攻击敌方基地。',
+    rule: '落地低姿猎甲，可攻击敌方基地。',
     flavor: '坦克的后方，从来不安全。',
   },
   rapid_insertion: {
