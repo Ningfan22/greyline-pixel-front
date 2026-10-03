@@ -3256,13 +3256,20 @@ export function muzzleHeight(u: MuzzleBody) {
 export function muzzlePoint(
   u: MuzzleBody,
   tx: number,
-  height = muzzleHeight(u),
+  height: number | undefined = undefined,
   coax = false,
 ) {
   const tank = tankGeometry(u.id);
-  const dx =
-      Math.sign(tx - u.x) * (coax ? (tank?.coaxX ?? 58) : muzzleOffset(u)),
-    dy = -(coax ? (tank?.coaxY ?? height) : height);
+  // The anatomical solver provides both dimensions. A default-height infantry
+  // muzzle must not rebuild the same skeleton separately for height and X.
+  const infantry = CARDS[u.id].members && (!coax || height === undefined) ? soldierMuzzle(u) : null,
+    h = height === undefined ? infantry?.height ?? muzzleHeight(u) : height,
+    x = coax ? (tank?.coaxX ?? 58) : infantry?.x ?? muzzleOffset(u);
+  return muzzleTransform(u, tx, x, coax ? (tank?.coaxY ?? h) : h);
+}
+function muzzleTransform(u: MuzzleBody, tx: number, offset: number, height: number) {
+  const dx = Math.sign(tx - u.x) * offset,
+    dy = -height;
   const angle = CARDS[u.id].armored || CARDS[u.id].vehicle ? u.hullAngle : 0,
     c = Math.cos(angle),
     sn = Math.sin(angle);
@@ -3398,23 +3405,39 @@ function standingBody(u: MuzzleBody): MuzzleBody {
 function standingMuzzleHeight(u: MuzzleBody) {
   return muzzleHeight(standingBody(u));
 }
+function muzzleForecast(body: MuzzleBody, tx: number, settled = false) {
+  const infantry = CARDS[body.id].members ? soldierMuzzle(body, settled) : null,
+    height = infantry?.height ?? muzzleHeight(body),
+    offset = infantry?.x ?? muzzleOffset(body);
+  return { body, height, point: muzzleTransform(body, tx, offset, height) };
+}
+function firingForecast(u: FiringBody, tx: number) {
+  return { ...muzzleForecast(u, tx, true), card: weaponCard(u) };
+}
+type FiringForecast = ReturnType<typeof firingForecast> & {
+  standing?: ReturnType<typeof muzzleForecast>;
+};
+function standingForecast(shot: FiringForecast, u: MuzzleBody, tx: number) {
+  return shot.standing ??= muzzleForecast(standingBody(u), tx);
+}
 function firingHeight(
   s: GameState,
   u: FiringBody,
   tx: number,
   ty: number,
   planStanding = false,
+  forecast?: FiringForecast,
 ): number | null {
-  const c = weaponCard(u),
+  const shot = forecast ?? firingForecast(u, tx),
+    c = shot.card,
     // Eligibility forecasts the shot after movement settles. A carried barrel
     // must not hide the contact that would make a running soldier stop to aim.
-    aimed = c.members ? {...u,moving:false,gaitWeight:0,gaitRun:0,rifleReady:1} : u,
-    height = muzzleHeight(aimed);
+    aimed = shot.body,
+    height = shot.height;
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
-  const clear = (shooter: MuzzleBody, h: number) => {
-    const point = muzzlePoint(shooter, tx, h);
+  const clear = (shooter: MuzzleBody, h: number, point: { x: number; y: number }) => {
     if (!c.members && !c.air && obstacleBoxes(s).some(box => !box.foliage &&
         point.x > box.x && point.x < box.x + box.w &&
         point.y > box.y && point.y < box.y + box.h)) return false;
@@ -3439,13 +3462,13 @@ function firingHeight(
       !directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty)
     );
   };
-  if (clear(aimed, height)) return height;
+  if (clear(aimed, height, shot.point)) return height;
   // Only the stance planner may test a hypothetical standing shot. Target
   // selection must use the actual body: accepting a shot that needs a locked
   // stance made the soldier neither shoot nor look for a firing position.
   if (planStanding && c.members) {
-    const standing=standingBody(u),standingHeight=muzzleHeight(standing);
-    if(clear(standing,standingHeight))return standingHeight;
+    const standing = standingForecast(shot, u, tx);
+    if(clear(standing.body, standing.height, standing.point))return standing.height;
   }
   return null;
 }
@@ -3459,16 +3482,19 @@ function firingSolution(
   target: CoverTarget,
   planStanding = false,
   requireClearCover = false,
+  prepared?: FiringForecast,
 ): { height: number; targetY: number } | null {
-  const centre = bodyHeight({ ...target, pose: target.pose ?? 'prone' });
+  const centre = bodyHeight(target.pose == null ? { ...target, pose: 'prone' } : target as Unit);
   const upper = target.id && CARDS[target.id].members ? centre * 1.35 : centre;
+  // Both body points use the same settled shooter transform. Share its exact
+  // geometry instead of repeatedly copying a full soldier and rebuilding it.
+  const forecast = prepared ?? firingForecast(u, target.x);
   let covered: { height: number; targetY: number } | null = null;
-  for (const targetY of [target.y - centre, target.y - upper]) {
-    const height = firingHeight(s, u, target.x, targetY, planStanding);
+  for (const targetY of upper === centre ? [target.y - centre] : [target.y - centre, target.y - upper]) {
+    const height = firingHeight(s, u, target.x, targetY, planStanding, forecast);
     if (height === null) continue;
-    const shooter = planStanding && height === standingMuzzleHeight(u) ? standingBody(u) :
-      CARDS[u.id].members ? { ...u, moving: false, gaitWeight: 0, gaitRun: 0, rifleReady: 1 } : u;
-    const origin = muzzlePoint(shooter, target.x, height);
+    const standing = planStanding ? standingForecast(forecast, u, target.x) : null,
+      origin = standing && height === standing.height ? standing.point : forecast.point;
     if (!sceneryIntercept(s, origin.x, origin.y, target.x, targetY, false, true))
       return { height, targetY };
     // Longstanding probability protection still applies to intervening depth
@@ -8786,14 +8812,21 @@ export function tick(s: GameState, dt: number) {
     if (c.members && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
         order !== 'prone' && order !== 'crouch' &&
         !previousWork.tending && desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
-      const lowBody = { ...u, pose: desiredPose, moving: false };
+      const lowBodies: (FiringBody | undefined)[] = [];
+      const lowForecasts: (FiringForecast | undefined)[][] = [[], [], []];
+      const standingHeight = standingMuzzleHeight(u);
       if (s.units.some(enemy => enemy.side !== u.side && isCombatant(enemy) &&
           !CARDS[enemy.id].air && visibleToSide(s, u.side, enemy) &&
           Math.abs(enemy.x - u.x) <= unitRange(s, u) + 120 &&
-          [0, 12, 24].some(step => {
+          [0, 12, 24].some((step, index) => {
             const x = u.x + dir * step;
-            return firingSolution(s, { ...lowBody, x, y: ground(s, x) },
-              enemy, true)?.height === standingMuzzleHeight(u);
+            // These three hypothetical bodies stay fixed throughout this one
+            // stance decision. Reuse their geometry, never a target's ray.
+            const lowBody = lowBodies[index] ??= { ...u, pose: desiredPose,
+              moving: false, x, y: ground(s, x) };
+            const direction = Math.sign(enemy.x - x) + 1;
+            const forecast = lowForecasts[index][direction] ??= firingForecast(lowBody, enemy.x);
+            return firingSolution(s, lowBody, enemy, true, false, forecast)?.height === standingHeight;
           }))) {
         desiredPose = 'idle';
         setStance(u, s.time, 'idle');
@@ -9270,15 +9303,25 @@ export function tick(s: GameState, dt: number) {
       candidates[0] ??
       airContact ??
       (u.lastThreat && u.lastThreat.until > s.time ? u.lastThreat : null);
+    // Selection does not change the shooter's body or the scene. Targets on
+    // one side share its muzzle transform; their sight/impact rays stay distinct.
+    // Keep this cache local: a later smoke, stance or movement invalidates it.
+    const selectionForecasts: (FiringForecast | undefined)[] = [];
+    const selectionForecast = (x: number) => {
+      const direction = Math.sign(x - u.x) + 1;
+      return selectionForecasts[direction] ??= firingForecast(u, x);
+    };
     const failedContact = candidates.find(v => v.uid === u.blockedFireTargetUid);
+    const failedSolution = failedContact ?
+      firingSolution(s, u, failedContact, false, true, selectionForecast(failedContact.x)) : null;
     const ineffectiveCoverFire = !!(c.members && !c.indirect &&
       (u.blockedFireCount ?? 0) >= 3 && failedContact &&
-      !firingSolution(s, u, failedContact, false, true));
-    if (failedContact && !ineffectiveCoverFire && firingSolution(s, u, failedContact, false, true))
+      !failedSolution);
+    if (failedContact && !ineffectiveCoverFire && failedSolution)
       u.blockedFireCount = 0;
     let target = candidates.find(
       (v) => !(ineffectiveCoverFire && v.uid === failedContact!.uid) &&
-        firingSolution(s, u, v) !== null,
+        firingSolution(s, u, v, false, false, selectionForecast(v.x)) !== null,
     );
     if (
       target &&
@@ -9294,7 +9337,7 @@ export function tick(s: GameState, dt: number) {
             v.motion === 'ground' &&
             (v.stillFor ?? 0) >= 0.65 &&
             Math.abs(v.x - protectedTarget.x) <= 90 &&
-            firingSolution(s, u, v) !== null,
+            firingSolution(s, u, v, false, false, selectionForecast(v.x)) !== null,
         ) ?? target;
     }
     if (

@@ -11,10 +11,13 @@ export interface SoldierArt {
   frames:Map<string,HTMLCanvasElement>;
 }
 const make=(w:number,h:number)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;};
+// Pose alpha is resolved on the CPU. Keep its source parts and costumes in
+// the same memory: copying GPU source canvases into a CPU pose also reads back.
+const context=(canvas:HTMLCanvasElement)=>canvas.getContext('2d',{willReadFrequently:true})!;
 /** Atlas cells contain isolated PARTS. Fitting is done once to declared bone
  * dimensions, never to a whole pose's changing bounding box. */
 function cropPart(source:HTMLImageElement,x0:number,y0:number,x1:number,y1:number,w:number,h:number) {
-  const cell=make(x1-x0,y1-y0),c=cell.getContext('2d')!;
+  const cell=make(x1-x0,y1-y0),c=context(cell);
   c.drawImage(source,x0,y0,x1-x0,y1-y0,0,0,cell.width,cell.height);
   const data=c.getImageData(0,0,cell.width,cell.height);let l=cell.width,t=cell.height,r=-1,b=-1;
   // Ignore a neighbouring object's isolated gutter pixels. Weapons with a
@@ -41,7 +44,7 @@ function cropPart(source:HTMLImageElement,x0:number,y0:number,x1:number,y1:numbe
     l=Math.min(l,x);r=Math.max(r,x);t=Math.min(t,y);b=Math.max(b,y);
   }
   if(r<l)throw new Error(`Empty soldier part at ${x0},${y0}`);
-  const out=make(w,h),ctx=out.getContext('2d')!;ctx.imageSmoothingEnabled=false;
+  const out=make(w,h),ctx=context(out);ctx.imageSmoothingEnabled=false;
   ctx.drawImage(cell,l,t,r-l+1,b-t+1,0,0,w,h);
   const pixels=ctx.getImageData(0,0,w,h);
   for(let i=3;i<pixels.data.length;i+=4)pixels.data[i]=pixels.data[i]>150?255:0;
@@ -76,7 +79,7 @@ function costume(art:SoldierArt,p:SoldierPose) {
     crew:[.88,.87,.78],engineer:[1.02,.88,.63],medic:[.94,1.02,.90],
   };
   for(const name of Object.keys(body) as Part[]){
-    const original=body[name],copy=make(original.width,original.height),ctx=copy.getContext('2d')!;
+    const original=body[name],copy=make(original.width,original.height),ctx=context(copy);
     ctx.drawImage(original,0,0);const d=ctx.getImageData(0,0,copy.width,copy.height);
     const palette=tint[p.appearance.uniform];
     for(let i=0;i<d.data.length;i+=4){
@@ -87,7 +90,7 @@ function costume(art:SoldierArt,p:SoldierPose) {
       }
     }
     ctx.putImageData(d,0,0);near[name]=copy;
-    const dark=make(copy.width,copy.height),dc=dark.getContext('2d')!;
+    const dark=make(copy.width,copy.height),dc=context(dark);
     for(let i=0;i<d.data.length;i+=4){d.data[i]*=.68;d.data[i+1]*=.70;d.data[i+2]*=.73;}
     dc.putImageData(d,0,0);far[name]=dark;
   }
@@ -233,7 +236,7 @@ export function soldierFrame(art:SoldierArt,u:SoldierBody,time:number) {
   const existing=art.frames.get(key);if(existing)return {image:existing,pose,anchorY:SOLDIER_FRAME.anchorY};
   // Padding below the unchanged boot anchor fits a downhill foot. Canvas
   // dimensions never resize the man; the renderer keeps this exact anchor.
-  const frame=make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),ctx=frame.getContext('2d')!;
+  const frame=make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),ctx=context(frame);
   ctx.save();ctx.translate(SOLDIER_FRAME.anchorX,SOLDIER_FRAME.anchorY);paintSoldier(ctx,art,pose);ctx.restore();
   // Rotations may produce edge coverage even with nearest sampling. Resolve
   // once onto the canonical ONE-world-pixel grid; every action uses this path.

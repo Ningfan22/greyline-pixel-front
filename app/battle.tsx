@@ -48,7 +48,6 @@ import {
   snapshot,
   startGame,
   setOrder,
-  tick,
   W,
   VIEW_W,
   H,
@@ -58,6 +57,7 @@ import {
   type HandCard,
 } from '@/game/engine';
 import { CardFace } from '@/game/card-art';
+import { advanceBattleFrame } from '@/game/battle-clock';
 import { CARD_COPY } from '@/game/card-copy';
 import { render } from '@/game/render';
 import { loadArt, type Art } from '@/game/art';
@@ -234,7 +234,9 @@ export default function Battle({
     keys = useRef(new Set<string>());
   const moveCamera = useCallback((x: number) => {
     camera.current = Math.max(0, Math.min(W - viewport.current, x));
-    setCameraView(camera.current);
+    // The canvas reads this ref on every animation frame. Let the existing HUD
+    // refresh publish its position instead of rebuilding the whole hand for
+    // every pointer sample during a drag.
   }, []);
   const canvas = useRef<HTMLCanvasElement>(null),
     art = useRef<Art | null>(null),
@@ -507,13 +509,7 @@ export default function Battle({
         !dialogueOpenRef.current &&
         s.status === 'playing'
       ) {
-        // A slow paint must not demand fifteen expensive combat ticks on its next frame.
-        accumulator = Math.min(accumulator + Math.max(0, dt), 3 / 60);
-        let steps = 0;
-        while (accumulator >= 1 / 60 && steps++ < 3) {
-          tick(s, 1 / 60);
-          accumulator -= 1 / 60;
-        }
+        accumulator = advanceBattleFrame(s, dt, accumulator);
       } else accumulator = 0;
       const card = s.players[0].hand.find((h) => h.uid === selectedRef.current);
       if (pointerScreen.current !== null && selectedRef.current !== null)
@@ -1509,7 +1505,7 @@ export default function Battle({
             if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
               e.stopPropagation();
               e.preventDefault();
-              moveCamera(cameraView + (e.key === 'ArrowRight' ? 150 : -150));
+              moveCamera(camera.current + (e.key === 'ArrowRight' ? 150 : -150));
             }
           }}
         >
@@ -1994,7 +1990,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v198
+          GREYLINE <i /> 林间前线 · v199
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

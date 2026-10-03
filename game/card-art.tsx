@@ -1,6 +1,6 @@
 'use client';
 /* oxlint-disable next/no-img-element -- Generated WebP cards are already optimized and must work on static hosting. */
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
@@ -88,7 +88,7 @@ export function cardStats(id: CardId, cost = CARDS[id].cost) {
 }
 
 /** One generated print frame, with live text for balance changes and accessibility. */
-export function CardFace({
+export const CardFace = memo(function CardFace({
   id,
   cost,
   className = '',
@@ -184,4 +184,4 @@ export function CardFace({
       </span>
     </figure>
   );
-}
+});

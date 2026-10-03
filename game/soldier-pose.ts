@@ -127,9 +127,9 @@ function blendStance(a:Stance,b:Stance,t:number):Stance {
   return {hip:lerp(a.hip,b.hip,t),lean:mix(a.lean,b.lean,t),nearFoot:lerp(a.nearFoot,b.nearFoot,t),
     farFoot:lerp(a.farFoot,b.farFoot,t),muzzle:lerp(a.muzzle,b.muzzle,t),low:mix(a.low,b.low,t),legBend:t<.5?a.legBend:b.legBend};
 }
-export function soldierStance(u:SoldierBody,time?:number):Stance {
+export function soldierStance(u:SoldierBody,time?:number,settled=false):Stance {
   const height=stanceHeightClass(u.pose);
-  const travel=height==='crouch'?clamp(u.crouchTravel??(u.moving?1:0)):height==='prone'?clamp(u.proneTravel??0):0;
+  const travel=height==='crouch'?clamp(u.crouchTravel??(!settled&&u.moving?1:0)):height==='prone'?clamp(u.proneTravel??0):0;
   const p=time===undefined?u.poseAnimProgress:stanceTransitionProgress(u,time)??undefined;
   if(p!==undefined&&p<1&&u.poseAnimFrom&&u.poseAnimSeen){
     const from=stanceAt(u.poseAnimFrom,u.poseAnimFromTravel??0),to=stanceAt(u.poseAnimSeen,u.poseAnimToTravel??0);
@@ -143,8 +143,10 @@ export function soldierStance(u:SoldierBody,time?:number):Stance {
 }
 /** Ballistics uses the same shoulder and weapon sockets as the visible rig.
  * No image decoding, old atlas landmarks or recursive pose evaluation. */
-export function soldierMuzzle(u:SoldierBody):{x:number;height:number} {
-  const body=soldierBodyPose(u),gun=mountedWeapon(u,body);
+export function soldierMuzzle(u:SoldierBody,settled=false):{x:number;height:number} {
+  // Eligibility uses exactly the raised, stationary body without copying all
+  // combat/logistics fields. The visible/committed muzzle keeps its live gait.
+  const body=soldierBodyPose(u,undefined,'ready',settled),gun=mountedWeapon(u,body,undefined,settled);
   return {x:gun.muzzle[0],height:-gun.muzzle[1]-3};
 }
 
@@ -401,13 +403,13 @@ export function soldierStride(u:SoldierBody,low=stanceHeightClass(u.pose)==='pro
   const run=clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0));
   return low>=1?mix(8.5,3.5,smooth(low-1)):mix(12.5+run*.5,8.5,smooth(low));
 }
-function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready'):SoldierBodyPose {
+function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready',settled=false):SoldierBodyPose {
   const weapon=soldierWeapon(u);
-  let stance=soldierStance(u,time),hip=stance.hip,lean=stance.lean;
+  let stance=soldierStance(u,time,settled),hip=stance.hip,lean=stance.lean;
   const phase=(u.gaitPhase??u.walk??0)*Math.PI/4;
-  const travel=clamp(u.gaitWeight??(u.moving?1:0));
+  const travel=settled?0:clamp(u.gaitWeight??(u.moving?1:0));
   const gaitTravel=travel*(stance.low>1&&stance.low<2?smooth(Math.abs(stance.low-1.6)/.35):1);
-  const moving=travel>0.001,run=clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0))*(1-clamp(stance.low*2));
+  const moving=travel>0.001,run=settled?0:clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0))*(1-clamp(stance.low*2));
   let nearFoot=stance.nearFoot,farFoot=stance.farFoot;
   if(moving){
     // Keep the planted endpoint reachable at the longest stride. Clamping an
@@ -506,10 +508,10 @@ function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready'
     nearKnee:nearLeg.joint,farKnee:farLeg.joint,nearFoot:nearLeg.end,farFoot:farLeg.end,
     phase,travel,low:stance.low},u.soldierGround),u,time);
 }
-function mountedWeapon(u:SoldierBody,body:SoldierBodyPose,time?:number){
-  const ready=soldierAimWeight(u,time);
+function mountedWeapon(u:SoldierBody,body:SoldierBodyPose,time?:number,settled=false){
+  const ready=settled?(u.rappelling||u.parachuting||u.wounded||u.surrendered?0:1):soldierAimWeight(u,time);
   const ground=(u.soldierGround?.hip??0)*(u.soldierGround?.weight??0);
-  const run=body.travel*clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0))*(1-clamp(body.low));
+  const run=settled?0:body.travel*clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0))*(1-clamp(body.low));
   return weaponPlacement(soldierWeapon(u),body.shoulder,body.low,body.travel,ready,ground,run);
 }
 export function soldierPose(u:SoldierBody,time:number):SoldierPose {
