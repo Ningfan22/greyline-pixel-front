@@ -62,6 +62,7 @@ import { advanceBattleFrame } from '@/game/battle-clock';
 import { CARD_COPY } from '@/game/card-copy';
 import { render } from '@/game/render';
 import { loadBattleArt, type Art } from '@/game/art';
+import { watchBattleArtProgress, type BattleArtProgress } from '@/game/battle-art-baked';
 import {
   DEFAULT_AUDIO,
   getBattleAudio,
@@ -229,6 +230,9 @@ export default function Battle({
   const sound = audioSettings.enabled;
   const [assetsReady, setAssetsReady] = useState(false);
   const [assetError, setAssetError] = useState(false);
+  const [assetAttempt, setAssetAttempt] = useState(0);
+  const [assetProgress, setAssetProgress] = useState<BattleArtProgress>({stage: 'download', completed: 0, total: 2});
+  const [assetLoadMs, setAssetLoadMs] = useState<number | null>(null);
   const [message, setMessage] = useState('');
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const viewport = useRef(VIEW_W);
@@ -485,10 +489,14 @@ export default function Battle({
   }, [interruptCardHold]);
   useEffect(() => {
     let stopped = false;
+    const loadedAt = performance.now();
+    setAssetError(false);
+    const unwatch = watchBattleArtProgress(setAssetProgress);
     void loadBattleArt(game.current.mapId)
       .then((a) => {
         if (!stopped) {
           art.current = a;
+          setAssetLoadMs(Math.round(performance.now() - loadedAt));
           setAssetsReady(true);
           startGame(game.current!);
           if (dialogueOpenRef.current) game.current.status = 'paused';
@@ -588,13 +596,14 @@ export default function Battle({
     document.addEventListener('visibilitychange', visibility);
     return () => {
       stopped = true;
+      unwatch();
       cancelAnimationFrame(raf);
       audio.current?.setActive(false);
       document.removeEventListener('visibilitychange', visibility);
       el.removeEventListener('wheel', wheel);
       if (messageTimer.current) clearTimeout(messageTimer.current);
     };
-  }, [refresh]);
+  }, [refresh, assetAttempt]);
   useEffect(() => {
     const pressedKeys = keys.current;
     const onKey = (e: KeyboardEvent) => {
@@ -892,6 +901,8 @@ export default function Battle({
   return (
     <main
       className={`game-shell ${touchMode ? 'touch-battle' : ''} ${view.status !== 'playing' || panel ? 'is-interrupted' : ''}`}
+      data-art-phase={assetsReady ? 'ready' : assetProgress.stage}
+      data-art-load-ms={assetLoadMs ?? undefined}
     >
       {missionId && (
         <CampaignDialogue
@@ -1342,8 +1353,12 @@ export default function Battle({
               </p>
               <button
                 className="primary-button"
+                data-art-phase={assetProgress.stage}
+                data-art-completed={assetProgress.completed}
+                data-art-total={assetProgress.total}
+                data-art-load-ms={assetLoadMs ?? undefined}
                 onClick={() => {
-                  if (assetError) window.location.reload();
+                  if (assetError) setAssetAttempt(attempt => attempt + 1);
                   else start();
                 }}
                 disabled={!assetsReady && !assetError}
@@ -1352,7 +1367,7 @@ export default function Battle({
                   ? '重新加载素材'
                   : assetsReady
                     ? '开始作战'
-                    : '正在整备…'}
+                    : assetProgress.stage === 'download' ? '正在加载战场…' : '正在部署装备…'}
                 <ArrowRight size={19} />
               </button>
               <div className="launch-meta">
@@ -2041,7 +2056,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v202
+          GREYLINE <i /> 林间前线 · v203
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DECK, chooseAiDeck, type CardId } from '@/game/engine';
 import Battle from './battle';
 import { getBattleAudio } from '@/game/audio';
+import { loadBattleArt } from '@/game/art';
 import DeckBuilder from './deck-builder';
 import HomeMenu, { type LobbyPage } from './home-menu';
 import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
@@ -88,6 +89,18 @@ export default function Home() {
       live = false;
     };
   }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    // Paint the lobby first, then use its idle time to fetch the same compact
+    // resources the battle will await. Failures remain retryable on entry.
+    const warm = () => {void loadBattleArt(mapId).catch(() => {});};
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, {timeout: 1200});
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(warm, 400);
+    return () => window.clearTimeout(id);
+  }, [loaded, mapId]);
   const save = (next: CardId[]) => {
     if (!collection) return '收藏仍在加载，请稍候';
     if (!validDeckWithCollection(next, collection))

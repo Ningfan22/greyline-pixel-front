@@ -2,34 +2,53 @@ import {loadBattleArt, unitFrame, drawSprite, unitSize} from '../game/art';
 import {drawArticulatedGun} from '../game/gun-art';
 import {gunMount} from '../game/gun-geometry';
 import {render} from '../game/render';
-import {createGame,startGame,spawnUnit,refreshVision,tick,CARDS,type CardId,type Unit} from '../game/engine';
+import {createGame,startGame,spawnUnit,refreshVision,tick,isCombatant,CARDS,type CardId,type Unit} from '../game/engine';
 const view=document.querySelector<HTMLCanvasElement>('#view')!,ctx=view.getContext('2d')!;
 const status=document.querySelector<HTMLParagraphElement>('#status')!;
 const art=await loadBattleArt('greyline');
 let mode='parts',paused=false,phase=0,last=performance.now(),facing=1,fire=0,camera=550;
-let state=createGame(202),actors:Unit[]=[],shots=new Map<number,number>();
+let state=createGame(203),actors:Unit[]=[],shots=new Map<number,number>(),initialShots=new Map<number,number>();
 function watch(u:Unit){Object.assign(u,{squadOrder:'watch',squadOrderX:u.x,squadOrderUntil:Infinity,emplaced:true,emplacementSetupUntil:0});}
 function spawn(side:0|1,id:CardId,x:number){const n=state.units.length;spawnUnit(state,side,id,x);return state.units[n];}
 function scene(next:string){
-  mode=next;paused=false;state=createGame(202,undefined,undefined,undefined,{weather:false});startGame(state);
+  mode=next;paused=false;state=createGame(next==='wreck'?209:203,undefined,undefined,undefined,{weather:false});startGame(state);
   Object.assign(state,{units:[],scenery:[],walls:[],wrecks:[],aiIn:1e9,night:false});
   state.terrain.fill(374);state.original.fill(374);state.terrainVersion++;state.weather.disabled=true;
-  shots=new Map();
+  shots=new Map();actors=[];
   for(const p of state.players)Object.assign(p,{hand:[],deck:[],discard:[],energy:0});
   if(next==='duel'){
     const tank=spawn(0,'tank',750),gun=spawn(1,'artillery',1130);watch(tank);watch(gun);actors=[tank,gun];camera=500;
     state.scenery=[{id:900,kind:'house',x:1130,y:374,seed:0,parts:[{id:0,x:1112,y:339,w:36,h:35,hp:70,maxHp:70,kind:'wall',brokenAt:0}]}];
+  }else if(next==='wreck'){
+    const vehicle=spawn(1,'tank',1200);
+    Object.assign(vehicle,{hp:1,cooldown:1e9,secondaryCooldown:1e9,lane:0,pace:1,personalMorale:90});
+    state.projectiles.push({uid:++state.uid,x:1200,y:350,startX:1200,startY:350,tx:1200,ty:350,side:0,targetUid:vehicle.uid,base:null,damage:10,radius:0,shell:false,ammunition:'ap',life:.02,total:.02});
+    for(let step=0;step<12;step++)tick(state,1/60);
+    for(const u of state.units.filter(u=>u.bailoutUntil!==undefined))Object.assign(u,{personalMorale:90,suppression:0});
+    spawnUnit(state,0,'infantry',900);spawnUnit(state,0,'infantry',940);
+    actors=state.units.filter(u=>u.id==='infantry');
+    for(const u of actors.filter(u=>u.side===0))u.fragCooldown=1e9;
+    camera=780;
+  }else if(next==='crew'){
+    actors=[spawn(0,'artillery',820),spawn(0,'anti_tank_gun',1150)];
+    const escort=spawn(0,'infantry',1770);watch(escort);
+    for(const u of actors){u.cooldown=1e9;u.emplaced=false;}
+    camera=640;
   }else{
     const battery=spawn(0,'mlrs',1050),scout=spawn(0,'pathfinders',1580),gun=spawn(1,'barrage',1810);watch(scout);watch(gun);actors=[battery,gun];camera=960;
     state.scenery=[{id:901,kind:'house',x:1420,y:374,seed:0,parts:[{id:0,x:1398,y:255,w:44,h:119,hp:250,maxHp:250,kind:'wall',brokenAt:-1}]}];
   }
+  initialShots=new Map(actors.map(u=>[u.uid,u.shots]));
   refreshVision(state);
+  state.knownTerrain[0]=[...state.terrain];
 }
 document.querySelector<HTMLButtonElement>('#parts')!.onclick=()=>{mode='parts';paused=false;};
 document.querySelector<HTMLButtonElement>('#flip')!.onclick=()=>{facing=-facing;};
 document.querySelector<HTMLButtonElement>('#shot')!.onclick=()=>{fire=.25;};
 document.querySelector<HTMLButtonElement>('#duel')!.onclick=()=>scene('duel');
 document.querySelector<HTMLButtonElement>('#rockets')!.onclick=()=>scene('rockets');
+document.querySelector<HTMLButtonElement>('#wreck')!.onclick=()=>scene('wreck');
+document.querySelector<HTMLButtonElement>('#crew')!.onclick=()=>scene('crew');
 document.querySelector<HTMLButtonElement>('#pause')!.onclick=()=>{paused=!paused;};
 function loop(now:number){
   const dt=Math.min(.05,(now-last)/1000);last=now;
@@ -46,11 +65,14 @@ function loop(now:number){
       }else{const [w,h]=unitSize(id);drawSprite(ctx,unitFrame(art,id),x,y,w,h,facing<0);}
       ctx.fillStyle='#f4efd7';ctx.font='15px system-ui';ctx.fillText(CARDS[id].name,x-70,y+35);
     }
-    status.textContent='独立炮管连续俯仰 · 车体保持固定尺寸 · 火箭炮已缩小 20%';
+    status.textContent='独立炮管连续俯仰 · 车体保持固定尺寸 · 真实坦克比例 · 牵引火炮放大 20%';
   }else{
-    if(!paused&&state.time<25){tick(state,dt);for(const u of actors)shots.set(u.uid,Math.max(shots.get(u.uid)??0,u.shots));}
+    if(!paused&&state.time<(mode==='wreck'?60:25)){tick(state,dt);for(const u of actors)shots.set(u.uid,Math.max(shots.get(u.uid)??0,u.shots-(initialShots.get(u.uid)??0)));}
     render(ctx,state,art,null,null,true,camera,960);
-    status.textContent=`${state.time.toFixed(1)} 秒 · `+actors.map(u=>`${CARDS[u.id].name}：已发射 ${shots.get(u.uid)??0}，生命 ${Math.max(0,Math.round(u.hp))}，位置 ${Math.round(u.x)}`).join(' ｜ ');
+    if(mode==='wreck'){
+      const own=actors.filter(u=>u.side===0),crew=actors.filter(u=>u.side===1);
+      status.textContent=`${state.time.toFixed(1)} 秒 · 已开火 ${own.filter(u=>(shots.get(u.uid)??0)>0).length}/${own.length} 人 · 我方存活 ${own.filter(isCombatant).length} 人 · 敌方乘员 ${crew.filter(isCombatant).length}/${crew.length} 人 · 最前方 ${Math.round(Math.max(...own.filter(isCombatant).map(u=>u.x)))} · 残骸位置 1200`;
+    }else status.textContent=`${state.time.toFixed(1)} 秒 · `+actors.map(u=>`${CARDS[u.id].name}：已发射 ${shots.get(u.uid)??0}，生命 ${Math.max(0,Math.round(u.hp))}，位置 ${Math.round(u.x)}`).join(' ｜ ');
   }
   requestAnimationFrame(loop);
 }requestAnimationFrame(loop);

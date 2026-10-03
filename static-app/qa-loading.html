@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>灰线 · 战场加载检查</title>
+<style>body{background:#202724;color:#e7e3ce;font:16px/1.6 system-ui;margin:24px}button,select{font:inherit;padding:8px 16px;margin-right:12px}canvas{display:block;max-width:100%;image-rendering:pixelated;border:1px solid #667166}pre{white-space:pre-wrap}#status{padding:12px 0;color:#e6ce74}</style></head>
+<body><h1>战场加载检查</h1><p>实际加载战场使用的素材并绘制战场；缓存命中会单独标明。</p>
+<select id="map"><option value="greyline">灰线</option><option value="jungle">丛林</option><option value="mountains">山地</option><option value="desert">沙漠</option></select><button id="load">加载并检查</button>
+<div id="status" role="status">尚未加载</div><canvas width="1280" height="480" id="battle"></canvas><pre id="report"></pre><script type="module" src="./qa-loading.ts"></script></body></html>

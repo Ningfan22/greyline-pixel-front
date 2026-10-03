@@ -1,4 +1,5 @@
 import type { PaintedGunParts } from './gun-art';
+import { EMPLACEMENT_SCALE } from './emplacement-layout';
 
 /** Articulate the original painted guns; no replacement pixels are drawn.
  * Masks follow the existing breech / recoil cylinders / barrel silhouettes,
@@ -10,7 +11,7 @@ interface Cut {
   muzzle: Point;
   outlines: readonly (readonly Point[])[];
 }
-export const EMPLACEMENT_CUTS: Record<EmplacementName, Cut> = {
+const ORIGINAL_CUTS: Record<EmplacementName, Cut> = {
   howitzer: {
     pivot: [84, 62], muzzle: [188, 41],
     outlines: [[
@@ -28,6 +29,12 @@ export const EMPLACEMENT_CUTS: Record<EmplacementName, Cut> = {
       [[97, 61], [190, 60], [190, 69], [113, 70], [99, 70]],
     ],
   },
+};
+const scaled = ([x, y]: Point): Point => [x * EMPLACEMENT_SCALE, y * EMPLACEMENT_SCALE];
+const scaledCut = (cut: Cut): Cut => ({ pivot: scaled(cut.pivot), muzzle: scaled(cut.muzzle),
+  outlines: cut.outlines.map(points => points.map(scaled)) });
+export const EMPLACEMENT_CUTS: Record<EmplacementName, Cut> = {
+  howitzer: scaledCut(ORIGINAL_CUTS.howitzer), at_gun: scaledCut(ORIGINAL_CUTS.at_gun),
 };
 function inside(x: number, y: number, points: readonly Point[]) {
   let hit = false;

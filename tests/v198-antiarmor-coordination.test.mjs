@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, startGame, spawnUnit, tick, refreshVision, W } from '../game/engine.ts';
+import { createGame, startGame, spawnUnit, tick, refreshVision, visibleToSide, unitRange, W } from '../game/engine.ts';
 import { obstacleBoxes } from '../game/world.ts';
 import { initializeAmmo, ammoProfile } from '../game/ammo-logistics.ts';
+import { stanceTransitionActive } from '../game/infantry-action-timing.ts';
+import { crouchMotionActive } from '../game/crouch-locomotion.ts';
+import { proneMotionActive } from '../game/prone-locomotion.ts';
 
 const DT = 1 / 60;
 function village(side) {
@@ -26,19 +29,36 @@ const bodyDistance = (u, x, y) => Math.hypot(u.x - x, u.y - 20 - y);
 const alive = u => u.hp > 0 && !u.surrendered;
 
 for (const side of [0, 1]) {
-  test(`side ${side}: seed 198 RPG guards leave a real safe breach lane while the enemy returns fire`, () => {
+  test(`side ${side}: seed 198 RPG guards leave a real safe breach lane while the enemy returns fire`, t => {
     const { s, own, tank } = village(side), operator = own.find(u => u.member === 0);
     assert.equal(operator.hp, 50); assert.equal(tank.hp, 650);
     const initialHealth = sceneryHealth(s), rounds = new Map(), pending = new Map();
     let firstFire = null, actualSafeImpacts = 0, counterfireDamage = false;
     let minimumSafety = Infinity;
+    let readySilence = 0, longestReadySilence = 0, firstTankFire = null, firstCoverDamage = null;
+    let firstReloadReadyAt = null, operatorKilledAt = null;
     for (let frame = 0; frame < 40 / DT; frame++) {
       const health = own.map(u => u.hp);
+      const previousX = operator.x;
       tick(s, DT);
+      if (tank.shots > 0) firstTankFire ??= s.time;
+      if (sceneryHealth(s) < initialHealth) firstCoverDamage ??= s.time;
+      if (operator.hp <= 0) operatorKilledAt ??= s.time;
+      const ready = firstFire === null && operator.shots === 0 && alive(operator) &&
+        operator.ammo > 0 && operator.cooldown <= 0 && operator.suppression < 35 &&
+        (operator.reloadingUntil ?? 0) <= s.time && visibleToSide(s, side, tank) &&
+        Math.abs(operator.x - tank.x) <= unitRange(s, operator);
+      const acting = operator.moving || Math.abs(operator.x - previousX) > .001 ||
+        operator.motion !== 'ground' || operator.climbing > 0 ||
+        (operator.flinchUntil ?? 0) > s.time || stanceTransitionActive(operator, s.time) ||
+        crouchMotionActive(operator) || proneMotionActive(operator);
+      readySilence = ready && !acting ? readySilence + DT : 0;
+      longestReadySilence = Math.max(longestReadySilence, readySilence);
       counterfireDamage ||= own.some((u, i) => u.hp < health[i]);
       for (const p of s.projectiles) if (p.sourceUid === operator.uid &&
           p.ammunition === 'rocket' && !rounds.has(p.uid)) {
         firstFire ??= s.time;
+        firstReloadReadyAt ??= s.time + Math.max(0, operator.cooldown);
         rounds.set(p.uid, p);
         assert.equal(p.base, null, 'the rocket is for the visible contact or its obstructing cover');
         assert(Math.abs(operator.x - tank.x) >= 250, 'the crew does not rush into the tank to unlock firing');
@@ -71,9 +91,18 @@ for (const side of [0, 1]) {
         pending.delete(uid);
       }
     }
-    assert(firstFire !== null && firstFire < 12,
-      `a healthy loaded main operator must not wait behind his rifle guards: ${firstFire}`);
-    assert(rounds.size >= 2 && actualSafeImpacts >= 1, 'real rockets launch and explode on the blocked firing lane');
+    // The v203 visible tank muzzle can breach this village first (6.98s),
+    // destroying the RPG's planned wall and requiring a new safe firing ray.
+    // Allow one posture commitment plus the ensuing movement/settling drill;
+    // separately reject a loaded, calm operator actually standing silent.
+    assert(firstFire !== null && firstFire < 16,
+      `the live squad must complete its safe firing maneuver within one posture cycle: ${firstFire}`);
+    assert(longestReadySilence < 2,
+      `a loaded operator must not freeze behind guards without moving or settling: ${longestReadySilence}`);
+    const killedBeforeSecondShot = operatorKilledAt !== null && firstReloadReadyAt !== null &&
+      operatorKilledAt < firstReloadReadyAt;
+    assert((rounds.size >= 2 || (rounds.size === 1 && killedBeforeSecondShot)) && actualSafeImpacts >= 1,
+      'real rockets explode safely; a surviving operator keeps firing, while one killed during reload cannot invent a second shot');
     assert(minimumSafety >= 45 && sceneryHealth(s) < initialHealth, 'safe real impacts damage the original cover');
     // At this standoff the main gun can return fire while the coax is out of range.
     assert(tank.shots > 0 && counterfireDamage,
@@ -81,6 +110,9 @@ for (const side of [0, 1]) {
     // An isolated RPG team may lose this fight. Two unspent rounds on a killed
     // operator are not a firing deadlock and must not be spent artificially.
     if (operator.hp <= 0) assert(operator.ammo > 0);
+    t.diagnostic(JSON.stringify({ firstFire, firstTankFire, firstCoverDamage,
+      longestReadySilence, rockets: rounds.size, actualSafeImpacts, counterfireDamage,
+      firstReloadReadyAt, operatorKilledAt }));
   });
 
   test(`side ${side}: a temporarily empty AT launcher with reserve still keeps its rifle guards behind it`, () => {

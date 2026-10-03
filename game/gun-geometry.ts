@@ -1,6 +1,7 @@
 import { CARDS, type CardId } from './cards';
 import { TANK_IDS_V202, tankLayoutV202 } from './tank-layout-v202';
 import { EMPLACEMENT_CUTS } from './emplacement-art-v202';
+import { emplacementSize } from './emplacement-layout';
 
 const rad = (degrees: number) => degrees * Math.PI / 180;
 export interface GunMount {
@@ -25,8 +26,9 @@ for (const id of TANK_IDS_V202) {
 }
 for (const id of ['howitzer', 'at_gun'] as const) {
   const { pivot, muzzle } = EMPLACEMENT_CUTS[id];
-  Object.assign(MOUNTS[id], { pivotX: pivot[0] - 95,
-    pivotHeight: (id === 'howitzer' ? 100 : 95) - pivot[1],
+  const [width, height] = emplacementSize(id);
+  Object.assign(MOUNTS[id], { pivotX: pivot[0] - width / 2,
+    pivotHeight: height - pivot[1],
     barrelLength: Math.hypot(muzzle[0] - pivot[0], muzzle[1] - pivot[1]),
     restElevation: Math.atan2(pivot[1] - muzzle[1], muzzle[0] - pivot[0]) });
 }

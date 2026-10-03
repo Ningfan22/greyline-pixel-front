@@ -9,7 +9,7 @@
     "dev": "vinext dev",
     "build": "vinext build",
     "dev:pages": "vite --config vite.pages.config.ts --host 0.0.0.0",
-    "build:pages": "vite build --config vite.pages.config.ts",
+    "build:pages": "node scripts/check-baked-battle-art.mjs && vite build --config vite.pages.config.ts",
     "preview:pages": "vite preview --config vite.pages.config.ts --host 0.0.0.0",
     "start": "wrangler dev --config dist/server/wrangler.json",
     "lint": "oxlint",

@@ -1,4 +1,5 @@
 import { loadArtImage } from './battle-art-loader';
+import { loadBakedMapBackground } from './battle-art-baked';
 import { MAPS, type MapId } from './maps';
 
 type Rect = [number, number, number, number];
@@ -133,11 +134,12 @@ const backgroundPending = new Map<MapId, Promise<HTMLCanvasElement>>();
 export function loadMapBackground(mapId: MapId, compact = false): Promise<HTMLCanvasElement> {
   let pending = backgroundPending.get(mapId);
   if (!pending) {
-    pending = loadArtImage(MAPS[mapId].backgroundAsset, compact).then(image => {
+    pending = (compact && !globalThis.__ART_CDN_BASE__ ? loadBakedMapBackground(mapId)
+      : loadArtImage(MAPS[mapId].backgroundAsset, compact).then(image => {
       const background = mapId === 'greyline' ? canvas(640, 214) : canvas(720, 240);
       background.getContext('2d')!.drawImage(image, 0, 0, background.width, background.height);
       return background;
-    }).catch(error => {
+    })).catch(error => {
       backgroundPending.delete(mapId);
       throw error;
     });

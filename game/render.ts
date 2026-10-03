@@ -1,5 +1,6 @@
 import { mapDefinition, type MapId } from './maps';
-import {actorSoldierFrame,drawSoldierRagdoll} from './soldier-art';
+import {actorSoldierFrame,actorSoldierPoseFrame,drawSoldierRagdoll} from './soldier-art';
+import { artilleryCrewPose } from './artillery-crew-pose';
 import {drawLogisticsIndicator} from './logistics-indicator';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
@@ -107,33 +108,16 @@ function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number,
   ctx.fillText(`建设 ${Math.ceil(remaining)}秒`, x, y - 9);
   ctx.restore();
 }
-function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art) {
+export function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art, layer: 'far' | 'near') {
   if (!art.soldiers) return;
-  const direction = u.side === 0 ? 1 : -1;
   // The original gun remains its own sprite. Each operator is an instance of
   // the existing infantry rig, with a separate stance and hand-work phase.
-  for (let member = 0; member < 2; member++) {
-    const body = {
-      id: 'infantry' as const,
-      uid: u.uid * 2 + member,
-      member,
-      hp: 100,
-      pose: 'crouch' as const,
-      motion: 'ground' as const,
-      facing: direction,
-      moving: false,
-      gaitWeight: 0,
-      walk: 0,
-      fire: 0,
-      secondaryFire: 0,
-      scavengeUntil: time + 1,
-      digElapsed: time + member * 0.85,
-    };
-    const rig = actorSoldierFrame(art.soldiers, u, body, time, member+1);
-    drawSprite(ctx, rig.image, u.x - direction * (40 + member * 30),
-      u.y + infantryDepth(u.lane) + 3 + rig.image.height - rig.anchorY,
-      rig.image.width, rig.image.height, direction < 0);
-  }
+  const member = layer === 'far' ? 0 : 1;
+  const crew = artilleryCrewPose(u, member, time);
+  const rig = actorSoldierPoseFrame(art.soldiers, u, crew.pose, member + 1);
+  drawSprite(ctx, rig.image, u.x + crew.facing * crew.x,
+    u.y + infantryDepth(u.lane) + crew.y + rig.image.height - rig.anchorY,
+    rig.image.width, rig.image.height, crew.facing < 0);
 }
 // Supersonic rounds that whip past the camera leave a brief white streak.
 // Render-layer only: the simulation never knows these exist.
@@ -167,7 +151,7 @@ function rearSoilTexture(
 }
 
 const mapTerrainTextures = new WeakMap<
-  HTMLImageElement,
+  HTMLImageElement | HTMLCanvasElement,
   Map<MapId, HTMLCanvasElement>
 >();
 function terrainTexture(
@@ -639,7 +623,8 @@ export function render(
       const canopy = art.parachute[0];
       ctx.drawImage(canopy, box.x - 38, y - 102, 76, 88);
     }
-    if (art.ammoCrate) ctx.drawImage(art.ammoCrate, 80, 230, 1385, 610, box.x - 28, y - 25, 56, 25);
+    if (art.ammoCrateFrame) ctx.drawImage(art.ammoCrateFrame, box.x - 28, y - 25);
+    else if (art.ammoCrate) ctx.drawImage(art.ammoCrate, 80, 230, 1385, 610, box.x - 28, y - 25, 56, 25);
     ctx.textAlign = 'center';
     ctx.font = '10px monospace';
     ctx.fillStyle = '#e2dcb6';
@@ -868,6 +853,7 @@ export function render(
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);
+    if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far');
     if (c.fortification) {
       drawFortification(ctx,u,s.time,art);
     } else if (art.gunParts?.[u.id] || (c.emplacement && art.gunParts?.[c.emplacement])) {
@@ -902,7 +888,7 @@ export function render(
         c.armored || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
       );
     }
-    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art);
+    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art,'near');
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
     // Stationary infantry in cover get a per-unit prop (sandbags for deep

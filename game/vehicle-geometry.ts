@@ -139,10 +139,9 @@ for (const id of TANK_IDS_V202) {
   g.spriteOffset = 0;
   g.muzzleX = layout.pivotX + layout.barrelLength;
   g.muzzleY = layout.pivotHeight;
-  // The main tank's secondary gun is the painted rooftop machine gun.
-  // Light/heavy tanks retain the small port beside their mantlet.
-  g.coaxX = id === 'tank' ? (1100 - layout.body[0]) * layout.scale - layout.width / 2 : layout.pivotX + 5;
-  g.coaxY = id === 'tank' ? (layout.body[1] + layout.body[3] - 146) * layout.scale : layout.pivotHeight;
+  // The new hulls carry a measured visible coaxial port beside the mantlet.
+  g.coaxX = layout.coaxX;
+  g.coaxY = layout.coaxY;
   delete g.barrelBand;
 }
 export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {

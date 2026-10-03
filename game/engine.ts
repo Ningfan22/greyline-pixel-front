@@ -82,6 +82,7 @@ import { wreckContact } from './wreck-geometry';
 import { createSoldierRagdoll, stepSoldierRagdoll } from './soldier-ragdoll';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
 import { gunMount, gunPose, aimedGunSolution, indirectArc, rocketRackArc } from './gun-geometry';
+import { EMPLACEMENT_SCALE } from './emplacement-layout';
 import {
   ammunition,
   indirectBlastKind,
@@ -3105,9 +3106,7 @@ export function projectileIntercept(
     return terrainIntercept(s, sx, sy, tx, ty);
   const totalPath = Math.hypot(p.tx - p.startX, p.ty - p.startY) || 1;
   const muzzleClear = totalPath * 0.5;
-  const travelled = Math.hypot(sx - p.startX, sy - p.startY);
-  const hardHit = smallArmsRayIntercept(s, sx, sy, tx, ty,
-    Number.isFinite(travelled) ? Math.max(0, muzzleClear - travelled) : 0);
+  const hardHit = smallArmsRayIntercept(s, sx, sy, tx, ty);
   const hardDistance = hardHit
     ? Math.hypot(hardHit.x - sx, hardHit.y - sy)
     : Infinity;
@@ -3127,18 +3126,13 @@ export function projectileIntercept(
   return hardHit;
 }
 
-/** The first half ignores scenery INCLUDING wrecks, but never the soil.
- * Use the same rule for aim permission and the travelling projectile. */
+/** Solid metal and soil block both directions along the whole shot.
+ * Nearby depth scenery still uses its probabilistic cover rule below, but a
+ * wreck must never become a one-way firing port for its surviving crew. */
 function smallArmsRayIntercept(
   s: GameState, sx: number, sy: number, tx: number, ty: number,
-  clearDistance = Math.hypot(tx - sx, ty - sy) * 0.5,
 ) {
-  const length = Math.hypot(tx - sx, ty - sy);
-  if (clearDistance <= 0) return terrainIntercept(s, sx, sy, tx, ty, true);
-  const split = Math.min(1, clearDistance / (length || 1));
-  const mx = sx + (tx - sx) * split, my = sy + (ty - sy) * split;
-  const soil = terrainIntercept(s, sx, sy, mx, my, true, true);
-  return soil ?? (split < 1 ? terrainIntercept(s, mx, my, tx, ty, true) : null);
+  return terrainIntercept(s, sx, sy, tx, ty, true);
 }
 /** Aim with the same path the round will fly. A grenade is lobbed, not a
  * mortar: it still collides with scenery on both ascent and descent. */
@@ -3224,8 +3218,10 @@ export function muzzleOffset(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).x;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleX;
-  if (CARDS[u.id].emplacement)
-    return CARDS[u.id].emplacement === 'aa_gun' ? 45 : 93;
+  if (CARDS[u.id].emplacement) {
+    const mount = gunMount(u.id);
+    return mount ? mount.pivotX + Math.cos(mount.restElevation) * mount.barrelLength : 45 * EMPLACEMENT_SCALE;
+  }
   if (CARDS[u.id].airframe)
     return CARDS[u.id].airframe === 'rocket_heli'
       ? 72
@@ -3246,12 +3242,10 @@ export function muzzleHeight(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).height;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleY;
-  if (CARDS[u.id].emplacement)
-    return CARDS[u.id].emplacement === 'aa_gun'
-      ? 99
-      : CARDS[u.id].emplacement === 'at_gun'
-        ? 28
-        : 55.5;
+  if (CARDS[u.id].emplacement) {
+    const mount = gunMount(u.id);
+    return mount ? mount.pivotHeight + Math.sin(mount.restElevation) * mount.barrelLength : 99 * EMPLACEMENT_SCALE;
+  }
   return CARDS[u.id].air
     ? 16
     : modelOf(u.id) === 'mortar'
@@ -3931,13 +3925,12 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
     localPost = infantryOrder(s, u) === 'hold',
     anchor = u.squadOrder === 'watch' ? (u.firingWatchAnchorX ?? u.squadOrderX ?? u.x) :
       (u.firingWatchAnchorX ?? u.x);
-  // Reposition around this contact; never turn an obstructed ray into an unlimited charge.
-  const insideCover = obstacleBoxes(s).some(
-    (b) => !b.foliage && u.x > b.x - 16 && u.x < b.x + b.w + 16,
-  );
+  // Reposition around a confirmed blocked contact. A half-range stand-off
+  // strands rifles on the near side of a wreck forever; ordinary infantry
+  // can close to a real firing slot, while AT operators preserve their range.
   const minimumDistance = Math.min(
     vehicle || isAntiTankOperator(u) ? Math.max(280, (CARDS[u.id].minRange ?? 0) + 80) :
-      insideCover ? Math.max(56, (CARDS[u.id].minRange ?? 0) + 25) : range * 0.62,
+      Math.max(56, (CARDS[u.id].minRange ?? 0) + 25),
     currentDistance,
   );
   let best: number | null = null,
@@ -9817,7 +9810,12 @@ export function tick(s: GameState, dt: number) {
         u.firingTransit = false;
         if (u.firingGoal === null && order !== 'hold' && c.members) {
           const toward = Math.sign(threat!.x - u.x);
-          const standoff = Math.max(140, range * 0.5, (c.minRange ?? 0) + 80);
+          // Match the same contact clearance as the planned firing slots.
+          // Reapplying the old half-range gap here cancelled every approach
+          // before a rifle could actually look past the blocking wreck.
+          const standoff = isAntiTankOperator(u)
+            ? Math.max(280, (c.minRange ?? 0) + 80)
+            : Math.max(56, (c.minRange ?? 0) + 25);
           const available = Math.abs(threat!.x - u.x) - standoff;
           if (available > 4) {
             // Walk a depth passage beside the obstacle, then reassess the firing ray.

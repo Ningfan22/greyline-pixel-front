@@ -97,7 +97,9 @@ for (const side of [0, 1]) {
 test('near howitzer fire is shallow, grows with distance, and obeys the exact visible launch direction', () => {
   const body = { id: 'artillery', x: 1000, y: 374, hullAngle: 0, side: 0 };
   const nearShot = aimedGunSolution(body, 1300, 366), farShot = aimedGunSolution(body, 2200, 366);
-  assert(nearShot.arc < 28, `nearby shell should not use the old 170px mortar arc: ${nearShot.arc}`);
+  // The 20% larger carriage raises the muzzle, while the same low launch
+  // angle now needs slightly more sag to meet the ground-level target.
+  assert(nearShot.arc < 35, `nearby shell should not use the old 170px mortar arc: ${nearShot.arc}`);
   assert(farShot.arc > nearShot.arc * 3, 'elevation visibly grows for a long shot');
   for (const shot of [nearShot, farShot]) {
     const tx = shot === nearShot ? 1300 : 2200;

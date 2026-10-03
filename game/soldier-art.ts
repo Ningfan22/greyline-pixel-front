@@ -257,6 +257,10 @@ const actorRasters=new WeakMap<SoldierArt,WeakMap<object,Map<number,ActorRaster>
  * share mutable pixels. The public soldierFrame API remains immutable. */
 export function actorSoldierFrame(art:SoldierArt,owner:object,u:SoldierBody,time:number,slot=0) {
   const pose=soldierPose(u,time);
+  return actorSoldierPoseFrame(art,owner,pose,slot);
+}
+/** Crew actions provide a rig pose while retaining the same bounded raster cache. */
+export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPose,slot=0) {
   // Include phase and full precision: ankle rotation also depends on phase.
   // This is an exact unchanged-pose check, not an animation frame-rate cap.
   const key=JSON.stringify(pose);

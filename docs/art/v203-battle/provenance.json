@@ -1,0 +1,592 @@
+{
+  "version": 203,
+  "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
+  "encoder": "sharp 0.35.4",
+  "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
+  "compileMs": 3254.853583,
+  "canvasesCreated": 562,
+  "frames": 427,
+  "compilerSources": [
+    {
+      "path": "scripts/bake-battle-art.mjs",
+      "sha256": "aae4ed289cb5b7a8ddf1e1ef1964c154a77cacd6fb62061af5d46759cceb8487"
+    },
+    {
+      "path": "scripts/battle-art-bake-inputs.mjs",
+      "sha256": "68fda51533fbbcf2f17df965015ad41994bffb6d2164fa7754ab0d62fd8a6ddc"
+    },
+    {
+      "path": "game/art.ts",
+      "sha256": "2af4c9c36d42784e1bb06eeee6bd53ed683c816f061bbc134ed43f5738c60cd3"
+    },
+    {
+      "path": "game/art-v16.ts",
+      "sha256": "b3789190636c20dc3db03acc284acbe89d79bfca24ae94fb03e9c2e906208a0c"
+    },
+    {
+      "path": "game/battle-art-loader.ts",
+      "sha256": "9de0f3aecdf75a0e33548a4ff408a3605c781142855719d155c46a7097093678"
+    },
+    {
+      "path": "game/battle-art-assets.ts",
+      "sha256": "38968409a35044f782aff96460fcef7bc6023e59fb90ca18fc42c71aa4c54135"
+    },
+    {
+      "path": "game/sprite-atlas.ts",
+      "sha256": "e393fb91424db56224e974c207a3ea5b9721ae7666034ff6505aeb963ede2773"
+    },
+    {
+      "path": "game/soldier-art.ts",
+      "sha256": "cb1701f966618d62e6b2f3b272a4cd6b9b90dc87739729c0619e0d8f280a7925"
+    },
+    {
+      "path": "game/soldier-pose.ts",
+      "sha256": "20220fee7b87e71b967f2b57f63d0315437a8bc3d214cc7250c56e34e295f1bd"
+    },
+    {
+      "path": "game/tank-art-v202.ts",
+      "sha256": "b7daf01dae2bec578db94a023f9b0a7aba686022b458320d6cd527fa70e95fe5"
+    },
+    {
+      "path": "game/tank-layout-v202.ts",
+      "sha256": "8438db23f66774535de04473c9237bf9ffe6c21db391c1dffda433557153f3de"
+    },
+    {
+      "path": "game/gun-art.ts",
+      "sha256": "1149ebb7628017f2d05e38e43d3ff699db4caafbafb0a3d45ea0a81dc973aa78"
+    },
+    {
+      "path": "game/gun-geometry.ts",
+      "sha256": "68eb33a349faf9eae4db4273ad9a35bd1415b405b36abc7f3fa3a732569aa105"
+    },
+    {
+      "path": "game/emplacement-art-v202.ts",
+      "sha256": "68cea5246a76f1a059c75b9f1bcae5df9879e3031ef5c7228af9d5f522b402da"
+    },
+    {
+      "path": "game/emplacement-layout.ts",
+      "sha256": "a83ab4777e45dce66865dee3d6a393659e82179066c8ec611001f338c2166f41"
+    },
+    {
+      "path": "game/vehicle-art-v197.ts",
+      "sha256": "59364207a87b8ecd895d9466c565a4341880f097469f26985acd90f619382959"
+    },
+    {
+      "path": "game/vehicle-geometry.ts",
+      "sha256": "e3bc54fdbf4b14bdaa4d834699b54a19f4032bf7f38ed1d08d632de10f271199"
+    },
+    {
+      "path": "game/mobile-vehicle-art.ts",
+      "sha256": "f08655c302020c85f9bb421ee35441c8ef19dcbf0abd7b6da4741171e197216b"
+    },
+    {
+      "path": "game/cards.ts",
+      "sha256": "db3b556acb144675ff1f257acc040110b99349f79212d7c3aa2bc91b4b144c16"
+    },
+    {
+      "path": "game/maps.ts",
+      "sha256": "68ea07f16a35b971a052ebbf112342f00b870f3d18bbb98ebc206a9b2339d3df"
+    },
+    {
+      "path": "game/terrain-render.ts",
+      "sha256": "58e99519780f6dec12101610dcef15d9c7acde5c4f77eb61c04b6c6ac73e262b"
+    },
+    {
+      "path": "game/building-art.ts",
+      "sha256": "bfa5324c8d56dfdeb09c9bfb49050d6ef710e2f40d22f312135c68fc6c0fa009"
+    },
+    {
+      "path": "game/world.ts",
+      "sha256": "492d5112abe7614ae5ef17438747ee6ecfa72477770acf43355901cb06c625dc"
+    },
+    {
+      "path": "game/battlefield-effects-art.ts",
+      "sha256": "0fc2368f55878212797983db417363a6226763a57700836bd055e18ee2be654e"
+    },
+    {
+      "path": "game/wreck-art.ts",
+      "sha256": "da39eeb182e0fd36941e12c7cb879b277d402163e7878cbf3477d9bac2d9c09d"
+    },
+    {
+      "path": "game/wreck-geometry.ts",
+      "sha256": "8c38b1db2d3f1659a9763b4d131a6fcb312b75e117b31f64c5785328b504a793"
+    },
+    {
+      "path": "game/wreck-variants.ts",
+      "sha256": "857ec7f5f4d7df24aefb3764b232fe017e806273bd870dab37cb230edbf13906"
+    },
+    {
+      "path": "game/tank-wreck-art.ts",
+      "sha256": "057eb5c534cbff123d34db134863f862ed2c83f05dcde98fda5af385962dfe55"
+    },
+    {
+      "path": "game/effect-atlas.ts",
+      "sha256": "234b1f0a6f098c3d10a7d95c4c053bbf34c7df7a1a88afba21a1da639d03dd8e"
+    },
+    {
+      "path": "game/smoke-art.ts",
+      "sha256": "c16e9e6695195f77365c7fdeba68fe170dd0883869322b4d597adbc5a845e482"
+    },
+    {
+      "path": "game/glider-art.ts",
+      "sha256": "2d99524c50d9bdb3423a639a7d8a42815a67b2d42dada4d7b1a6029e29eda1c1"
+    },
+    {
+      "path": "game/tree-art-v17.ts",
+      "sha256": "ff9465a5777c5df4352957f05557276c0f8f3a3092a5ce2b1c0666dc61d39705"
+    },
+    {
+      "path": "game/mine-art-v18.ts",
+      "sha256": "842024db866ca9073112a3553c8ae0c19995462f850bec685b66b765cb922ef2"
+    },
+    {
+      "path": "game/comeback-art-v18.ts",
+      "sha256": "94c1717dc3d8f5b50ee0823d64d14d809688cdb7015d7e7eb2e23693cc1f95f6"
+    }
+  ],
+  "sourceFiles": [
+    {
+      "path": "/art/v201-lossless/vehicles-v3.webp",
+      "bytes": 1361468,
+      "sha256": "e2a22e0f8775f686409a0b6875b161a12af2c4aca73c42e5776c819ff0b63678"
+    },
+    {
+      "path": "/art/v201-lossless/terrain-texture.webp",
+      "bytes": 1531552,
+      "sha256": "8ae38c9b5c2fa316fbacd6032aba75db5b23533ee951a17fea7a10f8d1ab76ab"
+    },
+    {
+      "path": "/art/v201-lossless/reinforcements-v5.webp",
+      "bytes": 656524,
+      "sha256": "39ba7a548670dfa879255ae471001154434ae2183d0ffbc9a2113f2aed731bd8"
+    },
+    {
+      "path": "/art/v201-lossless/destructible-scenery-v9.webp",
+      "bytes": 1464370,
+      "sha256": "79ec8200dc72ec7c05b47deecc7dc680623de9efeb7f93b4e377f81abe5e91a7"
+    },
+    {
+      "path": "/art/v201-lossless/artillery-v9.webp",
+      "bytes": 858876,
+      "sha256": "355f0061aae4b780e7898fd1955d4914632f9204d9dfcce96362406e70e996d2"
+    },
+    {
+      "path": "/art/v201-lossless/explosions-v9.webp",
+      "bytes": 926008,
+      "sha256": "0e69b842906df71a16e6187a488cbc81f48946284314b7366ac3fb8243c146f7"
+    },
+    {
+      "path": "/art/v201-lossless/impacts-v12.webp",
+      "bytes": 1091798,
+      "sha256": "0470b96a0b1c3ac76de09faadae53f007b8e5794c848650f871c3b255b37a6ff"
+    },
+    {
+      "path": "/art/v201-lossless/fixed-wing-v12.webp",
+      "bytes": 714862,
+      "sha256": "bb332ac860e148994a41e6023c8e87e481e445e0c8b3d2bfc6ff55d28dd11f6e"
+    },
+    {
+      "path": "/art/v201-lossless/rotorcraft-v12.webp",
+      "bytes": 1766414,
+      "sha256": "0881e5cd83550f73f0d8744ac3b4c53da130564f96bf0d0a7183fb207d86556e"
+    },
+    {
+      "path": "/art/v201-lossless/blast-he-frames-v165.webp",
+      "bytes": 112710,
+      "sha256": "95e97944cc256b258f743dcc2594133fc3a87d27ac31e009029c5d15973663e7"
+    },
+    {
+      "path": "/art/v201-lossless/blast-grenade-frames-v165.webp",
+      "bytes": 81838,
+      "sha256": "89e341079ead13fcefe7a473c24d98de708a650822286e8b8421ff42f0fe22dd"
+    },
+    {
+      "path": "/art/v201-lossless/buildings-v13.webp",
+      "bytes": 1130816,
+      "sha256": "e0df232b1dd0ca43b4a4f16e96c0b1b464f94dd8a5ec3934cd293731d4ffc3ea"
+    },
+    {
+      "path": "/art/v201-lossless/building-collapse-v13.webp",
+      "bytes": 2005394,
+      "sha256": "9b72d6453f11007189bddf5d7d73bf34fb7e42251c15353108b1489e7ffaae01"
+    },
+    {
+      "path": "/art/v201-lossless/ground-wrecks-v14.webp",
+      "bytes": 1867188,
+      "sha256": "fa6d1693846924105edc7424cedb3615fc5cf30933cc66ef1bbfdc663b4f40a3"
+    },
+    {
+      "path": "/art/v201-lossless/air-wrecks-v14.webp",
+      "bytes": 1938518,
+      "sha256": "b82e8a2c18fc4e7be39f57509ae1d38b114bd609f5795ee7d31b1d0be9d05d4b"
+    },
+    {
+      "path": "/art/v201-lossless/mobile-vehicles-v14.webp",
+      "bytes": 1616000,
+      "sha256": "d6428e1a8ef91ce096146440774567f63a710246f723414deaa8f5d9e87bb091"
+    },
+    {
+      "path": "/art/v201-lossless/support-vehicles-v14.webp",
+      "bytes": 2025968,
+      "sha256": "ecfe2710fc75cd81a4ed9b018d3992e24f5c04ca216b4aca50533e96a30a542f"
+    },
+    {
+      "path": "/art/v201-lossless/parachute-v1.webp",
+      "bytes": 681238,
+      "sha256": "0fb6c60a8b7e5a905efdd73c8aff10965dd0229572338fc8487a88edd52985cd"
+    },
+    {
+      "path": "/art/v201-lossless/glider-v141.webp",
+      "bytes": 930192,
+      "sha256": "d98a49f70b49acf26df95771c803e4a305f3042d3c569f7b1ac3d04dbe3c3c13"
+    },
+    {
+      "path": "/art/v201-lossless/blast-fuel-frames-v165.webp",
+      "bytes": 192654,
+      "sha256": "88b52d48ba883b28f4f8daba4ebdd0c090ff8433bb5f5fbd8944a813a4abce35"
+    },
+    {
+      "path": "/art/v201-lossless/blast-earth-frames-v165.webp",
+      "bytes": 149718,
+      "sha256": "d3725aaadfafcb41e35c3008a8e7f428cfcf2cc0a6dcbd3afb64e7e93ccd1b12"
+    },
+    {
+      "path": "/art/v201-lossless/building-footings-v145.webp",
+      "bytes": 1021436,
+      "sha256": "a85808fe39b35e4005b4b7b2d1f138dda9307c92ae2374ab8a1499ceae9fdf7c"
+    },
+    {
+      "path": "/art/v201-lossless/powder-smoke-frames-v161.webp",
+      "bytes": 98360,
+      "sha256": "89787364dcefd143815fd6be5ba8c4d84e68acc5667ec28720b430ca1eb0d71a"
+    },
+    {
+      "path": "/art/v201-lossless/tank-wreck-frames-v162.webp",
+      "bytes": 357398,
+      "sha256": "b11a13a28e30dffaca110119a5e67dd13cb51023139f18cea5188c281828e78d"
+    },
+    {
+      "path": "/art/v201-lossless/blast-air-frames-v165.webp",
+      "bytes": 116822,
+      "sha256": "b2584df8b9178b15e557782d23e3d7b7aa6907be81fbfbe51ead7383bfb1109f"
+    },
+    {
+      "path": "/art/v201-lossless/soldier-parts-v178.webp",
+      "bytes": 699290,
+      "sha256": "9a299ccec2237c0ddcec71857d1624428f3f7c617158cbd0e826710eeaba2bee"
+    },
+    {
+      "path": "/art/v201-lossless/soldier-equipment-v178.webp",
+      "bytes": 603854,
+      "sha256": "52ef03c927d8198207a0f1e9a74dd63d0e21a9240af9852242239a9f417ec4fa"
+    },
+    {
+      "path": "/art/v201-lossless/v16-air__fpv-frames.webp",
+      "bytes": 1655728,
+      "sha256": "c4b22b15a58dd8d416166fc94575e941b8e70189b69e60844d0300385baa522b"
+    },
+    {
+      "path": "/art/v201-lossless/v19-trees__pine.webp",
+      "bytes": 45560,
+      "sha256": "9472442b198e65195041ab7f760622c9cd69eb3c19d5e81cec3e2374c2813773"
+    },
+    {
+      "path": "/art/v201-lossless/v19-trees__broadleaf.webp",
+      "bytes": 58272,
+      "sha256": "1fd1f8c772cdfb054f024d1ac884dd5753a5a1eb6ea1cb01a6d649113326b9c8"
+    },
+    {
+      "path": "/art/v18-mines/mines.png",
+      "bytes": 6022,
+      "sha256": "f127e9fa7ef5ddb6bcd14908657caa3c4f5266aeac1b51e96a6b8f07f2d60c7a"
+    },
+    {
+      "path": "/art/v201-lossless/v18-comeback__toxic-cloud.webp",
+      "bytes": 132492,
+      "sha256": "ef13833874df1dd71e61c61224a933aa4b9faf22ecce7a7d361f6fc340d5a960"
+    },
+    {
+      "path": "/art/v190/sprites/fort_bunker.webp",
+      "bytes": 442642,
+      "sha256": "ebf5dee27e76aa4f8f5b23afe82db00542cb7bcfd61519bb76a40f2e62a5173f"
+    },
+    {
+      "path": "/art/v190/sprites/fort_machinegun.webp",
+      "bytes": 549162,
+      "sha256": "d7427f2ec3eb2752faf82cc57296a51d88cb9540d7ffa47b62a5e9c4d8fa0d21"
+    },
+    {
+      "path": "/art/v190/sprites/fort_aa.webp",
+      "bytes": 385952,
+      "sha256": "cd58010c3e1f73921a316995faa3faefb59d14ad7380aaa0cdb843a44ce6ff64"
+    },
+    {
+      "path": "/art/v190/sprites/fort_spawn.webp",
+      "bytes": 338570,
+      "sha256": "93b46000c5d452647a5d5bac31cd7736147af023c34c9429ae716de118bd1d4b"
+    },
+    {
+      "path": "/art/v190/sprites/fort_wire.webp",
+      "bytes": 486916,
+      "sha256": "93c31287f5afa284f35a2dfccb93bf33fe1869b1f84f94c1e0e38d946f9e2a96"
+    },
+    {
+      "path": "/art/v190/sprites/escort_gunship.webp",
+      "bytes": 210272,
+      "sha256": "1981f26702b2211a3758b0000210193af674a3ecad84f3029d72b677fac1b024"
+    },
+    {
+      "path": "/art/v201-lossless/v195-logistics__ammo-crate.webp",
+      "bytes": 958288,
+      "sha256": "fa517565fa10776ad79a815aedbf280ad7aaf550fa06c6691e8d7d143fb455fa"
+    },
+    {
+      "path": "/art/v197-armor/tow-sprite.webp",
+      "bytes": 765944,
+      "sha256": "201b9f6491325f98126c85fa91c06c55d88a42d778d21b6c0fbcedcb46d6ec14"
+    },
+    {
+      "path": "/art/v197-armor/tow-wreck.webp",
+      "bytes": 791492,
+      "sha256": "771a318bedea4a1eea41475a19d67c32b1f4c58dbb854e49d7cd2559e9680739"
+    },
+    {
+      "path": "/art/v197-armor/light-tank-wreck.webp",
+      "bytes": 848204,
+      "sha256": "d9e23df31c0d8c3f18387e9e6d92d1c8a75ac41e1f5cdd45e39881dbc40ae0f7"
+    },
+    {
+      "path": "/art/v197-armor/mlrs-sprite.webp",
+      "bytes": 905504,
+      "sha256": "d04d84e5e987b5551acc2a5cfc9141924bc77448d81bb759a46573831b7500a4"
+    },
+    {
+      "path": "/art/v197-armor/mlrs-wreck.webp",
+      "bytes": 999130,
+      "sha256": "0db51f56520956e60497758dd56d9575a9b3991f49ee867c23ecf47d90254a4f"
+    },
+    {
+      "path": "/art/v203-tanks/light_tank.webp",
+      "bytes": 1082118,
+      "sha256": "2b2f934c4b5d42367714a825a12f92ad8da70b8ce49651857c3a4a56c018bd38"
+    },
+    {
+      "path": "/art/v203-tanks/tank.webp",
+      "bytes": 890842,
+      "sha256": "a228b69c64eb76ace4d1cded08ee7b93c5627b7e241522d3ce3d448e7e8f148c"
+    },
+    {
+      "path": "/art/v203-tanks/heavy_tank.webp",
+      "bytes": 957468,
+      "sha256": "fa483cb617e15955cbfbd763ae2fe86f9488d1ae124cc116b959246fe594bfc1"
+    },
+    {
+      "path": "/art/battlefield-v3.png",
+      "bytes": 1977182,
+      "sha256": "ca4356aa0b638173248b7c767ad35d8de666bd560ff064c3d8bb666a330deed4"
+    },
+    {
+      "path": "/art/v16-maps/jungle.png",
+      "bytes": 817278,
+      "sha256": "a16dc3cce43f97d3978b1fc497055f059f6f566d4675ab20654ae79f204f956e"
+    },
+    {
+      "path": "/art/v16-maps/mountains.png",
+      "bytes": 852137,
+      "sha256": "7fde803418561be13ef017d829e2d3d7f3cffe7230b7d874a9277002fbd228bd"
+    },
+    {
+      "path": "/art/v16-maps/desert.png",
+      "bytes": 817393,
+      "sha256": "ba211e6b5f0c0d389b1bf4d7d7946c468de9557c9455da0f36a0c8b7b1837cc9"
+    }
+  ],
+  "originalSources": [
+    {
+      "path": "/art/air-wrecks-v14.png",
+      "sha256": "4d850961e9ffd55f93708f84a06e8274ecf01c7ea8bf6548bd131bc51882b9cf"
+    },
+    {
+      "path": "/art/artillery-v9.png",
+      "sha256": "54b800005e60067c5264d8ee2d523047de7bb426c0fb9f09c7b009589a3dbf75"
+    },
+    {
+      "path": "/art/blast-air-frames-v165.png",
+      "sha256": "29e046315e2cebd58a3a1100aa259784ecec68bfda6066102e4ce63b9649b652"
+    },
+    {
+      "path": "/art/blast-earth-frames-v165.png",
+      "sha256": "c559b44dd4b0f69d61e590581107a8ad7ab71d221fec7dbb6f50abafe05518cb"
+    },
+    {
+      "path": "/art/blast-fuel-frames-v165.png",
+      "sha256": "22c4b8b9e0665785b6dc1fc154dbf86795fb157a217a67b128eb4b12448df0df"
+    },
+    {
+      "path": "/art/blast-grenade-frames-v165.png",
+      "sha256": "9e1f6957d9efc0b69af21402254cf758f75b4723fefe223c5e2122965bc32606"
+    },
+    {
+      "path": "/art/blast-he-frames-v165.png",
+      "sha256": "75e3713a0f316bcb9885486d57661878bb4aa7a6315e84aad2c92c00b52a3451"
+    },
+    {
+      "path": "/art/building-collapse-v13.png",
+      "sha256": "b3e9e6a7caaa00657f81419792a598ef7947dd1d96bb57b6d4c85612b6e3dce9"
+    },
+    {
+      "path": "/art/building-footings-v145.png",
+      "sha256": "810baf81d08200b5d66cc6b4c971c04efda6a0f17986f465f4815366b1de2f65"
+    },
+    {
+      "path": "/art/buildings-v13.png",
+      "sha256": "d47e5b680902cc014069df9e9238612edcaf94b558d0b9f59763c35b4cfd4dfb"
+    },
+    {
+      "path": "/art/destructible-scenery-v9.png",
+      "sha256": "fbf2219ca3477f727c20548391e11f0ab4dca2d71b03f6ac5985bc07bfb2696e"
+    },
+    {
+      "path": "/art/explosions-v9.png",
+      "sha256": "935ad70646ca281bcf9dacae136355233e1161ca125ffd2a13d5456485500d33"
+    },
+    {
+      "path": "/art/fixed-wing-v12.png",
+      "sha256": "de3de8c49722209d5394c5f9093ce0db62dcdcb03cb7b1b9630834b6e51eaa03"
+    },
+    {
+      "path": "/art/glider-v141.png",
+      "sha256": "29e20a6bf2bcf453cff43153365ef3beba7d4de79e493d92bab8c874460d815b"
+    },
+    {
+      "path": "/art/ground-wrecks-v14.png",
+      "sha256": "7700336008f745a278b1822ec5a2694660870eefe5c694664b51216620b4bf7b"
+    },
+    {
+      "path": "/art/impacts-v12.png",
+      "sha256": "b1fa62eb8ca3b17c5afc68d8db649122688a8994c9f5738caf8b8d3aba61af67"
+    },
+    {
+      "path": "/art/mobile-vehicles-v14.png",
+      "sha256": "2be2d18bbce51dc0766517cbb36e18a6e83edba2caa4651d78282adb5e3e310e"
+    },
+    {
+      "path": "/art/parachute-v1.png",
+      "sha256": "d1677c12abceb6abc855d1c830c2c274dc3235d2a184cb9e319116f708322c49"
+    },
+    {
+      "path": "/art/powder-smoke-frames-v161.png",
+      "sha256": "ac33ea3b94596d0b0d977d3de303df7269982df5db3e035fb7ae4108c71649a4"
+    },
+    {
+      "path": "/art/reinforcements-v5.png",
+      "sha256": "d02aa0563a9d545e9bae656897d53a30b9f43d971b1e9a185fb38677b36ec107"
+    },
+    {
+      "path": "/art/rotorcraft-v12.png",
+      "sha256": "088b1473cb2bffb0423797f8ed9e7883dd99d9fb011911b051d2e1830990e6ed"
+    },
+    {
+      "path": "/art/soldier-equipment-v178.png",
+      "sha256": "a8d7a26565baffb43afcf98a2c81fb5ce6920b6750d2fcd4a4512d74932456e4"
+    },
+    {
+      "path": "/art/soldier-parts-v178.png",
+      "sha256": "0c45494bf73be45a659f64c814ce4c79bb4d2bb3faed560e61346f2cf09be5ab"
+    },
+    {
+      "path": "/art/support-vehicles-v14.png",
+      "sha256": "b46355aa36dbcca228be2237bdfecb4b86756e6f840bb947fc5b9f9d834f9ca0"
+    },
+    {
+      "path": "/art/tank-wreck-frames-v162.png",
+      "sha256": "d965a74b17c1afba15e8c01bf07f54066c59955bd1e87383caf5a2b3a2ef3523"
+    },
+    {
+      "path": "/art/terrain-texture.png",
+      "sha256": "d37c97ab9ab43e2220c0c35105b980e3b1154796a875beed068a350fcd2564c2"
+    },
+    {
+      "path": "/art/v16-air/fpv-frames.png",
+      "sha256": "f2ed4bd6645c954a4513c2ff6f77bb9a328c41c7980f042514f37ab6eaa4a0b9"
+    },
+    {
+      "path": "/art/v18-comeback/toxic-cloud.png",
+      "sha256": "f31b99f61a50cace7b249c4d8a841f52cd346291c9c00930a0faf6aa1a3e9f02"
+    },
+    {
+      "path": "/art/v19-trees/broadleaf.png",
+      "sha256": "6b156458a000f70dbc242c5c2bd7ac7842809cbc2bd43e5c5fc4ef536b5bf8d2"
+    },
+    {
+      "path": "/art/v19-trees/pine.png",
+      "sha256": "87320bc5be2abddefd4a26c82f46a739bdd6ba4ebed804fe276c7a7e471bcb33"
+    },
+    {
+      "path": "/art/v195-logistics/ammo-crate.png",
+      "sha256": "5207666b65ee019adcf640b229d589f69803885948193bdc4ad392aace4a65eb"
+    },
+    {
+      "path": "/art/vehicles-v3.png",
+      "sha256": "5e51904da689ba5a4f5792aaa9fafc15945693cab62866990a0cb1741895f4bb"
+    }
+  ],
+  "dataFile": {
+    "path": "game/battle-art-baked-data.ts",
+    "sha256": "666c068b4dabcbe119ffa01164ae7b14ab2691b88f8de417cc99f0c065c40544"
+  },
+  "atlasFiles": [
+    {
+      "path": "/art/v203-battle/frames-0-d1277a162814.png",
+      "bytes": 2348020,
+      "width": 2048,
+      "height": 2026,
+      "sha256": "d1277a162814d82c6c04b25fa3cb59f5e35b3322c863dc780a3e5274106994db",
+      "rgbaSha256": "bfc2e4584c152188a7f9b11facb744e90bf9f68216b942a26aa7090817c1d7aa"
+    },
+    {
+      "path": "/art/v203-battle/frames-1-7faf6d4911fb.png",
+      "bytes": 2651029,
+      "width": 2048,
+      "height": 1283,
+      "sha256": "7faf6d4911fbc0bae89c9f31f41bbd8c206d1442d9e6ebf96cdec4241e9a5501",
+      "rgbaSha256": "a07929481f8d328716024d6d371ca896e12bda4ec363a49c89298de542f7b1c2"
+    }
+  ],
+  "external": [],
+  "backgrounds": {
+    "greyline": {
+      "path": "/art/v203-battle/map-greyline-eb5e872c9d8a.webp",
+      "bytes": 171266,
+      "width": 640,
+      "height": 214,
+      "sha256": "eb5e872c9d8a73ba127f46451654ab38b80375c16463287b8df341b6bf935b0b",
+      "rgbaSha256": "25f7f74cc268f42ea715d4e547077f90d2c93925babe47cf1ebead13a4ad80b6"
+    },
+    "jungle": {
+      "path": "/art/v203-battle/map-jungle-cc7643660c5e.webp",
+      "bytes": 194034,
+      "width": 720,
+      "height": 240,
+      "sha256": "cc7643660c5e45810ef89aace0f550da9ba9579a1f2d7a248a46fead13cf5f23",
+      "rgbaSha256": "a4f04a76943c532887b9806e18bf49e1f8c3293060ea4af08e0c37d7f87a698f"
+    },
+    "mountains": {
+      "path": "/art/v203-battle/map-mountains-a9e583b908a0.webp",
+      "bytes": 191646,
+      "width": 720,
+      "height": 240,
+      "sha256": "a9e583b908a0bf6ea86620a9b29b95e115bf1f9d4ec8b5655f9c0f2b2ed9a519",
+      "rgbaSha256": "e2b0eae5af6f546d22f98f04c533938b518de61086add58f521b7ec55b6eccc4"
+    },
+    "desert": {
+      "path": "/art/v203-battle/map-desert-db68adfb47c9.webp",
+      "bytes": 187986,
+      "width": 720,
+      "height": 240,
+      "sha256": "db68adfb47c95c28005d9940d9a708147cbf42a645fdde4300efb0b2376d006d",
+      "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
+    }
+  },
+  "sharedBytes": 4999049
+}

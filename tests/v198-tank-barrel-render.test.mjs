@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { tankPartsV202 } from '../game/tank-art-v202.ts';
-import { TANK_IDS_V202, tankLayoutV202 } from '../game/tank-layout-v202.ts';
+import { TANK_IDS_V202, TANK_ASSET_ROOT, tankLayoutV202 } from '../game/tank-layout-v202.ts';
 import { drawArticulatedGun } from '../game/gun-art.ts';
 import { gunMount, gunPose } from '../game/gun-geometry.ts';
 const { createCanvas, loadImage } = createRequire(import.meta.url)('@napi-rs/canvas');
 globalThis.document = { createElement: () => createCanvas(1, 1) };
 const pixels = canvas => Buffer.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data);
 const parts = Object.fromEntries(await Promise.all(TANK_IDS_V202.map(async id => [id,
-  tankPartsV202(id, await loadImage(fileURLToPath(new URL(`../public/art/v202-tanks/${id}.webp`, import.meta.url))))])));
+  tankPartsV202(id, await loadImage(fileURLToPath(new URL(`../public${TANK_ASSET_ROOT}/${id}.webp`, import.meta.url))))])));
 function paint(id, facing, hullAngle, gunElevation, fire = 0, moving = false) {
   const canvas = createCanvas(640, 280), body = {
     id, x: 320, y: 235, side: facing < 0 ? 1 : 0, facing, gunFacing: facing,

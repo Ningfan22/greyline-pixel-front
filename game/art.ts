@@ -21,6 +21,7 @@ import {
   type AdultSprites,
 } from './adult-animation';
 import { loadArtImage } from './battle-art-loader';
+import { loadBakedBattleArt } from './battle-art-baked';
 import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
@@ -29,9 +30,10 @@ import { paintedTankWrecks } from './tank-wreck-art';
 import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { V197_VEHICLE_IDS, vehicleAssetV197, vehicleFrameV197 } from './vehicle-art-v197';
-import { TANK_IDS_V202 } from './tank-layout-v202';
+import { TANK_IDS_V202, TANK_ASSET_ROOT } from './tank-layout-v202';
 import { tankPartsV202, tankPreviewV202 } from './tank-art-v202';
 import { buildEmplacementParts } from './emplacement-art-v202';
+import { emplacementSize, EMPLACEMENT_SCALE, type EmplacementName } from './emplacement-layout';
 import type { PaintedGunParts } from './gun-art';
 import { loadFPVArt, loadMapBackground, loadV16Art } from './art-v16';
 import { loadTreeArtV17, treeFramesV17, type TreeArtV17 } from './tree-art-v17';
@@ -44,7 +46,8 @@ import type { WreckKind } from './wreck-geometry';
 export interface Art {
   gunParts?: Record<string, PaintedGunParts>;
   ammoCrate?: HTMLImageElement;
-  generatedSprites: Partial<Record<CardId, HTMLImageElement>>;
+  ammoCrateFrame?: HTMLCanvasElement;
+  generatedSprites: Partial<Record<CardId, HTMLImageElement | HTMLCanvasElement>>;
   soldiers?: SoldierArt;
   comeback: ComebackArtV18;
   digging?: DigArtV18;
@@ -59,7 +62,7 @@ export interface Art {
   glider: HTMLCanvasElement[];
   background: HTMLCanvasElement;
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
-  terrain: HTMLImageElement;
+  terrain: HTMLImageElement | HTMLCanvasElement;
   vehicles: HTMLCanvasElement[][];
   reinforcements: HTMLCanvasElement[][];
   aircraft: Record<string, HTMLCanvasElement[]>;
@@ -479,10 +482,11 @@ export function buildEmplacements(img: HTMLImageElement) {
       ic.putImageData(data, 0, 0);
       // Sample the original painted gun directly at its final world size.
       // The former 80x48 intermediary erased detail before a second enlargement.
-      const [worldWidth, worldHeight] = [[190, 100], [190, 95], [150, 105]][index];
+      const name = (['howitzer', 'at_gun', 'aa_gun'] as const)[index];
+      const [worldWidth, worldHeight] = emplacementSize(name);
       const base = surface(worldWidth, worldHeight), bc = base.getContext('2d')!;
       bc.imageSmoothingEnabled = false;
-      const scale = Math.min((worldWidth - 2) / isolated.width, (worldHeight - 2) / isolated.height);
+      const scale = Math.min((worldWidth - 2 * EMPLACEMENT_SCALE) / isolated.width, (worldHeight - 2 * EMPLACEMENT_SCALE) / isolated.height);
       const drawWidth = isolated.width * scale, drawHeight = isolated.height * scale;
       bc.drawImage(isolated, 0, 0, isolated.width, isolated.height,
         (worldWidth - drawWidth) / 2, worldHeight - drawHeight, drawWidth, drawHeight);
@@ -492,15 +496,15 @@ export function buildEmplacements(img: HTMLImageElement) {
         c.imageSmoothingEnabled = false;
         c.drawImage(base, 0, 0);
         // Recoil moves the barrel layer; wheels and stabilizers keep their anchor.
-        const shift = frame === 1 ? 4 : frame === 2 ? 2 : 0;
+        const shift = (frame === 1 ? 4 : frame === 2 ? 2 : 0) * EMPLACEMENT_SCALE;
         if (shift) {
-          const [x, y, w, h] = [[98, 37, 92, 28], [112, 54, 78, 15], [70, 0, 65, 73]][index];
+          const [x, y, w, h] = [[98, 37, 92, 28], [112, 54, 78, 15], [70, 0, 65, 73]][index].map(n => n * EMPLACEMENT_SCALE);
           c.clearRect(x, y, w, h);
           c.drawImage(base, x, y, w, h, x - shift, y, w, h);
         }
         return out;
       });
-      return [['howitzer', 'at_gun', 'aa_gun'][index], frames];
+      return [name, frames];
     }),
   );
 }
@@ -581,15 +585,23 @@ function atlasFrames(
     }),
   );
 }
-type SharedBattleArt = Omit<Art, 'background' | 'mapBackgrounds'>;
+export type SharedBattleArt = Omit<Art, 'background' | 'mapBackgrounds'>;
 let sharedPending: Promise<SharedBattleArt> | undefined;
 function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
+  return (sharedPending ??= (compact && !globalThis.__ART_CDN_BASE__
+    ? loadBakedBattleArt() : compileSharedBattleArt(compact)).catch(error => {
+    sharedPending = undefined;
+    throw error;
+  }));
+}
+/** Build-time source compiler; live battles use the baked output below. */
+export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt> {
   const loadImage = (source: string) => loadArtImage(source, compact);
   const generatedSpriteIds = [
     'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
     'escort_gunship',
   ] as const;
-  return (sharedPending ??= Promise.all([
+  return Promise.all([
     Promise.all([
       loadImage('/art/vehicles-v3.png'),
       loadImage('/art/terrain-texture.png'),
@@ -635,7 +647,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
       return {id, sprite, wreck};
     })),
     Promise.all(TANK_IDS_V202.map(async id =>
-      [id, tankPartsV202(id, await loadImage(`/art/v202-tanks/${id}.webp`))] as const)),
+      [id, tankPartsV202(id, await loadImage(`${TANK_ASSET_ROOT}/${id}.webp`))] as const)),
   ]).then(
     ([
       [
@@ -770,10 +782,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
         combatExplosionsV13: [fuelFrames, earthFrames, grenadeFrames],
       };
     },
-  ).catch(error => {
-    sharedPending = undefined;
-    throw error;
-  }));
+  );
 }
 
 type LegacyInfantryArt = Pick<LegacyArt,
@@ -1019,12 +1028,7 @@ export function unitSize(id: CardId): [number, number] {
   if (id === 'air_assault') return [240, 112];
   const tank = tankGeometry(id);
   if (tank) return tank.size;
-  if (c.emplacement)
-    return c.emplacement === 'howitzer'
-      ? [190, 100]
-      : c.emplacement === 'at_gun'
-        ? [190, 95]
-        : [150, 105];
+  if (c.emplacement) return emplacementSize(c.emplacement as EmplacementName);
   if (c.airframe === 'scout_drone') return [88, 48];
   if (c.airframe === 'attack_drone') return [176, 78];
   if (c.airframe === 'loiter_drone') return [104, 52];

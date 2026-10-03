@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createGame, startGame, spawnUnit, tick, refreshVision, CARDS, W } from '../game/engine.ts';
 import { obstacleBoxes } from '../game/world.ts';
 import { issueLogisticsOrder } from '../game/logistics-orders.ts';
+import { tankLayoutV202 } from '../game/tank-layout-v202.ts';
 
 const DT=1/60, dir=side=>side?-1:1, at=(side,x)=>side?W-x:x;
 function arena(){
@@ -102,6 +103,7 @@ test('a tank aiming at rear armor cannot mirror its secondary muzzle toward infa
     assert(bullet,'secondary fire resumes when infantry is on the gun side');
     assert.equal(bullet.targetUid,infantry.uid);
     assert((bullet.startX-tank.x)*tank.gunFacing>0,'the round leaves the visible side of the vehicle');
-    assert(tank.y-bullet.startY>75,'the main tank fires from its painted roof gun, not the main-gun socket');
+    assert(Math.abs((tank.y-bullet.startY)-tankLayoutV202('tank').coaxY)<.01,
+      'secondary fire starts at the measured visible coaxial port of the current tank painting');
   }
 });

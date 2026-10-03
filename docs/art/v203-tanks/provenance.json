@@ -1,0 +1,31 @@
+{
+  "mode": "built-in imagegen",
+  "date": "2026-10-04",
+  "encoding": "Lossless WebP, all generated source RGBA bytes preserved including alpha. Runtime scales body and separate cannon uniformly once.",
+  "assets": [
+    {
+      "id": "tank",
+      "sourceGeneration": "exec-1173f9c0-5175-4b72-876f-ed497f47ff5b.png",
+      "path": "tank.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "14465b80d166d12167f85fcc99373ef5eb78295e9224bcd2362a48615dacdcd2"
+    },
+    {
+      "id": "light_tank",
+      "sourceGeneration": "exec-4d9c67c3-0886-4b89-8a95-594fcc139d44.png",
+      "path": "light_tank.webp",
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "0af713eb009ad3fb945b84e2f9d1a309dc4b5289369bab632b6d304c9dbcc23a"
+    },
+    {
+      "id": "heavy_tank",
+      "sourceGeneration": "exec-c93de955-69af-48dd-9df7-632f07814268.png",
+      "path": "heavy_tank.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "692c1f3037a4f51c19b433fffb0d790c566c1de6af5ff4bba2382caaf0806c54"
+    }
+  ]
+}
