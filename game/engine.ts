@@ -3931,9 +3931,10 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
     smokeBlocks(s, u.side, u.x, target.x)
   )
     return null;
-  const point = muzzlePoint(u, target.x),
+  const aimed = c.members ? { ...u, rifleReady: 1 } : u;
+  const point = muzzlePoint(aimed, target.x),
     ty = target.y - bodyHeight(target);
-  if (terrainIntercept(s, u.x, u.y - muzzleHeight(u), point.x, point.y,
+  if (terrainIntercept(s, u.x, u.y - muzzleHeight(aimed), point.x, point.y,
       !c.members, !c.members)) return null;
   if (obstacleBoxes(s).some(box => !box.foliage && point.x > box.x &&
       point.x < box.x + box.w && point.y > box.y && point.y < box.y + box.h)) return null;
@@ -4526,6 +4527,28 @@ function heavySupport(s: GameState, u: Unit, foe: Unit) {
       Math.abs(friend.x - u.x) <= 320 &&
       effectiveHeavyCounter(s, friend, foe),
   );
+}
+/** Rifle guards screen a loaded AT operator instead of charging an invulnerable
+ * visible hull and standing in the team's prospective rocket impact lane. */
+function antiTankGuardPost(s: GameState, u: Unit) {
+  if (!CARDS[u.id].members || isAntiTankOperator(u) ||
+      infantryOrder(s, u) !== 'advance' || localUnitOrder(s, u) ||
+      u.tactic === 'retreat' || orderedWithdrawal(s, u)) return null;
+  const operator = squadMates(s, u.side, u.squad).find(mate =>
+    isCombatant(mate) && isAntiTankOperator(mate) &&
+    (mate.ammo ?? ammoProfile(mate).primary?.mag ?? 0) + (mate.ammoReserve ?? 0) > 0 &&
+    !mate.resupplyState && mate.tactic !== 'retreat' && !orderedWithdrawal(s, mate));
+  if (!operator) return null;
+  const foe = s.units.find(enemy => enemy.side !== u.side && isCombatant(enemy) &&
+    !CARDS[enemy.id].air && CARDS[enemy.id].armored && visibleToSide(s, u.side, enemy) &&
+    Math.abs(enemy.x - operator.x) <= unitRange(s, operator) &&
+    armorPenetrationTier(ammunition(operator.id, operator.member), weaponCard(operator)) >=
+      (CARDS[enemy.id].armorTier ?? 0) &&
+    armorPenetrationTier(ammunition(u.id, u.member), weaponCard(u)) <
+      (CARDS[enemy.id].armorTier ?? 0));
+  if (!foe) return null;
+  const contactDir = Math.sign(foe.x - operator.x) || (u.side === 0 ? 1 : -1);
+  return Math.max(80, Math.min(W - 80, operator.x - contactDir * (24 + u.member * 12)));
 }
 /** Continue short bounds while a known heavy weapon still covers this soldier. */
 function continueHeavyWithdrawal(s: GameState, u: Unit) {
@@ -9568,7 +9591,7 @@ export function tick(s: GameState, dt: number) {
       // A good crater is not an unlimited-capacity position. Let the assigned movers leave it.
       u.coverGoal = null;
     }
-    const coverShot =
+    let coverShot =
       !target && (order !== 'hold' || c.armored) && order !== 'rush'
         ? enemyCoverShot(s, u, candidates[0])
         : null;
@@ -9873,6 +9896,9 @@ export function tick(s: GameState, dt: number) {
     ) {
       rescuedGoalX = target.x + dir * 320;
     }
+    const antiTankGuardGoal = !target && !baseInRange &&
+      !candidates.some(enemy => !CARDS[enemy.id].armored && !CARDS[enemy.id].vehicle)
+      ? antiTankGuardPost(s, u) : null;
     const moveGoal = withdrawing
       ? u.withdrawGoal!
       : holdTravel
@@ -9886,6 +9912,7 @@ export function tick(s: GameState, dt: number) {
             : (u.escortAdvanceGoal ?? (observerTravel ? observerDestination : precisionObserver ? null :
               ammoGoalX ??
               scavengeGoalX ??
+              antiTankGuardGoal ??
               rescuedGoalX ??
               u.coverGoal ??
               u.dispersionGoal ??
@@ -10059,6 +10086,7 @@ export function tick(s: GameState, dt: number) {
       !withdrawing &&
       !escorting &&
       !u.withdrawStandby &&
+      antiTankGuardGoal === null &&
       !contactFire &&
       u.withdrawPressureSince === undefined &&
       order === 'advance' &&
@@ -10104,6 +10132,9 @@ export function tick(s: GameState, dt: number) {
       (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly);
     if (!c.members && secondaryWeapon)
       fireCoax(s, u);
+    // Posture/cover work above can change the muzzle after target selection.
+    // Reconfirm the exact safe first impact before committing the breach round.
+    if (coverShot) coverShot = enemyCoverShot(s, u, candidates[0]);
     // Real obstruction feedback drives the bounded firing search above;
     // elapsed time alone never turns ineffective fire into a point-blank charge.
    if (
@@ -10167,10 +10198,8 @@ export function tick(s: GameState, dt: number) {
       }
       // v128: don't pop a pinned observer up to fire at cover — the
       // observer hold owns the pose while aircraft are overhead.
-      if (coverShot && (u.observingHoldUntil ?? 0) <= s.time) {
-        u.pose = setStance(u, s.time, 'idle');
-        u.exposedUntil = s.time + 2.5;
-      }
+      // A deliberate breach already has a legal firing posture. Raising the
+      // body here would move the muzzle away from the ray that selected it.
       let spotted = false;
       let burnedReport: BatteryReport | null = null;
       if (c.indirect && u.cooldown <= 0) {
@@ -10533,6 +10562,7 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
+          antiTankGuardGoal === null &&
           // A battery that lost sight while backing out waits out its reload
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
