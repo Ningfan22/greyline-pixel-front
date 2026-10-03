@@ -2,7 +2,10 @@ import { CARDS } from './cards';
 import type { Unit } from './engine';
 
 export const VEHICLE_FUEL_CAPACITY = 100;
-export const VEHICLE_FUEL_RANGE = 4200;
+// A full tank must cover the 3840px battlefield to a gun line and its return
+// route. The former 4200px range triggered the return reserve halfway across
+// the map, before even an MLRS could reach the enemy base's firing range.
+export const VEHICLE_FUEL_RANGE = 6400;
 export const VEHICLE_FUEL_REFILL_RATE = 10;
 
 export function hasVehicleFuel(u: Pick<Unit, 'id'>) {

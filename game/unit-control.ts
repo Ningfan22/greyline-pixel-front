@@ -34,6 +34,9 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   // The engine carries its watch anchor back with the actual vehicle.
   if (!c.air && order === 'watch' && (u.vehicleReverseUntil ?? 0) > s.time)
     return false;
+  if (!c.air && order === 'watch' && u.firingGoal != null &&
+      Math.abs(u.firingGoal - (u.squadOrderX ?? u.x)) <= 32)
+    return false;
   if (c.members || !order || order === 'attack' || u.hp <= 0 || u.surrendered)
     return false;
   if (fixedWingUnit(u) && c.patrolTime) {
@@ -47,6 +50,13 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
     maxX = s.terrain.length;
   if (order === 'watch') {
     const anchor = u.squadOrderX ?? u.x;
+    // A completed local firing adjustment keeps its original post anchor.
+    // Returning to that exact obstructed pixel would restart the same move.
+    if (!c.air && u.firingWatchAnchorX !== undefined && Math.abs(u.x - anchor) <= 32) {
+      u.moving = false;
+      u.vx = 0;
+      return true;
+    }
     if (fixedWingUnit(u)) {
       // A selected aeroplane remains in a small local orbit; it never hovers.
       if (u.x >= anchor + 64) u.patrolDir = -1;

@@ -48,6 +48,24 @@ const living = (u: Unit) =>
   u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling && !u.glider;
 export const controllableUnit = living;
 
+/** Command feedback follows real workers; issuing hold never claims that a
+ * travelling or fighting soldier has already started shovelling. */
+export function trenchConstructionLabel(
+  members: readonly Unit[],
+  trench: Entrenchment | undefined,
+  time: number,
+) {
+  if (!trench || !members.some((u) => u.squadOrder === 'hold')) return undefined;
+  if (trench.built) return '阵地就绪';
+  if (members.some((u) => u.digging)) return '正在施工';
+  if (members.some((u) => u.suppression >= 35 || (u.contactUntil ?? 0) > time ||
+    u.fire > 0 || u.secondaryFire > 0)) return '交战中，施工暂停';
+  if (members.some((u) => u.moving || u.squadOrderX === undefined ||
+    Math.abs(u.x - u.squadOrderX) > 1 || Math.abs(u.lane - (u.holdLane ?? u.lane)) > .5))
+    return '前往工位';
+  return '准备开挖';
+}
+
 export function ordersForUnit(id: CardId) {
   const c = CARDS[id];
   if(c.internal)return [];
@@ -250,6 +268,7 @@ export function setSquadOrder(
           : u.x;
       u.coverGoal = null;
       u.firingGoal = null;
+      u.firingWatchAnchorX = undefined;
       u.evadeGoal = null;
       u.moving = false;
       u.vx = 0;

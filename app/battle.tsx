@@ -74,6 +74,7 @@ import {
   setSquadOrder,
   selectUnitGroup,
   ordersForUnit,
+  trenchConstructionLabel,
 } from '@/game/squad-orders';
 import { unitSelectionBounds } from '@/game/selection-render';
 import SquadMenu from './squad-menu';
@@ -172,9 +173,20 @@ export default function Battle({
   const [selected, setSelected] = useState<number | null>(null);
   const [selectedSquad, setSelectedSquad] = useState<number | null>(null);
   const selectedSquadRef = useRef<number | null>(null);
+  const [squadMenuAnchor, setSquadMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const selectSquad = useCallback((id: number | null) => {
     selectedSquadRef.current = id;
     setSelectedSquad(id);
+    const members = game.current.units.filter((u) => u.side === 0 && u.squad === id &&
+      u.hp > 0 && !u.surrendered && !u.wounded && !u.rappelling);
+    // Keep the command fan at the place it was opened. Stance changes and
+    // regrouping must not move a button between pointer-down and its click.
+    setSquadMenuAnchor(members.length ? {
+      x: members.reduce((sum, u) => sum + u.x, 0) / members.length,
+      y: CARDS[members[0].id].air
+        ? Math.max(...members.map((u) => u.y)) + 140
+        : Math.min(...members.map((u) => unitSelectionBounds(u).y)) - 18,
+    } : null);
   }, []);
   const selectedRef = useRef<number | null>(null);
   const [panel, setPanel] = useState<'guide' | 'deck' | 'card' | null>(null);
@@ -1104,7 +1116,7 @@ export default function Battle({
                 ((e.clientY - rect.top) / rect.height) * H,
                 e.pointerType !== 'mouse',
               );
-              if (found !== null) {
+              if (found !== null && found !== selectedSquadRef.current) {
                 const result = selectUnitGroup(game.current, 0, found);
                 if (!result.ok) toast(result.message);
                 refresh();
@@ -1139,8 +1151,8 @@ export default function Battle({
           squadX >= cameraView &&
           squadX <= cameraView + viewportWidth && (
             <SquadMenu
-              x={((squadX - cameraView) / viewportWidth) * 100}
-              y={(squadY / H) * 100}
+              x={(((squadMenuAnchor?.x ?? squadX) - cameraView) / viewportWidth) * 100}
+              y={((squadMenuAnchor?.y ?? squadY) / H) * 100}
               name={CARDS[selectedMembers[0].id].name}
               count={selectedMembers.length}
               unitLabel={
@@ -1160,6 +1172,7 @@ export default function Battle({
                   : undefined)
               }
               progress={squadTrench?.progress}
+              constructionLabel={trenchConstructionLabel(selectedMembers, squadTrench, view.time)}
               onOrder={(order) => {
                 const result = setSquadOrder(
                   game.current,
@@ -1168,6 +1181,7 @@ export default function Battle({
                   order,
                 );
                 if (!result.ok) toast(result.message);
+                else if (order === 'hold') toast('修筑阵地指令已下达');
                 refresh();
               }}
               onClose={() => selectSquad(null)}
@@ -1980,7 +1994,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v197
+          GREYLINE <i /> 林间前线 · v198
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

@@ -22,6 +22,7 @@ export default function SquadMenu({
   orders = SQUAD_ORDERS,
   order,
   progress,
+  constructionLabel,
   onOrder,
   onClose,
 }: {
@@ -33,6 +34,7 @@ export default function SquadMenu({
   orders?: typeof SQUAD_ORDERS;
   order?: SquadOrder;
   progress?: number;
+  constructionLabel?: string;
   onOrder: (order: SquadOrder) => void;
   onClose: () => void;
 }) {
@@ -90,12 +92,12 @@ export default function SquadMenu({
           className={styles.progress}
           aria-label={
             progress < 1
-              ? `修筑战壕 ${Math.round(progress * 100)}%`
+              ? `${constructionLabel ?? '修筑阵地'} ${Math.round(progress * 100)}%`
               : '阵地已完成'
           }
         >
           <i style={{ width: `${progress * 100}%` }} />
-          <span>{progress < 1 ? '修筑阵地' : '阵地就绪'}</span>
+          <span>{progress < 1 ? constructionLabel ?? '修筑阵地' : '阵地就绪'}</span>
         </div>
       )}
     </div>

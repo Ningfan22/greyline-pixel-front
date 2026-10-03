@@ -892,11 +892,18 @@ export function drawTankSprite(
   recoil: number,
 ) {
   if (!frame) return;
+  const gunRecoil = Math.max(0, Math.round(recoil));
+  // An idle gun is the complete authored frame. Splitting it into fractional
+  // clips would add seams even when the barrel has not moved.
+  if (gunRecoil === 0) {
+    drawSprite(ctx, frame, x, y, w, h, flip, alpha, rotation);
+    return;
+  }
   const hw = Math.round(w / 2);
-  const bx = Math.min(band[0], band[2]);
-  const by = Math.min(band[1], band[3]);
-  const bw = Math.abs(band[2] - band[0]);
-  const bh = Math.abs(band[3] - band[1]);
+  const bx = Math.floor(Math.min(band[0], band[2]));
+  const by = Math.floor(Math.min(band[1], band[3]));
+  const bw = Math.ceil(Math.max(band[0], band[2])) - bx;
+  const bh = Math.ceil(Math.max(band[1], band[3])) - by;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = alpha;
@@ -904,16 +911,20 @@ export function drawTankSprite(
   if (rotation) ctx.rotate(rotation);
   if (flip) ctx.scale(-1, 1);
   // Pass 1: hull with the muzzle band cut out.
+  ctx.save();
   ctx.beginPath();
   ctx.rect(-hw, -h, w, h);
   ctx.rect(bx, by, bw, bh);
   ctx.clip('evenodd');
   ctx.drawImage(frame, -hw, -h, w, h);
+  ctx.restore();
   // Pass 2: the muzzle band alone, pulled back toward the hull.
+  // This clip must start from the parent context: intersecting it with the
+  // first pass's barrel-shaped hole erases the entire moving gun section.
   ctx.beginPath();
   ctx.rect(bx, by, bw, bh);
   ctx.clip();
-  ctx.drawImage(frame, -hw - recoil, -h, w, h);
+  ctx.drawImage(frame, -hw - gunRecoil, -h, w, h);
   ctx.restore();
 }
 export function cardFrame(art: Art, index: number) {

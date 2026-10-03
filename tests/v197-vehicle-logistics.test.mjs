@@ -71,8 +71,9 @@ for (const side of [0, 1]) {
 
   test(`side ${side}: reserve planning reaches base with fuel remaining, fills both stores, then resumes actual advance`, () => {
     const s = arena(side), u = one(s, side, 'tank', 1900), d = direction(side);
-    // 42% is above the generic warning but needed to cover 1650px back to HQ.
-    u.fuel = 42; const before = u.x; let arrived, released, arrivalFuel;
+    // 31% is above the generic warning but needed to cover 1650px back to HQ
+    // plus the safe arrival reserve at the map-calibrated vehicle range.
+    u.fuel = 31; const before = u.x; let arrived, released, arrivalFuel;
     for (let i = 0; i < 160 / DT; i++) {
       tick(s, DT);
       if (u.resupplyState === 'supplying' && arrived === undefined) { arrived = u.x; arrivalFuel = u.fuel; }
@@ -124,7 +125,7 @@ for (const side of [0, 1]) {
 test('the final powered step is clipped at the remaining fuel and never produces a negative store', () => {
   const u = { id: 'tank', x: 1000, fuel: .01 };
   u.x = vehicleTravelX(u, 1100);
-  close(u.x, 1000.42, 'fuel-limited last step'); close(u.fuel, 0, 'empty fuel');
+  close(u.x, 1000 + VEHICLE_FUEL_RANGE * .0001, 'fuel-limited last step'); close(u.fuel, 0, 'empty fuel');
   assert.equal(vehicleTravelX(u, 1200), u.x);
 });
 
