@@ -234,14 +234,42 @@ export function soldierFrame(art:SoldierArt,u:SoldierBody,time:number) {
     return Math.round(v*grid)/grid;
   });
   const existing=art.frames.get(key);if(existing)return {image:existing,pose,anchorY:SOLDIER_FRAME.anchorY};
-  // Padding below the unchanged boot anchor fits a downhill foot. Canvas
-  // dimensions never resize the man; the renderer keeps this exact anchor.
-  const frame=make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),ctx=context(frame);
-  ctx.save();ctx.translate(SOLDIER_FRAME.anchorX,SOLDIER_FRAME.anchorY);paintSoldier(ctx,art,pose);ctx.restore();
-  // Rotations may produce edge coverage even with nearest sampling. Resolve
-  // once onto the canonical ONE-world-pixel grid; every action uses this path.
-  const d=ctx.getImageData(0,0,frame.width,frame.height);for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
-  ctx.putImageData(d,0,0);art.frames.set(key,frame);
+  const frame=make(SOLDIER_FRAME.width,SOLDIER_FRAME.height);
+  paintFrame(frame,art,pose);art.frames.set(key,frame);
   if(art.frames.size>768)art.frames.delete(art.frames.keys().next().value!);
   return {image:frame,pose,anchorY:SOLDIER_FRAME.anchorY};
+}
+
+function paintFrame(frame:HTMLCanvasElement,art:SoldierArt,pose:SoldierPose) {
+  const ctx=context(frame);
+  ctx.clearRect(0,0,frame.width,frame.height);
+  ctx.save();ctx.translate(SOLDIER_FRAME.anchorX,SOLDIER_FRAME.anchorY);
+  paintSoldier(ctx,art,pose);ctx.restore();
+  const d=ctx.getImageData(0,0,frame.width,frame.height);
+  for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
+  ctx.putImageData(d,0,0);
+}
+type ActorRaster={image:HTMLCanvasElement;key:string;version:number};
+const actorRasters=new WeakMap<SoldierArt,WeakMap<object,Map<number,ActorRaster>>>();
+/** Renderer-only raster. Draw it immediately: the same actor owns and reuses
+ * this canvas on subsequent frames. Different actors and crew slots never
+ * share mutable pixels. The public soldierFrame API remains immutable. */
+export function actorSoldierFrame(art:SoldierArt,owner:object,u:SoldierBody,time:number,slot=0) {
+  const pose=soldierPose(u,time);
+  // Include phase and full precision: ankle rotation also depends on phase.
+  // This is an exact unchanged-pose check, not an animation frame-rate cap.
+  const key=JSON.stringify(pose);
+  let actors=actorRasters.get(art);
+  if(!actors){actors=new WeakMap();actorRasters.set(art,actors);}
+  let slots=actors.get(owner);
+  if(!slots){slots=new Map();actors.set(owner,slots);}
+  let entry=slots.get(slot);
+  if(!entry){
+    entry={image:make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),key:'',version:0};
+    slots.set(slot,entry);
+  }
+  if(entry.key!==key){
+    paintFrame(entry.image,art,pose);entry.key=key;entry.version++;
+  }
+  return {image:entry.image,pose,anchorY:SOLDIER_FRAME.anchorY,version:entry.version};
 }

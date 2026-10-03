@@ -1,5 +1,5 @@
 import { mapDefinition, type MapId } from './maps';
-import {soldierFrame} from './soldier-art';
+import {actorSoldierFrame} from './soldier-art';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { ammoProfile, logisticsRatio, AMMO_LOW_RATIO } from './ammo-logistics';
@@ -127,7 +127,7 @@ function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number,
       scavengeUntil: time + 1,
       digElapsed: time + member * 0.85,
     };
-    const rig = soldierFrame(art.soldiers, body, time);
+    const rig = actorSoldierFrame(art.soldiers, u, body, time, member+1);
     drawSprite(ctx, rig.image, u.x - direction * (40 + member * 30),
       u.y + infantryDepth(u.lane) + 3 + rig.image.height - rig.anchorY,
       rig.image.width, rig.image.height, direction < 0);
@@ -532,7 +532,7 @@ export function render(
           ? ragdollChoice(w.age, w.id)
           : adultWreckChoice(w.age, w.pose, w.id)
         : null;
-      const rigWreck=art.soldiers?soldierFrame(art.soldiers,{
+      const rigWreck=art.soldiers?actorSoldierFrame(art.soldiers,w,{
         id:w.cardId,member:w.member??0,uid:w.id,pose:w.pose??'idle',hp:1,
         wounded:true,woundedTime:w.age,woundedFromPose:w.pose,moving:false,motion:'ground',walk:0,
         soldierFall:w.soldierFall,
@@ -556,6 +556,7 @@ export function render(
             shade +
             (1 - decay) * (1 - shade)
           ).toFixed(2)})`,
+          rigWreck?.version,
         ),
         w.x + (rigWreck?-Math.sin(w.angle)*(rigWreck.image.height-rigWreck.anchorY):(bsd >>> 4) % 3 - 1),
         w.y + infantryDepth(w.lane) + 3 + (rigWreck ? Math.cos(w.angle)*(rigWreck.image.height-rigWreck.anchorY) : 0),
@@ -683,7 +684,7 @@ export function render(
       Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) %
       (art.mobileVehicles?.[u.id]?.length ?? 4);
     if (c.emplacement && u.fire > 0.1) frame = 1;
-    const rig = c.members && art.soldiers ? soldierFrame(art.soldiers,u,s.time) : null;
+    const rig = c.members && art.soldiers ? actorSoldierFrame(art.soldiers,u,u,s.time) : null;
     const adult = c.members && !rig ? art.adults[adultIdentity(u.id)] : null;
     const choice = adult ? adultFrameChoice(u, s.time) : null;
     const authoredBody = ownsAdultBody(choice);

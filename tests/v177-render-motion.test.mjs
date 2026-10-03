@@ -24,8 +24,11 @@ test('actual renderer draws all eight own-identity raised-rifle gait images, not
     for(let i=0;i<8;i++){
       u.walk=i;const snapshot=JSON.stringify(u);
       const expected=soldierFrame(art.soldiers,u,s.time).image;
+      const expectedPixels=Buffer.from(expected.getContext('2d').getImageData(0,0,128,128).data);
       calls=[];render(ctx,s,art,null,null,true,500,960);
-      assert(calls.includes(expected),`${id} gait ${i} must reach the screen`);
+      assert(calls.some(image=>image.width===128&&image.height===128&&image.getContext&&
+        Buffer.from(image.getContext('2d').getImageData(0,0,128,128).data).equals(expectedPixels)),
+        `${id} gait ${i} must reach the screen with its authored pixels`);
       assert.equal(JSON.stringify(u),snapshot,'drawing must never modify movement state');
     }
   }

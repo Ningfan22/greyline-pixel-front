@@ -2,6 +2,7 @@
 /* eslint-disable jsx-a11y/prefer-tag-over-role -- Custom battlefield meters and the draggable mini-map have explicit accessible roles and keyboard support. */
 import {
   useCallback,
+  useMemo,
   useEffect,
   useRef,
   useState,
@@ -819,6 +820,57 @@ export default function Battle({
     if (mixer.settings.enabled) void mixer.unlock();
   };
   const toggleSound = () => changeAudio({ enabled: !sound });
+  const changeOrder = useCallback((value: string) => {
+    setOrder(game.current!, 0, value as Order);
+    refresh();
+  }, [refresh]);
+  // The order controls only depend on the current order and match state.
+  // Keep their provider/subscriptions out of periodic battle snapshots.
+  const ordersBar = useMemo(() => (
+    <div className="orders-bar">
+        <span>
+          <Flag size={14} /> 步兵指令
+        </span>
+        <RadioGroup
+          className="orders-group"
+          aria-label="步兵行动指令"
+          value={p.order}
+          onValueChange={changeOrder}
+          disabled={view.status === 'finished'}
+        >
+          {(
+            [
+              ['hold', '驻守'],
+              ['advance', '推进'],
+              ['rush', '奔跑'],
+              ['crouch', '蹲行'],
+              ['prone', '卧倒'],
+            ] as [Order, string][]
+          ).map(([value, label]) => (
+            <label
+              className={
+                p.order === value ? 'order-option active' : 'order-option'
+              }
+              key={value}
+            >
+              <RadioGroupItem value={value} className="order-radio" />
+              <span>{label}</span>
+            </label>
+          ))}
+        </RadioGroup>
+        <small>
+          {p.order === 'rush'
+            ? '行军速度 ×1.7'
+            : p.order === 'crouch'
+              ? '速度 ×0.55 · 受伤 −15%'
+              : p.order === 'prone'
+                ? '匍匐速度 ×0.25 · 受伤 −30%'
+                : p.order === 'hold'
+                  ? '原地警戒，队员自主蹲伏还击'
+                  : '队员自主判断 · 交替掩护推进'}
+        </small>
+      </div>
+  ), [p.order, view.status, changeOrder]);
   return (
     <main
       className={`game-shell ${touchMode ? 'touch-battle' : ''} ${view.status !== 'playing' || panel ? 'is-interrupted' : ''}`}
@@ -1567,52 +1619,7 @@ export default function Battle({
           红方基地 →
         </button>
       </div>
-      <div className="orders-bar">
-        <span>
-          <Flag size={14} /> 步兵指令
-        </span>
-        <RadioGroup
-          className="orders-group"
-          aria-label="步兵行动指令"
-          value={p.order}
-          onValueChange={(value) => {
-            setOrder(game.current!, 0, value as Order);
-            refresh();
-          }}
-          disabled={view.status === 'finished'}
-        >
-          {(
-            [
-              ['hold', '驻守'],
-              ['advance', '推进'],
-              ['rush', '奔跑'],
-              ['crouch', '蹲行'],
-              ['prone', '卧倒'],
-            ] as [Order, string][]
-          ).map(([value, label]) => (
-            <label
-              className={
-                p.order === value ? 'order-option active' : 'order-option'
-              }
-              key={value}
-            >
-              <RadioGroupItem value={value} className="order-radio" />
-              <span>{label}</span>
-            </label>
-          ))}
-        </RadioGroup>
-        <small>
-          {p.order === 'rush'
-            ? '行军速度 ×1.7'
-            : p.order === 'crouch'
-              ? '速度 ×0.55 · 受伤 −15%'
-              : p.order === 'prone'
-                ? '匍匐速度 ×0.25 · 受伤 −30%'
-                : p.order === 'hold'
-                  ? '原地警戒，队员自主蹲伏还击'
-                  : '队员自主判断 · 交替掩护推进'}
-        </small>
-      </div>
+      {ordersBar}
       <div className="casualty-readout">
         伤员{' '}
         {view.units.filter((u) => u.side === 0 && u.wounded && u.hp > 0).length}{' '}
@@ -1990,7 +1997,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v199
+          GREYLINE <i /> 林间前线 · v200
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
