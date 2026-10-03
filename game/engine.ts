@@ -78,9 +78,11 @@ import {
 import { isWeaponTeamId, unitSynergy } from './synergy';
 import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
+import { createSoldierRagdoll, stepSoldierRagdoll } from './soldier-ragdoll';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
 import {
   ammunition,
+  indirectBlastKind,
   FLIGHT,
   isTracer,
   isCoverBullet,
@@ -124,6 +126,7 @@ import {
 } from './weather';
 import {
   CARDS,
+  MACHINEGUN_INFANTRY_MULTIPLIER,
   DECK,
   validDeck,
   chooseAiDeck,
@@ -289,6 +292,9 @@ export interface Unit {
   fuel?: number;
   fuelSupplyProgress?: number;
   supplyStock?: number;
+  /** Player choice for the current low-supply episode; cleared after a full refill. */
+  logisticsOrder?: 'advance' | 'hold' | 'resupply';
+  logisticsWarning?: boolean;
   resupplyState?: 'withdrawing' | 'supplying' | 'waiting';
   resupplyGoal?: number;
   resupplyReturnX?: number;
@@ -2084,19 +2090,19 @@ function burst(
       const heavy = radius >= 30;
       const columnCount = heavy ? 24 : 12;
       for (let i = 0; i < columnCount; i++) {
-        const life = heavy ? 4.5 + fxRnd(s) * 3.5 : 3 + fxRnd(s) * 2.5;
+        const life = (heavy ? 4.5 + fxRnd(s) * 3.5 : 3 + fxRnd(s) * 2.5) * (kind === 'artillery' ? 1.15 : 1);
         emitParticle(s, {
           kind: 'cloud',
           x: x + (fxRnd(s) - 0.5) * radius * (heavy ? 0.7 : 0.5),
           y: y - fxRnd(s) * 10,
           vx: (fxRnd(s) - 0.5) * (heavy ? 14 : 10),
-          vy: heavy ? -34 - fxRnd(s) * 40 : -24 - fxRnd(s) * 26,
+          vy: (heavy ? -34 - fxRnd(s) * 40 : -24 - fxRnd(s) * 26) * (kind === 'artillery' ? 1.3 : 1),
           life,
           maxLife: life,
           color: heavy
             ? (fxRnd(s) < 0.5 ? '#463e34' : '#5c5347')
             : (fxRnd(s) < 0.5 ? '#5c5347' : '#6e6358'),
-          size: radius * (heavy ? 0.7 + fxRnd(s) * 0.6 : 0.5 + fxRnd(s) * 0.45),
+          size: radius * (heavy ? 0.7 + fxRnd(s) * 0.6 : 0.5 + fxRnd(s) * 0.45) * (kind === 'artillery' ? 1.15 : 1),
         });
       }
     }
@@ -2711,6 +2717,10 @@ function finishDeath(
     pose: u.pose,
     member:u.member,
     soldierFall:soldierDeathPose,
+    ...(ragdoll && soldierDeathPose ? {soldierRagdoll:createSoldierRagdoll(soldierDeathPose, {
+      id:u.uid,x:u.x,y:u.y,facing:u.facing,
+      vx:throwDir*(80+blastPower*120),vy:-(110+blastPower*100),spin:throwDir*(4+blastPower*6),
+    })} : {}),
     facing: u.facing,
     lane: u.lane,
     x: u.x,
@@ -3514,6 +3524,8 @@ function canFireFromCover(
   x: number,
   target: CoverTarget,
 ) {
+  const contact = CARDS[u.id].armored || CARDS[u.id].vehicle
+    ? vehicleContact(s, x, u.id) : undefined;
   return (
     firingSolution(
       s,
@@ -3522,8 +3534,8 @@ function canFireFromCover(
         side: u.side,
         member: u.member,
         x,
-        y: ground(s, x),
-        hullAngle: u.hullAngle,
+        y: contact?.y ?? ground(s, x),
+        hullAngle: contact?.angle ?? u.hullAngle,
         pose: u.pose,
         moving: false,
         rifleReady: 1,
@@ -3875,6 +3887,25 @@ export function coveringMate(
   return false;
 }
 
+/** A firing-position search may follow a hill, but cannot invent a route
+ * through a live wall or an abrupt cliff. Actual travel still uses normal
+ * walking, contact spacing, tracks and fuel on every tick. */
+function clearGroundRoute(s: GameState, from: number, to: number) {
+  const left = Math.min(from, to), right = Math.max(from, to);
+  if (s.walls.some(w => w.hp > 0 &&
+      w.x + w.width / 2 > left && w.x - w.width / 2 < right)) return false;
+  const steps = Math.ceil(Math.abs(to - from));
+  let previous = ground(s, from);
+  for (let i = 1; i <= steps; i++) {
+    const y = ground(s, from + (to - from) * i / steps);
+    // Natural grades and the existing 2.2px crater ramps are traversable;
+    // a large one-column discontinuity is a ledge, not a ramp.
+    if (!Number.isFinite(y) || Math.abs(y - previous) > 6) return false;
+    previous = y;
+  }
+  return true;
+}
+
 function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
   const range = unitRange(s, u),
     currentDistance = Math.abs(target.x - u.x),
@@ -3899,7 +3930,10 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
       return [box.x - clearance - u.x, box.x + box.w + clearance - u.x];
     })
     .filter((offset) => Math.abs(offset) > 64 && Math.abs(offset) <= 320);
-  for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64, ...edges]) {
+  const toward = Math.sign(target.x - u.x);
+  const hillOffsets = !localPost && !CARDS[u.id].static
+    ? [96, 128, 160, 192, 256, 320].map(distance => toward * distance) : [];
+  for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64, ...edges, ...hillOffsets]) {
     const x = u.x + offset,
       distance = Math.abs(target.x - x);
     if (
@@ -3910,6 +3944,11 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
       distance > range
     )
       continue;
+    const score = craterCover(s, x, target.x) * 20 - Math.abs(offset);
+    // The caller searches at most once per 0.7s. Once a nearer legal slot
+    // wins, farther hill samples cannot justify another route/ray scan.
+    if (score <= bestScore) continue;
+    if (!clearGroundRoute(s, u.x, x)) continue;
     if (
       obstacleBoxes(s).some(
         (b) => !b.foliage && !b.rubble && x > b.x - 10 && x < b.x + b.w + 10,
@@ -3930,10 +3969,11 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
       )
     )
       continue;
-    const forecast = { ...u, x, y: ground(s, x), moving: false, rifleReady: 1 };
+    const contact = vehicle ? vehicleContact(s, x, u.id) : undefined;
+    const forecast = { ...u, x, y: contact?.y ?? ground(s, x),
+      hullAngle: contact?.angle ?? u.hullAngle, moving: false, rifleReady: 1 };
     if (!firingSolution(s, forecast, target, true, true) &&
         !((!localPost || vehicle) && target.id && enemyCoverShot(s, forecast, target as Unit))) continue;
-    const score = craterCover(s, x, target.x) * 20 - Math.abs(offset);
     if (score > bestScore) {
       bestScore = score;
       best = x;
@@ -4071,6 +4111,7 @@ function traverse(s: GameState, u: Unit, dt: number) {
 }
 /** Squad orders remain local; an attack still allows sensible use of cover. */
 function infantryOrder(s: GameState, u: Unit): Order {
+  if (u.logisticsOrder === 'hold') return 'hold';
   if (u.squadOrder && (u.squadOrderUntil ?? Infinity) > s.time) {
     if (u.squadOrder === 'hold' || u.squadOrder === 'watch') return 'hold';
     return 'advance';
@@ -4122,6 +4163,30 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   if ((baseStop - limit) * dir < 0) limit = baseStop;
   return (limit - u.x) * dir < 0 ? u.x : limit;
 }
+
+/** A rearward march only needs covering footwork while there is local danger.
+ * Lost contacts use their last observed coordinates, never a hidden unit. */
+function withdrawalFacingThreat(s: GameState, u: Unit): { x: number } | undefined {
+  let closest: Unit | undefined;
+  let distance = 640;
+  for (const foe of nearUnits(s, u.x, 640, scanNearScratch)) {
+    if (foe.side === u.side || !isCombatant(foe) || !visibleToSide(s, u.side, foe)) continue;
+    const gap = Math.abs(foe.x - u.x);
+    if (gap > distance) continue;
+    const weapon = weaponCard(foe);
+    // This is a caution/turning decision, not another ballistic solution.
+    // Nearby observed ground fire warrants covering steps even while cover
+    // briefly masks its ray; range/capability checks keep this scan cheap.
+    if (!(weapon.damage! > 0) || weapon.airOnly || weapon.armorOnly ||
+        gap < (weapon.minRange ?? 0) || gap > unitRange(s, foe) + 36) continue;
+    closest = foe;
+    distance = gap;
+  }
+  if (closest) return closest;
+  if (u.lastThreat && u.lastThreat.until > s.time &&
+      Math.abs(u.lastThreat.x - u.x) <= 560) return u.lastThreat;
+  return undefined;
+}
 function moveSoldier(
   s: GameState,
   u: Unit,
@@ -4132,14 +4197,17 @@ function moveSoldier(
 ) {
   const watchAdjustment = u.firingGoal != null && u.firingWatchAnchorX !== undefined &&
     Math.abs(u.firingGoal - u.firingWatchAnchorX) <= 32;
-  if (!dir || speed <= 0 || u.garrisonUid !== undefined ||
+  if (!dir || speed <= 0 || u.garrisonUid !== undefined || u.logisticsOrder === 'hold' ||
       (localUnitOrder(s, u) === 'watch' && !watchAdjustment) ||
       (u.motion === 'ground' && stanceTransitionActive(u, s.time))) return;
-  // All ground walking shares the slower battle pace, including support
-  // tasks. A baseward step stays below ordinary walking even under a rush
-  // or movement buff; the soldier has to keep watching the contact ahead.
+  // Cover a nearby observed threat while withdrawing. Once clear, turn and
+  // march at the same walking pace as an advance instead of shuffling home.
   const baseward = dir === (u.side === 0 ? -1 : 1);
-  speed = (baseward ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * 0.65 : speed) * 0.55;
+  const threat = baseward && (u.tactic !== 'retreat' || orderedWithdrawal(s, u))
+    ? withdrawalFacingThreat(s, u) : undefined;
+  const coverFacing = threat ? Math.sign(threat.x - u.x) : 0;
+  const backpedal = !!coverFacing && coverFacing !== dir;
+  speed = (baseward ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * (backpedal ? 0.65 : 1) : speed) * 0.55;
   if (s.units.some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
@@ -4401,6 +4469,10 @@ function moveSoldier(
   u.walk += Math.min(distance / (u.pose === 'prone' ? 4 : 8), 0.95);
   u.y = ground(s, u.x);
   u.moving = distance > 0.001;
+  if (backpedal && u.moving) {
+    u.facing = coverFacing;
+    u.backpedaling = true;
+  }
   if (distance > 0.001 && u.motion === 'ground' && !u.climbing) {
     u.stepDust = (u.stepDust ?? 0) + distance;
     if (u.stepDust >= (u.pose === 'prone' ? 30 : 24)) {
@@ -4739,6 +4811,12 @@ function infantrySpace(
 /** Ground armour preserves a firing distance, or falls back when badly damaged. */
 function planVehicleReverse(s: GameState, u: Unit) {
   const c = CARDS[u.id];
+  if (u.logisticsOrder === 'hold') {
+    u.vehicleReverseUntil = 0;
+    u.vehicleReverseGoal = undefined;
+    u.vehicleReverseHeld = false;
+    return;
+  }
   if (!c.armored || c.air || c.static || c.vehicleSupport) return;
   if (u.hp <= 0 || u.surrendered) return;
   if (isImmobilized(u)) {
@@ -5444,6 +5522,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
         ];
 }
 function evadeArtillery(s: GameState, u: Unit, dt: number) {
+  if (u.logisticsOrder === 'hold') return false;
   const eta = (p: Projectile) =>
     p.guided
       ? Math.hypot(p.tx - p.x, p.ty - p.y) /
@@ -5597,6 +5676,7 @@ function fireCoax(s: GameState, u: Unit) {
     targetUid: target.uid,
     base: null,
     damage: 3 * (s.players[u.side].morale > 0 ? 1.35 : 1),
+    infantryMultiplier: personal ? 1 : MACHINEGUN_INFANTRY_MULTIPLIER,
     radius: 0,
     life: total,
     total,
@@ -8967,10 +9047,6 @@ export function tick(s: GameState, dt: number) {
         if (Math.abs(delta) > 1) {
           const stanceSpeed = stanceClass(u.pose) === 'prone' ? 0.25 : stanceClass(u.pose) === 'crouch' ? 0.62 : 1;
           moveSoldier(s, u, moveDir, Math.min(c.speed! * u.pace * stanceSpeed, Math.abs(delta) / dt), dt);
-          if (moveDir !== dir && u.motion === 'ground' && !u.climbing) {
-            u.facing = dir;
-            u.backpedaling = u.moving;
-          }
         }
       } else if (!c.static && !isImmobilized(u) && Math.abs(delta) > 1) {
         const before = u.x;
@@ -9693,7 +9769,8 @@ export function tick(s: GameState, dt: number) {
       !coverShot &&
       u.garrisonUid === undefined &&
       !treating &&
-      !withdrawing
+      !withdrawing &&
+      u.logisticsOrder !== 'hold'
     ) {
       // A useless old cover anchor must not outrank the new firing position.
       u.coverGoal = null;
@@ -10494,7 +10571,7 @@ export function tick(s: GameState, dt: number) {
             effect: ap
               ? 'penetration'
               : c.indirect
-                ? 'artillery'
+                ? indirectBlastKind(u.id)
                 : kind === 'grenade'
                   ? 'grenade'
                   : 'he',
@@ -10585,6 +10662,7 @@ export function tick(s: GameState, dt: number) {
         }
       }
     } else if (
+      u.logisticsOrder !== 'hold' &&
       !treating &&
       !reloadingUnderContact &&
       !shocked &&
@@ -10746,6 +10824,7 @@ export function tick(s: GameState, dt: number) {
         if (laneChange) u.moving = true;
         if (
           ((withdrawing && withdrawalThreat) || (escortAhead && target)) &&
+          withdrawalFacingThreat(s, u) &&
           (u.x - beforeMove) * moveDir > 0.001 &&
           u.motion === 'ground' &&
           !u.climbing
@@ -11205,6 +11284,18 @@ export function tick(s: GameState, dt: number) {
     }
   for (const w of s.wrecks) {
     w.age += dt;
+    if(w.soldierRagdoll){
+      const wasFalling=w.falling;
+      w.falling=stepSoldierRagdoll(w.soldierRagdoll,dt,x=>ground(s,x),W);
+      const torso=w.soldierRagdoll.parts.find(p=>p.kind==='torso');
+      if(torso){w.x=torso.x;w.y=torso.y;w.vx=torso.vx;w.vy=torso.vy;}
+      // Independent pieces own every rotation; the wreck is only their
+      // location/visibility anchor, never another spinning whole-body sprite.
+      w.angle=0;w.spin=0;w.soldierSettle=undefined;
+      if(!w.falling){w.vx=0;w.vy=0;}
+      if(wasFalling&&!w.falling)s.visionIn=0;
+      continue;
+    }
     const isInfantry = !!CARDS[w.cardId].members;
     const contact = isInfantry
       ? null

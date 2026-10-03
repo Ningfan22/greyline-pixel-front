@@ -18,6 +18,10 @@ export type Ammunition =
   | 'flame'
   | 'mortar'
   | 'drone';
+/** Mortar bombs keep a compact HE plume; howitzers own the tall earth column. */
+export function indirectBlastKind(id: CardId): 'he' | 'artillery' {
+  return modelOf(id) === 'mortar' || id === 'mortar_carrier' ? 'he' : 'artillery';
+}
 export function ammunition(id: CardId, member = 0): Ammunition {
   if (id === 'fort_machinegun') return 'machinegun';
   if (id === 'fort_aa') return 'autocannon';
@@ -447,7 +451,7 @@ export function drawBlast(
           : b.kind === 'wreck'
             ? Math.max(210, Math.min(290, b.radius * 4.8))
             : b.kind === 'artillery'
-              ? Math.max(210, Math.min(320, b.radius * 6))
+              ? Math.max(210, Math.min(430, b.radius * 5.4))
               : Math.max(90, Math.min(250, b.radius * 5))) * scaleJ;
   const anchor = authored ? (air ? .5 : 154/160) : penetration
     ? 268 / 300

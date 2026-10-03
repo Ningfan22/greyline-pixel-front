@@ -1,5 +1,6 @@
 import {soldierPose,SOLDIER_WEAPON_SIZE,type SoldierBody,type SoldierPose,type Point,type SoldierWeapon} from './soldier-pose';
 import type {AdultIdentity} from './adult-animation';
+import type {SoldierRagdoll} from './soldier-ragdoll';
 type Part='head'|'torso'|'upperArm'|'forearm'|'thigh'|'shin'|'boot'|'rifle'|'backpack'|'pelvis';
 type Parts=Record<Part,HTMLCanvasElement>;
 type Equipment=Exclude<SoldierWeapon,'rifle'>|'tanks'|'medical'|'shovel'|'wrench';
@@ -272,4 +273,25 @@ export function actorSoldierFrame(art:SoldierArt,owner:object,u:SoldierBody,time
     paintFrame(entry.image,art,pose);entry.key=key;entry.version++;
   }
   return {image:entry.image,pose,anchorY:SOLDIER_FRAME.anchorY,version:entry.version};
+}
+
+/** Draw only cached costume/atlas pieces. Physics owns their transforms;
+ * rendering creates no per-frame surface and never changes the simulation. */
+export function drawSoldierRagdoll(ctx:CanvasRenderingContext2D,art:SoldierArt,pose:SoldierPose,rag:SoldierRagdoll) {
+  ctx.save();ctx.imageSmoothingEnabled=false;
+  if(rag.age===0){
+    ctx.translate(rag.originX,rag.originY);ctx.scale(rag.facing,1);
+    paintSoldier(ctx,art,pose);ctx.restore();return;
+  }
+  const uniform=costume(art,pose);
+  for(const part of rag.parts){
+    const body=uniform[part.layer];
+    const image=part.kind==='weapon'?(pose.weapon==='rifle'?body.rifle:art.equipment[pose.weapon]):
+      part.kind==='backpack'&&pose.weapon==='flame'?art.equipment.tanks:
+      part.kind==='medical'||part.kind==='shovel'||part.kind==='wrench'?art.equipment[part.kind]:
+      body[part.kind as Part];
+    ctx.save();ctx.translate(part.x,part.y);ctx.rotate(part.angle);ctx.scale(rag.facing,1);
+    ctx.drawImage(image,-part.width/2,-part.height/2);ctx.restore();
+  }
+  ctx.restore();
 }

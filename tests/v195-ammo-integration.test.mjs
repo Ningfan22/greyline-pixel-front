@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createGame, startGame, spawnUnit, tick, refreshVision, playCard, pointVisible, W } from '../game/engine.ts';
+import { issueLogisticsOrder } from '../game/logistics-orders.ts';
 import { setSquadOrder } from '../game/squad-orders.ts';
 import { CARDS } from '../game/cards.ts';
 import { ammoProfile, ammoSummary, initializeAmmo, AMMO_CRATE_STOCK, AMMO_CRATE_LIFE } from '../game/ammo-logistics.ts';
@@ -49,19 +50,20 @@ function token(s, side, id) {
 function total(u, channel = 'primary') {
   return ammoSummary(u).find(row => row.channel === channel)?.total;
 }
-function lowRifle(u) {
+function lowRifle(s, u) {
   const spec = ammoProfile(u).primary;
   const total = Math.floor((spec.mag + spec.reserve) * 0.3);
   u.ammo = Math.min(spec.mag, total);
   u.ammoReserve = total - u.ammo;
   u.reloadingUntil = 0;
+  if (u.side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
 }
 
 for (const side of [0, 1]) {
-  test(`side ${side}: real low-ammo rifleman breaks watch, slowly withdraws and stops firing`, () => {
+  test(`side ${side}: requested supply makes a real low-ammo rifleman leave watch, slowly withdraws and stops firing`, () => {
     const s = arena(side), u = add(s, side, 'infantry', 1200, true);
     setSquadOrder(s, side, u.squad, 'watch');
-    lowRifle(u); u.cooldown = 0;
+    lowRifle(s, u); u.cooldown = 0;
     enemy(s, side, 1500);
     const start = u.x, shots = u.shots;
     // Let the existing authored prone/crouch transition finish before
@@ -82,7 +84,7 @@ for (const side of [0, 1]) {
   test(`side ${side}: without a forward source the rifleman reaches HQ, fills up and advances again`, () => {
     const s = arena(side), u = add(s, side, 'infantry', 700, true);
     setSquadOrder(s, side, u.squad, 'watch');
-    lowRifle(u); u.cooldown = 1e9;
+    lowRifle(s, u); u.cooldown = 1e9;
     const start = u.x;
     let supplyingX, releasedX;
     for (let i = 0; i < 50 * 60; i++) {
@@ -102,7 +104,7 @@ for (const side of [0, 1]) {
 
   test(`side ${side}: a new watch order cannot strand a rifleman already withdrawing for ammunition`, () => {
     const s = arena(side), u = add(s, side, 'infantry', 1200, true);
-    lowRifle(u); u.cooldown = 1e9;
+    lowRifle(s, u); u.cooldown = 1e9;
     run(s, 1);
     assert.equal(u.resupplyState, 'withdrawing');
     const before = u.x;
@@ -122,7 +124,7 @@ for (const side of [0, 1]) {
     u.cooldown = 1e9;
     run(s, 0.1);
     assert.equal(u.garrisonUid, fort.uid, 'a real completed bunker first accepts the soldier');
-    lowRifle(u);
+    lowRifle(s, u);
     for (let i = 0; i < 15 * 60 && (fort.x - u.x) * dir(side) <= 95; i++) {
       tick(s, DT);
       assert.equal(u.garrisonUid, undefined, 'maintaining the fort must not reattach a supply retreat');
@@ -233,7 +235,7 @@ test('paused ammunition drops keep their landing and expiry clocks; crates expir
 
 test('a depleted forward crate cannot trap a partly refilled soldier at the empty position', () => {
   const s = arena(), u = add(s, 0, 'infantry', 900, true);
-  lowRifle(u); u.cooldown = 1e9;
+  lowRifle(s, u); u.cooldown = 1e9;
   const crate = { uid: ++s.uid, side: 0, x: 850, stock: 15, maxStock: 15, landAt: 0, expiresAt: 180 };
   s.ammoCrates = [crate];
   run(s, 4);
@@ -250,6 +252,7 @@ test('stock that cannot buy even one needed shell is unusable and cannot trap a 
   const s = arena(), tank = add(s, 0, 'tank', 1000);
   tank.ammo = Math.floor(ammoProfile(tank).primary.mag * .3); tank.ammoReserve = 0;
   tank.cooldown = tank.secondaryCooldown = 1e9;
+  assert(issueLogisticsOrder(s, tank.uid, 'resupply'));
   s.ammoCrates = [{ uid: ++s.uid, side: 0, x: 1000, stock: 5, maxStock: 5, landAt: 0, expiresAt: 180 }];
   run(s, 2);
   assert.equal(tank.resupplyState, 'withdrawing');

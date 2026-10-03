@@ -57,7 +57,7 @@ for(const side of [0,1])for(const id of ['mortar','artillery'])for(const kind of
  const crossing=pathSamples(p).map(({previous:a,next:b})=>sceneryIntercept(s,a.x,a.y,b.x,b.y)).find(Boolean);
  assert.ok(crossing,'the actual flight must intersect authored cover rather than simply miss it');assert.ok(crossing.box.rubble);
  until(s,()=>!s.projectiles.includes(p));assert.equal(s.blasts.length,1);const blast=s.blasts[0];
- assert.equal(blast.x,original.tx);assert.equal(blast.kind,'artillery');assert.equal(blast.soil,true);assert.equal(blast.y,ground(s,blast.x));assert.ok(blastVisible(s,side,blast));
+ assert.equal(blast.x,original.tx);assert.equal(blast.kind,id==='mortar'?'he':'artillery');assert.equal(blast.soil,true);assert.equal(blast.y,ground(s,blast.x));assert.ok(blastVisible(s,side,blast));
  for(let i=0;i<60;i++)tick(s,DT);assert.ok(s.blasts.includes(blast),'authored smoke sequence remains after fire');assert.equal(blast.y,ground(s,blast.x));
  return evidence(`${id}-${side}-${kind}`,s,original,{crossing:{x:crossing.x,y:crossing.y},blast:{x:blast.x,y:blast.y,kind:blast.kind,age:blast.age},wrecks:s.wrecks.length});
 });

@@ -6422,3 +6422,5 @@ body:has(.game-shell.touch-battle) {
   width: min(460px, calc(100vw - 24px));
   min-width: 0;
 }
+
+.logistics-selection-button{position:absolute;left:12px;bottom:32px;z-index:23;min-height:34px;padding:6px 12px;background:#3a4029;border:2px solid #d6bd59;color:#ffe393;font:12px monospace;cursor:pointer}

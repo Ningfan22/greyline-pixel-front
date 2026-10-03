@@ -7,6 +7,7 @@ import type { GameState, Side, Unit } from './engine';
 import { weatherVisibility } from './weather';
 import { ambushConcealed, AMBUSH_REVEAL, antiTankConcealed, ANTI_TANK_REVEAL } from './infantry-specialties';
 import { isPrecisionObserver, precisionObserverReady } from './precision-team';
+import type { SoldierRagdoll } from './soldier-ragdoll';
 export interface SceneryPart {
   id: number;
   x: number;
@@ -78,6 +79,8 @@ export interface Wreck {
   /** Preserve the casualty's final presentation; old serialized wrecks can omit these. */
   pose?: Unit['pose'];
   soldierFall?: Unit['soldierFall'];
+  /** Blast casualties release the authored body parts into independent physics. */
+  soldierRagdoll?: SoldierRagdoll;
   facing?: number;
   lane?: number;
   /** v83: fallen infantry keep their weapon's remaining ammo so living squadmates can loot it. */

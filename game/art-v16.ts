@@ -1,5 +1,5 @@
-import { assetUrl } from './asset-url';
-import type { MapId } from './maps';
+import { loadArtImage } from './battle-art-loader';
+import { MAPS, type MapId } from './maps';
 
 type Rect = [number, number, number, number];
 
@@ -104,15 +104,6 @@ export function fpvSettledWreck(image: HTMLImageElement) {
   return frame;
 }
 
-function loadImage(path: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error(`Unable to load ${path}`));
-    image.src = assetUrl(path);
-  });
-}
-
 export interface V16Art {
   fpvFrames: HTMLCanvasElement[];
   fpvWreckFrames: HTMLCanvasElement[];
@@ -121,32 +112,49 @@ export interface V16Art {
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
 }
 
+type FPVArt = Omit<V16Art, 'mapBackgrounds'>;
+let fpvPending: Promise<FPVArt> | undefined;
+export function loadFPVArt(compact = false): Promise<FPVArt> {
+  return (fpvPending ??= loadArtImage(FPV_SHEET_URL, compact)
+    .then(fpv => ({
+      fpvFrames: fpvFlightFrames(fpv),
+      fpvWreckFrames: fpvWreckFrames(fpv),
+      fpvWreck: fpvSettledWreck(fpv),
+      fpvSheet: fpv,
+    }))
+    .catch(error => {
+      fpvPending = undefined;
+      throw error;
+    }));
+}
+
+const backgroundPending = new Map<MapId, Promise<HTMLCanvasElement>>();
+/** Preserve each map's established render size while loading only its own image. */
+export function loadMapBackground(mapId: MapId, compact = false): Promise<HTMLCanvasElement> {
+  let pending = backgroundPending.get(mapId);
+  if (!pending) {
+    pending = loadArtImage(MAPS[mapId].backgroundAsset, compact).then(image => {
+      const background = mapId === 'greyline' ? canvas(640, 214) : canvas(720, 240);
+      background.getContext('2d')!.drawImage(image, 0, 0, background.width, background.height);
+      return background;
+    }).catch(error => {
+      backgroundPending.delete(mapId);
+      throw error;
+    });
+    backgroundPending.set(mapId, pending);
+  }
+  return pending;
+}
+
 let pending: Promise<V16Art> | undefined;
+/** Compatibility entry point for older callers that expect all three V16 maps. */
 export function loadV16Art(): Promise<V16Art> {
+  const ids = ['jungle', 'mountains', 'desert'] as const;
   return (pending ??= Promise.all([
-    loadImage(FPV_SHEET_URL),
-    loadImage('/art/v16-maps/jungle.png'),
-    loadImage('/art/v16-maps/mountains.png'),
-    loadImage('/art/v16-maps/desert.png'),
-  ])
-    .then(([fpv, ...backgrounds]) => {
-      const ids: MapId[] = ['jungle', 'mountains', 'desert'];
-      const mapBackgrounds = Object.fromEntries(
-        backgrounds.map((image, index) => {
-          const background = canvas(720, 240);
-          background.getContext('2d')!.drawImage(image, 0, 0, 720, 240);
-          return [ids[index], background];
-        }),
-      );
-      return {
-        fpvFrames: fpvFlightFrames(fpv),
-        fpvWreckFrames: fpvWreckFrames(fpv),
-        fpvWreck: fpvSettledWreck(fpv),
-        fpvSheet: fpv,
-        mapBackgrounds,
-      };
-    })
-    .catch((error) => {
+    loadFPVArt(),
+    Promise.all(ids.map(async id => [id, await loadMapBackground(id)] as const)),
+  ]).then(([fpv, backgrounds]) => ({...fpv, mapBackgrounds: Object.fromEntries(backgrounds)}))
+    .catch(error => {
       pending = undefined;
       throw error;
     }));

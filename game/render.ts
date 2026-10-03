@@ -1,5 +1,6 @@
 import { mapDefinition, type MapId } from './maps';
-import {actorSoldierFrame} from './soldier-art';
+import {actorSoldierFrame,drawSoldierRagdoll} from './soldier-art';
+import {drawLogisticsIndicator} from './logistics-indicator';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
 import { ammoProfile, logisticsRatio, AMMO_LOW_RATIO } from './ammo-logistics';
@@ -526,7 +527,12 @@ export function render(
         ctx.restore();
         continue;
       }
-      const adultWreck = c.members ? art.adults[adultIdentity(w.cardId)] : null;
+      if(w.soldierRagdoll&&w.soldierFall&&art.soldiers){
+        ctx.save();ctx.translate(0,infantryDepth(w.lane)+3);
+        drawSoldierRagdoll(ctx,art.soldiers,w.soldierFall,w.soldierRagdoll);
+        ctx.restore();continue;
+      }
+      const adultWreck = c.members ? art.adults?.[adultIdentity(w.cardId)] : null;
       const wreckChoice = adultWreck
         ? w.falling
           ? ragdollChoice(w.age, w.id)
@@ -683,9 +689,9 @@ export function render(
     let frame =
       Math.floor(s.time * (isAir ? 18 : u.moving ? 8 : 0)) %
       (art.mobileVehicles?.[u.id]?.length ?? 4);
-    if (c.emplacement && u.fire > 0.1) frame = 1;
+    if (c.emplacement) frame = !u.moving && u.fire > 0.1 ? 1 : 0;
     const rig = c.members && art.soldiers ? actorSoldierFrame(art.soldiers,u,u,s.time) : null;
-    const adult = c.members && !rig ? art.adults[adultIdentity(u.id)] : null;
+    const adult = c.members && !rig ? art.adults?.[adultIdentity(u.id)] : null;
     const choice = adult ? adultFrameChoice(u, s.time) : null;
     const authoredBody = ownsAdultBody(choice);
     const body = adult && choice ? adult[choice.group][choice.index] : null;
@@ -696,7 +702,7 @@ export function render(
         : null;
     const patrolMode = choice ? patrolModeForUnit(u, choice, s.time) : null;
     const patrol =
-      body && !specialist && patrolMode
+      body && !specialist && patrolMode && art.patrol
         ? patrolFrameV17(
             art.patrol,
             adultIdentity(u.id),
@@ -706,7 +712,7 @@ export function render(
           )
         : null;
     const digging =
-      !rig && u.digging && !authoredBody && digWorkSettled(u,s.time)
+      !rig && art.digging && u.digging && !authoredBody && digWorkSettled(u,s.time)
         ? digFrameV18(
             art.digging,
             adultIdentity(u.id),
@@ -1081,6 +1087,7 @@ export function render(
       visible: true,
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
+  for (const u of sorted) drawLogisticsIndicator(ctx,u);
   // Muzzle-flash illumination: each active shooter casts a brief warm glow
   // onto the terrain around him. Additive blending makes concurrent fire
   // stack into the flickering ambience of a real firefight.

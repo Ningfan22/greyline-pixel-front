@@ -16,7 +16,7 @@ globalThis.Image = class extends Image {
 
 const { CARDS, createGame, startGame, spawnUnit, tick, refreshVision, H } =
   await import('../game/engine.ts');
-const { loadArt, unitFrame } = await import('../game/art.ts');
+const { loadBattleArt, unitFrame } = await import('../game/art.ts');
 const { render } = await import('../game/render.ts');
 const { loadCollection, COLLECTION_STORAGE, starterState } = await import('../game/collection.ts');
 const { loadDeckStore, DECKS_STORAGE } = await import('../game/decks-store.ts');
@@ -36,7 +36,7 @@ function arena(seed = 192) {
 }
 
 test('new guns retain the original gun pixels and render two separate existing soldier rigs', async () => {
-  const art = await loadArt();
+  const art = await loadBattleArt('greyline');
   for (const id of ['field_gun', 'siege_gun']) {
     assert.equal(art.generatedSprites[id], undefined);
     assert.equal(unitFrame(art, id, 0), art.emplacements.howitzer[0]);
@@ -51,10 +51,18 @@ test('new guns retain the original gun pixels and render two separate existing s
   ctx.drawImage = (...args) => { drawn.push(args[0]); return draw(...args); };
   render(ctx, s, art, null, null, true, 0, 960);
   assert(drawn.includes(art.emplacements.howitzer[0]));
-  const crew = drawn.filter(image => image.width === 128 && image.height === 128 &&
-    [...art.soldiers.frames.values()].includes(image));
+  // The current rig paints into one persistent canvas per actor; these are
+  // intentionally outside the immutable frame cache. This otherwise empty
+  // single-gun scene has exactly two 128px actor canvases: its two operators.
+  const crew = drawn.filter(image => image.width === 128 && image.height === 128);
   assert.equal(crew.length, 2);
   assert.notEqual(crew[0], crew[1], 'operators have independent hand-work phases');
+  drawn.length = 0;
+  render(ctx, s, art, null, null, true, 0, 960);
+  const repeatedCrew = drawn.filter(image => image.width === 128 && image.height === 128);
+  assert.equal(repeatedCrew.length, 2);
+  for (let i = 0; i < crew.length; i++)
+    assert.equal(repeatedCrew[i], crew[i], 'a redraw reuses both existing actor canvases');
 });
 
 test('only the existing strike jet remains and it advances every flight tick', () => {

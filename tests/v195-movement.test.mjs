@@ -120,7 +120,7 @@ for (const side of [0, 1]) {
     assert(Math.abs(tank.x - settled) < 1);
   });
 
-  test(`side ${side}: walking is slower and manual withdrawal stays below walking pace`, () => {
+  test(`side ${side}: a safe manual withdrawal turns and uses ordinary walking pace`, () => {
     const walking = arena(side), withdrawing = arena(side);
     const walker = add(walking, side, 'infantry', 1200)[0];
     const retreat = add(withdrawing, side, 'infantry', 1200)[0];
@@ -134,8 +134,10 @@ for (const side of [0, 1]) {
     const walkDistance = (walker.x - startWalk) * dir(side);
     const retreatDistance = (startRetreat - retreat.x) * dir(side);
     assert(walkDistance > 60 && walkDistance <= CARDS.infantry.speed * 0.8 * 2 + 0.01);
-    assert(retreatDistance > 20 && retreatDistance < walkDistance * 0.7,
-      'a movement buff cannot make the withdrawal faster than walking');
+    assert(retreatDistance > walkDistance * 0.9 && retreatDistance <= walkDistance + 1,
+      'a safe withdrawal walks normally and a movement buff does not force a sprint');
+    assert.equal(retreat.facing, -dir(side));
+    assert.equal(retreat.backpedaling, false);
   });
 }
 

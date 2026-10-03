@@ -82,7 +82,7 @@ for (const side of [0, 1])
           start = target.x;
         until(s, () => s.blasts.length > 0);
         const b = s.blasts[0];
-        assert.equal(b.kind, id === 'mortar' ? 'artillery' : 'he');
+        assert.equal(b.kind, 'he', 'mortars keep a compact HE blast; howitzers own the artillery column');
         assert.equal(b.soil, true);
         assert.equal(b.y, ground(s, b.x));
         assert.equal(

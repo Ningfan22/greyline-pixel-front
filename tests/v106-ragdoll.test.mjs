@@ -7,6 +7,7 @@ import {
   explode,
   ground,
 } from '../game/engine.ts';
+import { soldierRagdollGroundPenetration } from '../game/soldier-ragdoll.ts';
 
 const DT = 1 / 60;
 function arena() {
@@ -80,17 +81,14 @@ function until(s, predicate, seconds = 12) {
   until(s, () => !s.wrecks.some((w) => w.id === firstId && w.falling), 6);
   const landed = s.wrecks.find((w) => w.id === firstId);
   assert.ok(landed, 'wreck must persist after landing');
-  // Impact stops translation; rotation now settles continuously rather than
-  // snapping to a prone angle on the very first contact frame.
-  until(s, () => !landed.soldierSettle, 2);
-  assert.ok(
-    Math.abs(landed.angle) <= 0.36,
-    'landed body must settle into a sprawled angle',
-  );
-  assert.ok(
-    Math.abs(landed.y - ground(s, landed.x)) < 2,
-    'landed body must rest on the ground',
-  );
+  assert.ok(landed.soldierRagdoll?.settled, 'all independent pieces must settle');
+  for (const part of landed.soldierRagdoll.parts) {
+    assert.ok(part.settled);
+    assert.ok(soldierRagdollGroundPenetration(part, x => ground(s, x)) <= 1e-7,
+      `${part.name} must rest above its actual terrain footprint`);
+  }
+  assert.equal(landed.angle, 0, 'there is no second whole-body rotation');
+  assert.equal(landed.vx, 0); assert.equal(landed.vy, 0); assert.equal(landed.spin, 0);
   console.log('PASS ragdoll landing');
 }
 
@@ -112,6 +110,7 @@ function until(s, predicate, seconds = 12) {
     wreck.spin === undefined,
     'bullet kill must not tumble the body',
   );
+  assert.equal(wreck.soldierRagdoll, undefined, 'bullet casualties retain the connected original fall');
   assert.ok(
     !wreck.falling,
     'bullet kill must not launch the body airborne',

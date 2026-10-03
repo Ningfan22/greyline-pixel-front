@@ -1,5 +1,5 @@
 import { CARDS, modelOf, type CardId } from './cards';
-import {soldierArt,type SoldierArt} from './soldier-art';
+import {soldierArt,soldierFrame,type SoldierArt} from './soldier-art';
 import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, standingReloadFrames, standingGrenadeFrames, ownStance16 } from './adult-atlas';
 import { packedWeaponStances } from './weapon-stance-art';
@@ -20,7 +20,7 @@ import {
   type AdultIdentity,
   type AdultSprites,
 } from './adult-animation';
-import { assetUrl } from './asset-url';
+import { loadArtImage } from './battle-art-loader';
 import { tankGeometry } from './vehicle-geometry';
 import { buildingFrames, type BuildingArt } from './building-art';
 import { wreckFrames } from './wreck-art';
@@ -29,12 +29,12 @@ import { paintedTankWrecks } from './tank-wreck-art';
 import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { V197_VEHICLE_IDS, vehicleAssetV197, vehicleFrameV197 } from './vehicle-art-v197';
-import { loadV16Art } from './art-v16';
-import { loadTreeArtV17, type TreeArtV17 } from './tree-art-v17';
+import { loadFPVArt, loadMapBackground, loadV16Art } from './art-v16';
+import { loadTreeArtV17, treeFramesV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
 import { loadDigArtV18, type DigArtV18 } from './dig-art-v18';
-import { loadMineArtV18, type MineArtV18 } from './mine-art-v18';
-import { loadComebackArtV18, type ComebackArtV18 } from './comeback-art-v18';
+import { loadMineArtV18, mineFramesV18, type MineArtV18 } from './mine-art-v18';
+import { loadComebackArtV18, comebackFramesV18, type ComebackArtV18 } from './comeback-art-v18';
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
@@ -42,11 +42,11 @@ export interface Art {
   generatedSprites: Partial<Record<CardId, HTMLImageElement>>;
   soldiers?: SoldierArt;
   comeback: ComebackArtV18;
-  digging: DigArtV18;
+  digging?: DigArtV18;
   mines: MineArtV18;
   trees: TreeArtV17;
-  patrol: PatrolArtV17;
-  adults: Record<AdultIdentity, AdultSprites>;
+  patrol?: PatrolArtV17;
+  adults?: Record<AdultIdentity, AdultSprites>;
   adultSpecialists?: AdultSpecialists;
   weaponStances?: AdultSpecialists;
   heavyMG?: SpecialistSprite[];
@@ -76,14 +76,15 @@ export interface Art {
   >;
   parachute: HTMLCanvasElement[];
 }
-let cached: Promise<Art> | null = null;
+/** Full-body sheets are retained only for legacy QA and integrations. */
+export interface LegacyArt extends Art {
+  digging: DigArtV18;
+  patrol: PatrolArtV17;
+  adults: Record<AdultIdentity, AdultSprites>;
+}
+let cached: Promise<LegacyArt> | null = null;
 function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`无法加载 ${src}`));
-    img.src = assetUrl(src);
-  });
+  return loadArtImage(src);
 }
 function surface(w: number, h: number) {
   const c = document.createElement('canvas');
@@ -575,14 +576,16 @@ function atlasFrames(
     }),
   );
 }
-export function loadArt() {
+type SharedBattleArt = Omit<Art, 'background' | 'mapBackgrounds'>;
+let sharedPending: Promise<SharedBattleArt> | undefined;
+function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
+  const loadImage = (source: string) => loadArtImage(source, compact);
   const generatedSpriteIds = [
     'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
     'escort_gunship',
   ] as const;
-  cached ??= Promise.all([
+  return (sharedPending ??= Promise.all([
     Promise.all([
-      loadImage('/art/battlefield-v3.png'),
       loadImage('/art/vehicles-v3.png'),
       loadImage('/art/terrain-texture.png'),
       loadImage('/art/reinforcements-v5.png'),
@@ -597,52 +600,39 @@ export function loadArt() {
       loadImage('/art/blast-grenade-frames-v165.png'),
       loadImage('/art/buildings-v13.png'),
       loadImage('/art/building-collapse-v13.png'),
-      loadImage('/art/adult-infantry-v13.png'),
-      loadImage('/art/adult-marines-v13.png'),
-      loadImage('/art/adult-police-v13.png'),
-      loadImage('/art/adult-militia-v13.png'),
-      loadImage('/art/adult-specialists-v13.png'),
       loadImage('/art/ground-wrecks-v14.png'),
       loadImage('/art/air-wrecks-v14.png'),
       loadImage('/art/mobile-vehicles-v14.png'),
       loadImage('/art/support-vehicles-v14.png'),
       loadImage('/art/parachute-v1.png'),
-      loadImage('/art/standing-reload-v135.png'),
-      loadImage('/art/standing-grenade-v136.png'),
-      loadImage('/art/heavy-mg-v140.png'),
       loadImage('/art/glider-v141.png'),
-      loadImage('/art/infantry-reload-v143.png'),
       loadImage('/art/blast-fuel-frames-v165.png'),
       loadImage('/art/blast-earth-frames-v165.png'),
       loadImage('/art/building-footings-v145.png'),
-      loadImage('/art/weapon-stance-frames-v147.png'),
-      loadImage('/art/medical-work-frames-v148.png'),
-      loadImage('/art/low-grenade-frames-v149.png'),
-      loadImage('/art/repair-work-frames-v150.png'),
-      loadImage('/art/grenade-launcher-frames-v159.png'),
       loadImage('/art/powder-smoke-frames-v161.png'),
       loadImage('/art/tank-wreck-frames-v162.png'),
-      loadImage('/art/prone-watch-frames-v163.png'),
       loadImage('/art/blast-air-frames-v165.png'),
       loadImage('/art/soldier-parts-v178.png'),
       loadImage('/art/soldier-equipment-v178.png'),
     ]),
-    loadV16Art(),
-    loadTreeArtV17(),
-    loadPatrolArtV17(),
-    loadDigArtV18(),
-    loadMineArtV18(),
-    loadComebackArtV18(),
+    loadFPVArt(compact),
+    compact ? Promise.all((['pine', 'broadleaf'] as const).map(async kind =>
+      [kind, treeFramesV17(await loadImage(`/art/v19-trees/${kind}.png`))] as const))
+      .then(entries => Object.fromEntries(entries) as TreeArtV17) : loadTreeArtV17(),
+    compact ? loadImage('/art/v18-mines/mines.png').then(mineFramesV18) : loadMineArtV18(),
+    compact ? loadImage('/art/v18-comeback/toxic-cloud.png').then(comebackFramesV18) : loadComebackArtV18(),
     Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
     loadImage('/art/v195-logistics/ammo-crate.png'),
-    Promise.all(V197_VEHICLE_IDS.map(async id => ({ id,
-      sprite: await loadImage(vehicleAssetV197(id, 'sprite')),
-      wreck: await loadImage(vehicleAssetV197(id, 'wreck')),
-    }))),
+    Promise.all(V197_VEHICLE_IDS.map(async id => {
+      const [sprite, wreck] = await Promise.all([
+        loadImage(vehicleAssetV197(id, 'sprite')),
+        loadImage(vehicleAssetV197(id, 'wreck')),
+      ]);
+      return {id, sprite, wreck};
+    })),
   ]).then(
     ([
       [
-        bg,
         vehicles,
         terrain,
         reinforcement,
@@ -657,50 +647,29 @@ export function loadArt() {
         grenadeBlastSheet,
         buildings,
         collapse,
-        adultInfantry,
-        adultMarines,
-        adultPolice,
-        adultMilitia,
-        specialists,
         groundWrecks,
         airWrecks,
         mobileVehicles,
         supportVehicles,
         parachuteSheet,
-        standingReload,
-        standingGrenade,
-        heavyMG,
         gliderSheet,
-        lowReloadSheet,
         fuelBlastSheet,
         earthBlastSheet,
         footingSheet,
-        packedWeaponSheet,
-        medicalSheet,
-        lowGrenadeSheet,
-        repairSheet,
-        grenadeLauncherSheet,
         smokeSheet,
         tankWreckSheet,
-        proneWatchSheet,
         airBlastSheet,
         soldierPartsSheet,
         soldierEquipmentSheet,
       ],
       extra,
       trees,
-      patrol,
-      digging,
       mines,
       comeback,
       generatedSpriteImages,
       ammoCrate,
       v197Vehicles,
     ]) => {
-      const background = surface(640, 214),
-        ctx = background.getContext('2d')!;
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(bg, 0, 0, 640, 214);
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
       vehicleArt[0] = stableTracks(vehicleArt[0], 5);
@@ -733,35 +702,8 @@ export function loadArt() {
         fuelFrames = packedBlastFrames(fuelBlastSheet),
         earthFrames = packedBlastFrames(earthBlastSheet);
       reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
-      const reload8 = standingReloadFrames(standingReload);
-      const grenade8 = standingGrenadeFrames(standingGrenade);
-      const lowReload16 = lowReloadAtlas(lowReloadSheet);
-      const medical24 = packedMedicalFrames(medicalSheet);
-      const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
-      const repair34 = packedRepairFrames(repairSheet);
-      const proneIdle8 = packedProneWatch(proneWatchSheet);
-      // Command gestures were removed from all live selectors. Keep the
-      // legacy field empty; do not fetch/decode four unused 1254px sheets.
-      const signals4: HTMLCanvasElement[] = [];
-      // v174: each identity builds its pose chain from its OWN pixel atlas,
-      // so aiming or dropping to a knee never swaps a yellow marine onto the
-      // shared green realistic stance body.
-      const mkAdult = (img: HTMLImageElement) => {
-        const a = adultAtlas(img);
-        return { ...a, signals4, reload8, grenade8, stance16: ownStance16(a), lowReload16, medical24, lowGrenade32, repair34, proneIdle8 };
-      };
-      const adults = {
-        infantry: mkAdult(adultInfantry),
-        marines: mkAdult(adultMarines),
-        police: mkAdult(adultPolice),
-        militia: mkAdult(adultMilitia),
-      };
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
-      // Match the last raising pose to the established firing anatomy at the handoff.
-      for (const id of Object.keys(adults) as AdultIdentity[])
-        patrol[id].raise3[2] = adults[id].actions20[0];
       const glider=gliderAtlas(gliderSheet);
-      const grenadeLauncher=packedGrenadeLauncher(grenadeLauncherSheet);
       const wreckFramesMap = wreckFrames(
         groundWrecks,
         airWrecks,
@@ -777,16 +719,9 @@ export function loadArt() {
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
         comeback,
-        digging,
         mines,
         trees,
-        patrol,
         parachute,
-        adults,
-        adultSpecialists: specialistAtlas(specialists),
-        weaponStances: {...packedWeaponStances(packedWeaponSheet),grenade:grenadeLauncher.stances},
-        heavyMG: heavyMGAtlas(heavyMG),
-        grenadeLauncher: grenadeLauncher.cycle,
         glider,
         wrecks: wreckFramesMap,
         wreckVariants: {...wreckVariants(wreckFramesMap,{
@@ -800,8 +735,6 @@ export function loadArt() {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
           ...Object.fromEntries(v197Vehicles.map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite)]])),
         },
-        background,
-        mapBackgrounds: extra.mapBackgrounds,
         terrain,
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
@@ -841,11 +774,120 @@ export function loadArt() {
         combatExplosionsV13: [fuelFrames, earthFrames, grenadeFrames],
       };
     },
-  );
-  return cached.catch((error) => {
+  ).catch(error => {
+    sharedPending = undefined;
+    throw error;
+  }));
+}
+
+type LegacyInfantryArt = Pick<LegacyArt,
+  'adults' | 'patrol' | 'digging' | 'adultSpecialists' | 'weaponStances' | 'heavyMG' | 'grenadeLauncher'>;
+let legacyPending: Promise<LegacyInfantryArt> | undefined;
+function loadLegacyInfantryArt(): Promise<LegacyInfantryArt> {
+  return (legacyPending ??= Promise.all([
+    Promise.all([
+      loadImage('/art/adult-infantry-v13.png'),
+      loadImage('/art/adult-marines-v13.png'),
+      loadImage('/art/adult-police-v13.png'),
+      loadImage('/art/adult-militia-v13.png'),
+      loadImage('/art/adult-specialists-v13.png'),
+      loadImage('/art/standing-reload-v135.png'),
+      loadImage('/art/standing-grenade-v136.png'),
+      loadImage('/art/heavy-mg-v140.png'),
+      loadImage('/art/infantry-reload-v143.png'),
+      loadImage('/art/weapon-stance-frames-v147.png'),
+      loadImage('/art/medical-work-frames-v148.png'),
+      loadImage('/art/low-grenade-frames-v149.png'),
+      loadImage('/art/repair-work-frames-v150.png'),
+      loadImage('/art/grenade-launcher-frames-v159.png'),
+      loadImage('/art/prone-watch-frames-v163.png'),
+    ]),
+    loadPatrolArtV17(),
+    loadDigArtV18(),
+  ]).then(([[
+    adultInfantry,
+    adultMarines,
+    adultPolice,
+    adultMilitia,
+    specialists,
+    standingReload,
+    standingGrenade,
+    heavyMG,
+    lowReloadSheet,
+    packedWeaponSheet,
+    medicalSheet,
+    lowGrenadeSheet,
+    repairSheet,
+    grenadeLauncherSheet,
+    proneWatchSheet,
+  ], patrol, digging]) => {
+      const reload8 = standingReloadFrames(standingReload);
+      const grenade8 = standingGrenadeFrames(standingGrenade);
+      const lowReload16 = lowReloadAtlas(lowReloadSheet);
+      const medical24 = packedMedicalFrames(medicalSheet);
+      const lowGrenade32 = packedLowGrenades(lowGrenadeSheet);
+      const repair34 = packedRepairFrames(repairSheet);
+      const proneIdle8 = packedProneWatch(proneWatchSheet);
+      // Command gestures were removed from all live selectors. Keep the
+      // legacy field empty; do not fetch/decode four unused 1254px sheets.
+      const signals4: HTMLCanvasElement[] = [];
+      // v174: each identity builds its pose chain from its OWN pixel atlas,
+      // so aiming or dropping to a knee never swaps a yellow marine onto the
+      // shared green realistic stance body.
+      const mkAdult = (img: HTMLImageElement) => {
+        const a = adultAtlas(img);
+        return { ...a, signals4, reload8, grenade8, stance16: ownStance16(a), lowReload16, medical24, lowGrenade32, repair34, proneIdle8 };
+      };
+      const adults = {
+        infantry: mkAdult(adultInfantry),
+        marines: mkAdult(adultMarines),
+        police: mkAdult(adultPolice),
+        militia: mkAdult(adultMilitia),
+      };
+      // Match the last raising pose to the established firing anatomy at the handoff.
+      for (const id of Object.keys(adults) as AdultIdentity[])
+        patrol[id].raise3[2] = adults[id].actions20[0];
+      const grenadeLauncher = packedGrenadeLauncher(grenadeLauncherSheet);
+      return {
+        adults, patrol, digging,
+        adultSpecialists: specialistAtlas(specialists),
+        weaponStances: {...packedWeaponStances(packedWeaponSheet), grenade: grenadeLauncher.stances},
+        heavyMG: heavyMGAtlas(heavyMG),
+        grenadeLauncher: grenadeLauncher.cycle,
+      };
+  }).catch(error => {
+    legacyPending = undefined;
+    throw error;
+  }));
+}
+
+/** Legacy entry point: all maps and full-body atlases remain available to QA. */
+export function loadArt(): Promise<LegacyArt> {
+  return (cached ??= Promise.all([
+    loadSharedBattleArt(), loadLegacyInfantryArt(), loadV16Art(), loadMapBackground('greyline'),
+  ]).then(([shared, legacy, extra, background]) => ({
+    ...shared, ...legacy, background, mapBackgrounds: extra.mapBackgrounds,
+  })).catch(error => {
     cached = null;
     throw error;
-  });
+  }));
+}
+
+const battlePending = new Map<MapId, Promise<Art>>();
+/** Live battles use the existing soldier rig and just the selected map's backdrop. */
+export function loadBattleArt(mapId: MapId): Promise<Art> {
+  let pending = battlePending.get(mapId);
+  if (!pending) {
+    pending = Promise.all([loadSharedBattleArt(true), loadMapBackground(mapId, true)])
+      .then(([shared, background]) => ({
+        ...shared, background, mapBackgrounds: {[mapId]: background},
+      })).catch(error => {
+        battlePending.delete(mapId);
+        throw error;
+      });
+    battlePending.set(mapId, pending);
+  }
+  return pending;
 }
 export function drawSprite(
   ctx: CanvasRenderingContext2D,
@@ -927,9 +969,15 @@ export function drawTankSprite(
   ctx.drawImage(frame, -hw - gunRecoil, -h, w, h);
   ctx.restore();
 }
+function infantryFrame(art: Art, id: CardId) {
+  const adult = art.adults?.[adultIdentity(id)];
+  if (adult) return uniformFrame(adult.actions20[0], CARDS[id].uniform);
+  if (art.soldiers) return soldierFrame(art.soldiers, {id, pose: 'idle', hp: 1, member: 0}, 0).image;
+  throw new Error(`Missing infantry art: ${id}`);
+}
 export function cardFrame(art: Art, index: number) {
   if (index < 3 || (index >= 10 && index <= 12))
-    return art.adults.infantry.actions20[0];
+    return infantryFrame(art, 'infantry');
   if (index === 13) return art.reinforcements[0][0];
   if (index === 3) return art.vehicles[0][0];
   if (index === 4) return art.vehicles[1][0];
@@ -939,8 +987,7 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
   if (art.generatedSprites[id]) return art.generatedSprites[id];
   if(id==='glider_transport')return art.glider[frame%art.glider.length];
-  if (c.members)
-    return uniformFrame(art.adults[adultIdentity(id)].actions20[0], c.uniform);
+  if (c.members) return infantryFrame(art, id);
   const mobile = art.mobileVehicles?.[id];
   if (mobile) return mobile[frame % mobile.length];
   if (c.emplacement) return art.emplacements[c.emplacement][frame];

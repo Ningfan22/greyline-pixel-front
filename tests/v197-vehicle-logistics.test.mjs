@@ -3,6 +3,7 @@ import test from 'node:test';
 import { createGame, startGame, spawnUnit, tick, refreshVision, W } from '../game/engine.ts';
 import { initializeAmmo, ammoSummary, ammoRatio, logisticsRatio, planAmmoResupply } from '../game/ammo-logistics.ts';
 import { vehicleTravelX, hasVehicleFuel, VEHICLE_FUEL_RANGE } from '../game/vehicle-logistics.ts';
+import { issueLogisticsOrder } from '../game/logistics-orders.ts';
 
 const DT = 1 / 30;
 const direction = side => side ? -1 : 1;
@@ -74,6 +75,7 @@ for (const side of [0, 1]) {
     // 31% is above the generic warning but needed to cover 1650px back to HQ
     // plus the safe arrival reserve at the map-calibrated vehicle range.
     u.fuel = 31; const before = u.x; let arrived, released, arrivalFuel;
+    if (side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
     for (let i = 0; i < 160 / DT; i++) {
       tick(s, DT);
       if (u.resupplyState === 'supplying' && arrived === undefined) { arrived = u.x; arrivalFuel = u.fuel; }
@@ -92,6 +94,7 @@ for (const side of [0, 1]) {
 
   test(`side ${side}: a dry hull cannot drive on any order but can defend with loaded weapons, then accepts an actual dropped supply`, () => {
     const s = arena(side), u = one(s, side, 'tank', 1200, { fuel: 0, cooldown: 0, secondaryCooldown: 0 });
+    if (side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
     one(s, 1 - side, 'tank', W - 1650, { squadOrder: 'watch', squadOrderX: position(side, 1650), hp: 1e7, maxHp: 1e7 });
     refreshVision(s); const x = u.x;
     run(s, .5);
@@ -108,6 +111,7 @@ for (const side of [0, 1]) {
 
   test(`side ${side}: supplies refill fuel with real stock and a partial or depleted source cannot release the retreat`, () => {
     const s = arena(side), u = one(s, side, 'tank', 1500, { fuel: 20.5 });
+    if (side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
     const box = crate(s, side, u.x, 10);
     planAmmoResupply(s, u, 1);
     assert.equal(u.fuel, 30.5); assert.equal(box.stock, 0);

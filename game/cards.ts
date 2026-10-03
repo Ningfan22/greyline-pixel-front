@@ -2579,6 +2579,7 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
         rate: 1,
         range: 380,
         antiAir: false,
+        infantryMultiplier: 1,
       };
 }
 export function weaponModel(u: { id: CardId; member: number }): BaseCardId {
@@ -3027,17 +3028,41 @@ Object.assign(CARDS.mortar_carrier, {
   detail: '4费270生命，每11秒42伤，射程170–780。每次开炮后利用装填间隙向己方倒车换位最多96距离，车头仍朝敌；停稳0.55秒后才能再射。保留80射程余量，可退空间不足48时留在原地。驻守命令取消换位，近敌进入死角时仍按原规则后撤。徒步迫击炮组则在被声测定位后才转移。',
 });
 Object.assign(CARDS.artillery, {
+  damage: 64,
+  radius: 54,
   rate: 12,
-  detail: '190生命，每12秒44伤害，半径36，射程280–1250。依靠友军观察。',
+  detail: '190生命，每12秒64伤害，爆炸半径54，射程280–1250。依靠友军观察，以大范围爆破和高耸烟柱压制阵地；慢速装填。',
 });
 Object.assign(CARDS.barrage, {
+  damage: 96,
+  radius: 70,
   rate: 17,
-  detail: '240生命，每17秒68伤害，半径44，射程350–1450。依靠友军观察。',
+  detail: '240生命，每17秒96伤害，爆炸半径70，射程350–1450。依靠友军观察，大口径冲击覆盖密集阵地，落弹后留下粗大烟柱。',
 });
 Object.assign(CARDS.precision, {
+  damage: 90,
+  radius: 42,
   rate: 15,
-  detail: '170生命，每15秒75伤害，半径22，射程300–1350。依靠友军观察。',
+  detail: '170生命，每15秒90伤害，爆炸半径42，射程300–1350。依靠友军观察，范围小于野战榴弹炮，校射后集中打击重装目标。',
 });
+Object.assign(CARDS.field_gun, {
+  damage: 44,
+  radius: 42,
+  detail: '3费145生命，每6.5秒44伤害，爆炸半径42，射程170–950。轻型榴弹炮依靠友军观察，以低费炮击支援阵地，爆破范围大于迫击炮。',
+});
+Object.assign(CARDS.siege_gun, {
+  damage: 130,
+  radius: 86,
+  detail: '6费280生命，每17秒130伤害，爆炸半径86，射程400–1600。依靠友军观察，大口径重弹和高耸烟柱覆盖整段阵地；装填缓慢。',
+});
+
+/** The bullet's base damage stays unchanged against armour, aircraft and HQs. */
+export const MACHINEGUN_INFANTRY_MULTIPLIER = 1.5;
+for (const id of ['machinegun', 'lmg_team', 'heavy_mg', 'fort_machinegun',
+  'pickup', 'command_vehicle', 'mine_clearer', 'scout_car', 'helicopter', 'escort_gunship'] as const) {
+  CARDS[id].infantryMultiplier = MACHINEGUN_INFANTRY_MULTIPLIER;
+  CARDS[id].detail += ' 机枪弹命中步兵造成1.5倍伤害。';
+}
 Object.assign(CARDS.javelin, {
   hp: 180,
   damage: 120,
@@ -3062,7 +3087,7 @@ Object.assign(CARDS.helicopter, {
   burstSize: 6,
   burstPause: 0.6,
   description: '六发连续扫射，短停换弹',
-  detail: '260生命，射程540。每0.12秒7伤，连续六发后停0.6秒，不增加生命。',
+  detail: '260生命，射程540。每0.12秒7伤，命中步兵为10.5伤，连续六发后停0.6秒。',
 });
 Object.assign(CARDS.rocket_heli, {
   rate: 4.2,

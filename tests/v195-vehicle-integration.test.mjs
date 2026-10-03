@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { issueLogisticsOrder } from '../game/logistics-orders.ts';
 import {createGame,startGame,spawnUnit,tick,playCard,refreshVision,setOrder,CARDS} from '../game/engine.ts';
 import {isImmobilized} from '../game/vehicle-damage.ts';
 import {repairStation} from '../game/repair-work.ts';
@@ -106,6 +107,7 @@ test('the AI actually pays for repairs when its full-health tank has a broken tr
 
 test('an empty fixed howitzer actually waits in place without towing, then accepts ammo at that position',()=>{
   const s=arena(),gun=one(s,0,'artillery',1200,{ammo:0,ammoReserve:0,squadOrder:'attack',emplaced:false});
+  assert(issueLogisticsOrder(s,gun.uid,'resupply'));
   run(s,5);assert.equal(gun.x,1200);assert.equal(gun.resupplyState,'waiting');
   assert.equal(gun.moving,false);assert.equal(gun.shots,0);
   s.ammoCrates.push({uid:++s.uid,side:0,x:gun.x,stock:1800,maxStock:1800,

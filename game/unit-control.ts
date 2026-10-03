@@ -10,6 +10,7 @@ export function fixedWingUnit(u: Pick<Unit, 'id'>) {
 
 /** True only for an explicit live local order; global army orders stay unchanged. */
 export function localUnitOrder(s: GameState, u: Unit) {
+  if (u.logisticsOrder === 'hold') return 'watch';
   return u.squadOrder && (u.squadOrderUntil ?? Infinity) > s.time
     ? u.squadOrder
     : null;
@@ -25,6 +26,11 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   let order = localUnitOrder(s, u);
   if(u.glider)return false;
+  if (u.logisticsOrder === 'hold' && !c.air) {
+    u.moving = false;
+    u.vx = 0;
+    return true;
+  }
   if (isImmobilized(u) || vehicleOutOfFuel(u)) {
     u.moving = false;
     u.vx = 0;

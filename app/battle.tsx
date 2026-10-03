@@ -61,7 +61,7 @@ import { CardFace } from '@/game/card-art';
 import { advanceBattleFrame } from '@/game/battle-clock';
 import { CARD_COPY } from '@/game/card-copy';
 import { render } from '@/game/render';
-import { loadArt, type Art } from '@/game/art';
+import { loadBattleArt, type Art } from '@/game/art';
 import {
   DEFAULT_AUDIO,
   getBattleAudio,
@@ -79,6 +79,11 @@ import {
 } from '@/game/squad-orders';
 import { unitSelectionBounds } from '@/game/selection-render';
 import SquadMenu from './squad-menu';
+import LogisticsMenu from './logistics-menu';
+import {vehicleOutOfFuel} from '@/game/vehicle-logistics';
+import {isImmobilized} from '@/game/vehicle-damage';
+import {logisticsAlert,issueLogisticsOrder} from '@/game/logistics-orders';
+import {logisticsIndicator,pickLogisticsIndicator} from '@/game/logistics-indicator';
 import { DEFAULT_DIFFICULTY, type Difficulty } from '@/game/economy';
 import {
   MISSIONS,
@@ -174,6 +179,15 @@ export default function Battle({
   const [selected, setSelected] = useState<number | null>(null);
   const [selectedSquad, setSelectedSquad] = useState<number | null>(null);
   const selectedSquadRef = useRef<number | null>(null);
+  const [logisticsUid,setLogisticsUid]=useState<number|null>(null);
+  const [logisticsAnchor,setLogisticsAnchor]=useState({x:0,y:0});
+  const openLogistics=useCallback((uid:number)=>{
+    const u=game.current.units.find(v=>v.uid===uid);
+    const mark=u&&logisticsIndicator(u);
+    if(!mark)return;
+    setLogisticsUid(uid);setLogisticsAnchor({x:mark.x,y:mark.y});
+    selectedSquadRef.current=null;setSelectedSquad(null);
+  },[]);
   const [squadMenuAnchor, setSquadMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const selectSquad = useCallback((id: number | null) => {
     selectedSquadRef.current = id;
@@ -278,7 +292,7 @@ export default function Battle({
   }, []);
   const choose = useCallback(
     (uid: number | null) => {
-      if (uid !== null) selectSquad(null);
+      if (uid !== null) {selectSquad(null);setLogisticsUid(null);}
       selectedRef.current = uid;
       setSelected(uid);
       pointerScreen.current = null;
@@ -471,7 +485,7 @@ export default function Battle({
   }, [interruptCardHold]);
   useEffect(() => {
     let stopped = false;
-    void loadArt()
+    void loadBattleArt(game.current.mapId)
       .then((a) => {
         if (!stopped) {
           art.current = a;
@@ -607,6 +621,7 @@ export default function Battle({
         return;
       }
       if (e.key === 'Escape') {
+        setLogisticsUid(null);
         selectSquad(null);
         interruptCardHold();
         choose(null);
@@ -780,6 +795,9 @@ export default function Battle({
       ? Math.max(...selectedMembers.map((u) => u.y)) + 140
       : Math.min(...selectedMembers.map((u) => unitSelectionBounds(u).y)) - 18
     : 0;
+  const logisticsUnit=units.find(u=>u.uid===logisticsUid);
+  const logisticsStatus=logisticsUnit&&logisticsAlert(logisticsUnit);
+  const selectedLowUnit=selectedMembers.find(u=>logisticsAlert(u));
   const squadTrench = view.entrenchments.find((t) => t.squad === selectedSquad);
   const selectCard = (h: HandCard) => {
     didDrag.current = false;
@@ -1157,6 +1175,14 @@ export default function Battle({
               game.current.status === 'playing'
             ) {
               const rect = e.currentTarget.getBoundingClientRect();
+              const warning=pickLogisticsIndicator(game.current,canvasX(e.clientX),
+                ((e.clientY-rect.top)/rect.height)*H,e.pointerType!=='mouse');
+              if(warning){
+                openLogistics(warning.uid);
+                if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
+                return;
+              }
+              setLogisticsUid(null);
               const found = pickSquad(
                 game.current,
                 0,
@@ -1193,6 +1219,24 @@ export default function Battle({
             }
           }}
         />
+        {active&&!panel&&logisticsUnit&&logisticsStatus&&
+          logisticsAnchor.x>=cameraView&&logisticsAnchor.x<=cameraView+viewportWidth&&(
+          <LogisticsMenu x={(logisticsAnchor.x-cameraView)/viewportWidth*100}
+            y={logisticsAnchor.y/H*100} name={CARDS[logisticsUnit.id].name}
+            reason={logisticsStatus.reason}
+            order={logisticsUnit.logisticsOrder}
+            staticUnit={CARDS[logisticsUnit.id].static}
+            onClose={()=>setLogisticsUid(null)} onOrder={order=>{
+              if(issueLogisticsOrder(game.current,logisticsUnit.uid,order)){
+                const immobile=CARDS[logisticsUnit.id].static||vehicleOutOfFuel(logisticsUnit)||isImmobilized(logisticsUnit);
+                toast(order==='advance'?(immobile?'前进指令已下达，需先补油或修复履带':'继续前进指令已下达'):
+                  order==='hold'?'原地待命，保持警戒':immobile?'无法移动，原地等待补给':'正在前往补给点');
+                setLogisticsUid(null);refresh();
+              }
+            }}/>
+        )}
+        {active&&!panel&&selectedLowUnit&&<button className="logistics-selection-button"
+          onClick={()=>openLogistics(selectedLowUnit.uid)} aria-label={`${CARDS[selectedLowUnit.id].name}补给选择`}>! 补给选择</button>}
         {active &&
           !panel &&
           selectedMembers.length > 0 &&
@@ -1997,7 +2041,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v200
+          GREYLINE <i /> 林间前线 · v201
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

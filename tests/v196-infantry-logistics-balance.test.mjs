@@ -4,6 +4,7 @@ import { createGame, startGame, spawnUnit, tick, refreshVision, W } from '../gam
 import { CARDS, weaponCard } from '../game/cards.ts';
 import { ammoProfile, ammoSummary, ammoRatio, initializeAmmo } from '../game/ammo-logistics.ts';
 import { setSquadOrder } from '../game/squad-orders.ts';
+import { issueLogisticsOrder, logisticsNeedsDecision } from '../game/logistics-orders.ts';
 
 const DT = 1 / 60;
 const direction = side => side ? -1 : 1;
@@ -63,7 +64,7 @@ function shotsSeen(s, u) {
 }
 
 for (const side of [0, 1]) {
-  test(`side ${side}: ordinary walking is about 37 px/s, withdrawal stays slower even with a rush buff`, () => {
+  test(`side ${side}: safe withdrawal turns rearward at the ordinary 37 px/s walking pace`, () => {
     const walking = arena(side), withdrawing = arena(side);
     const a = one(walking, side, 'infantry', position(side, 1400));
     const b = one(withdrawing, side, 'infantry', position(side, 1400));
@@ -78,8 +79,10 @@ for (const side of [0, 1]) {
     const back = (fromB - b.x) * direction(side) / 2;
     assert(advance > 34 && advance < 40, `actual ordinary walking was ${advance} px/s`);
     assert(advance < 54.4 * .8, 'walking must visibly slow from the previous 54.4 px/s');
-    assert(back > 20 && back < 26, `actual withdrawal was ${back} px/s`);
-    assert(back < advance * .7, 'a forward movement buff cannot turn withdrawal into a sprint');
+    assert(back > 34 && back < 40, `actual safe withdrawal was ${back} px/s`);
+    assert(Math.abs(back - advance) < 1, 'rearward travel keeps ordinary walking pace despite a movement buff');
+    assert.equal(b.facing, -direction(side));
+    assert.equal(b.backpedaling, false);
     assert.equal(a.hp, a.maxHp); assert.equal(b.hp, b.maxHp);
   });
 
@@ -87,7 +90,7 @@ for (const side of [0, 1]) {
     const s = arena(side), u = one(s, side, 'infantry', position(side, 1400));
     silentFoe(s, side, u.x + direction(side) * 270);
     const load = total(u), observed = shotsSeen(s, u), initialHP = u.hp;
-    const at = until(s, () => u.resupplyState === 'withdrawing', 90, observed.capture);
+    const at = until(s, () => side === 0 ? logisticsNeedsDecision(u) : u.resupplyState === 'withdrawing', 90, observed.capture);
     assert(at !== null, 'a minute-long exchange must make logistics relevant');
     assert(at >= 30 && at <= 90, `withdrawal began after ${at} seconds`);
     assert(at >= 60 && at <= 80, 'ordinary fire should consume the new carry around 65–80 seconds');
@@ -96,6 +99,7 @@ for (const side of [0, 1]) {
     assert.equal(observed.projectiles.size, u.shots, 'the ammunition counter matches actual launched bullets');
     assert([...observed.projectiles.values()].every(p => p.ammunition === 'rifle'));
     assert(ammoRatio(u) <= .3); assert.equal(u.hp, initialHP);
+    if (side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
     const x = u.x, beforeShots = u.shots;
     run(s, 4, observed.capture);
     assert((x - u.x) * direction(side) > 20, 'the low-ammo soldier really leaves the firing position');
@@ -120,7 +124,8 @@ for (const side of [0, 1]) {
     const before = u.shots;
     run(s, 2, observed.capture);
     assert.equal(u.shots, before); assert.equal(total(u), 0);
-    assert.equal(u.resupplyState, 'withdrawing');
+    assert.equal(u.resupplyState, side === 0 ? undefined : 'withdrawing');
+    if (side === 0) assert(logisticsNeedsDecision(u));
   });
 
   for (const [id, interval, damage] of [['mortar', 10, 22], ['light_mortar', 6, 26], ['mortar_carrier', 11, 42]]) {

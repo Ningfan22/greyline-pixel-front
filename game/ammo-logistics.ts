@@ -19,6 +19,7 @@ export const AMMO_CRATE_STOCK = 1800;
 export const AMMO_CRATE_RADIUS = 120;
 export const AMMO_CRATE_LIFE = 180;
 export const AMMO_LOW_RATIO = 0.3;
+export const FUEL_WARNING_RATIO = 0.5;
 export const SUPPLY_CARRY = 400;
 const profiles = new Map<string, { primary: MagazineSpec | null; secondary: MagazineSpec | null }>();
 export function usesPersonalSidearm(u: Pick<Unit, 'id'>) {
@@ -89,6 +90,31 @@ export function advanceSecondaryReload(u: Unit, time: number) {
 }
 type Source = { x: number; radius: number; stock?: number; unit?: Unit; crate?: AmmoCrate; base?: boolean };
 const living = (u: Unit) => u.hp > 0 && !u.wounded && !u.surrendered && !u.parachuting && !u.rappelling;
+export function logisticsControllable(u: Unit) {
+  return u.side === 0 && living(u) && !u.glider && !CARDS[u.id].air && !CARDS[u.id].internal;
+}
+function fullySupplied(u: Unit) {
+  return ammoRatio(u) >= 0.999 &&
+    (!hasVehicleFuel(u) || vehicleFuelRatio(u) >= 1 - 1e-9) &&
+    (u.id !== 'supply_team' || (u.supplyStock ?? SUPPLY_CARRY) >= SUPPLY_CARRY - 0.1);
+}
+/** Acknowledging the shortage dims its marker, but keeps the choice available
+ * until every carried store is full again. Fuel and weapon ammunition stay independent. */
+export function logisticsAlert(u: Unit) {
+  if (!logisticsControllable(u)) return null;
+  const ammoLevel = ammoRatio(u), fuelLevel = vehicleFuelRatio(u);
+  const stockLevel = u.id === 'supply_team' ? u.supplyStock ?? SUPPLY_CARRY : SUPPLY_CARRY;
+  if (ammoLevel >= 0.999 && fuelLevel >= 1 - 1e-9 && stockLevel >= SUPPLY_CARRY - 0.1) return null;
+  const fuel = hasVehicleFuel(u) && fuelLevel <= FUEL_WARNING_RATIO;
+  const ammo = ammoLevel <= AMMO_LOW_RATIO;
+  const stock = stockLevel <= SUPPLY_CARRY * AMMO_LOW_RATIO;
+  if (!fuel && !ammo && !stock && !u.logisticsWarning) return null;
+  const reason = [fuel ? '燃油不足' : '', ammo ? '弹药不足' : '', stock ? '补给储备不足' : ''].filter(Boolean).join(' · ') || '补给尚未补满';
+  return { fuel, ammo, stock, reason };
+}
+export function logisticsNeedsDecision(u: Unit) {
+  return !!logisticsAlert(u) && !u.logisticsOrder;
+}
 function sources(s: GameState, u: Unit): Source[] {
   const neededCosts = ammoSummary(u).filter(row => row.total < row.maxTotal)
     .map(row => roundCost(u, row.channel === 'secondary'));
@@ -149,7 +175,8 @@ function fuelNeedsReturn(u: Unit, available: Source[]) {
     Math.min(0.95, distance / VEHICLE_FUEL_RANGE + 0.06));
 }
 
-/** Persistent retreat: a partial magazine or depleted crate cannot turn a unit around. */
+/** The player chooses whether to return; enemy units retain autonomous reserve
+ * planning. Once requested, a partial refill cannot turn a returning unit around. */
 export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | null {
   if (!living(u) || CARDS[u.id].air || CARDS[u.id].internal) return null;
   initializeAmmo(u);
@@ -158,7 +185,15 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   if (u.id === 'supply_team' && Math.abs(u.x - baseX) <= 140)
     u.supplyStock = Math.min(SUPPLY_CARRY, u.supplyStock! + dt * 80);
   let available = sources(s, u);
-  if (!u.resupplyState && (ammoRatio(u) <= AMMO_LOW_RATIO || fuelNeedsReturn(u, available) || needsStock)) {
+  if (logisticsAlert(u)) u.logisticsWarning = true;
+  // An old automatic retreat or a previous resupply choice must never override
+  // an unanswered warning or the player's newer advance/hold choice.
+  if (u.side === 0 && u.logisticsOrder !== 'resupply') {
+    u.resupplyState = undefined; u.resupplyGoal = undefined; u.resupplyReturnX = undefined;
+  }
+  const requested = u.side === 0 ? u.logisticsOrder === 'resupply'
+    : ammoRatio(u) <= AMMO_LOW_RATIO || fuelNeedsReturn(u, available) || needsStock;
+  if (!u.resupplyState && requested) {
     u.resupplyState = 'withdrawing'; u.resupplyReturnX = u.x;
     u.squadOrder = 'attack'; u.squadOrderX = undefined;
     u.squadOrderUntil = Infinity;
@@ -168,14 +203,18 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   }
   const nearby = available.filter((p) => Math.abs(p.x - u.x) <= p.radius).sort((a, b) => Math.abs(a.x - u.x) - Math.abs(b.x - u.x))[0];
   if (nearby) refill(u, nearby, dt);
+  const complete = fullySupplied(u);
+  if (complete) {
+    u.logisticsWarning = undefined;
+    u.logisticsOrder = undefined;
+  }
   if (!u.resupplyState) return null;
   // A later watch/escort click cannot strand a low-ammo man halfway home.
   u.squadOrder = 'attack'; u.squadOrderX = undefined; u.squadOrderUntil = Infinity;
   u.garrisonUid = undefined;
-  const fullySupplied = ammoRatio(u) >= 0.999 &&
-    (!hasVehicleFuel(u) || u.fuel! >= VEHICLE_FUEL_CAPACITY - 1e-7);
-  if (fullySupplied && (!needsStock && (u.id !== 'supply_team' || u.supplyStock! >= SUPPLY_CARRY - 0.1))) {
+  if (complete) {
     u.resupplyState = undefined; u.resupplyGoal = undefined;
+    u.resupplyReturnX = undefined;
     u.tactic = 'advance'; u.squadOrder = 'attack'; u.decisionIn = 0;
     u.ammoSupplyProgress = 0; u.secondarySupplyProgress = 0;
     u.fuelSupplyProgress = 0;
