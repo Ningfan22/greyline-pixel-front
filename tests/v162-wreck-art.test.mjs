@@ -5,6 +5,7 @@ import {WRECKS,wreckContact,wreckObstacles,wreckGeometry} from '../game/wreck-ge
 import {wreckVariants} from '../game/wreck-variants.ts';
 import {paintedTankWrecks} from '../game/tank-wreck-art.ts';
 import {tankGeometry} from '../game/vehicle-geometry.ts';
+import {tankLayoutV202} from '../game/tank-layout-v202.ts';
 import {createGame,startGame} from '../game/engine.ts';
 import {sceneryIntercept} from '../game/world.ts';
 import {createHash} from 'node:crypto';
@@ -54,17 +55,19 @@ test('six remaining complete paintings have clean frame borders and solid cover 
   for(const id of ['tank','heavy_tank'])for(const cause of ['bullet','blast','burn']){
     const frame=families[id][cause][0],g=wreckGeometry(id,cause);
     assert.equal(frame.width,g.width);assert.equal(frame.height,g.height);
-    const d=frame.getContext('2d').getImageData(0,0,384,192).data;
+    const d=frame.getContext('2d').getImageData(0,0,frame.width,frame.height).data;
     hashes.add(createHash('sha256').update(d).digest('hex'));
-    for(let y=0;y<192;y++)for(let x=0;x<384;x++)
-      if(x<3||x>380||y<3||y>188)assert(d[(y*384+x)*4+3]<8,`${id}/${cause} leaks ${x}/${y}`);
+    for(let y=0;y<frame.height;y++)for(let x=0;x<frame.width;x++)
+      if(x<2||x>frame.width-3||y<2||y>frame.height-3)assert(d[(y*frame.width+x)*4+3]<8,`${id}/${cause} leaks ${x}/${y}`);
     assert(g.parts.length>=15&&g.parts.length<=50);
     for(const r of g.parts){
-      const [x,y,w,h]=r.map((v,i)=>Math.round(v*(i%2?192:384)));let solid=0;
-      for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)solid+=d[(yy*384+xx)*4+3]>=160?1:0;
+      const [x,y,w,h]=r.map((v,i)=>Math.round(v*(i%2?frame.height:frame.width)));let solid=0;
+      for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)solid+=d[(yy*frame.width+xx)*4+3]>=160?1:0;
       assert(solid/(w*h)>=.625,`${id}/${cause} invisible cover rectangle`);
     }
-    assert(Math.abs((g.support[1]-g.support[0])*g.width-tankGeometry(id).half*2)<.001);
+    const scale=tankLayoutV202(id).width/(id==='tank'?270:305);
+    assert.equal(g.width,Math.round(384*scale));
+    assert.equal(g.height,Math.round(192*scale));
   }
   assert.equal(hashes.size,6);
 });

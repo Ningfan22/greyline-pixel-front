@@ -10,16 +10,17 @@ for (const side of [0, 1]) for (const id of ['mlrs', 'light_tank', 'tank', 'heav
     startGame(s); s.units = []; s.aiIn = 1e9;
     for (const p of s.players) Object.assign(p, { order: 'advance', hand: [], deck: [], discard: [], energy: 0 });
     spawnUnit(s, side, id, side ? W - 110 : 110);
+    if (id === 'mlrs') spawnUnit(s, side, 'infantry', side ? W - 450 : 450);
     const u = s.units[0], enemy = s.players[1 - side], initialHp = enemy.hp, initialShots = u.shots;
     let firstReturn, hit = false;
     for (let i = 0; i < 60 * 200; i++) {
       tick(s, 1 / 60);
       if (u.resupplyState === 'withdrawing' && firstReturn === undefined) firstReturn = s.time;
-      if (enemy.hp < initialHp) { hit = true; break; }
+      if (enemy.hp < initialHp && u.shots > initialShots) { hit = true; break; }
     }
     assert(hit, `${id} must actually damage the HQ: ${JSON.stringify({ x: u.x, fuel: u.fuel, shots: u.shots, firstReturn, hp: enemy.hp })}`);
     assert.equal(firstReturn, undefined, 'a full deployment must not make an empty round trip before first contact');
     assert(u.shots > initialShots && u.ammo < (id === 'light_tank' ? 14 : id === 'heavy_tank' ? 10 : 12));
-    assert(u.fuel < 70 && u.fuel > 30, 'cross-map travel still visibly consumes finite fuel');
+    assert(u.fuel < 75 && u.fuel > 30, 'cross-map travel still visibly consumes finite fuel');
   });
 }

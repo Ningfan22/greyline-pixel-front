@@ -14,11 +14,11 @@ export const VEHICLE_ART_V197: Record<V197VehicleId, {
   },
   light_tank: {
     stem: 'light-tank', crop: [97, 253, 1352, 660], size: [185, 91],
-    wreckCrop: [95, 336, 1377, 596], wreckSize: [185, 81],
+    wreckCrop: [95, 336, 1377, 596], wreckSize: [175, 77],
   },
   mlrs: {
-    stem: 'mlrs', crop: [104, 203, 1345, 735], size: [210, 115],
-    wreckCrop: [62, 185, 1446, 778], wreckSize: [210, 114],
+    stem: 'mlrs', crop: [104, 203, 1345, 735], size: [168, 92],
+    wreckCrop: [62, 185, 1446, 778], wreckSize: [168, 91],
   },
 };
 export function vehicleAssetV197(id: V197VehicleId, kind: 'sprite' | 'wreck' | 'card') {

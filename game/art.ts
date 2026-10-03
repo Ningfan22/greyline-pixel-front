@@ -29,6 +29,10 @@ import { paintedTankWrecks } from './tank-wreck-art';
 import { packedProneWatch } from './prone-watch-art';
 import { mobileVehicleFrames } from './mobile-vehicle-art';
 import { V197_VEHICLE_IDS, vehicleAssetV197, vehicleFrameV197 } from './vehicle-art-v197';
+import { TANK_IDS_V202 } from './tank-layout-v202';
+import { tankPartsV202, tankPreviewV202 } from './tank-art-v202';
+import { buildEmplacementParts } from './emplacement-art-v202';
+import type { PaintedGunParts } from './gun-art';
 import { loadFPVArt, loadMapBackground, loadV16Art } from './art-v16';
 import { loadTreeArtV17, treeFramesV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
@@ -38,6 +42,7 @@ import { loadComebackArtV18, comebackFramesV18, type ComebackArtV18 } from './co
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  gunParts?: Record<string, PaintedGunParts>;
   ammoCrate?: HTMLImageElement;
   generatedSprites: Partial<Record<CardId, HTMLImageElement>>;
   soldiers?: SoldierArt;
@@ -595,7 +600,6 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
       loadImage('/art/impacts-v12.png'),
       loadImage('/art/fixed-wing-v12.png'),
       loadImage('/art/rotorcraft-v12.png'),
-      loadImage('/art/tanks-v12.png'),
       loadImage('/art/blast-he-frames-v165.png'),
       loadImage('/art/blast-grenade-frames-v165.png'),
       loadImage('/art/buildings-v13.png'),
@@ -625,11 +629,13 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
     loadImage('/art/v195-logistics/ammo-crate.png'),
     Promise.all(V197_VEHICLE_IDS.map(async id => {
       const [sprite, wreck] = await Promise.all([
-        loadImage(vehicleAssetV197(id, 'sprite')),
+        id === 'light_tank' ? Promise.resolve(null) : loadImage(vehicleAssetV197(id, 'sprite')),
         loadImage(vehicleAssetV197(id, 'wreck')),
       ]);
       return {id, sprite, wreck};
     })),
+    Promise.all(TANK_IDS_V202.map(async id =>
+      [id, tankPartsV202(id, await loadImage(`/art/v202-tanks/${id}.webp`))] as const)),
   ]).then(
     ([
       [
@@ -642,7 +648,6 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
         impacts,
         fixedWing,
         rotorcraft,
-        tanks,
         heBlastSheet,
         grenadeBlastSheet,
         buildings,
@@ -669,6 +674,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
       generatedSpriteImages,
       ammoCrate,
       v197Vehicles,
+      v202Tanks,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
@@ -685,17 +691,8 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
         [0, 239, 392, 593, 767, 992],
       );
       const rotors = generatedRotors(rotorcraft);
-      const tankArt = figureFrames(
-        tanks,
-        4,
-        3,
-        128,
-        64,
-        false,
-        1,
-        [0, 249, 475, 768],
-        true,
-      );
+      const emplacementFrames = buildEmplacements(emplacements);
+      const gunParts = {...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames)};
       const heFrames = packedBlastFrames(heBlastSheet),
         grenadeFrames = packedBlastFrames(grenadeBlastSheet),
         airFrames = packedBlastFrames(airBlastSheet),
@@ -715,6 +712,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
           Record<(typeof V197_VEHICLE_IDS)[number], HTMLImageElement>,
       );
       return {
+        gunParts,
         ammoCrate,
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
@@ -733,7 +731,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
-          ...Object.fromEntries(v197Vehicles.map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite)]])),
+          ...Object.fromEntries(v197Vehicles.filter(v => v.sprite).map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite!)]])),
         },
         terrain,
         vehicles: vehicleArt,
@@ -755,19 +753,17 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
             ].map((id, row) => [id, wingArt[row]]),
           ),
         },
-        emplacements: buildEmplacements(emplacements),
+        emplacements: emplacementFrames,
         scenery: sceneryFrames(scenery),
         buildings: {...buildingFrames(buildings, collapse),footings:paintedFootings(footingSheet)},
         paintedBlasts: {fuel:fuelFrames,earth:earthFrames,he:heFrames,grenade:grenadeFrames,air:airFrames},
         explosions: explosionFrames(explosions),
         impacts: atlasFrames(impacts, 8, 2, 48),
         smoke: packedSmokeFrames(smokeSheet),
-        armor: Object.fromEntries(
-          ['light_tank', 'tank', 'heavy_tank'].map((id, row) => [
-            id,
-            stableTracks(tankArt[row], 10),
-          ]),
-        ),
+        armor: Object.fromEntries(v202Tanks.map(([id, parts]) => {
+          const preview = tankPreviewV202(id, parts);
+          return [id, [preview, preview, preview, preview]];
+        })),
         // Legacy API aliases share the new cels; do not download/key/cut the
         // old touching-plume sheets just to populate compatibility fields.
         combatExplosions: [heFrames, fuelFrames, airFrames],

@@ -44,6 +44,7 @@ import {
   ragdollChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
+import { drawArticulatedGun } from './gun-art';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
@@ -869,6 +870,9 @@ export function render(
       groundInset * Math.cos(u.hullAngle);
     if (c.fortification) {
       drawFortification(ctx,u,s.time,art);
+    } else if (art.gunParts?.[u.id] || (c.emplacement && art.gunParts?.[c.emplacement])) {
+      const parts = art.gunParts[u.id] ?? art.gunParts[c.emplacement!];
+      drawArticulatedGun(ctx, parts, u, alpha, infantryDepth(u.lane));
     } else if (barrelBand) {
       drawTankSprite(
         ctx,

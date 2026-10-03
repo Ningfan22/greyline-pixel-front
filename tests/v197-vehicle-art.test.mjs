@@ -38,7 +38,9 @@ test('nine distinct v197 generated paintings survive lossless serving with their
 });
 
 for (const id of V197_VEHICLE_IDS) {
-  test(`${id}: compact dedicated sprite selector, true transparency, ground baseline and measured weapon mouths`, async () => {
+  // The old light-tank painting is preserved above as an archival source;
+  // its active layered model is covered by v198-tank-barrel-render.test.mjs.
+  if (id !== 'light_tank') test(`${id}: compact dedicated sprite selector, true transparency, ground baseline and measured weapon mouths`, async () => {
     const frame = vehicleFrameV197(id, await loadImage(asset(`${VEHICLE_ART_V197[id].stem}-sprite.webp`)));
     const geometry = tankGeometry(id);
     assert.deepEqual([frame.width, frame.height], unitSize(id));
@@ -60,9 +62,11 @@ for (const id of V197_VEHICLE_IDS) {
     if (id === 'tow_ifv') {
       assert.equal(frame.width, 150); assert.equal(geometry.barrelBand, undefined);
     }
-    if (id === 'light_tank') {
-      assert(frame.width < tankGeometry('tank').size[0] * .75);
-      assert(geometry.barrelBand, 'only the actual light-tank barrel gets gun recoil');
+    if (id === 'mlrs') {
+      assert.deepEqual([frame.width, frame.height], [168, 92],
+        'the rocket carrier has a smaller battlefield silhouette');
+      assert(geometry.half <= 77,
+        'movement clearance must shrink with the visible carrier');
     }
   });
   test(`${id}: dedicated wreck collision follows its new authored metal in both directions`, async () => {
@@ -70,6 +74,8 @@ for (const id of V197_VEHICLE_IDS) {
     const geometry = wreckGeometry(id);
     assert.equal(geometry.atlas, 'v197');
     assert.deepEqual([frame.width, frame.height], [geometry.width, geometry.height]);
+    if (id === 'mlrs') assert.deepEqual([frame.width, frame.height], [168, 91],
+      'a destroyed carrier must not suddenly return to its old oversized hull');
     const data = frame.getContext('2d').getImageData(0, 0, frame.width, frame.height).data;
     for (const part of geometry.parts) {
       const [x, y, width, height] = part.map((v, i) => Math.round(v * (i % 2 ? frame.height : frame.width)));
@@ -93,7 +99,7 @@ test('existing gun art is sampled at native world sizes, with stable ground legs
     assert.deepEqual([frame.width, frame.height], unitSize(cardId));
     assert(frame.width >= 150 && frame.height >= 95, 'the 80x48 intermediary must not return');
     const x = frame.width / 2 + muzzleOffset({ id: cardId });
-    const y = frame.height - muzzleHeight({ id: cardId }) - 3;
+    const y = frame.height - muzzleHeight({ id: cardId });
     assert(nearbyAlpha(frame, x, y) > 220, `${id} engine gunmouth matches its painted muzzle`);
     const baseline = frame.getContext('2d').getImageData(0, frame.height - 15, frame.width, 15).data;
     for (const phase of frames[id].slice(1))

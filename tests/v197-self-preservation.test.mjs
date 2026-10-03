@@ -167,7 +167,7 @@ for (const side of [0, 1]) {
     const settled = battery.x;
     foe.hp = 0; refreshVision(s);
     run(s, 5);
-    assert((battery.x - settled) * dir(side) > 10, 'a dead remembered contact releases the minimum-range hold');
+    assert((battery.x - settled) * dir(side) <= .01, 'cleared contact does not send a rear battery beyond its stationary screen');
     assert.equal(battery.minimumRangeThreatUid, undefined);
   });
 
@@ -216,9 +216,10 @@ for (const side of [0, 1]) {
   });
 }
 
-test('empty fronts still advance infantry, armour and indirect fire units', () => {
+test('empty fronts advance fighting units and screened rocket batteries', () => {
   for (const side of [0, 1]) for (const id of ['infantry', 'tank', 'tow_ifv', 'mlrs']) {
     const s = arena(side), own = single(s, side, id, mirror(side, 1000));
+    if (id === 'mlrs') single(s, side, 'infantry', mirror(side, 1400));
     const start = own.x;
     run(s, 4);
     assert((own.x - start) * dir(side) > 20, `${side}:${id} makes forward progress on clear ground`);

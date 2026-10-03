@@ -175,9 +175,9 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     height: VEHICLE_ART_V197.light_tank.wreckSize[1],
     parts: [
       [.04, .56, .79, .07], [.15, .76, .54, .16], [.15, .94, .55, .027],
-      [.025, .43, .19, .15], [.385, .28, .135, .1], [.695, .385, .12, .06],
+      [.025, .43, .19, .15], [.385, .28, .135, .1], [.698, .392, .114, .047],
     ],
-    support: [.07, .91, 1], spriteOffset: 3,
+    support: [.07, .91, 1], spriteOffset: 3 * VEHICLE_ART_V197.light_tank.wreckSize[0] / 185,
   },
   tank: shape(
     'ground',
@@ -409,6 +409,8 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
   ),
 };
 for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
+  // Dedicated paintings already declare their final world dimensions.
+  if (isV197Vehicle(id)) continue;
   const g = WRECKS[id as WreckKind];
   g.width = Math.round(g.width * scale);
   g.height = Math.round(g.height * scale);

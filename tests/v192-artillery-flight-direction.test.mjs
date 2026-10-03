@@ -50,7 +50,8 @@ test('new guns retain the original gun pixels and render two separate existing s
   const draw = ctx.drawImage.bind(ctx);
   ctx.drawImage = (...args) => { drawn.push(args[0]); return draw(...args); };
   render(ctx, s, art, null, null, true, 0, 960);
-  assert(drawn.includes(art.emplacements.howitzer[0]));
+  assert(drawn.includes(art.gunParts.howitzer.body));
+  assert(drawn.includes(art.gunParts.howitzer.barrel));
   // The current rig paints into one persistent canvas per actor; these are
   // intentionally outside the immutable frame cache. This otherwise empty
   // single-gun scene has exactly two 128px actor canvases: its two operators.

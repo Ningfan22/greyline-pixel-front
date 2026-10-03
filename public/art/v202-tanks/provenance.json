@@ -1,0 +1,31 @@
+{
+  "mode": "built-in imagegen",
+  "date": "2026-10-03",
+  "encoding": "Lossless WebP with exact alpha; source RGBA verified byte for byte. Runtime crops and scales the two authored parts once.",
+  "assets": [
+    {
+      "id": "tank",
+      "sourceGeneration": "exec-4accb81c-daa1-4d17-9936-f2092838e1a6.png",
+      "path": "tank.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "ce1a677098823ec15ea6499cd07fe68c9f2735774f6172a95001f998fc0faa1c"
+    },
+    {
+      "id": "light_tank",
+      "sourceGeneration": "exec-be058da8-72d1-45fa-bbde-66735e572b7d.png",
+      "path": "light_tank.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "cc690cec25f4f8ab246382a09a22df474e15430993ae03c367e1e08e4d2571d2"
+    },
+    {
+      "id": "heavy_tank",
+      "sourceGeneration": "exec-059b19d4-ed30-46f0-aab0-4e1825394adb.png",
+      "path": "heavy_tank.webp",
+      "width": 1659,
+      "height": 948,
+      "rgbaSha256": "2f7c2521887a5e0af3c31355cb4869564bc9afe13243ca68e565f571ac24e3a1"
+    }
+  ]
+}

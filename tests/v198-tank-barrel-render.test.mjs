@@ -1,69 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { resolve } from 'node:path';
-import { loadArt, unitFrame, drawSprite, drawTankSprite } from '../game/art.ts';
-import { tankGeometry } from '../game/vehicle-geometry.ts';
-const { createCanvas, Image } = createRequire(import.meta.url)('@napi-rs/canvas');
+import { fileURLToPath } from 'node:url';
+import { tankPartsV202 } from '../game/tank-art-v202.ts';
+import { TANK_IDS_V202, tankLayoutV202 } from '../game/tank-layout-v202.ts';
+import { drawArticulatedGun } from '../game/gun-art.ts';
+import { gunMount, gunPose } from '../game/gun-geometry.ts';
+const { createCanvas, loadImage } = createRequire(import.meta.url)('@napi-rs/canvas');
 globalThis.document = { createElement: () => createCanvas(1, 1) };
-globalThis.Image = class extends Image {
-  set src(value) {
-    const loaded = this.onload;
-    this.onload = () => { this.decode().then(() => { loaded?.(); }); };
-    super.src = resolve('public', String(value).replace(/^\//, ''));
-  }
-  get src() { return super.src; }
-};
-const art = await loadArt();
 const pixels = canvas => Buffer.from(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data);
-function paint(id, flip, rotation, recoil, whole = false) {
-  const canvas = createCanvas(500, 220), ctx = canvas.getContext('2d');
-  const frame = unitFrame(art, id, 0), g = tankGeometry(id);
-  const args = [ctx, frame, 250, 180, ...g.size, flip, 1, rotation];
-  if (whole) drawSprite(...args);
-  else drawTankSprite(...args, g.barrelBand, recoil);
-  return canvas;
+const parts = Object.fromEntries(await Promise.all(TANK_IDS_V202.map(async id => [id,
+  tankPartsV202(id, await loadImage(fileURLToPath(new URL(`../public/art/v202-tanks/${id}.webp`, import.meta.url))))])));
+function paint(id, facing, hullAngle, gunElevation, fire = 0, moving = false) {
+  const canvas = createCanvas(640, 280), body = {
+    id, x: 320, y: 235, side: facing < 0 ? 1 : 0, facing, gunFacing: facing,
+    hullAngle, gunElevation, fire, moving,
+  };
+  drawArticulatedGun(canvas.getContext('2d'), parts[id], body);
+  return { canvas, body };
 }
-for (const id of ['light_tank', 'tank', 'heavy_tank']) {
-  for (const flip of [false, true]) {
-    test(`${id} ${flip ? 'left' : 'right'}: resting barrel preserves every authored pixel, including on slopes`, () => {
-      for (const rotation of [0, -.08, .08]) {
-        assert(pixels(paint(id, flip, rotation, 0)).equals(pixels(paint(id, flip, rotation, 0, true))),
-          'a stationary barrel must render as the complete original frame');
+function occupiedNear(canvas, x, y) {
+  const rgba = canvas.getContext('2d').getImageData(Math.floor(x) - 3, Math.floor(y) - 3, 7, 7).data;
+  return rgba.some((value, index) => index % 4 === 3 && value > 220);
+}
+for (const id of TANK_IDS_V202) {
+  for (const facing of [-1, 1]) {
+    test(`${id} facing ${facing}: painted muzzle matches projectile origin through slope and elevation`, () => {
+      const mount = gunMount(id);
+      for (const [hullAngle, gunElevation] of [[-.14, mount.minElevation], [0, 0], [.14, mount.maxElevation]]) {
+        const { canvas, body } = paint(id, facing, hullAngle, gunElevation);
+        const tip = gunPose(body).muzzle;
+        assert(occupiedNear(canvas, tip.x, tip.y), `${id}: projectile muzzle must touch the painted gun mouth`);
+        assert(parts[id].barrel !== parts[id].body, 'gun elevation uses its own image, not a clipped muzzle band');
       }
     });
-    test(`${id} ${flip ? 'left' : 'right'}: recoil keeps a continuous visible gun and leaves the hull unchanged`, () => {
-      const g = tankGeometry(id), [x0, y0, x1, y1] = g.barrelBand;
-      const maximum = Math.min(15, (x1 - x0) * .3);
-      const original = pixels(paint(id, flip, 0, 0));
-      const originalAt = (x, y) => {
-        const worldX = flip ? 249 - x : 250 + x;
-        return ((180 + y) * 500 + worldX) * 4;
-      };
-      for (const recoil of [maximum / 2, maximum]) {
-        const shot = pixels(paint(id, flip, 0, recoil));
-        let barrelPixels = 0, referencePixels = 0;
-        // Each occupied source column, shifted into the moving band, must
-        // still contain actual painted metal. This catches the vanished band
-        // even if an unchanged muzzle tip remains visible past its boundary.
-        for (let x = Math.ceil(x0) + 1; x < Math.min(x1 - recoil - 2, Math.floor(g.size[0] / 2) - recoil - 2); x++) {
-          let sourceAlpha = 0, renderedAlpha = 0;
-          for (let y = Math.ceil(y0) + 1; y < Math.floor(y1) - 1; y++) {
-            const p = originalAt(x, y), source = originalAt(Math.round(x + recoil), y);
-            sourceAlpha += original[source + 3]; renderedAlpha += shot[p + 3];
-            referencePixels += original[p + 3] > 128 ? 1 : 0;
-            barrelPixels += shot[p + 3] > 128 ? 1 : 0;
-          }
-          if (sourceAlpha > 255) assert(renderedAlpha > 128, `${id}: missing gun column at ${x}, recoil ${recoil}`);
-        }
-        assert(referencePixels > 12, 'the regression samples a real authored barrel');
-        assert(barrelPixels > referencePixels * .5, 'recoil must not erase the thin gun section');
-        for (let y = -Math.floor(g.size[1]); y < 0; y++) for (let x = -Math.floor(g.size[0] / 2); x < Math.floor(g.size[0] / 2); x++) {
-          if (x >= Math.floor(x0) - 1 && x <= Math.ceil(x1) + 1 && y >= Math.floor(y0) - 1 && y <= Math.ceil(y1) + 1) continue;
-          const p = originalAt(x, y);
-          assert(shot.subarray(p, p + 4).equals(original.subarray(p, p + 4)), 'barrel recoil cannot cut or shift the hull');
-        }
-      }
+    test(`${id} facing ${facing}: recoil keeps the whole gun and leaves the planted hull unchanged`, () => {
+      const resting = paint(id, facing, 0, .08), firing = paint(id, facing, 0, .08, .25);
+      const a = pixels(resting.canvas), b = pixels(firing.canvas);
+      // Wheels and tracks lie below the gun sweep; recoil must leave their
+      // actual painted hull pixels unchanged.
+      const lower = 225 * resting.canvas.width * 4;
+      assert(a.subarray(lower).equals(b.subarray(lower)), 'gun recoil cannot shift or punch holes in the tracks');
+      const pose = gunPose(firing.body);
+      const tip = { x: pose.muzzle.x - Math.cos(pose.angle) * 5, y: pose.muzzle.y - Math.sin(pose.angle) * 5 };
+      assert(occupiedNear(firing.canvas, tip.x, tip.y), 'recoiled mouth remains visible instead of disappearing into a clip');
+      let changed = 0;
+      for (let i = 0; i < a.length; i += 4) changed += a[i + 3] !== b[i + 3] ? 1 : 0;
+      assert(changed > 10, 'the separate barrel visibly recoils');
+      const moving = paint(id, facing, 0, .08, .25, true);
+      assert(pixels(moving.canvas).equals(a), 'travel never cycles the gun in and out');
+      assert.equal(parts[id].body.width, tankLayoutV202(id).width);
     });
   }
 }

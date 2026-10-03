@@ -4,8 +4,8 @@ import {tick,refreshVision,setOrder,CARDS,spawnUnit} from '../game/engine.ts';
 import {tankTargetPriority} from '../game/tank-doctrine.ts';
 import {tankRoleArena} from './fixtures/tank-role-arena.mjs';
 const step=(s,n)=>{for(let i=0;i<n;i++)tick(s,1/60);};
-function firstRound(s,u){
-  for(let i=0;i<120;i++){
+function firstRound(s,u,seconds=2){
+  for(let i=0;i<seconds*60;i++){
     tick(s,1/60);const p=s.projectiles.find(p=>p.sourceUid===u.uid&&p.weapon!=='coax');
     if(p)return p;
   }
@@ -22,17 +22,21 @@ test('three tank cards choose different real main-gun targets in the same contac
 });
 test('heavy tanks place their HE into an observed infantry concentration ahead of distant armor',()=>{
   for(const side of [0,1]){
-    const {s,tank,targets}=tankRoleArena('heavy_tank',side);s.units=s.units.filter(v=>v!==targets.gun);
+    const {s,tank,targets,x,dir}=tankRoleArena('heavy_tank',side);s.units=s.units.filter(v=>v!==targets.gun);
+    // Keep low infantry within the real gun depression envelope.
+    [targets.rifle1,targets.rifle2,targets.rifle3].forEach((u,i)=>u.x=x+dir*(520+i*15));
     refreshVision(s);const p=firstRound(s,tank);
     assert.equal(p.targetUid,targets.rifle2.uid);assert.equal(p.ammunition,'cannon');
     const before=[targets.rifle1,targets.rifle2,targets.rifle3].map(v=>v.hp);step(s,100);
     assert([targets.rifle1,targets.rifle2,targets.rifle3].every((v,i)=>v.hp<before[i]));
   }
 });
-test('nearby armor overrides both specialist preferences without changing their normal AP damage',()=>{
+test('nearby armor is preferred, then real tanks reverse to a legal firing distance',()=>{
   for(const side of [0,1])for(const id of ['light_tank','heavy_tank']){
     const {s,tank,targets,x,dir}=tankRoleArena(id,side);targets.armor.x=x+dir*200;
-    refreshVision(s);const p=firstRound(s,tank);
+    assert(tankTargetPriority(tank,targets.armor)<tankTargetPriority(tank,targets.gun));
+    s.units=[tank,targets.armor];setOrder(s,side,'advance');
+    refreshVision(s);const p=firstRound(s,tank,10);
     assert.equal(p.targetUid,targets.armor.uid);assert.equal(p.ammunition,'ap');
     assert.equal(p.damage,CARDS[id].penetration);
   }
@@ -50,12 +54,16 @@ test('light tanks distinguish launcher operators from rifle escorts and retain o
 test('preferences grant neither hidden-target knowledge, blocked shots nor forward contact-line bypass',()=>{
   for(const id of ['light_tank','heavy_tank']){
     const {s,tank,targets,x}=tankRoleArena(id),preferred=id==='light_tank'?targets.launcher:targets.gun;
-    // The preferred enemy is behind solid high ground; clear infantry remain nearer.
-    s.terrain.fill(160,x+335,x+350);s.terrainVersion++;refreshVision(s);
+    // Infantry are in the gun's legal depression envelope, ahead of the wall.
+    [targets.rifle1,targets.rifle2,targets.rifle3].forEach((u,i)=>u.x=x+500+i*10);
+    targets.launcher.x=x+550;targets.gun.x=x+550;targets.armor.x=x+555;
+    s.terrain.fill(160,x+535,x+545);s.terrainVersion++;refreshVision(s);
     const p=firstRound(s,tank);assert.notEqual(p.targetUid,preferred.uid);
     assert([targets.rifle1.uid,targets.rifle2.uid,targets.rifle3.uid].includes(p.targetUid));
     setOrder(s,0,'advance');step(s,60);assert(tank.x<=x+.01);
-    const b=tankRoleArena(id);b.targets.launcher.x=3200;b.targets.gun.x=3250;
+    const b=tankRoleArena(id);
+    [b.targets.rifle1,b.targets.rifle2,b.targets.rifle3].forEach((u,i)=>u.x=b.x+500+i*10);
+    b.targets.launcher.x=3200;b.targets.gun.x=3250;
     b.targets.armor.x=3300;refreshVision(b.s);
     const q=firstRound(b.s,b.tank);assert([b.targets.rifle1.uid,b.targets.rifle2.uid,b.targets.rifle3.uid].includes(q.targetUid));
   }

@@ -1,4 +1,5 @@
 import { modelOf, type CardId } from './cards';
+import { TANK_IDS_V202, tankLayoutV202 } from './tank-layout-v202';
 
 /** World-space geometry measured from each atlas row, with the track centre as origin. */
 export interface TankGeometry {
@@ -131,7 +132,21 @@ const TANKS: Record<string, TankGeometry> = {
     barrelBand: [126.2, -90.0, 157, -75.7],
   },
 };
+for (const id of TANK_IDS_V202) {
+  const layout = tankLayoutV202(id), g = TANKS[id];
+  g.size = [layout.width, layout.height];
+  g.half = layout.half;
+  g.spriteOffset = 0;
+  g.muzzleX = layout.pivotX + layout.barrelLength;
+  g.muzzleY = layout.pivotHeight;
+  // The main tank's secondary gun is the painted rooftop machine gun.
+  // Light/heavy tanks retain the small port beside their mantlet.
+  g.coaxX = id === 'tank' ? (1100 - layout.body[0]) * layout.scale - layout.width / 2 : layout.pivotX + 5;
+  g.coaxY = id === 'tank' ? (layout.body[1] + layout.body[3] - 146) * layout.scale : layout.pivotHeight;
+  delete g.barrelBand;
+}
 export const VEHICLE_SCALE: Partial<Record<CardId, number>> = {
+  mlrs: 0.8,
   mortar_carrier: 0.68,
   command_vehicle: 0.72,
   recovery_vehicle: 0.86,

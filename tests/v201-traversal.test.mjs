@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createGame, startGame, spawnUnit, tick, refreshVision, ground, vehicleContact, visibleToSide, W } from '../game/engine.ts';
+import { createGame, startGame, spawnUnit, tick, refreshVision, ground, vehicleContact, visibleToSide, terrainIntercept, W } from '../game/engine.ts';
 import { initializeAmmo } from '../game/ammo-logistics.ts';
 import { issueLogisticsOrder } from '../game/logistics-orders.ts';
 import { setSquadOrder } from '../game/squad-orders.ts';
 import { CARDS } from '../game/cards.ts';
+import { aimedGunSolution, gunPose } from '../game/gun-geometry.ts';
+import { armorHeight } from '../game/vehicle-geometry.ts';
 import { VEHICLE_FUEL_RANGE } from '../game/vehicle-logistics.ts';
 
 const DT = 1 / 30;
@@ -39,7 +41,9 @@ const hill = x => 374 - Math.max(0, Math.min(190, (x - 950) * 1.5, (1320 - x) * 
 function blockedHill(side, obstacle) {
   const s = arena(side, obstacle === 'cliff'
     ? x => x >= 950 && x < 1250 ? 184 : 374
-    : hill);
+    : obstacle === 'fireable'
+      ? x => 374 - Math.max(0, Math.min(90, (x - 950) * 1.5, (1100 - x) * 1.5))
+      : hill);
   const u = one(s, side, 'tank', pos(side, 900));
   const foe = one(s, 1 - side, 'tank', pos(side, 1420), {
     pace: 0, trackIntegrity: 0, hp: 1e6, maxHp: 1e6, squadOrder: 'watch', squadOrderX: pos(side, 1420),
@@ -55,7 +59,18 @@ function blockedHill(side, obstacle) {
 }
 for (const side of [0, 1]) {
   test(`side ${side}: tank climbs toward a firing position past the old 64px hill search and fires`, () => {
-    const { s, u } = blockedHill(side);
+    // The former 190-high / 370-wide ridge had no position within the
+    // 280px safety line that could depress the new gun only nine degrees.
+    // Keep the same steep grade, with a crest that has a real firing exit.
+    const { s, u, foe } = blockedHill(side, 'fireable');
+    const validShot = x => {
+      const contact=vehicleContact(s,x,u.id), forecast={...u,x,y:contact.y,hullAngle:contact.angle};
+      const ty=foe.y-armorHeight(foe.id)*.55, aim=aimedGunSolution(forecast,foe.x,ty);
+      return aim.canFire && !terrainIntercept(s,aim.muzzle.x,aim.muzzle.y,foe.x,ty);
+    };
+    for(const delta of [0,-64,-48,-32,-16,-8,8,16,32,48,64])
+      assert(!validShot(u.x+dir(side)*delta),'the old local search genuinely has no legal firing position');
+    assert(validShot(pos(side,1092)),'the new search has an unobstructed position within the real gun depression limit');
     const start = u.x, fuel = u.fuel;
     let largestStep = 0, previous = start;
     run(s, 6, () => { largestStep = Math.max(largestStep, Math.abs(u.x - previous)); previous = u.x; });
@@ -63,8 +78,37 @@ for (const side of [0, 1]) {
     assert(largestStep <= CARDS.tank.speed * .8 * DT + .01, 'ordinary powered steps, never a jump');
     assert(Math.abs(u.fuel - (fuel - Math.abs(u.x - start) / VEHICLE_FUEL_RANGE * 100)) < 1e-7);
     u.cooldown = 0;
-    run(s, 1);
-    assert(u.shots > 0, 'the chosen slope position actually produces a legal shot');
+    let launch,before={x:u.x,y:u.y,hullAngle:u.hullAngle};
+    run(s, 1, () => {
+      const p=s.projectiles.find(p=>p.sourceUid===u.uid&&p.weapon!=='coax');
+      if(p&&!launch)launch={...p,gun:gunPose({...u,...before})};
+      // Suspension settling happens after the shot within this tick. Compare
+      // its release to the body that existed at release, not the later pose.
+      before={x:u.x,y:u.y,hullAngle:u.hullAngle};
+    });
+    assert(u.shots > 0 && launch, 'the chosen slope position actually produces a legal shot');
+    assert(Math.hypot(launch.startX-launch.gun.muzzle.x,launch.startY-launch.gun.muzzle.y)<1e-7,
+      `the real projectile starts at the visible barrel mouth: ${JSON.stringify({round:[launch.startX,launch.startY],gun:launch.gun.muzzle,angle:launch.gun.angle,shotAngle:u.shotAngle})}`);
+    const tangent=Math.atan2(launch.ty-launch.startY-4*launch.arc,launch.tx-launch.startX);
+    assert(Math.abs(Math.sin(tangent-launch.gun.angle))<1e-7&&Math.cos(tangent-launch.gun.angle)>0,
+      'the shot leaves along the real barrel tangent rather than bending down from the crest');
+  });
+
+  test(`side ${side}: the original high ridge has no legal depression angle and cannot bend a shell over its crest`, () => {
+    const {s,u,foe}=blockedHill(side),ammo=u.ammo;
+    u.cooldown=0;
+    for(let offset=-320;offset<=320;offset++){
+      const x=u.x+dir(side)*offset,range=Math.abs(x-foe.x);
+      if(range<280||range>CARDS.tank.range)continue;
+      const contact=vehicleContact(s,x,u.id),ty=foe.y-armorHeight(foe.id)*.55;
+      const aim=aimedGunSolution({...u,x,y:contact.y,hullAngle:contact.angle},foe.x,ty);
+      assert(!aim.canFire||terrainIntercept(s,aim.muzzle.x,aim.muzzle.y,foe.x,ty),
+        'the old fixture genuinely has no reachable safe firing line with this gun');
+    }
+    run(s,6);
+    assert.equal(u.shots,0,'no shell can bypass the actual hill or the mechanical depression stop');
+    assert.equal(u.ammo,ammo,'an impossible shot consumes no ammunition');
+    assert(!s.projectiles.some(p=>p.sourceUid===u.uid),'no hidden ballistic fallback fires anyway');
   });
 
   for (const obstacle of ['cliff', 'wall']) test(`side ${side}: hill search cannot invent passage through a ${obstacle}`, () => {

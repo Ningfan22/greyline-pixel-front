@@ -14,6 +14,7 @@ import { AMBUSH_REVEAL, AMBUSH_FIRE_RANGE, ambushConcealed, canPrepareAmbush, la
 import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPrecisionRange } from './precision-team';
 import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
 import { isBattleTank, infantryConcentrations, tankTargetPriority, tankPurchaseBonus } from './tank-doctrine';
+import { rocketBatteryMarchGoal } from './mobile-artillery';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { advanceLauncherDrill, launcherDrillBusy } from './launcher-drill';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
@@ -80,6 +81,7 @@ import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
 import { createSoldierRagdoll, stepSoldierRagdoll } from './soldier-ragdoll';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
+import { gunMount, gunPose, aimedGunSolution, indirectArc, rocketRackArc } from './gun-geometry';
 import {
   ammunition,
   indirectBlastKind,
@@ -461,6 +463,9 @@ export interface Unit {
   muzzleX: number;
   muzzleY: number;
   shotAngle: number;
+  /** Relative to the hull: positive elevation raises the independently painted barrel. */
+  gunElevation?: number;
+  gunFacing?: number;
   secondaryMuzzleX: number;
   secondaryMuzzleY: number;
   secondaryAngle: number;
@@ -3213,7 +3218,7 @@ function retreatingFriendlyHit(
 type MuzzleBody = Pick<
   Unit,
   'id' | 'x' | 'y' | 'pose' | 'moving' | 'hullAngle'
-> & Partial<InfantryWeaponBody> & Partial<Pick<Unit,'rifleReady'>>;
+> & Partial<InfantryWeaponBody> & Partial<Pick<Unit,'rifleReady'|'gunElevation'|'gunFacing'|'facing'|'side'>>;
 type FiringBody = MuzzleBody & Pick<Unit, 'side' | 'member'>;
 export function muzzleOffset(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).x;
@@ -3269,6 +3274,8 @@ export function muzzlePoint(
   height: number | undefined = undefined,
   coax = false,
 ) {
+  const gun = !coax && height === undefined ? gunPose(u, u.gunElevation, Math.sign(tx - u.x) || 1) : null;
+  if (gun) return gun.muzzle;
   const tank = tankGeometry(u.id);
   // The anatomical solver provides both dimensions. A default-height infantry
   // muzzle must not rebuild the same skeleton separately for height and X.
@@ -3444,6 +3451,12 @@ function firingHeight(
     // must not hide the contact that would make a running soldier stop to aim.
     aimed = shot.body,
     height = shot.height;
+  const gun = aimedGunSolution(u, tx, ty);
+  if (gun && !gun.canFire) return null;
+  if (u.id === 'mlrs') {
+    const rack = muzzlePoint(u, tx);
+    if (rocketRackArc(rack.x, rack.y, tx, ty, u.hullAngle) < 0) return null;
+  }
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
@@ -3472,7 +3485,7 @@ function firingHeight(
       !directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty)
     );
   };
-  if (clear(aimed, height, shot.point)) return height;
+  if (clear(aimed, height, gun?.muzzle ?? shot.point)) return height;
   // Only the stance planner may test a hypothetical standing shot. Target
   // selection must use the actual body: accepting a shot that needs a locked
   // stance made the soldier neither shoot nor look for a firing position.
@@ -3495,7 +3508,8 @@ function firingSolution(
   prepared?: FiringForecast,
 ): { height: number; targetY: number } | null {
   const centre = bodyHeight(target.pose == null ? { ...target, pose: 'prone' } : target as Unit);
-  const upper = target.id && CARDS[target.id].members ? centre * 1.35 : centre;
+  const upper = target.id && CARDS[target.id].members ? centre * 1.35 :
+    target.id && CARDS[target.id].emplacement ? Math.max(centre, gunMount(target.id)?.pivotHeight ?? 48) : centre;
   // Both body points use the same settled shooter transform. Share its exact
   // geometry instead of repeatedly copying a full soldier and rebuilding it.
   const forecast = prepared ?? firingForecast(u, target.x);
@@ -3503,8 +3517,12 @@ function firingSolution(
   for (const targetY of upper === centre ? [target.y - centre] : [target.y - centre, target.y - upper]) {
     const height = firingHeight(s, u, target.x, targetY, planStanding, forecast);
     if (height === null) continue;
+    // Indirect fire clears cover along the actual parabolic trajectory. A
+    // straight muzzle-to-target wall test must not silence an observed battery.
+    if (forecast.card.indirect) return { height, targetY };
     const standing = planStanding ? standingForecast(forecast, u, target.x) : null,
-      origin = standing && height === standing.height ? standing.point : forecast.point;
+      origin = aimedGunSolution(u, target.x, targetY)?.muzzle ??
+        (standing && height === standing.height ? standing.point : forecast.point);
     if (!sceneryIntercept(s, origin.x, origin.y, target.x, targetY, false, true))
       return { height, targetY };
     // Longstanding probability protection still applies to intervening depth
@@ -3932,7 +3950,8 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
     .filter((offset) => Math.abs(offset) > 64 && Math.abs(offset) <= 320);
   const toward = Math.sign(target.x - u.x);
   const hillOffsets = !localPost && !CARDS[u.id].static
-    ? [96, 128, 160, 192, 256, 320].map(distance => toward * distance) : [];
+    ? [96, 128, 160, 192, 256, 320].flatMap(distance =>
+        vehicle ? [toward * distance, -toward * distance] : [toward * distance]) : [];
   for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64, ...edges, ...hillOffsets]) {
     const x = u.x + offset,
       distance = Math.abs(target.x - x);
@@ -3998,8 +4017,10 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
   )
     return null;
   const aimed = c.members ? { ...u, rifleReady: 1 } : u;
-  const point = muzzlePoint(aimed, target.x),
-    ty = target.y - bodyHeight(target);
+  const ty = target.y - bodyHeight(target);
+  const aimedGun = aimedGunSolution(aimed, target.x, ty);
+  if (aimedGun && !aimedGun.canFire) return null;
+  const point = aimedGun?.muzzle ?? muzzlePoint(aimed, target.x);
   if (terrainIntercept(s, u.x, u.y - muzzleHeight(aimed), point.x, point.y,
       !c.members, !c.members)) return null;
   if (obstacleBoxes(s).some(box => !box.foliage && point.x > box.x &&
@@ -5602,6 +5623,7 @@ function fireCoax(s: GameState, u: Unit) {
   if (u.secondaryCooldown > 0) return;
   if (CARDS[u.id].members && soldierBusyMoving(u)) return;
   const personal = usesPersonalSidearm(u);
+  const tankFacing = isBattleTank(u.id) ? (u.gunFacing ?? u.facing) : undefined;
   const selfRange = personal ? 240 : 420;
   const selfHeight = personal ? (CARDS[u.id].members ? muzzleHeight(u) : 30) : 42;
   const coaxAim = (v: Unit): number | null => {
@@ -5629,6 +5651,7 @@ function fireCoax(s: GameState, u: Unit) {
         isCombatant(v) &&
         visibleToSide(s, u.side, v) &&
         CARDS[v.id].members &&
+        (tankFacing === undefined || (v.x - u.x) * tankFacing > 0) &&
         Math.abs(v.x - u.x) <=
           selfRange *
             (s.players[u.side].recon > 0
@@ -9752,8 +9775,10 @@ export function tick(s: GameState, dt: number) {
         reconFire = { x: lt.x, y: lt.y };
       }
     }
+    const completingFiringMove = c.armored && u.firingGoal != null &&
+      !!u.lastThreat && u.lastThreat.until > s.time;
     const blockedContact = !!(
-      (c.members || (c.armored && !c.air && !c.static && candidates.length &&
+      (c.members || (c.armored && !c.air && !c.static && (candidates.length || completingFiringMove) &&
         !isImmobilized(u) && (u.vehicleReverseUntil ?? 0) <= s.time)) &&
       !airContact &&
       !c.indirect &&
@@ -9781,13 +9806,13 @@ export function tick(s: GameState, dt: number) {
       else u.firingWatchAnchorX = undefined;
       if (
         u.firingGoal != null &&
-        ((!u.firingTransit && !canFireFromCover(s, u, u.firingGoal, threat!) &&
+        (((!c.armored || candidates.length > 0) && !u.firingTransit && !canFireFromCover(s, u, u.firingGoal, threat!) &&
           !((order !== 'hold' || c.armored) && candidates[0] && enemyCoverShot(s,
             { ...u, x: u.firingGoal, y: ground(s, u.firingGoal), moving: false }, candidates[0]))) ||
           Math.abs(u.firingGoal - u.x) <= 1)
       )
         u.firingGoal = null;
-      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null) {
+      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!c.armored || candidates.length)) {
         u.firingGoal = nearbyFiringPosition(s, u, threat!);
         u.firingTransit = false;
         if (u.firingGoal === null && order !== 'hold' && c.members) {
@@ -10019,6 +10044,8 @@ export function tick(s: GameState, dt: number) {
     const antiTankGuardGoal = !target && !baseInRange &&
       !candidates.some(enemy => !CARDS[enemy.id].armored && !CARDS[enemy.id].vehicle)
       ? antiTankGuardPost(s, u) : null;
+    const batteryMarchGoal = !target && !baseInRange && !counterBattery && order !== 'hold'
+      ? rocketBatteryMarchGoal(s, u, range) : null;
     const moveGoal = withdrawing
       ? u.withdrawGoal!
       : holdTravel
@@ -10037,6 +10064,7 @@ export function tick(s: GameState, dt: number) {
               u.coverGoal ??
               u.dispersionGoal ??
               u.firingGoal ??
+              batteryMarchGoal ??
               null));
     const seeking =
       !withdrawing &&
@@ -10250,7 +10278,7 @@ export function tick(s: GameState, dt: number) {
       !c.members && !c.air && (u.vehicleReverseUntil ?? 0) > s.time;
     const secondaryWeapon = u.id !== 'airborne_at' &&
       (modelOf(u.id) === 'tank' || u.id === 'tow_ifv' || c.armorOnly);
-    if (!c.members && secondaryWeapon)
+    if (!c.members && secondaryWeapon && !isBattleTank(u.id))
       fireCoax(s, u);
     // Posture/cover work above can change the muzzle after target selection.
     // Reconfirm the exact safe first impact before committing the breach round.
@@ -10350,8 +10378,14 @@ export function tick(s: GameState, dt: number) {
       }
       if (c.indirect && !c.vehicle && (u.observingHoldUntil ?? 0) <= s.time)
         u.pose = setStance(u, s.time, 'crouch');
+      const aimedGun = aimedGunSolution(u, tx, ty);
+      if (aimedGun) {
+        u.gunElevation = aimedGun.elevation;
+        u.gunFacing = aimedGun.facing;
+      }
       if (
         u.cooldown <= 0 &&
+        (!aimedGun || aimedGun.canFire) &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
         (!c.members || (!soldierBusyMoving(u) && !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
         (!isHeavyGunner(u) || heavyMGReady(s,u)) &&
@@ -10386,7 +10420,7 @@ export function tick(s: GameState, dt: number) {
         // Commit the same shouldered transform used by the shot forecast;
         // rendering, muzzle flash and the projectile now share this origin.
         if(c.members)u.rifleReady=1;
-        const point = muzzlePoint(u, tx),
+        const point = aimedGun?.muzzle ?? muzzlePoint(u, tx),
           sx = point.x,
           sy = point.y;
         if (
@@ -10437,13 +10471,14 @@ export function tick(s: GameState, dt: number) {
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
+          const arc = aimedGun?.arc ?? (c.indirect ? indirectArc(u.id, sx, sy, tx, ty, u.hullAngle) : flight.arc);
           if (kind === 'rocket' && isAntiTankOperator(u)) {
             u.antiTankConcealFor = 0;
             u.antiTankRevealedUntil = s.time + ANTI_TANK_REVEAL;
             s.visionIn = 0;
           }
           const total = Math.max(
-            c.indirect ? 2 : flight.minimum,
+            c.indirect ? (aimedGun || u.id === 'mlrs' ? 0.45 : 2) : flight.minimum,
             Math.abs(tx - sx) / flight.speed,
           );
           u.facing = c.sortie
@@ -10477,7 +10512,7 @@ export function tick(s: GameState, dt: number) {
           u.lastAmmo = kind;
           u.muzzleX = sx;
           u.muzzleY = sy;
-          u.shotAngle = Math.atan2(ty - sy - 4 * flight.arc, tx - sx);
+          u.shotAngle = Math.atan2(ty - sy - 4 * arc, tx - sx);
           muzzleParticles(s, u, kind, sx, sy);
           // Critical heat: the gunner breaks off, vents the barrel and swaps
           // tubes. Steam and haze burst off the weapon while he works.
@@ -10637,7 +10672,7 @@ export function tick(s: GameState, dt: number) {
             ammunition: kind,
             tracer: isTracer(kind, u.shots),
             trailIn: 0,
-            arc: c.indirect ? FLIGHT.mortar.arc : flight.arc,
+            arc,
             radius: ap ? 0 : (c.radius ?? 0),
             life: c.guided && !c.indirect ? 8 : total,
             total,
@@ -10684,6 +10719,8 @@ export function tick(s: GameState, dt: number) {
           !escorting &&
           !u.withdrawStandby &&
           antiTankGuardGoal === null &&
+          // Rocket artillery advances only to the screened rear firing line.
+          u.id !== 'mlrs' &&
           // A battery that lost sight while backing out waits out its reload
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
@@ -10935,6 +10972,10 @@ export function tick(s: GameState, dt: number) {
       u.hullAngle += (contact.angle - u.hullAngle) * blend;
     } else if (!c.members || u.motion === 'ground')
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
+    // A tank's main-gun facing owns its painted body. Select its secondary
+    // target only after this tick's main-gun aim, so an opposite contact cannot
+    // make a muzzle flash jump to an unpainted mirrored gun port.
+    if (isBattleTank(u.id)) fireCoax(s, u);
     // Infantry's first stride is only known after the navigation branch.
     // Check the sidearm here so starting a sprint/crawl cannot release a
     // projectile before movement clears its muzzle flash in the same tick.
