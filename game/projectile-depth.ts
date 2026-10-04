@@ -63,7 +63,7 @@ export function depthHit(p: Projectile, u: Unit, x = u.x) {
 }
 
 /** A stopped bullet cannot project pressure or a shooter hint through a nearby wall. */
-function shelteredFromRay(
+export function shelteredFromRay(
   s: GameState,
   x: number,
   y: number,
@@ -150,16 +150,20 @@ export function suppressNearMiss(
     u.lastThreat = { x: p.startX, y: p.startY, until: s.time + 2 };
     if (u.suppression > 22) u.decisionIn = 0;
     // Rounds cracking within arm's reach make the soldier duck instinctively.
-    // Sustained fire keeps refreshing the window — heads stay down until the
-    // fire lets up, then pop back up a third of a second later.
+    // Sustained fire holds the low posture instead of immediately popping up.
     if (
       Math.hypot(u.x - x, chest - y) < 14 &&
       (u.pose === 'idle' ||
         u.pose === 'walk' ||
         u.pose === 'run' ||
         u.pose === 'crouch')
-    )
-      u.duckUntil = s.time + 0.35;
+    ) {
+        const fresh = (u.duckUntil ?? 0) <= s.time;
+        u.duckUntil = s.time + 1.6;
+        if (p.ammunition === 'machinegun' || u.suppression > 22)
+          u.duckProneUntil = s.time + 2.4;
+        if (fresh) u.decisionIn = 0;
+    }
     // Rounds cracking overhead kick up dust where they pass, making the
     // suppressing fire visible on the ground below the bullet's path.
     const gx = Math.max(0, Math.min(s.terrain.length - 1, Math.floor(x)));

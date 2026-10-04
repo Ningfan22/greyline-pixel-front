@@ -30,7 +30,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(209),
+let state = createGame(210),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -52,7 +52,7 @@ function spawn(side: 0 | 1, id: CardId, x: number) {
 function scene(next: string) {
   mode = next;
   paused = false;
-  state = createGame(209, undefined, undefined, undefined, { weather: false });
+  state = createGame(210, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -70,7 +70,31 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if (['tow','sam','javelin'].includes(next)) {
+  if (['lethality','withdraw','shelter'].includes(next)) {
+    camera=800;capture=false;
+    const n=state.units.length;spawn(0,'infantry',1200);
+    const own=state.units.slice(n);
+    if(next!=='withdraw') state.units=state.units.filter(u=>!own.includes(u)||u===own[0]);
+    actors=next==='withdraw'?own:[own[0]];
+    for(const [i,u] of actors.entries()) Object.assign(u,{x:1200-i*18,y:374,lane:i%4*12,
+      pose:'idle',stanceLockUntil:60,decisionIn:0,personalMorale:100,pace:1,fragCooldown:1e9,
+      cooldown:next==='lethality'?1e9:0,readyAt:-10,rifleReady:1});
+    if(next==='lethality')watch(actors[0]);
+    if(next==='shelter'){
+      for(let x=1170;x<=1210;x++)state.terrain[x]=374+Math.max(0,15-Math.abs(1190-x)*.75);
+      state.terrainVersion++;actors[0].y=state.terrain[Math.floor(actors[0].x)];
+    }
+    for(let i=0;i<(next==='withdraw'?3:1);i++) {
+      const x=next==='withdraw'?1550+i*30:1450;
+      const before=state.units.length,mg=spawn(1,'machinegun',x);
+      state.units.splice(before+1);watch(mg);
+      Object.assign(mg,{x,y:374,lane:i*12,pose:'prone',
+        stanceLockUntil:60,personalMorale:100,cooldown:next==='withdraw'?.9:0,
+        emplaced:true,emplacementSetupUntil:0,readyAt:-10,rifleReady:1});
+      actors.push(mg);
+    }
+    paused=true;
+  } else if (['tow','sam','javelin'].includes(next)) {
     const id:CardId=next==='tow'?'tow_ifv':next==='sam'?'sam_vehicle':'javelin';
     const shooter=spawn(0,id,720);watch(shooter);shooter.cooldown=0;
     const n=state.units.length;spawn(0,'pathfinders',1130);
@@ -179,7 +203,7 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
@@ -283,7 +307,9 @@ function loop(now: number) {
             `${CARDS[u.id].name}：发射 ${u.shots - (initial.get(u.uid) ?? 0)}${(u.ammo ?? -1) >= 0 ? '，待发 ' + u.ammo + '，备弹 ' + (u.ammoReserve ?? 0) : ''}${(u.reloadingUntil ?? 0) > state.time ? '，装填 ' + Math.ceil(u.reloadingUntil! - state.time) + '秒' : ''}`,
         )
         .join(' ｜ ') +
-      (mode === 'wreck'
+      (['lethality','withdraw','shelter'].includes(mode)
+        ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
+        : mode === 'wreck'
         ? ` · 已前进 ${Math.round(actors[0].x - (starts.get(actors[0].uid) ?? 0))}像素 · 敌方幸存兵 ${state.units.filter(u => u.side === 1 && u.hp > 0 && !u.wounded && !u.surrendered).length}`
         : mode === 'garrison'
           ? ` · 驻防 ${actors.filter(u => u.garrisonUid !== undefined).length}人 · 已离开工事 ${actors.filter(u => u.x > 260).length}人`
