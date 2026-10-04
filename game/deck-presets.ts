@@ -195,6 +195,9 @@ export const DECK_PRESETS: {
       'ewarfare',
     ],
   },
+  {id:'armor_hunters',name:'装甲猎手',plan:'观察员引导攻击机与猎甲群，子母弹惩罚装甲密集，雷场封路；防空车保护前线。',cards:[
+    'infantry','infantry','infantry','scouts','scout_drone','antiarmor','antiarmor','javelin','tow_ifv','sam_vehicle',
+    'supply_team','ammo','smoke','strike_jet','antitank_cluster','antitank_cluster','hunter_swarm','hunter_swarm','antitank_barrier','antitank_barrier']},
 ];
 
 // Independent opponent plans retain each style and use the same card rules.
@@ -260,7 +263,7 @@ export const AI_DECKS: CardId[][] = [
     'supply_team',
     'recon',
     'mortar_carrier',
-    'artillery',
+    'antitank_cluster',
     'field_gun',
     'light_mortar',
     'scout_car',
@@ -272,7 +275,7 @@ export const AI_DECKS: CardId[][] = [
   [
     'infantry',
     'infantry',
-    'fpv_drone',
+    'hunter_swarm',
     'paratroopers',
     'airborne_at',
     'rapid_insertion',
@@ -311,7 +314,7 @@ export const AI_DECKS: CardId[][] = [
     'smoke_withdrawal',
     'reserve_mobilization',
     'reserve_mobilization',
-    'minefield',
+    'antitank_barrier',
     'fallback',
   ],
   // 透支快攻

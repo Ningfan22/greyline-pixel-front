@@ -2,7 +2,7 @@ import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import { treeBoxesV17 } from './tree-state-v17';
-import { STRIDE, terrainMinima } from './terrain-ray';
+import { STRIDE, terrainMinima, heightfieldIntercept } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
 import { weatherVisibility } from './weather';
 import { ambushConcealed, AMBUSH_REVEAL, antiTankConcealed, ANTI_TANK_REVEAL } from './infantry-specialties';
@@ -113,7 +113,7 @@ export interface Wreck {
   cause?: 'blast' | 'bullet' | 'burn';
 }
 export interface Mine {
-  kind?: 'antipersonnel';
+  kind?: 'antipersonnel' | 'antitank_area';
   uid: number;
   side: Side;
   x: number;
@@ -656,6 +656,14 @@ export function pointVisibleWith(
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered ||
         (CARDS[u.id].fortification && (u.buildUntil ?? 0) > s.time))
       return false;
+    const radar=layer==='air' ? CARDS[u.id].airRadarRange : undefined;
+    if(radar !== undefined) {
+      const reach=radar*((s.players[side].sensorBlindUntil ?? 0)>s.time?.45:1)*
+        ((s.players[side].radarJamUntil ?? 0)>s.time?.55:1);
+      // Air radar crosses foliage/smoke; terrain still masks low-flying tracks.
+      return Math.hypot(u.x-x,(u.y-45-y)*.25)<=reach &&
+        !heightfieldIntercept(s,u.x,u.y-48,x,y);
+    }
     const groundRange = layer === 'ground' ? airGroundSight(u) : null;
     const range =
       Math.min(sightRange(u), groundRange ?? Infinity) *

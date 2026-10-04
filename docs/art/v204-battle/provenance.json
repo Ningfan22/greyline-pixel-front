@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2542.410583,
+  "compileMs": 3215.6277079999995,
   "canvasesCreated": 581,
   "frames": 445,
   "compilerSources": [
@@ -57,7 +57,7 @@
     },
     {
       "path": "game/gun-geometry.ts",
-      "sha256": "2a3a5e10a6e91a6f225f3f204f58b5802352e3167b3164308db4acbd06045bdc"
+      "sha256": "43e91b0573105bf14ed5fc2e034ecf072197f5f133966370a783c680178e95ac"
     },
     {
       "path": "game/vehicle-missile-art-v209.ts",
@@ -69,7 +69,7 @@
     },
     {
       "path": "game/weapon-layout-v204.ts",
-      "sha256": "c758f9ed656bee848a097a9b9726aa39dccf03b7a0ded91872cb3777b682a411"
+      "sha256": "a1bc6bb80e056bcce589c7dcdeadf838a201df5e7e0e99f89e27b3a50cbdc910"
     },
     {
       "path": "game/emplacement-art-v202.ts",
@@ -93,7 +93,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "4fc4a2629b659c92e62ddb548f3d6b6caf4cd09c779f6f08e6973b3ef66e5c9f"
+      "sha256": "a7689308cb5410a0d29100056f880e9abef05c86c0b8f7f4792c7733dd478ad4"
     },
     {
       "path": "game/maps.ts",
@@ -109,7 +109,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "2cb547c097e513b607bd907885ad21a86808cf458e5bff69ff841d384ee003d9"
+      "sha256": "bb39ad78a44c2b7faf656595dc9b5a0f6b3a02af6b6a356668925f3419a847c7"
     },
     {
       "path": "game/battlefield-effects-art.ts",
@@ -590,7 +590,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "7ec3760e74112e54667160aa867bbd5f46a708ab8ad8220e2056feb9ce28b4ca"
+    "sha256": "dd8e8475f8742538376a6cd212c058289410427c42a284e6a63d8a4550fb438b"
   },
   "atlasFiles": [
     {
@@ -602,12 +602,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-fc6710b9dcf7.png",
-      "bytes": 2847836,
+      "path": "/art/v204-battle/frames-1-80270d3195af.png",
+      "bytes": 2847600,
       "width": 2048,
       "height": 1384,
-      "sha256": "fc6710b9dcf7fc519836fe81e77a577bfeeec635b2fc9b2f2903c5cfdc76f392",
-      "rgbaSha256": "50f275bd3f33a2771afa0f7ac849e2af9ce3e47ad2511bcec86e83fb161866c4"
+      "sha256": "80270d3195afda724b3887d61f1e01433ccf4658abe62c5ca1e42307db7e2627",
+      "rgbaSha256": "f6576e6878682e19ec0438e846f751fbbfb3edf2aece3477d717d48519c603a1"
     }
   ],
   "external": [],
@@ -645,5 +645,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5200294
+  "sharedBytes": 5200058
 }

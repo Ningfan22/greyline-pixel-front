@@ -91,9 +91,9 @@ for (const id of ['mlrs', 'field_gun', 'siege_gun'] as const) {
 for (const id of ['helicopter', 'rocket_heli', 'escort_gunship'] as const)
   MOUNTS[id] = {
     ...helicopterMount(id === 'rocket_heli'),
-    minElevation: rad(id === 'rocket_heli' ? -10 : -78),
+    minElevation: rad(id === 'rocket_heli' ? -10 : -32),
     // Chin gun clears the nose; a wing-mounted rocket pod has only a small sweep.
-    maxElevation: rad(id === 'rocket_heli' ? 5 : 8),
+    maxElevation: rad(id === 'rocket_heli' ? 5 : 0),
     restElevation: 0,
   };
 export function gunMount(id: CardId): GunMount | null {

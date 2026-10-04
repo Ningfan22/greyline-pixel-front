@@ -1,0 +1,26 @@
+{
+  "version": 212,
+  "entries": [
+    {
+      "id": "antitank_cluster",
+      "method": "image_gen authored illustration; square crop and WebP encoding only",
+      "sourceSha256": "24f6509412bdedb40155b101b34be45ff18f6b3cb2942400dbf230a8a41fb837",
+      "sha256": "8deb64c23316b9c6cc892d93b19d498c5187ff04faac3349522618243e862b12",
+      "bytes": 118724
+    },
+    {
+      "id": "hunter_swarm",
+      "method": "image_gen authored illustration; square crop and WebP encoding only",
+      "sourceSha256": "72f4a6e601227c9a8ff8dc031edaa04d6520c6dee0166c2d933d5cf9b6dd7390",
+      "sha256": "71bce6923303af9a1e399dd528e931881857836914ccc7ef491a985bfd60a9e4",
+      "bytes": 168702
+    },
+    {
+      "id": "antitank_barrier",
+      "method": "image_gen authored illustration; square crop and WebP encoding only",
+      "sourceSha256": "16018ea28bee5090722068b241a6ca33b617538fe8c93b3e02fc6c3ecbd7d5d7",
+      "sha256": "04bdb67d50bf537c16634a17b4427b6ebca2fd70124f91e4f67e2ae05435733a",
+      "bytes": 131278
+    }
+  ]
+}

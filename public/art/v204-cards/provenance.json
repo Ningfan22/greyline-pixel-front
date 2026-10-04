@@ -4,6 +4,66 @@
   "mode": "nearest-neighbour resizing + WebP encoding of existing image-generated artwork",
   "entries": [
     {
+      "source": "/art/v212-counterarmor/antitank_cluster.webp",
+      "sourceSha256": "8deb64c23316b9c6cc892d93b19d498c5187ff04faac3349522618243e862b12",
+      "sourceBytes": 118724,
+      "path": "/art/v204-cards/antitank_cluster-384-d088f56465d7.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32312,
+      "sha256": "d088f56465d7d4aad00c1bb2f51359590c00d0235f0e36460957f62be7b8b052"
+    },
+    {
+      "source": "/art/v212-counterarmor/antitank_cluster.webp",
+      "sourceSha256": "8deb64c23316b9c6cc892d93b19d498c5187ff04faac3349522618243e862b12",
+      "sourceBytes": 118724,
+      "path": "/art/v204-cards/antitank_cluster-640-26d0cb7af3e7.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 67772,
+      "sha256": "26d0cb7af3e766b056e0f5f222b936109a79bf762921d7503b296e202b57e779"
+    },
+    {
+      "source": "/art/v212-counterarmor/hunter_swarm.webp",
+      "sourceSha256": "71bce6923303af9a1e399dd528e931881857836914ccc7ef491a985bfd60a9e4",
+      "sourceBytes": 168702,
+      "path": "/art/v204-cards/hunter_swarm-384-f49444d224ed.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 42306,
+      "sha256": "f49444d224ed058adf35d99ca482715beefb7b14aaa7988a1ec7d023de929bd3"
+    },
+    {
+      "source": "/art/v212-counterarmor/hunter_swarm.webp",
+      "sourceSha256": "71bce6923303af9a1e399dd528e931881857836914ccc7ef491a985bfd60a9e4",
+      "sourceBytes": 168702,
+      "path": "/art/v204-cards/hunter_swarm-640-98f33be611a2.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 97784,
+      "sha256": "98f33be611a2b65f2210f75d384f754e21ed82ae75637cc358e9d584ede0d55e"
+    },
+    {
+      "source": "/art/v212-counterarmor/antitank_barrier.webp",
+      "sourceSha256": "04bdb67d50bf537c16634a17b4427b6ebca2fd70124f91e4f67e2ae05435733a",
+      "sourceBytes": 131278,
+      "path": "/art/v204-cards/antitank_barrier-384-f9a65617b524.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37578,
+      "sha256": "f9a65617b5241b6f331c9878cfe8f7d628e70f62d05d680fe1c2c043df17ff79"
+    },
+    {
+      "source": "/art/v212-counterarmor/antitank_barrier.webp",
+      "sourceSha256": "04bdb67d50bf537c16634a17b4427b6ebca2fd70124f91e4f67e2ae05435733a",
+      "sourceBytes": 131278,
+      "path": "/art/v204-cards/antitank_barrier-640-04e32f235d53.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 80012,
+      "sha256": "04e32f235d53c5929f8c56f0b07077c19fd48fc15dbfd192a47efae83deffc65"
+    },
+    {
       "source": "/art/v21-economy/cards/field_logistics.webp",
       "sourceSha256": "6b05f2836e3e5f7558856eb08e7883e0a8d3abb382536f743959e80eec991b98",
       "sourceBytes": 118650,

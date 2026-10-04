@@ -74,7 +74,7 @@ export const HELI_LAYOUT = {
   podMuzzle: [797, 773],
   podSocket: [940, 389],
   gun: [1090, 732, 563, 92],
-  gunWidth: 43,
+  gunWidth: 26,
   gunPivot: [1106, 773],
   gunMuzzle: [1646, 773],
   // Chin mount sits below the painted nose; the barrel sweeps outside the hull.

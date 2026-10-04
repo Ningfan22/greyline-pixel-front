@@ -717,6 +717,7 @@ export interface Marker {
     | 'thermobaric'
     | 'heavy'
     | 'creeping'
+    | 'antitank_cluster'
     | 'rocket';
   impacts?: number[];
 }
@@ -1319,7 +1320,11 @@ export function requestDraw(
   p.drawIn = DRAW_TIME;
   return { ok: true, message: '消耗 2 点指挥点，抽取 1 张卡牌' };
 }
-export const ARTILLERY = {
+export const ARTILLERY: Record<'artillery'|'barrage'|'precision'|'naval'|'cluster'|'thermobaric'|'rocket'|'creeping'|'heavy'|'antitank_cluster', {
+  delay:number; count:number; interval:number; damage:number; radius:number;
+  spacing:number; scatter:number; baseScale:number; armorMultiplier?:number; infantryMultiplier?:number;
+}> = {
+  antitank_cluster: {delay:3.2,count:8,interval:.25,damage:50,radius:26,spacing:46,scatter:12,baseScale:.02,armorMultiplier:4,infantryMultiplier:.12},
   artillery: {
     delay: 2.8,
     count: 3,
@@ -1618,6 +1623,13 @@ export function playCard(
     )
   )
     return { ok: false, message: '请提前布雷，需离敌方装甲至少 80 距离' };
+  if (['antitank_cluster','hunter_swarm','antitank_barrier'].includes(c.id) &&
+      !pointVisible(s,side,x!,ground(s,x!)-24))
+    return {ok:false,message:'反装甲支援需要当前已观察的地面'};
+  if (c.id === 'antitank_barrier' && s.units.some(u => u.side!==side && isCombatant(u) &&
+      (CARDS[u.id].armored || CARDS[u.id].vehicle) && visibleToSide(s,side,u) &&
+      Math.abs(u.x-x!) < 205))
+    return {ok:false,message:'请提前布雷，整个雷场需离可见敌方载具至少80距离'};
   if (c.effect === 'ammo' && !pointVisible(s, side, x!, ground(s, x!) - 24))
     return { ok: false, message: '弹药箱只能空投到己方当前视线可见的地面' };
   p.energy = Math.max(0, p.energy - cost);
@@ -1791,13 +1803,29 @@ export function playCard(
         });
     if (c.effect === 'illumination') launchFlare(s, side, x!, 14, 160);
     if (c.effect === 'minefield')
-      for (const dx of [-60, 0, 60])
+      for (const dx of (c.id === 'antitank_barrier' ? [-125,-75,-25,25,75,125] : [-60,0,60]))
         s.mines.push({
           uid: ++s.uid,
           side,
           x: Math.max(20, Math.min(W - 20, x! + dx)),
           armAt: s.time + 2,
+          kind: c.id==='antitank_barrier' ? 'antitank_area' : undefined,
         });
+    if (c.effect === 'hunter_swarm') {
+      const dir = side===0 ? 1 : -1;
+      const targets = s.units.filter(u => u.side!==side && isCombatant(u) && !CARDS[u.id].air &&
+        (CARDS[u.id].armored || CARDS[u.id].vehicle) && visibleToSide(s,side,u) && Math.abs(u.x-x!)<=280)
+        .sort((a,b)=>Math.abs(a.x-x!)-Math.abs(b.x-x!));
+      const launchers = s.units.filter(u=>u.side===side && isCombatant(u) && !CARDS[u.id].air && !u.parachuting && !u.rappelling);
+      const anchor = launchers.sort((a,b)=>Math.abs(a.x-x!)-Math.abs(b.x-x!))[0];
+      const launch = Math.max(112,Math.min(W-112,(anchor?.x ?? (side===0?172:W-172))-dir*60));
+      for(let i=0;i<4;i++) {
+        spawnUnit(s,side,'fpv_drone',launch-dir*i*16);
+        const drone=s.units.at(-1)!, target=targets[i%targets.length];
+        if(target) drone.fpvLock={uid:target.uid,x:target.x,y:target.y-bodyHeight(target)};
+      }
+      refreshVision(s);
+    }
     if (c.effect === 'fallback') {
       const dir = side === 0 ? -280 : 280;
       for (const u of own)
@@ -2661,6 +2689,7 @@ function hitUnit(
 }
 /** Small arms cannot slowly erode a sealed hull; heavier ammunition must meet its tier. */
 export function armorPenetrationTier(ammo: Ammunition, weapon?: Card): number {
+  if (weapon?.penetrationTier !== undefined) return weapon.penetrationTier;
   if (weapon?.infantryAbility === 'anti_materiel') return 1;
   if (ammo === 'ap' || ammo === 'cannon') return 3;
   if (ammo === 'rocket')
@@ -7231,6 +7260,12 @@ function updateAI(s: GameState) {
         if (c.id === 'fortify') score += 4;
         if (cardCost(h) >= 4) score += 3;
       }
+      if (c.id==='antitank_cluster' || c.id==='hunter_swarm') {
+        const groups=armor.map(u=>({x:u.x,count:armor.filter(v=>Math.abs(v.x-u.x)<=180).length})).sort((a,b)=>b.count-a.count);
+        if(groups[0]) {x=groups[0].x;score=groups[0].count>=2?26:10;}
+        else score=-100;
+      }
+      if (c.id==='antitank_barrier' && x!==undefined && armor.some(u=>Math.abs(u.x-x!)<205)) score=-100;
       if (c.targetGround && (x === undefined || !Number.isFinite(x)))
         score = -100;
       return {
@@ -8367,7 +8402,7 @@ export function tick(s: GameState, dt: number) {
     m.timer -= dt;
     if (m.timer <= 0) {
       const x = m.impacts?.[m.wave] ?? m.x;
-      explode(s, x, ground(s, x) - 8, c.radius, c.damage, m.side, c.baseScale);
+      explode(s, x, ground(s, x) - 8, c.radius, c.damage, m.side, c.baseScale, c.armorMultiplier ?? 1, 'he', c.infantryMultiplier ?? 1);
       m.wave++;
       m.timer = c.interval;
     }
@@ -9442,7 +9477,7 @@ export function tick(s: GameState, dt: number) {
     const sortMode: 'soft' | 'sniper' | 'crew' | 'armor' | 'tank' | 'none' =
       tankDoctrine ? 'tank' :
       u.id === 'sniper_team' && u.member === 0 ? 'crew' :
-      c.attackRun === 'strafe' ||
+      (c.attackRun === 'strafe' && (c.armorMultiplier ?? 1) <= 1.2) ||
       softTargetWeapon ||
       ((c.armorMultiplier ?? 1) < 0.8 && coverAmmo)
         ? 'soft'
@@ -11456,7 +11491,8 @@ export function tick(s: GameState, dt: number) {
     if (victim) {
       mine.armAt = Infinity;
       victim.slowedUntil = s.time + 3;
-      hitUnit(
+      if(mine.kind==='antitank_area') explode(s,mine.x,ground(s,mine.x)-4,32,260,mine.side,0);
+      else hitUnit(
         s,
         victim,
         mine.kind === 'antipersonnel' ? 22 : 260,
@@ -11467,7 +11503,7 @@ export function tick(s: GameState, dt: number) {
         mine.x,
         ground(s, mine.x) - 4,
       );
-      burst(
+      if(mine.kind!=='antitank_area') burst(
         s,
         mine.x,
         ground(s, mine.x) - 4,

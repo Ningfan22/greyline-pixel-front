@@ -91,6 +91,9 @@ export type CardId =
   | 'sniper_team'
   | 'naval_gunfire'
   | 'cluster_munitions'
+  | 'antitank_cluster'
+  | 'hunter_swarm'
+  | 'antitank_barrier'
   | 'thermobaric'
   | 'precision_rocket'
   | 'veteran_squad'
@@ -187,6 +190,10 @@ export interface Card {
   returnCost?: number;
   sortieCooldown?: number;
   sight?: number;
+  /** Radar detection applies only to airborne targets, never ground reconnaissance. */
+  airRadarRange?: number;
+  /** Specialised ammunition penetration; ordinary autocannons remain tier 1. */
+  penetrationTier?: 0 | 1 | 2 | 3;
   guided?: boolean;
   static?: boolean;
   emplacement?: 'howitzer' | 'at_gun' | 'aa_gun';
@@ -300,6 +307,7 @@ export interface Card {
     | 'minefield'
     | 'fallback'
     // ── v132 差异化 ─────────────────────────────────────────
+    | 'hunter_swarm'
     | 'ceasefire';
 }
 const BASE_CARDS: Record<BaseCardId, Card> = {
@@ -625,6 +633,21 @@ function fortCard(
   };
 }
 export const CARDS: Record<CardId, Card> = {
+  antitank_cluster: variant('artillery','antitank_cluster','反坦克子母弹',5,
+    '顶攻子弹药覆盖装甲群，步兵与基地伤害很低', {
+      artilleryKind:'antitank_cluster', tag:'支援 · 集群猎甲',
+      detail:'5费。仅能选择已观察的地面；3.2秒后8发顶攻子弹药以0.25秒间隔覆盖约320宽区域。每发50基础伤，对装甲×4、步兵×0.12、基地×0.02，半径26；仍受建筑遮挡并会误伤友军。适合惩罚密集坦克，分散可降低损失。',
+    }),
+  hunter_swarm: variant('recon','hunter_swarm','猎甲巡飞弹群',5,
+    '前线放飞四架实体无人机，分配目标夹击装甲', {
+      effect:'hunter_swarm', targetGround:true, tag:'支援 · 分散猎甲',
+      detail:'5费。选择已观察的装甲集群区域，从己方最近地面部队后方放飞4架FPV，每架32生命、24秒航时、撞击252对甲伤。优先分配区域内不同载具；锁定后实体飞行，失去观察只撞最后锁点，可被防空和建筑拦截；不攻击基地。',
+    }),
+  antitank_barrier: variant('artillery','antitank_barrier','反坦克雷场',4,
+    '六枚反坦克地雷封锁装甲通道', {
+      effect:'minefield', artilleryKind:undefined, tag:'支援 · 装甲拒止',
+      detail:'4费。在已观察的地面布设6枚反坦克地雷，间距50、覆盖250宽；需离可见敌方载具至少80，2秒后武装。仅敌方载具触发，每枚260伤反坦克爆炸，可炸断履带，爆炸会伤及附近友军；步兵可穿行，工兵可以排雷。',
+    }),
   field_logistics: variant(
     'supply',
     'field_logistics',
@@ -3164,3 +3187,15 @@ for (const card of Object.values(CARDS)) if (card.emplacement) {
   card.detail = card.detail?.replace('部署后固定', '部署后架炮')
     .replace('固定阵地', '架炮后开火') + ' 可命令操作组推炮前进或后退，推行时停止射击。';
 }
+
+// v212: anti-armour strafing and a theatre-scale air-only radar umbrella.
+Object.assign(CARDS.strike_jet, {
+  penetrationTier:3, armorMultiplier:2.2, infantryMultiplier:.8,
+  description:'穿甲机炮优先攻击已观察的装甲，连续通场扫射',
+  detail:'6费170生命，射程630、速度560。每0.08秒26伤穿甲机炮，可击穿3级装甲，对甲×2.2、步兵×0.8、基地×0.15，优先已观察的载具。每架次最多16发，持续飞越、18秒返航补给后2费再出动。只在180内平坦无遮挡地面提供少量观察，树林和房屋下的坦克需友军侦察引导。',
+});
+Object.assign(CARDS.sam_vehicle, {
+  damage:240, range:2560, airRadarRange:2600,
+  description:'远程雷达导弹覆盖约三分之二战场空域',
+  detail:'5费280生命。每3.6秒一发240伤制导防空导弹，射程2560（全战场宽度约三分之二）、对空雷达2600。普通170–230生命固定翼通常一发击落，260生命武装直升机通常两发；需实际命中，导弹仍有飞行时间，山体和雷达干扰可影响拦截。雷达不提供远程地面视野。',
+});

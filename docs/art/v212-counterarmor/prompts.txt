@@ -1,0 +1,5 @@
+Authored with image_gen, 2026-10-05. All illustrations are independent new artwork.
+
+antitank_cluster: realistic desaturated olive military card, sensor-fuzed top-attack submunitions above a tank column on desert terrain, no text or frame.
+hunter_swarm: realistic desaturated valley tank column, four FPV quadcopters with X arms, small camera and anti-tank warhead, foreground drone diving, no text or frame. Fixed-wing draft rejected and replaced with quadcopters to match the actual FPV models.
+antitank_barrier: realistic close view of olive anti-tank pressure mines in dust, engineer gloved hands, approaching tanks in distance, no text or frame.

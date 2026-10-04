@@ -79,7 +79,7 @@ function alphaNear(canvas, p, r = 3) {
     )
     .data.some((v, i) => i % 4 === 3 && v > 200);
 }
-test('actual MLRS launches all 16 distinct ports, seats one reserve salvo in 12 seconds and stops when dry', () => {
+test('actual MLRS launches all 16 distinct ports, seats one reserve salvo in 18 seconds and stops when dry', () => {
   const s = field(),
     u = spawn(s, 0, 'mlrs', 750);
   spawn(s, 0, 'pathfinders', 1270);
@@ -111,8 +111,8 @@ test('actual MLRS launches all 16 distinct ports, seats one reserve salvo in 12 
     rounds.slice(16).map((p) => p.port),
     Array.from({ length: 16 }, (_, i) => i),
   );
-  assert(rounds[16].time - rounds[15].time >= 12 - 1 / 60);
-  assert(rounds[16].time - rounds[15].time <= 12.2, 'actual reserve rack reload finishes in 12 seconds');
+  assert(rounds[16].time - rounds[15].time >= 18 - 1 / 60);
+  assert(rounds[16].time - rounds[15].time <= 18.2, 'actual reserve rack reload finishes in 18 seconds');
   assert.equal(u.ammo, 0);
   assert.equal(u.ammoReserve, 0);
   assert.equal(u.x, 750, 'salvo keeps its firing position');

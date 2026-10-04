@@ -9,6 +9,7 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPicturePath(id: CardId) {
+  if (['antitank_cluster','hunter_swarm','antitank_barrier'].includes(id)) return `/art/v212-counterarmor/${id}.webp`;
   if (id === 'mlrs') return '/art/v204-weapons/mlrs-card.webp';
   if (isV197Vehicle(id)) return identity(vehicleAssetV197(id, 'card'));
   if (

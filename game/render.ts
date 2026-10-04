@@ -571,7 +571,7 @@ export function render(
       drawMineV18(
         ctx,
         art.mines,
-        m.kind ?? 'antitank',
+        m.kind === 'antipersonnel' ? 'antipersonnel' : 'antitank',
         m.x,
         visibleGround(m.x) + 1,
         s.time >= m.armAt,

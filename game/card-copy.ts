@@ -11,6 +11,9 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+  antitank_cluster: {en:'ANTI-ARMOUR SUBMUNITIONS',typeLabel:'顶攻支援',ability:'集群猎甲',rule:'观察引导，子弹药顶攻。',flavor:'靠得越近，损失越重。'},
+  hunter_swarm: {en:'HUNTER SWARM',typeLabel:'巡飞支援',ability:'四机猎甲',rule:'前线放飞，分散锁敌。',flavor:'让装甲也学会找掩体。'},
+  antitank_barrier: {en:'ANTI-TANK MINE BELT',typeLabel:'装甲拒止',ability:'六雷封路',rule:'提前布雷，阻断装甲。',flavor:'履带前面，还有雷。'},
   field_logistics: {
     en: 'FIELD LOGISTICS',
     typeLabel: '资源发展',
@@ -302,7 +305,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'RADAR SAM VEHICLE',
     typeLabel: '雷达防空',
     ability: '雷达追踪',
-    rule: '雷达共享空情，导弹追踪防空。',
+    rule: '远距雷达，一两发击落飞机。',
     flavor: '先确认那不是一群大雁。',
   },
   steadfast: {
@@ -323,7 +326,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'GROUND-ATTACK JET',
     typeLabel: '对地航空',
     ability: '通场扫射',
-    rule: '连续扫射，返航后低费再战。',
+    rule: '穿甲扫射，优先已观察装甲。',
     flavor: '通场一次，花名册少一页。',
   },
   bomber: {
@@ -470,7 +473,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MLRS',
     typeLabel: '远程覆盖',
     ability: '大面积齐射',
-    rule: '16管逐发齐射，装填14秒。',
+    rule: '16管逐发齐射，装填18秒。',
     flavor: '一轮齐射，地皮翻一遍。',
   },
   heavy_tank: {
@@ -484,7 +487,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ANTI-ARMOR HELICOPTER',
     typeLabel: '反甲直升机',
     ability: '导弹猎甲',
-    rule: '四点二秒制导打击载具。',
+    rule: '六点三秒制导打击载具。',
     flavor: '坦克最怕的声音，从头顶来。',
   },
   scout_drone: {
