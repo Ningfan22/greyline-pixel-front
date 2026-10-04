@@ -227,7 +227,7 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   const source = (needsStock || u.id === 'supply_team' && u.supplyStock! < SUPPLY_CARRY - 0.1)
     ? available[0] : (behind.length ? behind : available).sort((a, b) => Math.max(0, Math.abs(a.x - u.x) - a.radius) - Math.max(0, Math.abs(b.x - u.x) - b.radius))[0];
   u.resupplyGoal = source.x;
-  const cannotMove = !!CARDS[u.id].static || isImmobilized(u) || vehicleOutOfFuel(u);
+  const cannotMove = !!(CARDS[u.id].static && !CARDS[u.id].emplacement) || isImmobilized(u) || vehicleOutOfFuel(u);
   u.resupplyState = Math.abs(u.x - source.x) <= source.radius ? 'supplying' : cannotMove ? 'waiting' : 'withdrawing';
   if (u.resupplyState === 'waiting') return null;
   return u.resupplyState === 'supplying' ? u.x : source.x;

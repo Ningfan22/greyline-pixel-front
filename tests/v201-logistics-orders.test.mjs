@@ -122,15 +122,15 @@ test('a depleted nearby crate cannot prematurely finish the chosen resupply', ()
   assert.equal(u.logisticsOrder, 'resupply'); assert(logisticsAlert(u));
 });
 
-test('a static gun offers hold or supply in place, and can never invent ammunition', () => {
+test('a crew-towed gun offers advance, hold or return for supply, without inventing ammunition', () => {
   const s = arena(), u = one(s, 0, 'artillery', 1200, { ammo: 0, ammoReserve: 0, cooldown: 0, emplaced: false });
-  assert.equal(issueLogisticsOrder(s, u.uid, 'advance'), false);
+  assert.equal(issueLogisticsOrder(s, u.uid, 'advance'), true);
   assert(issueLogisticsOrder(s, u.uid, 'hold')); run(s, 2);
   assert.equal(u.x, 1200); assert.equal(u.shots, 0);
   assert(issueLogisticsOrder(s, u.uid, 'resupply')); run(s, 2);
-  assert.equal(u.x, 1200); assert.equal(u.resupplyState, 'waiting');
-  crate(s, u); run(s, 2);
-  assert.equal(u.x, 1200); assert.equal(u.resupplyState, 'supplying'); assert(u.ammo > 0);
+  assert(u.x < 1200); assert.equal(u.resupplyState, 'withdrawing');
+  const stopped=u.x; crate(s, u); run(s, 2);
+  assert.equal(u.x, stopped); assert.equal(u.resupplyState, 'supplying'); assert(u.ammo > 0);
 });
 
 test('a dry tank remains immobile for all three choices and an empty weapon never fires', () => {

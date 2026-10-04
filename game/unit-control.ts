@@ -43,6 +43,7 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
   if (!c.air && order === 'watch' && u.firingGoal != null &&
       Math.abs(u.firingGoal - (u.squadOrderX ?? u.x)) <= 32)
     return false;
+  if (c.emplacement && (order === 'attack' || order === 'retreat')) return false;
   if (c.members || !order || order === 'attack' || u.hp <= 0 || u.surrendered)
     return false;
   if (fixedWingUnit(u) && c.patrolTime) {

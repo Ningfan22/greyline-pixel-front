@@ -18,6 +18,8 @@
   transform: translateX(-50%) rotate(var(--tilt));
   width: var(--w, 48px);
   height: 48px;
+  padding: 4px 2px;
+  font: inherit;
   border: 2px solid;
   border-color: #bac18b #26372c #26372c #bac18b;
   border-radius: 0;
@@ -32,7 +34,9 @@
   touch-action: manipulation;
   cursor: pointer;
 }
+.action span { white-space: nowrap; }
 .action svg {
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
 }

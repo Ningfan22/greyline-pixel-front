@@ -1,3 +1,4 @@
+import { smallArmsAccuracyScale } from './infantry-survival';
 import type { GameState, Projectile, Unit } from './engine';
 import { CARDS, modelOf } from './cards';
 import { isCoverBullet } from './ballistics';
@@ -34,7 +35,14 @@ export function aimProjectileDepth(s: GameState, p: Projectile) {
     (shooter.moving ? 1.35 : 1) *
     (modelOf(shooter.id) === 'sniper' ? 0.4 : 1);
   p.startLane = shooter.lane;
-  p.targetLane = target.lane + error * spread;
+  // A separate seeded draw rejects two thirds of ordinary small-arms hits.
+  // Failed aim still has a real downrange ray; it may suppress or hit a crossing ally.
+  const chanceHash = Math.imul(hash ^ 0x6c8e9cf5, 0x27d4eb2d) >>> 0;
+  const inaccurate = chanceHash / 0x100000000 >=
+    smallArmsAccuracyScale(p.ammunition, modelOf(shooter.id) === 'sniper');
+  p.targetLane = target.lane + (inaccurate
+    ? (error < 0 ? -1 : 1) * (20 + spread * (1 + Math.abs(error)))
+    : error * spread);
 }
 
 export function projectileLane(p: Projectile, x: number) {

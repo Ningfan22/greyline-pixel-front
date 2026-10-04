@@ -80,7 +80,7 @@ import {
 } from '@/game/squad-orders';
 import { unitSelectionBounds } from '@/game/selection-render';
 import SquadMenu from './squad-menu';
-import LogisticsMenu from './logistics-menu';
+import UnitLogisticsFan from './unit-logistics-fan';
 import {vehicleOutOfFuel} from '@/game/vehicle-logistics';
 import {isImmobilized} from '@/game/vehicle-damage';
 import {logisticsAlert,issueLogisticsOrder} from '@/game/logistics-orders';
@@ -804,9 +804,10 @@ export default function Battle({
       ? Math.max(...selectedMembers.map((u) => u.y)) + 140
       : Math.min(...selectedMembers.map((u) => unitSelectionBounds(u).y)) - 18
     : 0;
-  const logisticsUnit=units.find(u=>u.uid===logisticsUid);
-  const logisticsStatus=logisticsUnit&&logisticsAlert(logisticsUnit);
   const selectedLowUnit=selectedMembers.find(u=>logisticsAlert(u));
+  const logisticsUnit=units.find(u=>u.uid===logisticsUid) ?? selectedLowUnit;
+  const logisticsStatus=logisticsUnit&&logisticsAlert(logisticsUnit);
+  const decisionAnchor=logisticsUid!==null ? logisticsAnchor : {x:squadX,y:squadY};
   const squadTrench = view.entrenchments.find((t) => t.squad === selectedSquad);
   const selectCard = (h: HandCard) => {
     didDrag.current = false;
@@ -1231,25 +1232,21 @@ export default function Battle({
           }}
         />
         {active&&!panel&&logisticsUnit&&logisticsStatus&&
-          logisticsAnchor.x>=cameraView&&logisticsAnchor.x<=cameraView+viewportWidth&&(
-          <LogisticsMenu x={(logisticsAnchor.x-cameraView)/viewportWidth*100}
-            y={logisticsAnchor.y/H*100} name={CARDS[logisticsUnit.id].name}
-            reason={logisticsStatus.reason}
-            order={logisticsUnit.logisticsOrder}
-            staticUnit={CARDS[logisticsUnit.id].static}
-            onClose={()=>setLogisticsUid(null)} onOrder={order=>{
+          decisionAnchor.x>=cameraView&&decisionAnchor.x<=cameraView+viewportWidth&&(
+          <UnitLogisticsFan x={(decisionAnchor.x-cameraView)/viewportWidth*100}
+            y={decisionAnchor.y/H*100} unit={logisticsUnit} reason={logisticsStatus.reason}
+            onClose={()=>{setLogisticsUid(null);selectSquad(null);}} onOrder={order=>{
               if(issueLogisticsOrder(game.current,logisticsUnit.uid,order)){
-                const immobile=CARDS[logisticsUnit.id].static||vehicleOutOfFuel(logisticsUnit)||isImmobilized(logisticsUnit);
+                const immobile=(CARDS[logisticsUnit.id].static&&!CARDS[logisticsUnit.id].emplacement)||vehicleOutOfFuel(logisticsUnit)||isImmobilized(logisticsUnit);
                 toast(order==='advance'?(immobile?'前进指令已下达，需先补油或修复履带':'继续前进指令已下达'):
                   order==='hold'?'原地待命，保持警戒':immobile?'无法移动，原地等待补给':'正在前往补给点');
-                setLogisticsUid(null);refresh();
+                setLogisticsUid(null);selectSquad(null);refresh();
               }
             }}/>
         )}
-        {active&&!panel&&selectedLowUnit&&<button className="logistics-selection-button"
-          onClick={()=>openLogistics(selectedLowUnit.uid)} aria-label={`${CARDS[selectedLowUnit.id].name}补给选择`}>! 补给选择</button>}
         {active &&
           !panel &&
+          !logisticsStatus &&
           selectedMembers.length > 0 &&
           squadX >= cameraView &&
           squadX <= cameraView + viewportWidth && (
@@ -2056,7 +2053,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v210
+          GREYLINE <i /> 林间前线 · v211
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

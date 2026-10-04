@@ -3140,3 +3140,27 @@ Object.assign(CARDS.interceptor, {
   detail:
     '5费150生命，己方前沿巡逻24秒。每0.75秒52伤制导对空，只锁定可见飞机；持续飞行，随后返己方。成功回手18秒后1费再出动，击落重置全价。',
 });
+
+// Rocket launchers reload between shots; a MLRS retains its rapid tube-by-tube salvo.
+for (const id of ['rocket', 'tow_ifv', 'javelin', 'sam_vehicle', 'antiarmor', 'manpads', 'airborne_at', 'rocket_heli', 'attack_drone', 'interceptor'] as CardId[]) {
+  const oldRate = CARDS[id].rate!, newRate = Number((oldRate * 1.5).toFixed(2));
+  CARDS[id].rate = newRate;
+  CARDS[id].detail = CARDS[id].detail?.replaceAll(`每${oldRate}秒`, `每${newRate}秒`)
+    .replaceAll(`每 ${oldRate} 秒`, `每 ${newRate} 秒`);
+}
+CARDS.mlrs.burstPause = 18;
+CARDS.mlrs.detail = CARDS.mlrs.detail!.replace('装填12秒', '装填18秒');
+CARDS.tow_ifv.detail = CARDS.tow_ifv.detail!.replace('每7.5秒', '每11.25秒').replace('单发3伤害', '单发6伤害');
+for (const card of Object.values(CARDS)) if (card.air) {
+  const recon = card.observer;
+  const heli = card.id === 'helicopter' || card.airframe === 'rocket_heli' || card.airframe === 'transport_heli';
+  card.detail = (card.detail ?? '') + (recon ? ' 提供大范围地面侦察。' : heli
+    ? ' 仅提供320范围的有限地面观察。'
+    : ' 仅能观察180范围内平坦无遮挡的地面；树林与房屋遮蔽地面目标，需要友军侦察引导。');
+}
+
+for (const card of Object.values(CARDS)) if (card.emplacement) {
+  card.description = card.description.replace('固定炮兵单位', '炮兵单位');
+  card.detail = card.detail?.replace('部署后固定', '部署后架炮')
+    .replace('固定阵地', '架炮后开火') + ' 可命令操作组推炮前进或后退，推行时停止射击。';
+}

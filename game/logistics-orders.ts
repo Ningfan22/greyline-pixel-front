@@ -10,7 +10,7 @@ export function issueLogisticsOrder(s: GameState, uid: number, order: LogisticsO
   const u = s.units.find(unit => unit.uid === uid);
   if (!u || !logisticsControllable(u) || !logisticsAlert(u) ||
       !['advance', 'hold', 'resupply'].includes(order)) return false;
-  if (order === 'advance' && CARDS[u.id].static) return false;
+  if (order === 'advance' && CARDS[u.id].static && !CARDS[u.id].emplacement) return false;
   initializeAmmo(u);
   u.logisticsWarning = true;
   u.logisticsOrder = order;

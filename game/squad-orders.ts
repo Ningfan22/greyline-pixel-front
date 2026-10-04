@@ -70,7 +70,7 @@ export function ordersForUnit(id: CardId) {
   const c = CARDS[id];
   if(c.internal)return [];
   if (c.members) return SQUAD_ORDERS;
-  if (c.static) return SQUAD_ORDERS.filter((o) => o.id === 'watch');
+  if (c.static && !c.emplacement) return SQUAD_ORDERS.filter((o) => o.id === 'watch');
   if (id === 'loiter_drone') return [
     {id: 'attack' as const, label: '继续搜索', description: '在当前巡飞区搜索载具和炮位，持续确认两秒后俯冲'},
     {id: 'retreat' as const, label: '后撤巡飞', description: '后撤期间停止锁定，到达后恢复巡飞；已开始的俯冲无法撤销'},
@@ -265,7 +265,12 @@ export function setSquadOrder(
               100,
               Math.min(s.terrain.length - 100, u.x + (side === 0 ? -240 : 240)),
             )
-          : u.x;
+          : order === 'attack' && card.emplacement
+            ? Math.max(100, Math.min(s.terrain.length - 100, u.x + (side === 0 ? 240 : -240)))
+            : u.x;
+      if (card.emplacement && order !== 'watch') u.emplaced = false;
+      // A normal command replaces a prior logistics decision as well.
+      u.logisticsOrder = undefined; u.resupplyState = undefined; u.resupplyGoal = undefined;
       u.coverGoal = null;
       u.firingGoal = null;
       u.firingWatchAnchorX = undefined;

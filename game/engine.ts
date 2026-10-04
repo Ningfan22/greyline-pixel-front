@@ -1,4 +1,4 @@
-import { smallArmsHitMultiplier } from './infantry-survival';
+import { smallArmsHitMultiplier, smallArmsAccuracyScale } from './infantry-survival';
 import { infantryGeometry } from './infantry-geometry';
 import {soldierMuzzle,soldierBusyMoving,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
 import { infantryWeaponMuzzle, type InfantryWeaponBody } from './infantry-weapon-geometry';
@@ -417,6 +417,7 @@ export interface Unit {
   /** A held firing post can sidestep its obstruction without becoming an attack. */
   firingWatchAnchorX?: number;
   /** Consecutive rounds stopped by terrain/scenery, rather than ordinary aim misses. */
+  blockedAimSince?: number;
   blockedFireTargetUid?: number;
   blockedFireCount?: number;
   /** A planned firing-position bound may approach a visible contact, but never pass it. */
@@ -2487,8 +2488,8 @@ function hitUnit(
       ? s.units.find((q) => q.uid === attackerUid)
       : undefined;
   const attackerCard = attacker ? CARDS[attacker.id] : undefined;
-  if (source === 'bullet' && attacker && (c.armorTier ?? 0) > 0 &&
-      armorPenetrationTier(sourceAmmo ?? ammunition(attacker.id, attacker.member), attackerCard) < c.armorTier!)
+  if (source === 'bullet' && (c.armorTier ?? 0) > 0 &&
+      armorPenetrationTier(sourceAmmo ?? (attacker ? ammunition(attacker.id, attacker.member) : 'rifle'), attackerCard) < c.armorTier!)
     return;
   const lethality = source === 'bullet'
     ? smallArmsHitMultiplier(sourceAmmo ?? (attacker ? ammunition(attacker.id, attacker.member) : undefined),
@@ -2519,6 +2520,10 @@ function hitUnit(
           ? 0.7
           : 1);
   u.hp -= actual;
+  if (actual > 0 && u.side === side && s.time - (u.friendlyWarnAt ?? -10) > 3) {
+    notify(s, '友军进入射线或爆炸范围，发生误伤', 'warn', [u.side]);
+    u.friendlyWarnAt = s.time;
+  }
   if (damageVehicleTracks(u, { damage: actual, source,
       ammunition: sourceAmmo ?? (attacker ? ammunition(attacker.id, attacker.member) : undefined),
       hitX: blastX, hitY: blastY, time: s.time }))
@@ -2901,7 +2906,7 @@ function flameImpact(s: GameState, p: Projectile, x: number, y: number) {
   const radius = p.radius || 16;
   for (const u of s.units) {
     const card = CARDS[u.id];
-    if (u.side === p.side || card.air || !canTakeDamage(u)) continue;
+    if (u.uid === p.sourceUid || card.air || !canTakeDamage(u)) continue;
     const half = card.vehicle || card.armored ? armorHalf(u.id) : 6;
     const nearestX = Math.max(u.x - half, Math.min(u.x + half, x));
     const nearestY = Math.max(u.y - bodyHeight(u), Math.min(u.y, y));
@@ -2944,7 +2949,6 @@ export function explode(
   const sheltered = new Map<number, number>();
   for (const u of s.units) {
     if (
-      u.side === side ||
       !CARDS[u.id].members ||
       !canTakeDamage(u) ||
       Math.hypot(u.x - x, u.y - 20 - y) >= radius + 12
@@ -2990,7 +2994,7 @@ export function explode(
     );
   }
   for (const u of s.units) {
-    if (u.side === side || !canTakeDamage(u)) continue;
+    if (!canTakeDamage(u)) continue;
     let dist = Math.hypot(
       u.x - x,
       u.y - (CARDS[u.id].air ? bodyHeight(u) : 20) - y,
@@ -3034,7 +3038,6 @@ export function explode(
   // hit the dirt — the closer the blast, the longer and lower the reaction.
   for (const u of s.units) {
     if (
-      u.side === side ||
       !CARDS[u.id].members ||
       u.wounded ||
       u.surrendered ||
@@ -3068,7 +3071,6 @@ export function explode(
     u.blastGlanceDir = (u.x >= x ? -1 : 1) as 1 | -1;
   }
   for (const target of [0, 1] as Side[]) {
-    if (target === side) continue;
     const bx = target === 0 ? 70 : W - 70;
     if (Math.hypot(bx - x, ground(s, bx) - 20 - y) < radius + 40)
       s.players[target].hp = Math.max(
@@ -3187,7 +3189,8 @@ export function directShotIntercept(
     ? smallArmsRayIntercept(s, sx, sy, tx, ty)
     : terrainIntercept(s, sx, sy, tx, ty);
 }
-function retreatingFriendlyHit(
+const friendlyRayScratch: Unit[] = [];
+function friendlyProjectileHit(
   s: GameState,
   p: Projectile,
   sx: number,
@@ -3198,11 +3201,10 @@ function retreatingFriendlyHit(
   if (p.radius || p.missed || p.damage <= 0 || p.sourceUid === undefined)
     return null;
   let nearest: { u: Unit; t: number; x: number; y: number } | null = null;
-  for (const u of s.units) {
+  for (const u of nearUnits(s, (sx + tx) / 2, Math.abs(tx - sx) / 2 + 8, friendlyRayScratch)) {
     if (
       u.uid === p.sourceUid ||
       u.side !== p.side ||
-      u.tactic !== 'retreat' ||
       !canTakeDamage(u) ||
       !CARDS[u.id].members
     )
@@ -3815,7 +3817,7 @@ function setStance(
   u: Unit,
   time: number,
   desired: Unit['pose'],
-  options?: { force?: boolean; travel?: boolean; worksite?: boolean; danger?: boolean },
+  options?: { force?: boolean; travel?: boolean; worksite?: boolean; danger?: boolean; firing?: boolean },
 ): Unit['pose'] {
   // Already in the requested pose: never re-arm the lock on a re-asserted
   // state. Continuous override blocks (observer hold, medic treatment,
@@ -3839,7 +3841,7 @@ function setStance(
   if (!u.wounded && !lowering && magazineReloadActive(u, time)) return u.pose;
   if (
     !u.wounded &&
-    !options?.worksite && !lowering &&
+    !options?.worksite && !options?.firing && !lowering &&
     u.stanceLockUntil !== undefined &&
     time < u.stanceLockUntil
   )
@@ -4620,7 +4622,7 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
   const c = weaponCard(source),
     t = CARDS[target.id];
   const distance = Math.abs(source.x - target.x);
-  return (
+  const primary = (
     (c.damage ?? 0) > 0 &&
     (!airborneTarget(target) || c.antiAir || rifleRotorTarget(source, target)) &&
     (!c.airOnly || airborneTarget(target)) &&
@@ -4631,6 +4633,14 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
     (c.indirect ||
       firingSolution(s, source, target) !== null)
   );
+  // Tank coaxial fire remains lethal where the main barrel cannot depress.
+  const secondary = !!t.members && (isBattleTank(source.id) || source.id === 'tow_ifv') &&
+    (source.secondaryAmmo ?? 1) > 0 && distance <= 420 &&
+    !sceneryIntercept(s, muzzlePoint(source, target.x, 42, true).x,
+      muzzlePoint(source, target.x, 42, true).y, target.x, target.y - bodyHeight(target), false, true) &&
+    !terrainIntercept(s, muzzlePoint(source, target.x, 42, true).x,
+      muzzlePoint(source, target.x, 42, true).y, target.x, target.y - bodyHeight(target), true);
+  return primary || secondary;
 }
 function tacticalPressure(s: GameState, source: Unit, target: Unit, potential = false) {
   if ((source.ammo === 0 && (!potential || (source.ammoReserve ?? 0) <= 0)) ||
@@ -4638,12 +4648,15 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit, potential = 
   const c = weaponCard(source),
     t = CARDS[target.id];
   if (!(c.damage! > 0) ||
+      (!c.indirect && (t.armorTier ?? 0) > armorPenetrationTier(ammunition(source.id, source.member), c)) ||
       (c.airOnly && !airborneTarget(target)) ||
       (c.armorOnly && !t.armored && !t.vehicle)) return 0;
   const cycle = c.burstSize
     ? ((c.burstSize - 1) * c.rate! + c.burstPause!) / c.burstSize
     : c.rate!;
   const hit = t.armored && c.penetration ? c.penetration : c.damage!;
+  const coaxPower = t.members && (isBattleTank(source.id) || source.id === 'tow_ifv') &&
+    (source.secondaryAmmo ?? 1) > 0 && Math.abs(source.x - target.x) <= 420 ? 6 * 1.5 * 3 / 3 / .4 : 0;
   const multiplier = t.armored
     ? (c.armorMultiplier ?? 1)
     : t.members
@@ -4658,16 +4671,17 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit, potential = 
     : canOverheat(source) && unitHeat(s, source) > OVERHEAT_HOT
       ? 0.85
       : 1;
-  return (
+  return Math.max(coaxPower, (
     (hit / (c.members ?? 1) / Math.max(0.12, cycle)) *
     (rifleRotorTarget(source, target) ? 0.018 : 1) *
     multiplier *
     smallArmsHitMultiplier(ammunition(source.id, source.member), !!t.members, modelOf(source.id) === 'sniper') *
+    smallArmsAccuracyScale(ammunition(source.id, source.member), modelOf(source.id) === 'sniper') *
     splash *
     heatFactor *
     Math.sqrt(40 / Math.max(25, target.maxHp)) *
     Math.sqrt(Math.max(0.1, source.hp / source.maxHp))
-  );
+  ));
 }
 function effectiveHeavyCounter(s: GameState, friend: Unit, foe: Unit) {
   const weapon = weaponCard(friend),
@@ -4768,14 +4782,14 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
           .reduce((sum,v) => sum+tacticalPressure(s,v,u,true),0);
         const support = near.filter(v => v.side === u.side && isCombatant(v))
           .reduce((sum,v) => sum+tacticalPressure(s,v,foe),0);
-        u.withdrawSupportReady = support >= Math.max(12,hostile*0.9);
+        u.withdrawSupportReady = support >= Math.max(4,hostile*0.9);
       }
     }
     if (!isCombatant(foe) || (u.withdrawSmallArms ? u.withdrawSupportReady : heavySupport(s, u, foe))) {
       clear();
       return;
     }
-    if (tacticalReach(s, foe, u, 24)) {
+    if (tacticalReach(s, foe, u, 24) || (!u.withdrawSmallArms && CARDS[foe.id].armored && Math.abs(foe.x-u.x)<520)) {
       const away = Math.sign(u.x - foe.x) || (u.side === 0 ? -1 : 1);
       u.withdrawStandby = false;
       u.withdrawStandbySince = undefined;
@@ -4786,7 +4800,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
         (u.withdrawGoal - u.x) * away < 0
       ) {
         const shelter = u.withdrawSmallArms ? seekCover(s,u,foe,true) : null;
-        const safe = shelter ?? (foe.x + away * (unitRange(s, foe) + 220));
+        const safe = shelter ?? (foe.x + away * (Math.max(420,unitRange(s, foe)) + 220));
         const slot = infantrySpace(s, u, safe, 72, away);
         u.withdrawGoal = slot.x;
         u.passingLane = slot.lane;
@@ -5032,7 +5046,8 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     CARDS[u.id].indirect ||
     CARDS[u.id].airOnly ||
     !visibleToSide(s, u.side, threat) ||
-    !tacticalReach(s, threat, u, 36)
+    !(tacticalReach(s, threat, u, 36) || ((weaponCard(threat).damage ?? 0) > 0 && CARDS[threat.id].armored &&
+      Math.abs(threat.x - u.x) < 520 && !heavySupport(s,u,threat)))
   )
     return;
   const squad = squadMates(s, u.side, u.squad)
@@ -5074,7 +5089,8 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       v.side !== u.side &&
       visibleToSide(s, u.side, v) &&
       Math.abs(v.x - center) <= 640 &&
-      squad.some((mate) => tacticalReach(s, v, mate, 36)),
+      squad.some((mate) => tacticalReach(s, v, mate, 36) ||
+        ((weaponCard(v).damage ?? 0) > 0 && CARDS[v.id].armored && Math.abs(v.x - mate.x) < 520)),
   );
   const pressures = foes.map((foe) => ({
     foe,
@@ -5085,8 +5101,9 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     ({ foe, power }) =>
       // A slow HE gun can kill a rifleman in one shot despite modest average
       // DPS. Armour the squad cannot penetrate still requires real AT cover.
-      ((CARDS[foe.id].armored && power > 0) || (sustainedAirThreat(foe) && power >= 8)) &&
-      squad.some((mate) => tacticalReach(s, foe, mate, 0)) &&
+      ((CARDS[foe.id].armored && (weaponCard(foe).damage ?? 0) > 0 && (power > 0 || Math.abs(foe.x-center) < 520)) || (sustainedAirThreat(foe) && power >= 8)) &&
+      squad.some((mate) => tacticalReach(s, foe, mate, 0) ||
+        ((weaponCard(foe).damage ?? 0) > 0 && CARDS[foe.id].armored && Math.abs(foe.x-mate.x) < 520)) &&
       !friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
   );
   // When friendly AT/AA is effectively countering a visible heavy threat,
@@ -5114,14 +5131,14 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     }
     return n + power;
   }, 0);
-  if (!unsupportedHeavy && enemyPower < Math.max(18, friendlyPower * 1.5)) {
+  if (!unsupportedHeavy && enemyPower < Math.max(6, friendlyPower * 1.5)) {
     for (const mate of squad) mate.withdrawPressureSince = undefined;
     return;
   }
   const since = squad.find(
     (v) => v.withdrawPressureSince !== undefined,
   )?.withdrawPressureSince;
-  const overwhelming = unsupportedHeavy || enemyPower >= Math.max(24, friendlyPower * 2.2);
+  const overwhelming = unsupportedHeavy || enemyPower >= Math.max(8, friendlyPower * 2.2);
   if (!overwhelming && (since === undefined || s.time - since < 0.2)) {
     for (const mate of squad) mate.withdrawPressureSince = since ?? s.time;
     return;
@@ -5774,7 +5791,7 @@ function fireCoax(s: GameState, u: Unit) {
     side: u.side,
     targetUid: target.uid,
     base: null,
-    damage: 3 * (s.players[u.side].morale > 0 ? 1.35 : 1),
+    damage: (personal ? 3 : 6) * (s.players[u.side].morale > 0 ? 1.35 : 1),
     infantryMultiplier: personal ? 1 : MACHINEGUN_INFANTRY_MULTIPLIER,
     radius: 0,
     life: total,
@@ -5982,6 +5999,24 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
 function towEmplacement(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   if (isImmobilized(u) || u.resupplyState === 'waiting') return false;
+  if (c.emplacement && (u.squadOrder === 'attack' || u.squadOrder === 'retreat') &&
+      u.squadOrderX !== undefined && (u.squadOrderUntil ?? Infinity) > s.time) {
+    const delta = u.squadOrderX - u.x;
+    if (Math.abs(delta) <= 1) {
+      u.squadOrder = 'watch'; u.squadOrderX = u.x;
+      u.emplaced = true; u.emplacementSetupUntil = s.time + 1.2;
+      return true;
+    }
+    u.emplaced = false;
+    const speed = 28 * .8 * (Math.sign(delta) === (u.side === 0 ? -1 : 1) ? .65 : 1);
+    const before = u.x;
+    u.x = contactSafeX(s, u, u.x + Math.sign(delta) * Math.min(Math.abs(delta), speed * dt));
+    u.y = ground(s, u.x); u.facing = Math.sign(delta);
+    u.moving = Math.abs(u.x - before) > .001; u.vx = (u.x - before) / dt;
+    u.walk += Math.min(Math.abs(u.x - before) / 8, .95);
+    u.fire = 0; u.secondaryFire = 0;
+    return true;
+  }
   if (c.emplacement === 'howitzer') return towHowitzer(s, u, dt);
   if (!c.emplacement || u.emplaced) return false;
   const canEngage = s.units.some(
@@ -8992,12 +9027,21 @@ export function tick(s: GameState, dt: number) {
     if (isHeavyGunner(u) && ((u.contactUntil ?? 0) > s.time ||
         Math.abs(u.x - (u.side === 0 ? W - 70 : 70)) <= unitRange(s,u)) &&
         order !== 'rush' && desiredPose === 'idle') desiredPose = 'crouch';
+    // A failed low firing posture is not a reason to stay silent forever.
+    // Only sustained blockage during a safe lull may end its commitment early.
+    const recoverFiringStance = !!c.members && u.blockedAimSince !== undefined &&
+      s.time-u.blockedAimSince >= 2.5 && u.ammo !== 0 &&
+      u.suppression < 35 && (u.duckUntil ?? 0) <= s.time &&
+      (u.duckProneUntil ?? 0) <= s.time && (u.flinchUntil ?? 0) <= s.time &&
+      (u.withdrawUntil ?? 0) <= s.time && !u.withdrawStandby &&
+      !stanceTransitionActive(u,s.time);
     // Choose a usable firing height BEFORE committing for ten seconds. The
     // old order first locked a crouch, then immediately asked the peek layer
     // to stand up again; honoring the lock consequently left that man silent.
     if (c.members && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
         order !== 'prone' && order !== 'crouch' &&
-        !previousWork.tending && desiredPose !== 'idle' && s.time >= (u.stanceLockUntil ?? 0)) {
+        !previousWork.tending && (desiredPose !== 'idle' || (recoverFiringStance && stanceClass(u.pose) !== 'stand')) &&
+        (s.time >= (u.stanceLockUntil ?? 0) || recoverFiringStance)) {
       const lowBodies: (FiringBody | undefined)[] = [];
       const lowForecasts: (FiringForecast | undefined)[][] = [[], [], []];
       const standingHeight = standingMuzzleHeight(u);
@@ -9008,14 +9052,14 @@ export function tick(s: GameState, dt: number) {
             const x = u.x + dir * step;
             // These three hypothetical bodies stay fixed throughout this one
             // stance decision. Reuse their geometry, never a target's ray.
-            const lowBody = lowBodies[index] ??= { ...u, pose: desiredPose,
+            const lowBody = lowBodies[index] ??= { ...u, pose: desiredPose === 'idle' ? u.pose : desiredPose,
               moving: false, x, y: ground(s, x) };
             const direction = Math.sign(enemy.x - x) + 1;
             const forecast = lowForecasts[index][direction] ??= firingForecast(lowBody, enemy.x);
             return firingSolution(s, lowBody, enemy, true, false, forecast)?.height === standingHeight;
           }))) {
         desiredPose = 'idle';
-        setStance(u, s.time, 'idle');
+        setStance(u, s.time, 'idle', {firing:recoverFiringStance});
         // Also commit when already standing: movement/peek code later in the
         // same tick must not immediately replace this chosen firing stance.
         u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
@@ -9154,9 +9198,9 @@ export function tick(s: GameState, dt: number) {
           const stanceSpeed = stanceClass(u.pose) === 'prone' ? 0.25 : stanceClass(u.pose) === 'crouch' ? 0.62 : 1;
           moveSoldier(s, u, moveDir, Math.min(c.speed! * u.pace * stanceSpeed, Math.abs(delta) / dt), dt);
         }
-      } else if (!c.static && !isImmobilized(u) && Math.abs(delta) > 1) {
+      } else if ((!c.static || c.emplacement) && !isImmobilized(u) && Math.abs(delta) > 1) {
         const before = u.x;
-        const speed = c.speed! * 0.8 * (moveDir !== dir ? 0.65 : 1);
+        const speed = (c.emplacement ? 28 : c.speed!) * 0.8 * (moveDir !== dir ? 0.65 : 1);
         u.x = vehicleTravelX(u, contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * Math.min(Math.abs(delta), speed * dt)))));
         u.moving = Math.abs(u.x - before) > 0.001;
         u.facing = dir;
@@ -9522,6 +9566,10 @@ export function tick(s: GameState, dt: number) {
             firingSolution(s, u, v, false, false, selectionForecast(v.x)) !== null,
         ) ?? target;
     }
+    if (c.members && !c.indirect && candidates.length && !target &&
+        !isPrecisionObserver(u) && u.ammo !== 0)
+      u.blockedAimSince ??= s.time;
+    else u.blockedAimSince = undefined;
     if (
       target &&
       c.infantryAbility === 'smoke_assault' &&
@@ -11186,7 +11234,7 @@ export function tick(s: GameState, dt: number) {
     const impact = projectileIntercept(s, p, oldX, oldY, p.x, p.y);
     aimProjectileDepth(s, p);
     suppressNearMiss(s, p, oldX, oldY, impact?.x ?? p.x, impact?.y ?? p.y);
-    const friendly = retreatingFriendlyHit(s, p, oldX, oldY, p.x, p.y);
+    const friendly = friendlyProjectileHit(s, p, oldX, oldY, p.x, p.y);
     if (p.tracer) {
       const end =
         friendly &&
@@ -11218,11 +11266,7 @@ export function tick(s: GameState, dt: number) {
       p.life = 0;
       p.x = friendly.x;
       p.y = friendly.y;
-      if (s.time - friendly.u.friendlyWarnAt > 3) {
-        notify(s, '撤退队员进入友军射线，发生误伤', 'warn', [friendly.u.side]);
-        friendly.u.friendlyWarnAt = s.time;
-      }
-      hitUnit(s, friendly.u, p.damage, p.side, 0, 'bullet', p.sourceUid, friendly.x, friendly.y, p.ammunition);
+      hitUnit(s, friendly.u, p.damage * (p.infantryMultiplier ?? 1), p.side, 0, 'bullet', p.sourceUid, friendly.x, friendly.y, p.ammunition);
       bulletImpact(s, p.x, p.y, 'cloth', Math.sign(p.tx - p.startX));
       continue;
     }

@@ -1,3 +1,10 @@
+import {createElement} from 'react';
+import {createRoot} from 'react-dom/client';
+import UnitLogisticsFan from '../app/unit-logistics-fan';
+import SquadMenu from '../app/squad-menu';
+import {ordersForUnit} from '../game/squad-orders';
+import {issueLogisticsOrder,logisticsAlert} from '../game/logistics-orders';
+import {createScenery,visibleToSide} from '../game/world';
 import {drawProjectile} from '../game/ballistics';
 import {wreckKind} from '../game/wreck-geometry';
 import {unitFrame,unitSize} from '../game/art';
@@ -23,6 +30,7 @@ const canvas = document.querySelector<HTMLCanvasElement>('#view')!,
 const began = performance.now(),
   art = await loadBattleArt('greyline'),
   loadMs = Math.round(performance.now() - began);
+const commandRoot = createRoot(document.querySelector('#commands')!);
 let mode = 'vehicles',
   capture = false,
   paused = false,
@@ -30,7 +38,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(210),
+let state = createGame(211),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -51,8 +59,9 @@ function spawn(side: 0 | 1, id: CardId, x: number) {
 }
 function scene(next: string) {
   mode = next;
+  commandRoot.render(null);
   paused = false;
-  state = createGame(210, undefined, undefined, undefined, { weather: false });
+  state = createGame(211, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -70,7 +79,47 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if (['lethality','withdraw','shelter'].includes(next)) {
+  if (['vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked'].includes(next)) {
+    camera=800;capture=false;paused=true;
+    if(next==='vision'||next==='reconvision') {
+      const plane=spawn(0,next==='vision'?'strike_jet':'scout_drone',1300);
+      Object.assign(plane,{x:1300,y:180,altitude:180});watch(plane);
+      const n=state.units.length,enemy=spawn(1,'infantry',1420);state.units.splice(n+1);watch(enemy);
+      Object.assign(enemy,{x:1420,y:374,cooldown:1e9});
+      state.scenery=createScenery(state.terrain,[{kind:'tree',x:1420,seed:211},{kind:'house',x:1700,seed:212}]);
+      state.knownScenery=[{},{}];actors=[plane,enemy];
+    } else if(next==='blocked') {
+      const n=state.units.length,u=spawn(0,'infantry',1000);state.units.splice(n+1);watch(u);
+      Object.assign(u,{x:1000,y:374,pose:'prone',stanceLockUntil:100,cooldown:0,readyAt:-10,rifleReady:1,fragCooldown:1e9});
+      const before=state.units.length,enemy=spawn(1,'infantry',1320);state.units.splice(before+1);watch(enemy);
+      Object.assign(enemy,{x:1320,y:374,cooldown:1e9});watch(spawn(0,'scouts',1280));
+      for(let x=1050;x<=1150;x++)state.terrain[x]=374-Math.max(0,20-Math.abs(x-1100)*.4);state.terrainVersion++;
+      actors=[u,enemy];
+    } else if(next==='duel') {
+      for(const side of [0,1] as const){const n=state.units.length;spawn(side,'infantry',side?1500:1200);
+        for(const [i,u] of state.units.slice(n).entries())Object.assign(u,{x:(side?1500:1200)+(side?1:-1)*i*18,
+          y:374,lane:i%4*12-18,cooldown:0,fragCooldown:1e9,personalMorale:100,pace:1});}
+      actors=[...state.units];
+    } else if(next==='friendly') {
+      for(const side of [0,1] as const){const n=state.units.length,u=spawn(side,'infantry',side?1410:1390);state.units.splice(n+1);
+        Object.assign(u,{x:side?1410:1390,y:374,cooldown:1e9});watch(u);actors.push(u);}
+      state.projectiles.push({sourceUid:99999,sourceCardId:'mlrs',ammunition:'rocket',x:1400,y:320,
+        startX:1400,startY:320,tx:1400,ty:354,side:0,targetUid:null,base:null,damage:20,radius:55,
+        life:.2,total:.2,arc:0,effect:'artillery'});
+    } else if(next==='coax') {
+      const tank=spawn(0,'tank',1100);watch(tank);Object.assign(tank,{x:1100,y:374,cooldown:1e9,secondaryCooldown:0});
+      const n=state.units.length,foe=spawn(1,'infantry',1420);state.units.splice(n+1);watch(foe);
+      Object.assign(foe,{x:1420,y:374,cooldown:1e9,fragCooldown:1e9,personalMorale:100});actors=[tank,foe];
+    } else {
+      const gun=spawn(0,'artillery',1250);watch(gun);Object.assign(gun,{x:1250,y:374,cooldown:1e9});actors=[gun];
+      if(next==='shortage'){gun.ammo=2;gun.ammoReserve=0;}
+      const close=()=>commandRoot.render(null);
+      if(next==='shortage')commandRoot.render(createElement(UnitLogisticsFan,{unit:gun,reason:logisticsAlert(gun)!.reason,x:48,y:63,onClose:close,
+        onOrder:order=>{issueLogisticsOrder(state,gun.uid,order);close();}}));
+      else commandRoot.render(createElement(SquadMenu,{x:48,y:63,name:CARDS[gun.id].name,count:1,unitLabel:'门',orders:ordersForUnit(gun.id),onClose:close,
+        onOrder:order=>{setSquadOrder(state,0,gun.squad,order);close();}}));
+    }
+  } else if (['lethality','withdraw','shelter'].includes(next)) {
     camera=800;capture=false;
     const n=state.units.length;spawn(0,'infantry',1200);
     const own=state.units.slice(n);
@@ -196,14 +245,18 @@ document.querySelector<HTMLButtonElement>('#step')!.onclick = () => {
 };
 document.querySelector<HTMLButtonElement>('#step10')!.onclick = () => {
   if (mode === 'parts' || mode === 'fog') return;
-  for (let i = 0; i < 600; i++) tick(state, 1 / 60);
+  for (let i = 0; i < 600; i++) {
+    tick(state, 1 / 60);
+    for (const p of state.projectiles)
+      if (p.sourceCardId === 'mlrs' && p.launcherTube !== undefined) ports.add(p.launcherTube);
+  }
   paused = true;
 };
 document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
@@ -307,7 +360,9 @@ function loop(now: number) {
             `${CARDS[u.id].name}：发射 ${u.shots - (initial.get(u.uid) ?? 0)}${(u.ammo ?? -1) >= 0 ? '，待发 ' + u.ammo + '，备弹 ' + (u.ammoReserve ?? 0) : ''}${(u.reloadingUntil ?? 0) > state.time ? '，装填 ' + Math.ceil(u.reloadingUntil! - state.time) + '秒' : ''}`,
         )
         .join(' ｜ ') +
-      (['lethality','withdraw','shelter'].includes(mode)
+      (['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
+        : ['friendly','duel','coax','gunorders','shortage','blocked'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
+        : ['lethality','withdraw','shelter'].includes(mode)
         ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
         : mode === 'wreck'
         ? ` · 已前进 ${Math.round(actors[0].x - (starts.get(actors[0].uid) ?? 0))}像素 · 敌方幸存兵 ${state.units.filter(u => u.side === 1 && u.hp > 0 && !u.wounded && !u.surrendered).length}`

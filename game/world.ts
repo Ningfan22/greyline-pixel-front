@@ -613,12 +613,34 @@ export function observerUnits(s: GameState, side: Side) {
   }
   return index.sides[side];
 }
+/** Air-to-air detection is independent of ground observation. Canopy and roofs
+ * hide a ground sector from strike aircraft even when their sloping ray clears it. */
+export function airGroundSight(u: Pick<Unit, 'id'>): number | null {
+  const c = CARDS[u.id];
+  if (!c.air) return null;
+  if (c.observer) return c.sight ?? 980;
+  return u.id === 'helicopter' || c.airframe === 'rocket_heli' || c.airframe === 'transport_heli'
+    ? 320 : 180;
+}
+function openAirGroundSector(s: GameState, sx: number, tx: number) {
+  const left = Math.min(sx, tx) - 48, right = Math.max(sx, tx) + 48;
+  if (nearbyObstacles(s, left, right).some(b => !b.rubble &&
+      (b.prop?.kind === 'tree' || b.prop?.kind === 'house') &&
+      b.x < right && b.x + b.w > left)) return false;
+  let lo = Infinity, hi = -Infinity;
+  for (let x = left; x <= right; x += 12) {
+    const y = floorAt(s, x); lo = Math.min(lo, y); hi = Math.max(hi, y);
+    if (hi - lo > 18) return false;
+  }
+  return true;
+}
 export function pointVisibleWith(
   s: GameState,
   side: Side,
   x: number,
   y: number,
   candidates?: Unit[],
+  layer: 'ground' | 'air' = 'ground',
 ) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 360 && y > floorAt(s, x) - 170)
     return true;
@@ -634,14 +656,16 @@ export function pointVisibleWith(
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered ||
         (CARDS[u.id].fortification && (u.buildUntil ?? 0) > s.time))
       return false;
+    const groundRange = layer === 'ground' ? airGroundSight(u) : null;
     const range =
-      sightRange(u) *
+      Math.min(sightRange(u), groundRange ?? Infinity) *
       (s.players[side].recon > 0 ? 1.15 : 1) *
       ((s.players[side].sensorBlindUntil ?? 0) > s.time ? 0.45 : 1) *
       (s.night ? 0.45 : 1) *
       weatherVisibility(s);
-    const distance = Math.hypot(u.x - x, (u.y - 45 - y) * 0.65);
+    const distance = Math.hypot(u.x - x, (u.y - 45 - y) * (groundRange !== null ? 0.25 : 0.65));
     if (distance > range) return false;
+    if (groundRange === 180 && !openAirGroundSector(s, u.x, x)) return false;
     const eye =
       u.y -
       (CARDS[u.id].air
@@ -673,8 +697,8 @@ export function pointVisibleWith(
     );
   });
 }
-export function pointVisible(s: GameState, side: Side, x: number, y: number) {
-  return pointVisibleWith(s, side, x, y);
+export function pointVisible(s: GameState, side: Side, x: number, y: number, layer: 'ground' | 'air' = 'ground') {
+  return pointVisibleWith(s, side, x, y, undefined, layer);
 }
 const visibleLookup = new WeakMap<
   number[],
@@ -726,6 +750,7 @@ export function refreshVision(s: GameState) {
             side,
             u.x,
             u.y - (u.pose === 'prone' ? 8 : u.pose === 'hunker' ? 16 : 28),
+            CARDS[u.id].air || u.parachuting || u.rappelling ? 'air' : 'ground',
           ) && detectConcealedInfantry(s, side, u)) ||
           // Night: a muzzle flash betrays the shooter to anyone nearby.
           (s.night &&
@@ -736,7 +761,9 @@ export function refreshVision(s: GameState) {
                 v.hp > 0 &&
                 !v.wounded &&
                 !v.surrendered &&
-                Math.abs(v.x - u.x) <= 560,
+                Math.abs(v.x - u.x) <= 560 &&
+                (!CARDS[v.id].air || pointVisibleWith(s, side, u.x, u.y - 20, [v],
+                  CARDS[u.id].air ? 'air' : 'ground')),
             )),
       )
       .map((u) => u.uid);

@@ -90,8 +90,8 @@ test('shorter live 16-rocket salvo keeps every tube, damage and supply cost', ()
   assert.equal(shots.length,16); assert.deepEqual(shots.map(p=>p.port),Array.from({length:16},(_,i)=>i));
   assert(shots.at(-1).time-shots[0].time<3.3);
   assert.equal(u.ammo,0); assert.equal(u.ammoReserve,16);
-  assert(u.reloadingUntil - shots.at(-1).time <= 12.1, 'real loaded-rack timer follows 12-second rule');
-  assert(shots.every(p=>p.damage===10)); assert.equal(CARDS.mlrs.burstPause,12);
+  assert(u.reloadingUntil - shots.at(-1).time <= 18.1, 'real loaded-rack timer follows 18-second rule');
+  assert(shots.every(p=>p.damage===10)); assert.equal(CARDS.mlrs.burstPause,18);
   for(const [id,rate] of [['field_gun',5.5],['artillery',10],['barrage',14],['precision',12],['siege_gun',14]]) assert.equal(CARDS[id].rate,rate);
   assert.equal(CARDS.mortar.rate,10,'previous mortar nerf retained');
 });
