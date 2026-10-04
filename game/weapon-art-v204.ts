@@ -17,8 +17,6 @@ export interface HelicopterParts {
   gunPivot: [number, number];
 }
 export interface WeaponEffects {
-  flame: HTMLCanvasElement[];
-  flameOrigins: number[];
   rocket: HTMLCanvasElement;
 }
 function crop(
@@ -86,14 +84,9 @@ export function helicopterParts(image: HTMLImageElement): HelicopterParts {
   };
 }
 export function weaponEffects(
-  flame: HTMLImageElement,
   rocketSheet: HTMLImageElement,
 ): WeaponEffects {
   return {
-    flame: [0, 1, 2, 3].map((row) =>
-      crop(flame, [32, row * 256, 1473, 256], 192),
-    ),
-    flameOrigins: [170, 170, 166, 151].map((y) => (y * 192) / 1473),
     rocket: crop(rocketSheet, [150, 877, 1160, 114], 34),
   };
 }
@@ -154,23 +147,37 @@ export function drawFlameStream(
   uid: number,
 ) {
   const dx = tx - x,
-    dy = ty - y,
-    length = Math.hypot(dx, dy);
+    length = Math.abs(dx);
   if (length < 3) return;
-  const index = Math.floor(time * 13 + uid) % effects.flame.length,
-    frame = effects.flame[index];
-  const scale = length / frame.width;
+  // A fuel jet, drawn on a coarse grid without a source image. The central
+  // channel never moves vertically; advected noise only changes its edges.
+  const pixel = 3, width = Math.round(length), columns = Math.ceil(width / pixel);
+  const phase = Math.floor(time * 12);
+  const noise = (column: number, salt: number) => {
+    let n = Math.imul(column - phase * 2 + uid * 71 + salt * 191, 1597334677);
+    n = Math.imul(n ^ (n >>> 16), 2246822519);
+    return (n >>> 0) / 4294967296;
+  };
   ctx.save();
-  ctx.imageSmoothingEnabled = false;
   ctx.translate(Math.round(x), Math.round(y));
-  ctx.rotate(Math.atan2(dy, dx));
-  ctx.drawImage(
-    frame,
-    0,
-    -effects.flameOrigins[index] * scale,
-    length,
-    frame.height * scale,
-  );
+  ctx.scale(dx < 0 ? -1 : 1, 1);
+  for (let column = 0; column < columns; column++) {
+    const progress = column / Math.max(1, columns - 1);
+    const edge = (noise(column, 0) + noise(column - 1, 0)) * 0.5;
+    const taper = Math.min(1, (1 - progress) / 0.2 + 0.4);
+    const radius = pixel * Math.max(1, Math.round((1 + progress * 1.4 + edge * 0.4) * taper));
+    const left = column * pixel, cellWidth = Math.min(pixel, width - left);
+    ctx.fillStyle = edge > 0.55 ? '#b74316' : '#963315';
+    ctx.fillRect(left, -radius, cellWidth, radius * 2);
+    const hotRadius = Math.max(pixel, radius - pixel);
+    ctx.fillStyle = noise(column, 1) > 0.45 ? '#e46a1b' : '#d65116';
+    ctx.fillRect(left, -hotRadius, cellWidth, hotRadius * 2);
+    // Broken warm highlights rather than a white laser down the entire jet.
+    if (noise(column, 2) > 0.55) {
+      ctx.fillStyle = '#f5a53a';
+      ctx.fillRect(left, -1, cellWidth, pixel);
+    }
+  }
   ctx.restore();
 }
 

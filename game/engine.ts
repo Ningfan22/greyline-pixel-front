@@ -2906,8 +2906,11 @@ export function explode(
   armorMultiplier = 1,
   kind: Blast['kind'] = 'he',
   infantryMultiplier = 1,
-  sourceUid?: number,
+  sourceUid?: number | Pick<Projectile, 'sourceUid' | 'ammunition'>,
 ) {
+  // Carry the round identity even after its firing unit has been destroyed.
+  const rocketImpact = typeof sourceUid === 'object' && sourceUid.ammunition === 'rocket';
+  sourceUid = typeof sourceUid === 'object' ? sourceUid.sourceUid : sourceUid;
   burst(s, x, y, radius, kind);
   const sheltered = new Map<number, number>();
   for (const u of s.units) {
@@ -2948,12 +2951,13 @@ export function explode(
   // Blast reach and the excavated soil footprint are deliberately separate.
   if (y > ground(s, x) - 80) {
     const small = kind === 'grenade';
-    const soilRadius = Math.min(small ? 15 : 44, radius * (small ? 0.4 : 0.8));
+    const soilScale = rocketImpact ? 0.12 : 1;
+    const soilRadius = Math.min(small ? 15 : 44, radius * (small ? 0.4 : 0.8)) * Math.sqrt(soilScale);
     crater(
       s,
       x,
       soilRadius,
-      Math.min(small ? 3.5 : 10, radius * (small ? 0.1 : 0.18)),
+      Math.min(small ? 3.5 : 10, radius * (small ? 0.1 : 0.18)) * soilScale,
     );
   }
   for (const u of s.units) {
@@ -10362,11 +10366,16 @@ export function tick(s: GameState, dt: number) {
               Math.abs(r.x - tx) <= Math.max(160, r.scatter + 60),
           ) ?? null;
         const scatter =
-          (u.id === 'precision' ? 14 : c.emplacement ? 42 : 26) *
+          (u.id === 'mlrs' ? 120 : u.id === 'precision' ? 14 : c.emplacement ? 42 : 26) *
           (spotted ? 0.55 : 1) *
           (burnedReport ? 0.45 : 1) *
           veteranScatter(u);
         tx += (rnd(s) - 0.5) * scatter * 2;
+        ty = ground(s, tx) - 8;
+      }
+      // Unguided helicopter rockets cover an area instead of pinpointing a body.
+      if (u.id === 'rocket_heli' && u.cooldown <= 0) {
+        tx += (rnd(s) - .5) * 2 * Math.min(72, Math.max(36, Math.abs(tx - u.x) * .1));
         ty = ground(s, tx) - 8;
       }
       // A cooking barrel drags the sight picture off target: the hotter the
@@ -10425,6 +10434,7 @@ export function tick(s: GameState, dt: number) {
         const point = aimedGun?.muzzle ?? muzzlePoint(u, tx),
           sx = point.x,
           sy = point.y;
+        if (ammunition(u.id, u.member) === 'flame') ty = sy;
         if (
           coverShot ||
           c.indirect ||
@@ -11143,7 +11153,7 @@ export function tick(s: GameState, dt: number) {
           p.armorMultiplier,
           p.effect,
           p.infantryMultiplier,
-          p.sourceUid,
+          { sourceUid: p.sourceUid, ammunition: p.ammunition },
         );
       else {
         damageScenery(s, impact.x, impact.y, 3, p.damage);
@@ -11174,7 +11184,7 @@ export function tick(s: GameState, dt: number) {
           p.armorMultiplier,
           p.effect,
           p.infantryMultiplier,
-          p.sourceUid,
+          { sourceUid: p.sourceUid, ammunition: p.ammunition },
         );
       else if (p.targetUid !== null) {
         const u = s.units.find((u) => u.uid === p.targetUid);

@@ -91,9 +91,9 @@ for (const id of ['mlrs', 'field_gun', 'siege_gun'] as const) {
 for (const id of ['helicopter', 'rocket_heli', 'escort_gunship'] as const)
   MOUNTS[id] = {
     ...helicopterMount(id === 'rocket_heli'),
-    minElevation: rad(-78),
-    // The chin gun cannot elevate through its own nose. Rocket pods keep their arc.
-    maxElevation: rad(id === 'rocket_heli' ? 35 : 8),
+    minElevation: rad(id === 'rocket_heli' ? -10 : -78),
+    // Chin gun clears the nose; a wing-mounted rocket pod has only a small sweep.
+    maxElevation: rad(id === 'rocket_heli' ? 5 : 8),
     restElevation: 0,
   };
 export function gunMount(id: CardId): GunMount | null {
@@ -201,7 +201,10 @@ export function aimedGunSolution(body: GunBody, tx: number, ty: number) {
       ? WEAPON_LAYOUT.mlrs.sourceElevation +
         rad(16 + clamp((dx - 350) / 700, 0, 1) * 24)
       : rad(12 + clamp((dx - 200) / 1000, 0, 1) * 20);
-  const requested = indirect
+  // Unguided pod rockets leave a nearly level fixed rack, then fall along
+  // a muzzle-tangent path. Do not hinge the entire pod toward the ground.
+  const rocketPod = body.id === 'rocket_heli';
+  const requested = rocketPod ? clamp(sightElevation, mount.minElevation, mount.maxElevation) : indirect
     ? Math.max(preferred, sightElevation + rad(5))
     : sightElevation;
   const basePose = gunPose(body, requested, facing)!;
@@ -217,7 +220,7 @@ export function aimedGunSolution(body: GunBody, tx: number, ty: number) {
     dx > mount.barrelLength + 12 &&
     requested >= mount.minElevation - 1e-6 &&
     requested <= mount.maxElevation + 1e-6;
-  const arc = indirect
+  const arc = indirect || rocketPod
     ? Math.max(
         0,
         (ty - pose.muzzle.y - (tx - pose.muzzle.x) * Math.tan(pose.angle)) / 4,

@@ -78,7 +78,7 @@ function scene(next: string) {
         cooldown: 1e9,
         secondaryCooldown: 1e9,
       });
-    camera = 520;
+    camera = 760;
   } else if (next === 'salvo') {
     const battery = spawn(0, 'mlrs', 750),
       spotter = spawn(0, 'pathfinders', 1270),
@@ -199,7 +199,14 @@ function loop(now: number) {
     for (const p of state.projectiles)
       if (p.sourceCardId === 'mlrs' && p.launcherTube !== undefined)
         ports.add(p.launcherTube);
-    render(ctx, state, art, null, null, true, camera, 1050);
+    ctx.save();
+    if (mode === 'flame') {
+      // Show the actual battlefield at the player's close inspection scale.
+      ctx.translate(0, -250);
+      ctx.scale(2, 2);
+    }
+    render(ctx, state, art, null, null, true, camera, mode === 'flame' ? 525 : 1050);
+    ctx.restore();
     status.textContent =
       `${state.time.toFixed(1)}秒 · ` +
       actors

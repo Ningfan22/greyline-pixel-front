@@ -910,7 +910,7 @@ export function render(
     if (isDead) continue;
     if(art.weaponEffects && !u.wounded && !u.surrendered && (u.flameUntil??0)>s.time && u.flameTarget && (!c.members || (u.reloadingUntil??0)<=s.time)){
       const target=u.flameTarget,origin=visualMuzzle??muzzlePoint(u,target.x);
-      const stop=directShotIntercept(s,'flame',origin.x,origin.y,target.x,target.y);
+      const stop=directShotIntercept(s,'flame',origin.x,origin.y,target.x,origin.y);
       drawFlameStream(ctx,art.weaponEffects,origin.x,origin.y+infantryDepth(u.lane),stop?.x??target.x,(stop?.y??target.y)+infantryDepth(u.lane),s.time,u.uid);
     }
     // Stationary infantry in cover get a per-unit prop (sandbags for deep

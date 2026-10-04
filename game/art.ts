@@ -650,7 +650,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     })),
     Promise.all(TANK_IDS_V202.map(async id =>
       [id, tankPartsV202(id, await loadImage(`${TANK_ASSET_ROOT}/${id}.webp`))] as const)),
-    Promise.all(['mlrs','field-gun','siege-gun','helicopter','flame'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
+    Promise.all(['mlrs','field-gun','siege-gun','helicopter'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
   ]).then(
     ([
       [
@@ -731,7 +731,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       return {
         gunParts,
         helicopterParts:helicopterParts(weaponSheets[3]),
-        weaponEffects:weaponEffects(weaponSheets[4],weaponSheets[0]),
+        weaponEffects:weaponEffects(weaponSheets[0]),
         ammoCrate,
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),

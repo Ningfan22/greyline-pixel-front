@@ -190,7 +190,7 @@ test('helicopter weapons elevate separately and share the rendered mouth with th
         near(aim.muzzle.y, p.muzzle.y);
       }
 });
-test('all four generated flame frames remain connected from the nozzle through the stream', () => {
+test('procedural flame remains connected from the nozzle through the stream', () => {
   for (let frame = 0; frame < 4; frame++) {
     const c = createCanvas(240, 120);
     drawFlameStream(
@@ -347,7 +347,7 @@ test('each combat helicopter actually launches from its own articulated gun or p
     );
     near(u.shotAngle, pose.angle);
     if (!p.guided) {
-      const tangent = Math.atan2(p.ty - p.startY, p.tx - p.startX);
+      const tangent = Math.atan2(p.ty - p.startY - 4 * (p.arc ?? 0), p.tx - p.startX);
       near(Math.sin(tangent), Math.sin(pose.angle));
       near(Math.cos(tangent), Math.cos(pose.angle));
     }
