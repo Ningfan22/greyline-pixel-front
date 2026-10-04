@@ -790,12 +790,15 @@ function rememberGroundContacts(s: GameState, side: Side) {
   }
   reports[side] = [...remembered.values()];
 }
+/** Heavy shell demolition bonus applies to structures, never trees or troops. */
+export const ARTILLERY_STRUCTURE_MULTIPLIER = 3;
 export function damageScenery(
   s: GameState,
   x: number,
   y: number,
   radius: number,
   damage: number,
+  buildingMultiplier = 1,
 ) {
   geometryCache.delete(s);
   const stages = new Map(
@@ -804,6 +807,7 @@ export function damageScenery(
       .map((p) => [p.id, buildingStage(p)]),
   );
   for (const prop of s.scenery) {
+    const structuralDamage = damage * (prop.kind === 'house' ? buildingMultiplier : 1);
     if (prop.kind === 'house' && buildingStage(prop) >= 2) {
       if (buildingStage(prop) === 3) continue;
       const distance = Math.min(
@@ -819,7 +823,7 @@ export function damageScenery(
         (n, part) => n + Math.max(0, part.hp),
         0,
       );
-      const hit = damage * Math.max(0.15, 1 - distance / (radius + 1));
+      const hit = structuralDamage * Math.max(0.15, 1 - distance / (radius + 1));
       const fraction = Math.max(0, 1 - hit / Math.max(0.001, health));
       for (const part of prop.parts)
         if (part.hp > 0) {
@@ -837,7 +841,7 @@ export function damageScenery(
       if (distance > radius) continue;
       p.hp = Math.max(
         0,
-        p.hp - damage * Math.max(0.15, 1 - distance / (radius + 1)),
+        p.hp - structuralDamage * Math.max(0.15, 1 - distance / (radius + 1)),
       );
       if (!p.hp) p.brokenAt = s.time;
     }

@@ -77,7 +77,8 @@ export const HELI_LAYOUT = {
   gunWidth: 43,
   gunPivot: [1106, 773],
   gunMuzzle: [1646, 773],
-  gunSocket: [1377, 475],
+  // Chin mount sits below the painted nose; the barrel sweeps outside the hull.
+  gunSocket: [1377, 531],
 } as const;
 export function helicopterMount(rocket = false) {
   const a = HELI_LAYOUT,

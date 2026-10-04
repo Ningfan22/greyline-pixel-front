@@ -2406,9 +2406,9 @@ export const CARDS: Record<CardId, Card> = {
       antiAir: false,
       hp: 180,
       damage: 10,
-      rate: 0.35,
+      rate: 0.2,
       burstSize: 16,
-      burstPause: 14,
+      burstPause: 12,
       range: 1050,
       minRange: 350,
       speed: 42,
@@ -2418,7 +2418,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 460,
       tag: '炮兵 · 远程覆盖',
       detail:
-        '7费180生命无装甲。16管发射架以0.35秒间隔依次齐射16枚火箭，每枚10伤害、半径55，随后装填14秒；射程350–1050，曲射越障。携带16枚待发弹与16枚备弹，需要补给才能持续作战。跟随友军在前线后方约300保持阵位，无掩护时等待，短暂失去观察时保持炮位；最小射程大，不能代替精确反甲火力。',
+        '7费180生命无装甲。16管发射架以0.2秒间隔依次齐射16枚火箭，每枚10伤害、半径55，随后装填12秒；射程350–1050，曲射越障。携带16枚待发弹与16枚备弹，需要补给才能持续作战。跟随友军在前线后方约300保持阵位，无掩护时等待，短暂失去观察时保持炮位；最小射程大，不能代替精确反甲火力。',
     },
   ),
   scout_car: variant(
@@ -3030,31 +3030,36 @@ Object.assign(CARDS.mortar_carrier, {
 Object.assign(CARDS.artillery, {
   damage: 64,
   radius: 54,
-  rate: 12,
-  detail: '190生命，每12秒64伤害，爆炸半径54，射程280–1250。依靠友军观察，以大范围爆破和高耸烟柱压制阵地；慢速装填。',
+  rate: 10,
+  detail: '190生命，每10秒64伤害，爆炸半径54，射程280–1250。依靠友军观察，以大范围爆破和高耸烟柱压制阵地；慢速装填。',
 });
 Object.assign(CARDS.barrage, {
   damage: 96,
   radius: 70,
-  rate: 17,
-  detail: '240生命，每17秒96伤害，爆炸半径70，射程350–1450。依靠友军观察，大口径冲击覆盖密集阵地，落弹后留下粗大烟柱。',
+  rate: 14,
+  detail: '240生命，每14秒96伤害，爆炸半径70，射程350–1450。依靠友军观察，大口径冲击覆盖密集阵地，落弹后留下粗大烟柱。',
 });
 Object.assign(CARDS.precision, {
   damage: 90,
   radius: 42,
-  rate: 15,
-  detail: '170生命，每15秒90伤害，爆炸半径42，射程300–1350。依靠友军观察，范围小于野战榴弹炮，校射后集中打击重装目标。',
+  rate: 12,
+  detail: '170生命，每12秒90伤害，爆炸半径42，射程300–1350。依靠友军观察，范围小于野战榴弹炮，校射后集中打击重装目标。',
 });
 Object.assign(CARDS.field_gun, {
   damage: 44,
   radius: 42,
-  detail: '3费145生命，每6.5秒44伤害，爆炸半径42，射程170–950。轻型榴弹炮依靠友军观察，以低费炮击支援阵地，爆破范围大于迫击炮。',
+  rate: 5.5,
+  detail: '3费145生命，每5.5秒44伤害，爆炸半径42，射程170–950。轻型榴弹炮依靠友军观察，以低费炮击支援阵地，爆破范围大于迫击炮。',
 });
 Object.assign(CARDS.siege_gun, {
   damage: 130,
   radius: 86,
-  detail: '6费280生命，每17秒130伤害，爆炸半径86，射程400–1600。依靠友军观察，大口径重弹和高耸烟柱覆盖整段阵地；装填缓慢。',
+  rate: 14,
+  detail: '6费280生命，每14秒130伤害，爆炸半径86，射程400–1600。依靠友军观察，大口径重弹和高耸烟柱覆盖整段阵地；装填缓慢。',
 });
+
+for (const id of ['artillery', 'barrage', 'precision', 'field_gun', 'siege_gun', 'mlrs'] as const)
+  CARDS[id].detail += ' 对房屋、墙体与工事造成3倍破拆伤害；基地伤害保持原倍率。';
 
 /** The bullet's base damage stays unchanged against armour, aircraft and HQs. */
 export const MACHINEGUN_INFANTRY_MULTIPLIER = 1.5;

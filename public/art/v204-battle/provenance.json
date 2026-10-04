@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2632.891709,
+  "compileMs": 2926.6115419999996,
   "canvasesCreated": 579,
   "frames": 443,
   "compilerSources": [
@@ -57,7 +57,7 @@
     },
     {
       "path": "game/gun-geometry.ts",
-      "sha256": "97c214ed9492a70fd2b0cbeab53233ae8bc97ef79db00c11896a8be1ba248fa3"
+      "sha256": "51ab37d023b5e4fe1d17b25225c71cb8bca7cb5368437094cd4235b005a17f1b"
     },
     {
       "path": "game/weapon-art-v204.ts",
@@ -65,7 +65,7 @@
     },
     {
       "path": "game/weapon-layout-v204.ts",
-      "sha256": "f58534ebd4fba858225d196a567e5911ae86ac353b8ec018abddbbaa225c9141"
+      "sha256": "c758f9ed656bee848a097a9b9726aa39dccf03b7a0ded91872cb3777b682a411"
     },
     {
       "path": "game/emplacement-art-v202.ts",
@@ -89,7 +89,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "fde519391bcd543f66af786d6c8dd4f5e0def0003e4a88a27789b95a60fed474"
+      "sha256": "a05b664b676ef0ac4fe755cc1d7b84b59d89219e9996fd33a4b7ba91fe4bb176"
     },
     {
       "path": "game/maps.ts",
@@ -105,7 +105,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "492d5112abe7614ae5ef17438747ee6ecfa72477770acf43355901cb06c625dc"
+      "sha256": "06baa4a6849e35eb503538bb75e9c67b323a5443bfaf0d8ff50ae8489d0888cc"
     },
     {
       "path": "game/battlefield-effects-art.ts",

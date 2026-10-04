@@ -114,6 +114,7 @@ import {
   sceneryIntercept,
   sceneryCoverHits,
   damageScenery,
+  ARTILLERY_STRUCTURE_MULTIPLIER,
   contactIsStale,
   type Scenery,
   type GroundContact,
@@ -2933,7 +2934,8 @@ export function explode(
       : 0;
     sheltered.set(u.uid, Math.max(earth, debris));
   }
-  damageScenery(s, x, y, radius, damage);
+  const structuralMultiplier = kind === 'artillery' ? ARTILLERY_STRUCTURE_MULTIPLIER : 1;
+  damageScenery(s, x, y, radius, damage, structuralMultiplier);
   s.visionIn = 0;
   for (const wall of s.walls) {
     if (
@@ -2941,7 +2943,7 @@ export function explode(
       Math.hypot(wall.x - x, ground(s, wall.x) - wall.height / 2 - y) <
         radius + wall.width / 2
     )
-      wall.hp = Math.max(0, wall.hp - damage);
+      wall.hp = Math.max(0, wall.hp - damage * structuralMultiplier);
   }
   // Blast reach and the excavated soil footprint are deliberately separate.
   if (y > ground(s, x) - 80) {
@@ -2979,6 +2981,7 @@ export function explode(
         s,
         u,
         damage *
+          (CARDS[u.id].fortification ? structuralMultiplier : 1) *
           Math.pow(Math.max(0, 1 - dist / (radius + 12)), 1.25) *
           (CARDS[u.id].armored
             ? armorMultiplier

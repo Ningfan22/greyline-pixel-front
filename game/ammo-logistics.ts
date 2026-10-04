@@ -33,7 +33,7 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   const c = CARDS[u.id], kind = ammunition(u.id, u.member);
   let primary = magazine(u.id, u.member);
   if (c.air || c.internal || isPrecisionObserver(u) || !(c.damage! > 0)) primary = null;
-  else if(u.id==='mlrs')primary={mag:16,reserve:16,reload:14};
+  else if(u.id==='mlrs')primary={mag:16,reserve:16,reload:CARDS.mlrs.burstPause ?? 12};
   else if (!primary) {
     const count = u.id === 'tow_ifv' ? 8
       : kind === 'cannon' && modelOf(u.id) === 'tank'

@@ -92,7 +92,8 @@ for (const id of ['helicopter', 'rocket_heli', 'escort_gunship'] as const)
   MOUNTS[id] = {
     ...helicopterMount(id === 'rocket_heli'),
     minElevation: rad(-78),
-    maxElevation: rad(35),
+    // The chin gun cannot elevate through its own nose. Rocket pods keep their arc.
+    maxElevation: rad(id === 'rocket_heli' ? 35 : 8),
     restElevation: 0,
   };
 export function gunMount(id: CardId): GunMount | null {

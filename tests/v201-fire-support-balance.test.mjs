@@ -119,8 +119,8 @@ function firedShell(id) {
 }
 
 test('howitzers launch heavier wider shells while retaining their slow reload intervals', () => {
-  for (const [id, damage, radius, rate] of [['artillery',64,54,12], ['barrage',96,70,17],
-    ['precision',90,42,15], ['field_gun',44,42,6.5], ['siege_gun',130,86,17]]) {
+  for (const [id, damage, radius, rate] of [['artillery',64,54,10], ['barrage',96,70,14],
+    ['precision',90,42,12], ['field_gun',44,42,5.5], ['siege_gun',130,86,14]]) {
     const {gun, shell} = firedShell(id);
     assert.equal(shell.damage, damage, id);
     assert.equal(shell.radius, radius, id);
