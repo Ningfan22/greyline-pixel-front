@@ -2,6 +2,7 @@ import { loadBattleArt } from '../game/art';
 import { drawArticulatedGun } from '../game/gun-art';
 import { drawHelicopter } from '../game/weapon-art-v204';
 import { gunMount } from '../game/gun-geometry';
+import { setSquadOrder } from '../game/squad-orders';
 import { render } from '../game/render';
 import {
   createGame,
@@ -25,10 +26,11 @@ let mode = 'parts',
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(204),
+let state = createGame(208),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
-  ports = new Set<number>();
+  ports = new Set<number>(),
+  starts = new Map<number, number>();
 function watch(u: Unit) {
   Object.assign(u, {
     squadOrder: 'watch',
@@ -46,7 +48,7 @@ function spawn(side: 0 | 1, id: CardId, x: number) {
 function scene(next: string) {
   mode = next;
   paused = false;
-  state = createGame(204, undefined, undefined, undefined, { weather: false });
+  state = createGame(208, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -64,7 +66,26 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if (next === 'flame') {
+  if (next === 'garrison') {
+    const fort = spawn(0, 'fort_bunker', 200); fort.buildUntil = 0;
+    const n = state.units.length; spawn(0, 'infantry', 200);
+    actors = state.units.slice(n);
+    setSquadOrder(state, 0, actors[0].squad, 'attack');
+    for (let i = 0; i < 12; i++) tick(state, 1 / 60);
+    paused = true; camera = 40;
+  } else if (next === 'wreck') {
+    const vehicle = spawn(1, 'tank', 1350); vehicle.hp = 1; vehicle.cooldown = 1e9;
+    state.projectiles.push({uid: ++state.uid, x: 1350, y: 350, startX: 1350,
+      startY: 350, tx: 1350, ty: 350, side: 0, targetUid: vehicle.uid, base: null,
+      damage: 10, radius: 0, shell: false, ammunition: 'ap', life: .01, total: .01});
+    for (let i = 0; i < 20; i++) tick(state, 1 / 60);
+    for (const u of state.units.filter(u => u.bailoutUntil !== undefined)) {
+      watch(u); Object.assign(u, {cooldown: 1e9, personalMorale: 100});
+    }
+    const tank = spawn(0, 'tank', 760); tank.pace = 1; tank.cooldown = 0;
+    watch(spawn(0, 'scouts', 1450));
+    actors = [tank]; camera = 600; paused = true;
+  } else if (next === 'flame') {
     const n = state.units.length;
     spawn(0, 'flame_team', 850);
     actors = state.units.slice(n);
@@ -122,6 +143,7 @@ function scene(next: string) {
     camera = 500;
     Object.assign(actors[0], { x: 900, y: 185, altitude: 189 });
   }
+  starts = new Map(actors.map(u => [u.uid, u.x]));
   initial = new Map(actors.map((u) => [u.uid, u.shots]));
   refreshVision(state);
   state.knownTerrain[0] = [...state.terrain];
@@ -136,7 +158,16 @@ document.querySelector<HTMLButtonElement>('#step')!.onclick = () => {
   }
   paused = true;
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog'])
+document.querySelector<HTMLButtonElement>('#step10')!.onclick = () => {
+  if (mode === 'parts' || mode === 'fog') return;
+  for (let i = 0; i < 600; i++) tick(state, 1 / 60);
+  paused = true;
+};
+document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
+  if (mode !== 'garrison') return;
+  for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
+};
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#parts')!.onclick = () => {
@@ -215,7 +246,11 @@ function loop(now: number) {
             `${CARDS[u.id].name}：发射 ${u.shots - (initial.get(u.uid) ?? 0)}${(u.ammo ?? -1) >= 0 ? '，待发 ' + u.ammo + '，备弹 ' + (u.ammoReserve ?? 0) : ''}${(u.reloadingUntil ?? 0) > state.time ? '，装填 ' + Math.ceil(u.reloadingUntil! - state.time) + '秒' : ''}`,
         )
         .join(' ｜ ') +
-      (mode === 'salvo'
+      (mode === 'wreck'
+        ? ` · 已前进 ${Math.round(actors[0].x - (starts.get(actors[0].uid) ?? 0))}像素 · 敌方幸存兵 ${state.units.filter(u => u.side === 1 && u.hp > 0 && !u.wounded && !u.surrendered).length}`
+        : mode === 'garrison'
+          ? ` · 驻防 ${actors.filter(u => u.garrisonUid !== undefined).length}人 · 已离开工事 ${actors.filter(u => u.x > 260).length}人`
+        : mode === 'salvo'
         ? ` · 已使用管口 ${ports.size}/16`
         : mode === 'fog'
           ? ' · 地面未观察区域为灰色，存活飞机保持原色'

@@ -285,7 +285,8 @@ export function setSquadOrder(
   }
   const x = members.reduce((n, u) => n + u.x, 0) / members.length;
   const repeated = members.every((u) => u.squadOrder === order);
-  if (repeated && order !== 'escort')
+  const leavingGarrison = order !== 'watch' && members.some(u => u.garrisonUid !== undefined);
+  if (repeated && order !== 'escort' && !leavingGarrison)
     return {
       ok: true,
       message: `小队正在${SQUAD_ORDERS.find((v) => v.id === order)!.label}`,
@@ -358,9 +359,24 @@ export function setSquadOrder(
     trench.workRows = rows;
     trench.workStartedAt ??= s.time;
   }
+  const departingHosts = members.flatMap(u => u.garrisonUid === undefined ? [] : [u.garrisonUid]);
   for (let i = 0; i < ordered.length; i++) {
     const u = ordered[i];
     u.squadOrder = order;
+    if (order === 'attack' || order === 'retreat' || order === 'escort' || order === 'hold') {
+      // The whole squad leaves together: rear members must not be captured
+      // by that same host a few seconds after the first occupants depart.
+      const hostUid = u.garrisonUid ?? departingHosts[0];
+      if (hostUid !== undefined) {
+        u.garrisonDepartUid = hostUid;
+        u.garrisonDepartDir = (side === 0 ? 1 : -1) * (order === 'retreat' ? -1 : 1);
+      }
+      u.garrisonUid = undefined;
+      u.garrisonSlot = undefined;
+    } else if (order === 'watch') {
+      u.garrisonDepartUid = undefined;
+      u.garrisonDepartDir = undefined;
+    }
     u.escortTankUid = undefined;
     u.escortGoal = undefined;
     u.escortLane = undefined;

@@ -96,7 +96,7 @@ for (const side of [0, 1]) {
     spawnUnit(s, side, 'mlrs', base - toward(side) * 230);
     tick(s, DT);
     const launcher = s.units[0], start = launcher.x, initialHP = s.players[1 - side].hp;
-    assert.equal(launcher.ammo, 12);
+    assert.equal(launcher.ammo, 16, 'one round per actual launcher tube');
     const launches = new Map();
     let nearestLaunch = Infinity;
     refreshVision(s);

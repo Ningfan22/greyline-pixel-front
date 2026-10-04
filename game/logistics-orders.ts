@@ -29,7 +29,15 @@ export function issueLogisticsOrder(s: GameState, uid: number, order: LogisticsO
   u.coverGoal = null; u.firingGoal = null; u.firingTransit = false;
   u.firingWatchAnchorX = undefined; u.mgBoundGoal = undefined;
   u.evadeGoal = null;
-  u.vehicleReverseUntil = 0; u.garrisonUid = undefined;
+  u.vehicleReverseUntil = 0;
+  if (order !== 'hold') {
+    if (u.garrisonUid !== undefined) {
+      u.garrisonDepartUid = u.garrisonUid;
+      u.garrisonDepartDir = (u.side === 0 ? 1 : -1) * (order === 'resupply' ? -1 : 1);
+    }
+    u.garrisonUid = undefined;
+    u.garrisonSlot = undefined;
+  }
   u.holdLane = undefined; u.digging = false;
   u.ammoBuddyUid = undefined; u.scavengeWreckId = undefined; u.scavengeUntil = undefined;
   return true;

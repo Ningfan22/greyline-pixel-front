@@ -179,6 +179,9 @@ export interface Unit {
   buildUntil?: number;
   garrisonUid?: number;
   garrisonSlot?: number;
+  /** Ignore the just-left host until the soldier clears its entry area. */
+  garrisonDepartUid?: number;
+  garrisonDepartDir?: number;
   respawnCharges?: number;
   respawnAt?: number;
   squadOrder?: SquadOrder;
@@ -1244,6 +1247,15 @@ export function setOrder(s: GameState, side: Side, order: Order) {
   if (!['advance', 'hold', 'rush', 'crouch', 'prone'].includes(order))
     return false;
   s.players[side].order = order;
+  if (order !== 'hold') for (const u of s.units) {
+    // Army movement releases automatically docked troops; explicit local
+    // watch/hold orders still keep their own defended post.
+    if (u.side !== side || u.garrisonUid === undefined || localUnitOrder(s, u)) continue;
+    u.garrisonDepartUid = u.garrisonUid;
+    u.garrisonDepartDir = side === 0 ? 1 : -1;
+    u.garrisonUid = undefined;
+    u.garrisonSlot = undefined;
+  }
   return true;
 }
 export function draw(s: GameState, side: Side, count = 1) {
@@ -8102,6 +8114,13 @@ function maintainFortifications(s: GameState) {
   const forts = s.units.filter(f => f.hp > 0 && CARDS[f.id].fortification &&
     (f.buildUntil ?? 0) <= s.time);
   for (const u of s.units) {
+    if (u.garrisonDepartUid !== undefined) {
+      const departed = forts.find(f => f.uid === u.garrisonDepartUid);
+      if (!departed || (u.x - departed.x) * (u.garrisonDepartDir ?? (u.side === 0 ? 1 : -1)) > 60) {
+        u.garrisonDepartUid = undefined;
+        u.garrisonDepartDir = undefined;
+      }
+    }
     if (u.garrisonUid === undefined) continue;
     const host = forts.find(f => f.uid === u.garrisonUid);
     if (!host || u.hp <= 0 || u.wounded || u.surrendered || u.parachuting || u.resupplyState ||
@@ -8123,7 +8142,7 @@ function maintainFortifications(s: GameState) {
       const used = new Set(s.units.filter(u => u.garrisonUid === host.uid).map(u => u.garrisonSlot));
       for (const u of s.units) {
         if (used.size >= cap) break;
-        if (u.side !== host.side || u.garrisonUid !== undefined || u.resupplyState || !CARDS[u.id].members ||
+        if (u.side !== host.side || u.garrisonUid !== undefined || u.garrisonDepartUid === host.uid || u.resupplyState || !CARDS[u.id].members ||
             !isCombatant(u) || u.parachuting || u.rappelling || Math.abs(u.x-host.x) > 36)
           continue;
         const slot = Array.from({length:cap},(_,i)=>i).find(i=>!used.has(i));
@@ -9816,6 +9835,17 @@ export function tick(s: GameState, dt: number) {
       if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!c.armored || candidates.length)) {
         u.firingGoal = nearbyFiringPosition(s, u, threat!);
         u.firingTransit = false;
+        if (u.firingGoal === null && order !== 'hold' && c.armored && !c.static) {
+          // No immediate firing slot is not a permanent halt. Continue short
+          // supported steps toward the observed contact, retaining the same
+          // safe gap as the firing-position search and never crossing a cliff.
+          const toward = Math.sign(threat!.x - u.x);
+          const available = Math.abs(threat!.x - u.x) - Math.max(280, (c.minRange ?? 0) + 80);
+          if (available > 4 && clearGroundRoute(s, u.x, u.x + toward * Math.min(320, available))) {
+            u.firingGoal = u.x + toward * Math.min(24, available);
+            u.firingTransit = true;
+          }
+        }
         if (u.firingGoal === null && order !== 'hold' && c.members) {
           const toward = Math.sign(threat!.x - u.x);
           // Match the same contact clearance as the planned firing slots.
