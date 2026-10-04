@@ -6,7 +6,7 @@ import {ordersForUnit} from '../game/squad-orders';
 import {issueLogisticsOrder,logisticsAlert} from '../game/logistics-orders';
 import {createScenery,visibleToSide} from '../game/world';
 import {drawProjectile} from '../game/ballistics';
-import {wreckKind} from '../game/wreck-geometry';
+import {wreckKind,wreckContact} from '../game/wreck-geometry';
 import {unitFrame,unitSize} from '../game/art';
 import { loadBattleArt } from '../game/art';
 import { drawArticulatedGun } from '../game/gun-art';
@@ -39,7 +39,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(212),
+let state = createGame(213),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -62,7 +62,7 @@ function scene(next: string) {
   mode = next;
   commandRoot.render(null);
   paused = false;
-  state = createGame(212, undefined, undefined, undefined, { weather: false });
+  state = createGame(213, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -80,7 +80,17 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if(['striketank','samlong','armorcluster','armorswarm','armormines'].includes(next)) {
+  if(next==='breach') {
+    camera=740;paused=true;capture=false;
+    const wreck={id:++state.uid,cardId:'sam_vehicle' as const,side:1 as const,x:1150,y:374,angle:0,age:5,falling:false,vx:0,vy:0};
+    Object.assign(wreck,wreckContact(()=>374,wreck));state.wrecks.push(wreck);
+    state.scenery=createScenery(state.terrain,[{kind:'house',x:1300,seed:213}]);
+    const tank=spawn(0,'tank',1100);Object.assign(tank,{x:1100,y:374,pace:1,cooldown:0,secondaryCooldown:1e9,personalMorale:100});
+    const n=state.units.length,enemy=spawn(1,'infantry',1450);state.units.splice(n+1);watch(enemy);
+    Object.assign(enemy,{x:1450,y:374,cooldown:1e9,fragCooldown:1e9,personalMorale:100});
+    const start=state.units.length,observer=spawn(0,'scouts',1500);state.units.splice(start+1);watch(observer);observer.cooldown=1e9;
+    actors=[tank,enemy];
+  } else if(['striketank','samlong','armorcluster','armorswarm','armormines'].includes(next)) {
     camera=850;paused=true;capture=false;
     if(next==='striketank') {
       const jet=spawn(1,'strike_jet',1950);Object.assign(jet,{x:1950,y:180,cooldown:0});
@@ -276,7 +286,7 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','striketank','samlong','armorcluster','armorswarm','armormines'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
@@ -381,7 +391,7 @@ function loop(now: number) {
         )
         .join(' ｜ ') +
       (['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
-        : ['friendly','duel','coax','gunorders','shortage','blocked','striketank','samlong','armorcluster','armorswarm','armormines'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
+        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
         : ['lethality','withdraw','shelter'].includes(mode)
         ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
         : mode === 'wreck'

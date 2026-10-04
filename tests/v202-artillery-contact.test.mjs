@@ -99,7 +99,8 @@ test('a tank aiming at rear armor cannot mirror its secondary muzzle toward infa
     assert.equal(tank.secondaryShots,0,'the opposite infantry cannot invent a mirrored machinegun mouth');
     infantry.x=at(side,1500);infantry.squadOrderX=infantry.x;refreshVision(s);
     let bullet;
-    run(s,.6,()=>{bullet??=s.projectiles.find(p=>p.sourceUid===tank.uid&&p.weapon==='coax');});
+    // Inspect the launch decision, before an actual miss clears targetUid.
+    run(s,.6,()=>{const p=s.projectiles.find(p=>p.sourceUid===tank.uid&&p.weapon==='coax');if(!bullet&&p)bullet={...p};});
     assert(bullet,'secondary fire resumes when infantry is on the gun side');
     assert.equal(bullet.targetUid,infantry.uid);
     assert((bullet.startX-tank.x)*tank.gunFacing>0,'the round leaves the visible side of the vehicle');

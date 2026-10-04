@@ -412,6 +412,8 @@ export interface Unit {
   breachPropId?: number;
   breachPartId?: number;
   breachShots?: number;
+  /** Health before the last breach round; stop only genuinely ineffective fire. */
+  breachHealth?: number;
   boundStartedAt?: number;
   boundRestUntil?: number;
   /** A held firing post can sidestep its obstruction without becoming an attack. */
@@ -4108,6 +4110,16 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
       c.members ? 0 : muzzleOffset(u) + 8)
   )
     return null;
+  // The wall is the actual shot target. A valid aim at the enemy behind it
+  // does not guarantee the nearer impact lies beyond this barrel's firing
+  // clearance. Otherwise a phantom breach shot cancels the firing-position
+  // search on every tick, while the gunner correctly refuses to fire it.
+  const breachGun = aimedGunSolution(aimed, hit.x, hit.y);
+  if (breachGun && !breachGun.canFire) return null;
+  const breachMuzzle = breachGun?.muzzle ?? point;
+  if (obstacleBoxes(s).some(box => !box.foliage &&
+      breachMuzzle.x > box.x && breachMuzzle.x < box.x + box.w &&
+      breachMuzzle.y > box.y && breachMuzzle.y < box.y + box.h)) return null;
   if (
     s.units.some(
       (v) =>
@@ -4117,10 +4129,11 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
     )
   )
     return null;
+  const health = hit.box.prop.parts.reduce((sum, part) => sum + Math.max(0, part.hp), 0);
   if (u.breachPropId === hit.box.prop.id && u.breachPartId === hit.box.part?.id &&
-      (u.breachShots ?? 0) >= 2)
+      (u.breachShots ?? 0) >= 2 && health >= (u.breachHealth ?? health) - 1e-6)
     return null;
-  return { x: hit.x, y: hit.y, propId: hit.box.prop.id, partId: hit.box.part?.id };
+  return { x: hit.x, y: hit.y, propId: hit.box.prop.id, partId: hit.box.part?.id, health };
 }
 
 function infantryFallVelocity(u:Unit) {
@@ -10700,11 +10713,13 @@ export function tick(s: GameState, dt: number) {
           if (target) u.lastCombatShotAt = s.time;
           if (coverShot) {
             u.breachShots =
-              u.breachPropId === coverShot.propId && u.breachPartId === coverShot.partId
+              u.breachPropId === coverShot.propId && u.breachPartId === coverShot.partId &&
+                coverShot.health >= (u.breachHealth ?? coverShot.health) - 1e-6
                 ? (u.breachShots ?? 0) + 1
                 : 1;
             u.breachPropId = coverShot.propId;
             u.breachPartId = coverShot.partId;
+            u.breachHealth = coverShot.health;
           }
           u.lastAmmo = kind;
           u.muzzleX = sx;
