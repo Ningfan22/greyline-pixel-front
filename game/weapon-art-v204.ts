@@ -1,3 +1,4 @@
+import {MISSILE_LAYOUT_V209,authoredFrameV209,type MissileFamily} from './vehicle-missile-art-v209';
 import {
   WEAPON_LAYOUT,
   weaponLayout,
@@ -18,6 +19,7 @@ export interface HelicopterParts {
 }
 export interface WeaponEffects {
   rocket: HTMLCanvasElement;
+  missiles?: Partial<Record<MissileFamily, HTMLCanvasElement>>;
 }
 function crop(
   image: HTMLImageElement,
@@ -85,9 +87,11 @@ export function helicopterParts(image: HTMLImageElement): HelicopterParts {
 }
 export function weaponEffects(
   rocketSheet: HTMLImageElement,
+  missileSheets: HTMLImageElement[] = [],
 ): WeaponEffects {
   return {
     rocket: crop(rocketSheet, [150, 877, 1160, 114], 34),
+    missiles:Object.fromEntries(Object.entries(MISSILE_LAYOUT_V209).filter((_,i)=>missileSheets[i]).map(([family,a],i)=>[family,authoredFrameV209(missileSheets[i],a.crop,a.width)])),
   };
 }
 export function drawHelicopter(

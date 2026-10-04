@@ -841,7 +841,7 @@ export function render(
     let recoilY = 0;
     let barrelRecoil = 0;
     const barrelBand = geometry?.barrelBand;
-    if ((c.armored || c.emplacement) && u.id !== 'tow_ifv' && u.fire > 0 && u.motion === 'ground') {
+    if ((c.armored || c.emplacement) && ammunition(u.id, u.member) !== 'rocket' && ammunition(u.id, u.member) !== 'flame' && u.fire > 0 && u.motion === 'ground') {
       const k = u.fire / 0.25;
       if (barrelBand) {
         // v112: the old 0.8×band-width slid the barrel almost fully into

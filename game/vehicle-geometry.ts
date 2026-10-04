@@ -21,6 +21,10 @@ export interface TankGeometry {
   barrelBand?: [number, number, number, number];
 }
 const TANKS: Record<string, TankGeometry> = {
+  sam_vehicle: {size:[180,113],spriteOffset:0,half:87,hullHeight:50,
+    muzzleX:30,muzzleY:99,coaxX:30,coaxY:99},
+  scout_car: {size:[145,108],spriteOffset:0,half:67,hullHeight:57,
+    muzzleX:34,muzzleY:68,coaxX:34,coaxY:68},
   pickup: {
     size: [190, 105],
     spriteOffset: -7.48,

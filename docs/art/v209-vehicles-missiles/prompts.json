@@ -1,0 +1,120 @@
+{
+  "tool": "image_gen.imagegen",
+  "version": 209,
+  "mode": "Original generated PNG pixels preserved; world-size extraction baked offline",
+  "entries": [
+    {
+      "key": "sam",
+      "prompt": "Create a single game-ready transparent sprite of the radar surface-to-air missile vehicle depicted in the reference card art. Authored coarse pixel art for a grounded serious military side-scroller, NOT photorealistic, NOT cartoon, NOT a tank or infantry fighting vehicle. Strict orthographic side view facing RIGHT, no perspective foreshortening, no ground, shadow, scenery, text, UI or soldiers. An olive drab eight-wheeled heavy military truck, cab at right, rear deck at left with radar mast and rectangular mesh radar panel, three long pointed SAM missiles on elevated rails aimed upward to the right at roughly 35 degrees. Four visible wheels on near side; realistic proportions and recognizable missile launcher silhouette. Muted olive / charcoal / weathered grey palette with crisp visible square pixel clusters and restrained highlights. Designed to read clearly at 180 pixels wide in game. Whole vehicle intact, no cropped antennas/missiles, large transparent margin. One sprite only, no sheet. Use reference for vehicle design but transform to side-on pixel sprite.",
+      "reference": [
+        "/art/cards-v10/sam_vehicle.webp"
+      ],
+      "source": "./sam.png",
+      "sourceSha256": "687ad832d5c75faf3928283348399123b830839c4a6073481473c66dd897658c",
+      "crop": [
+        93,
+        94,
+        1377,
+        857
+      ],
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "key": "scout",
+      "prompt": "Create a single game-ready transparent sprite of the four-wheel armored reconnaissance car depicted in reference card art. Authored coarse pixel art for serious grounded military side-scroller, NOT photorealistic and NOT cute cartoon. Strict orthographic side view facing RIGHT, no perspective foreshortening. Compact low angular olive drab 4x4 scout vehicle: two large visible wheels on near side, short sloped hood and armor at front right, small remote machinegun mount with short barrel facing right on roof, optical observation sensor mast with recognizable dark lens cluster, two thin antennas at rear left. No cannon, no tracks, no large turret, no infantry fighting vehicle chassis. Realistic armored scout car proportions; muted olive, charcoal, worn grey palette, crisp visible square pixel clusters; readable at 145 pixels wide in game. No scenery, ground, shadow, text, UI, soldiers. Whole vehicle including antennas intact, generous true transparent margin. One sprite only, no sheet. Use reference design translated into orthographic pixel art.",
+      "reference": [
+        "/art/cards-v10/scout_car.webp"
+      ],
+      "source": "./scout.png",
+      "sourceSha256": "39845ba1f7508256e6a31c341432589001e6d4d37e342bd18ceceebe50e0e938",
+      "crop": [
+        115,
+        60,
+        1262,
+        937
+      ],
+      "width": 1492,
+      "height": 1054
+    },
+    {
+      "key": "tow-missile",
+      "prompt": "A single BGM-71 TOW guided anti-tank missile game sprite in coarse crisp pixel art on TRUE TRANSPARENT BACKGROUND. Strict horizontal side view, pointed nose faces RIGHT, nozzle at LEFT, axis exactly horizontal. Long slender weathered olive-drab metal body, dark tapered nose, four small cruciform deployable steering fins around middle and small tail fins, visible rear rocket motor nozzle, tiny restrained orange exhaust attached at left. Realistic missile proportions, military side-scrolling pixel game, muted gritty tones, firm charcoal outline, pixel clusters visible at game size around 30 pixels long. No launcher, soldier, vehicle, scenery, text, labels, glow cloud or shadow. Not a bullet, not a cannon shell, no rounded stubby bomb shape. One whole missile, centered with transparent margins. Do not draw checkerboard or colored background.",
+      "reference": [],
+      "source": "./tow-missile.png",
+      "sourceSha256": "c033431d17c545ddae16f3435df311e3df0737fe65c20810076e00b1f1cc8559",
+      "crop": [
+        248,
+        183,
+        1639,
+        360
+      ],
+      "width": 2172,
+      "height": 724
+    },
+    {
+      "key": "sam-missile",
+      "prompt": "One surface-to-air guided missile game sprite, strict horizontal side view nose pointing RIGHT, rear nozzle at LEFT, on TRUE TRANSPARENT BACKGROUND. Authored coarse pixel art for serious military side-scroller, realistic slender SAM shape: off-white long metal body with two dark olive bands, grey pointed nose, small swept mid-body stabilizing fins and rear cruciform fins, dark motor nozzle and a short amber orange rocket exhaust connected to nozzle at left. Palette matches worn olive/charcoal military pixel art. Readable pixel clusters at 34 pixels long game size, no photorealism, no cartoon, no exaggerated fiery glow, no bomb shape or cannon shell. Entire single missile intact centered with transparent margin. No text, diagram, launcher, vehicle, soldier, terrain, shadow or painted background.",
+      "reference": [],
+      "source": "./sam-missile.png",
+      "sourceSha256": "106bd8287365680116f446d8e2b1430941708e50c111a7b4a9295931fe453eec",
+      "crop": [
+        67,
+        296,
+        1784,
+        291
+      ],
+      "width": 1918,
+      "height": 820
+    },
+    {
+      "key": "sam-wreck",
+      "prompt": "Edit this single authored pixel-art radar missile truck into its DESTROYED wreck state, retain exactly the same side view facing right, same eight-wheel chassis proportions, same coarse pixel palette. Cab crumpled and charred with cracked windows, deflated damaged wheels, radar mast collapsed backward onto the rear deck, missile rack broken resting low on the chassis with no live missiles remaining. Recognizably this wheeled radar truck wreck, not a tank, no tracks. Whole wreck on true transparent background with no scenery, ground, shadow, explosion, smoke, fire, people, or text. Keep crisp square pixel clusters; don't change to realistic photo. One sprite only with transparent margin.",
+      "reference": [
+        "./sam.png"
+      ],
+      "source": "./sam-wreck.png",
+      "sourceSha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556",
+      "crop": [
+        26,
+        242,
+        1477,
+        698
+      ],
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "key": "scout-wreck",
+      "prompt": "Edit this single authored pixel-art armored reconnaissance 4x4 scout car into its DESTROYED wreck state. Same strict side view facing right, same compact four-wheel car proportions and coarse pixel palette. Charred olive armor, damaged wheels, crumpled hood, optical mast snapped resting across the roof, bent antenna and damaged small machinegun mount. Low angular ruined silhouette, recognizably this wheeled scout car, not tank or IFV, no tracks. Entire wreck on TRUE TRANSPARENT BACKGROUND, no scenery, ground, shadow, people, text, explosion, fire or smoke. Crisp visible square pixel clusters matching reference. One intact sprite with transparent margin.",
+      "reference": [
+        "./scout.png"
+      ],
+      "source": "./scout-wreck.png",
+      "sourceSha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740",
+      "crop": [
+        105,
+        124,
+        1288,
+        844
+      ],
+      "width": 1492,
+      "height": 1054
+    },
+    {
+      "key": "infantry-missile",
+      "prompt": "Single modern man-portable anti-tank guided missile sprite similar to FGM-148 Javelin, on TRUE TRANSPARENT BACKGROUND. Strict side view, completely horizontal axis, rounded pointed dark seeker nose facing RIGHT, nozzle at LEFT. Shorter thicker olive drab cylindrical body than TOW, four small folded-out steering fins near middle and tail, black infrared seeker dome, restrained tiny amber-orange exhaust attached to rear nozzle. Authored coarse military pixel art, weathered metal, charcoal outline, square pixel clusters readable when drawn 26 pixels long. Serious grounded military game, not cartoon or photorealistic. Single entire missile centered with transparent margin, no launcher, vehicle, infantry, scenery, shadow, background, text, labels, glow cloud. It must read as a guided missile with fins, never a cannon shell.",
+      "reference": [],
+      "source": "./infantry-missile.png",
+      "sourceSha256": "6f6f3e37b194d3cb622265760debabf60392082073e28af1576aaee5af3fed14",
+      "crop": [
+        138,
+        188,
+        1707,
+        406
+      ],
+      "width": 2022,
+      "height": 778
+    }
+  ]
+}

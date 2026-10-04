@@ -13,6 +13,7 @@ export type WreckKind =
   | 'heavy_tank'
   | 'ifv'
   | 'sam_vehicle'
+  | 'scout_car'
   | 'howitzer'
   | 'at_gun'
   | 'aa_gun'
@@ -34,7 +35,7 @@ export type WreckKind =
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197' | 'v204';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197' | 'v204' | 'v209';
   source: Rect;
   width: number;
   height: number;
@@ -216,21 +217,12 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     ],
     [0.093, 0.568, 0.94],
   ),
-  sam_vehicle: shape(
-    'ground',
-    [15, 501, 413, 288],
-    180,
-    [
-      [0.058, 0.844, 0.816, 0.125],
-      [0.027, 0.715, 0.852, 0.125],
-      [0.128, 0.5, 0.366, 0.135],
-      [0.383, 0.587, 0.179, 0.104],
-      [0.605, 0.49, 0.148, 0.087],
-      [0.315, 0.299, 0.053, 0.132],
-      [0.271, 0.076, 0.087, 0.087],
-    ],
-    [0.077, 0.869, 0.976],
-  ),
+  sam_vehicle: {atlas:'v209',source:[26,242,1477,698],width:180,height:86,
+    parts:[[.05,.58,.54,.15],[.69,.52,.23,.23],[.16,.79,.11,.16],[.34,.8,.11,.16],[.52,.8,.1,.17],[.74,.8,.09,.17]],
+    support:[.13,.87,.96],spriteOffset:0},
+  scout_car: {atlas:'v209',source:[105,124,1288,844],width:145,height:96,
+    parts:[[.04,.5,.58,.27],[.68,.66,.26,.12],[.07,.78,.17,.14],[.6,.81,.16,.12],[.3,.55,.32,.2]],
+    support:[.05,.84,.98],spriteOffset:0},
   howitzer: shape(
     'ground',
     [454, 567, 417, 220],

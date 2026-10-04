@@ -1,3 +1,4 @@
+import {isVehicleV209,vehicleFrameV209,type VehicleIdV209} from './vehicle-missile-art-v209';
 import { transparentSheet } from './sprite-atlas';
 import { WRECKS, type WreckKind } from './wreck-geometry';
 import {mlrsWreckFrame} from './weapon-art-v204';
@@ -12,6 +13,7 @@ export function wreckFrames(
   fpv: HTMLImageElement,
   glider: HTMLCanvasElement,
   authoredVehicles: Record<V197VehicleId, HTMLImageElement>,
+  v209Wrecks: Record<VehicleIdV209,HTMLImageElement>,
 ) {
   const sheets = {
     ground: transparentSheet(ground),
@@ -23,6 +25,7 @@ export function wreckFrames(
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {
+      if(isVehicleV209(id))return [id,vehicleFrameV209(id,v209Wrecks[id],true)];
       if(id==='mlrs')return [id,mlrsWreckFrame(authoredVehicles[id])];
       if (isV197Vehicle(id)) return [id, vehicleFrameV197(id, authoredVehicles[id], true)];
       const frame = document.createElement('canvas');

@@ -1,4 +1,5 @@
 import { CARDS, modelOf, type CardId } from './cards';
+import {VEHICLE_IDS_V209,vehicleSourceV209,vehicleFrameV209,MISSILE_LAYOUT_V209,VEHICLE_MISSILE_ROOT} from './vehicle-missile-art-v209';
 import {soldierArt,soldierFrame,type SoldierArt} from './soldier-art';
 import { figureFrames, transparentSheet } from './sprite-atlas';
 import { adultAtlas, standingReloadFrames, standingGrenadeFrames, ownStance16 } from './adult-atlas';
@@ -335,22 +336,8 @@ export function uniformFrame(frame: HTMLCanvasElement, uniform?: string) {
   return out;
 }
 
-/**
- * v134: vehicle livery tints. The IFV and helicopter atlases are shared by
- * many cards, so on the battlefield a mortar carrier, a command vehicle and
- * a recovery vehicle all looked like the same truck. Each variant gets a
- * cheap multiply tint on its paint so silhouettes read as distinct vehicles.
- */
+/** Aircraft liveries. Ground vehicles always use their own authored model. */
 const VEHICLE_TINTS: Record<string, [number, number, number]> = {
-  // IFV-family variants (share reinforcements[0])
-  pickup: [1.06, 0.86, 0.62], // rusty sand-primered technical
-  mortar_carrier: [0.72, 0.74, 0.66], // dark grey-green
-  recovery_vehicle: [0.9, 0.82, 0.6], // tan engineering
-  command_vehicle: [0.78, 0.84, 0.92], // blue-grey comms
-  mine_clearer: [0.95, 0.88, 0.66], // desert mine-plough
-  aa_gun: [0.7, 0.74, 0.68], // dark air-defence
-  sam_vehicle: [0.66, 0.7, 0.78], // slate blue
-  scout_car: [0.82, 0.86, 0.8], // pale recon grey-green
   // Helicopter-family variants (share aircraft atlases)
   rocket_heli: [0.82, 0.78, 0.62], // desert attack
   scout_drone: [0.8, 0.84, 0.88], // pale recon grey
@@ -651,6 +638,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(TANK_IDS_V202.map(async id =>
       [id, tankPartsV202(id, await loadImage(`${TANK_ASSET_ROOT}/${id}.webp`))] as const)),
     Promise.all(['mlrs','field-gun','siege-gun','helicopter'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
+    Promise.all(VEHICLE_IDS_V209.map(async id=>({id,sprite:await loadImage(vehicleSourceV209(id)),wreck:await loadImage(vehicleSourceV209(id,true))}))),
+    Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
   ]).then(
     ([
       [
@@ -691,6 +680,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       v197Vehicles,
       v202Tanks,
       weaponSheets,
+      v209Vehicles,
+      missileSheets,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
@@ -727,11 +718,12 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         glider[6],
         Object.fromEntries(v197Vehicles.map(({ id, wreck }) => [id, wreck])) as
           Record<(typeof V197_VEHICLE_IDS)[number], HTMLImageElement>,
+        Object.fromEntries(v209Vehicles.map(({id,wreck})=>[id,wreck])) as Record<(typeof VEHICLE_IDS_V209)[number],HTMLImageElement>,
       );
       return {
         gunParts,
         helicopterParts:helicopterParts(weaponSheets[3]),
-        weaponEffects:weaponEffects(weaponSheets[0]),
+        weaponEffects:weaponEffects(weaponSheets[0], missileSheets),
         ammoCrate,
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
@@ -751,6 +743,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         mobileVehicles: {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
           ...gunPreviews,
+          ...Object.fromEntries(v209Vehicles.map(({id,sprite})=>[id,[vehicleFrameV209(id,sprite)]])),
           ...Object.fromEntries(v197Vehicles.filter(v => v.sprite).map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite!)]])),
         },
         terrain,
@@ -1017,7 +1010,8 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
   if (c.airframe) return vehicleTint(art.aircraft[c.airframe][frame], id);
   if (c.air) return art.vehicles[1][frame];
   if (modelOf(id) === 'tank') return (art.armor[id] ?? art.armor.tank)[frame];
-  if (modelOf(id) === 'ifv') return vehicleTint(art.reinforcements[0][frame], id);
+  if (id === 'ifv') return art.reinforcements[0][frame % art.reinforcements[0].length];
+  if (modelOf(id) === 'ifv') throw new Error(`Missing dedicated vehicle sprite: ${id}`);
   return cardFrame(art, c.atlas);
 }
 export function unitSize(id: CardId): [number, number] {

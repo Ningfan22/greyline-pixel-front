@@ -1,3 +1,4 @@
+import {missileFamily} from './vehicle-missile-art-v209';
 import { modelOf, CARDS, type CardId } from './cards';
 import type { Blast, Particle, Projectile } from './engine';
 import { drawSmokePuff, blendEffectFrame, type PaintedBlasts } from './effect-atlas';
@@ -164,10 +165,15 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile,effe
     streak(ctx, p.x, p.y, angle, 12, '#baae8d', 1, 0.45);
     streak(ctx, p.x, p.y, angle, 5, '#f5e6c1', 1, 0.95);
   } else if (kind === 'rocket') {
-    if(effects&&p.sourceCardId==='mlrs'){
-      const frame=effects.rocket,width=34,height=width*frame.height/frame.width;
-      ctx.imageSmoothingEnabled=false;ctx.translate(Math.round(p.x),Math.round(p.y));ctx.rotate(angle);
-      ctx.drawImage(frame,-width*.98,-height/2,width,height);ctx.restore();return;
+    if(effects){
+      const family=missileFamily(p.sourceCardId);
+      const frame=effects.missiles?.[family]??effects.rocket;
+      ctx.imageSmoothingEnabled=false;
+      ctx.translate(Math.round(p.x),Math.round(p.y));ctx.rotate(angle);
+      // Projectile coordinates are the nose. The authored motor and exhaust
+      // trail behind it, rotating with the guided flight tangent.
+      ctx.drawImage(frame,-frame.width,-frame.height/2);
+      ctx.restore();return;
     }
     streak(ctx, p.x, p.y, angle, 7, '#3e443b', 2);
     streak(ctx, p.x, p.y - 1, angle, 5, '#b6b7a3');

@@ -1,3 +1,6 @@
+import {drawProjectile} from '../game/ballistics';
+import {wreckKind} from '../game/wreck-geometry';
+import {unitFrame,unitSize} from '../game/art';
 import { loadBattleArt } from '../game/art';
 import { drawArticulatedGun } from '../game/gun-art';
 import { drawHelicopter } from '../game/weapon-art-v204';
@@ -20,13 +23,14 @@ const canvas = document.querySelector<HTMLCanvasElement>('#view')!,
 const began = performance.now(),
   art = await loadBattleArt('greyline'),
   loadMs = Math.round(performance.now() - began);
-let mode = 'parts',
+let mode = 'vehicles',
+  capture = false,
   paused = false,
   phase = 0,
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(208),
+let state = createGame(209),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -48,7 +52,7 @@ function spawn(side: 0 | 1, id: CardId, x: number) {
 function scene(next: string) {
   mode = next;
   paused = false;
-  state = createGame(208, undefined, undefined, undefined, { weather: false });
+  state = createGame(209, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -66,7 +70,15 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if (next === 'garrison') {
+  if (['tow','sam','javelin'].includes(next)) {
+    const id:CardId=next==='tow'?'tow_ifv':next==='sam'?'sam_vehicle':'javelin';
+    const shooter=spawn(0,id,720);watch(shooter);shooter.cooldown=0;
+    const n=state.units.length;spawn(0,'pathfinders',1130);
+    for(const u of state.units.slice(n)){watch(u);u.cooldown=1e9;}
+    const target=spawn(1,next==='sam'?'helicopter':'heavy_tank',1350);
+    watch(target);Object.assign(target,{hp:1e6,maxHp:1e6,cooldown:1e9,secondaryCooldown:1e9,orbitX:1350});
+    actors=[shooter];camera=480;capture=true;
+  } else if (next === 'garrison') {
     const fort = spawn(0, 'fort_bunker', 200); fort.buildUntil = 0;
     const n = state.units.length; spawn(0, 'infantry', 200);
     actors = state.units.slice(n);
@@ -167,9 +179,12 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
+document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
+document.querySelector<HTMLButtonElement>('#vehicles')!.onclick = () => { mode='vehicles';paused=false; };
+document.querySelector<HTMLButtonElement>('#capture')!.onclick = () => {capture=true;paused=false;};
 document.querySelector<HTMLButtonElement>('#parts')!.onclick = () => {
   mode = 'parts';
   paused = false;
@@ -185,7 +200,21 @@ function loop(now: number) {
   last = now;
   if (!paused) phase += dt;
   ctx.clearRect(0, 0, 1050, 580);
-  if (mode === 'parts') {
+  if(mode==='vehicles'||mode==='vehiclewrecks') {
+    ctx.fillStyle='#717966';ctx.fillRect(0,0,1050,580);
+    const ids:CardId[]=['ifv','tow_ifv','sam_vehicle','scout_car','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','mlrs'];
+    for(const [i,id] of ids.entries()) {
+      const dead=mode==='vehiclewrecks',image=dead?art.wrecks[wreckKind(id)]:unitFrame(art,id),[width,height]=dead?[image.width,image.height]:unitSize(id),x=175+(i%3)*350,y=150+Math.floor(i/3)*150;
+      ctx.imageSmoothingEnabled=false;ctx.save();ctx.translate(x,y);ctx.scale(facing,1);if(!dead&&art.gunParts?.[id])drawArticulatedGun(ctx,art.gunParts[id],{id,x:0,y:0,facing:1});else ctx.drawImage(image,-width/2,-height,width,height);ctx.restore();
+      ctx.fillStyle='#eee8ce';ctx.font='14px system-ui';ctx.fillText(CARDS[id].name,x-80,y+25);
+    }
+    const families=['tow','antitank','antiair'] as const;
+    for(const [i,family] of families.entries()) {
+      const frame=art.weaponEffects!.missiles![family]!;ctx.drawImage(frame,120+i*340,510,frame.width*3,frame.height*3);
+      ctx.fillText(['陶式导弹','便携反坦克导弹','防空导弹'][i],120+i*340,557);
+    }
+    status.textContent=`素材就绪 ${loadMs} 毫秒 · 9种载具独立战场素材 · 导弹弹身、尾翼、发动机尾焰`;
+  } else if (mode === 'parts') {
     ctx.fillStyle = '#717966';
     ctx.fillRect(0, 0, 1050, 580);
     const ids: CardId[] = [
@@ -226,6 +255,8 @@ function loop(now: number) {
     status.textContent = `素材就绪 ${loadMs} 毫秒 · 轻型105毫米 / 中型榴弹炮 / 重型203毫米 · 发射架和机载武器独立俯仰`;
   } else {
     if (!paused && mode !== 'fog' && state.time < 50) tick(state, dt);
+    if(capture&&state.projectiles.some(p=>p.sourceUid===actors[0]?.uid&&p.ammunition==='rocket'&&Math.hypot(p.x-p.startX,p.y-p.startY)>110)){paused=true;capture=false;}
+
     if (mode === 'fog') state.sight[0].fill(false);
     for (const p of state.projectiles)
       if (p.sourceCardId === 'mlrs' && p.launcherTube !== undefined)
@@ -238,6 +269,12 @@ function loop(now: number) {
     }
     render(ctx, state, art, null, null, true, camera, mode === 'flame' ? 525 : 1050);
     ctx.restore();
+    if(['tow','sam','javelin'].includes(mode)) {
+      const p=state.projectiles.find(p=>p.sourceUid===actors[0]?.uid&&p.ammunition==='rocket');
+      if(p){ctx.fillStyle='#717966';ctx.fillRect(15,420,365,145);ctx.fillStyle='#eee8ce';ctx.font='14px system-ui';ctx.fillText('当前飞行弹体 ×4（实际精灵与飞行朝向）',25,441);
+      const heading=p.heading??0, frame=art.weaponEffects!.missiles![mode==='tow'?'tow':mode==='sam'?'antiair':'antitank']!;
+      ctx.save();ctx.translate(195,500);ctx.scale(4,4);drawProjectile(ctx,{...p,x:Math.cos(heading)*frame.width/2,y:Math.sin(heading)*frame.width/2,heading},art.weaponEffects);ctx.restore();}
+    }
     status.textContent =
       `${state.time.toFixed(1)}秒 · ` +
       actors
@@ -254,7 +291,7 @@ function loop(now: number) {
         ? ` · 已使用管口 ${ports.size}/16`
         : mode === 'fog'
           ? ' · 地面未观察区域为灰色，存活飞机保持原色'
-          : '');
+          : ['tow','sam','javelin'].includes(mode) ? ` · 飞行中导弹 ${state.projectiles.filter(p=>p.ammunition==='rocket').length} · ${paused?'已暂停，可检查弹体与发射口':'交战中'}` : '');
   }
   requestAnimationFrame(loop);
 }
