@@ -81,7 +81,7 @@ import { createMapLayout, DEFAULT_MAP, type MapId } from './maps';
 import { wreckContact } from './wreck-geometry';
 import { createSoldierRagdoll, stepSoldierRagdoll } from './soldier-ragdoll';
 import { tankGeometry, armorHalf, armorHeight } from './vehicle-geometry';
-import { gunMount, gunPose, aimedGunSolution, indirectArc, rocketRackArc } from './gun-geometry';
+import { gunMount, gunPose, aimedGunSolution, indirectArc, mlrsTubePose } from './gun-geometry';
 import { EMPLACEMENT_SCALE } from './emplacement-layout';
 import {
   ammunition,
@@ -466,6 +466,8 @@ export interface Unit {
   shotAngle: number;
   /** Relative to the hull: positive elevation raises the independently painted barrel. */
   gunElevation?: number;
+  flameUntil?:number;
+  flameTarget?:{x:number;y:number};
   gunFacing?: number;
   secondaryMuzzleX: number;
   secondaryMuzzleY: number;
@@ -614,6 +616,8 @@ export interface Unit {
   destroyed: boolean;
 }
 export interface Projectile {
+  sourceCardId?:CardId;
+  launcherTube?:number;
   startLane?: number;
   targetLane?: number;
   suppressedUids?: number[];
@@ -3268,6 +3272,7 @@ export function muzzlePoint(
   height: number | undefined = undefined,
   coax = false,
 ) {
+  if(!coax&&height===undefined&&u.id==='mlrs')return mlrsTubePose(u as Unit).muzzle;
   const gun = !coax && height === undefined ? gunPose(u, u.gunElevation, Math.sign(tx - u.x) || 1) : null;
   if (gun) return gun.muzzle;
   const tank = tankGeometry(u.id);
@@ -3447,10 +3452,6 @@ function firingHeight(
     height = shot.height;
   const gun = aimedGunSolution(u, tx, ty);
   if (gun && !gun.canFire) return null;
-  if (u.id === 'mlrs') {
-    const rack = muzzlePoint(u, tx);
-    if (rocketRackArc(rack.x, rack.y, tx, ty, u.hullAngle) < 0) return null;
-  }
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
@@ -10469,6 +10470,10 @@ export function tick(s: GameState, dt: number) {
           const ap = !!(c.penetration && target && CARDS[target.id].armored);
           const kind: Ammunition = ap ? 'ap' : ammunition(u.id, u.member),
             flight = FLIGHT[kind];
+          if(kind==='flame'){
+            u.flameUntil=s.time+Math.min(.58,(c.rate??.45)+.08);
+            u.flameTarget={x:tx,y:ty};
+          }
           const arc = aimedGun?.arc ?? (c.indirect ? indirectArc(u.id, sx, sy, tx, ty, u.hullAngle) : flight.arc);
           if (kind === 'rocket' && isAntiTankOperator(u)) {
             u.antiTankConcealFor = 0;
@@ -10491,8 +10496,8 @@ export function tick(s: GameState, dt: number) {
           if ((u.ammo ?? -1) > 0) {
             u.ammo = Math.max(0, u.ammo! - 1);
             if (u.ammo === 0 && (u.ammoReserve ?? 0) > 0) {
-              const spec = magazine(u.id, u.member);
-              if (spec) {
+              const spec = ammoProfile(u).primary;
+              if (spec && spec.reload > 0) {
                 const rt = spec.reload * (u.suppression > 50 ? 1.5 : 1);
                 startMagazineDrill(u, s.time, rt);
               }
@@ -10549,6 +10554,7 @@ export function tick(s: GameState, dt: number) {
           if (
             c.indirect &&
             u.id !== 'mortar_carrier' &&
+            (u.id !== 'mlrs' || u.shots % 16 === 0) &&
             (u.id !== 'mortar' || (u.mortarSiteShots ?? 0) >= 2) &&
             !c.air &&
             !c.sortie &&
@@ -10588,6 +10594,8 @@ export function tick(s: GameState, dt: number) {
           if (burnedReport) burnedReport.life = Math.min(burnedReport.life, 4);
           s.projectiles.push({
             uid: ++s.uid,
+            sourceCardId:u.id,
+            launcherTube:u.id==='mlrs'?(u.shots-1)%16:undefined,
             guided: c.guided && !c.indirect,
             topAttack: u.id === 'javelin',
             loftX:

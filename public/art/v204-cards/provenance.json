@@ -1,0 +1,2687 @@
+{
+  "version": 204,
+  "encoder": "sharp 0.35.4",
+  "mode": "nearest-neighbour resizing + WebP encoding of existing image-generated artwork",
+  "entries": [
+    {
+      "source": "/art/v21-economy/cards/field_logistics.webp",
+      "sourceSha256": "6b05f2836e3e5f7558856eb08e7883e0a8d3abb382536f743959e80eec991b98",
+      "sourceBytes": 118650,
+      "path": "/art/v204-cards/field_logistics-384-4f08d663f825.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 31674,
+      "sha256": "4f08d663f825062afa5cb6e75732be9c051923cdc8ccb17139399edac68c72e3"
+    },
+    {
+      "source": "/art/v21-economy/cards/field_logistics.webp",
+      "sourceSha256": "6b05f2836e3e5f7558856eb08e7883e0a8d3abb382536f743959e80eec991b98",
+      "sourceBytes": 118650,
+      "path": "/art/v204-cards/field_logistics-640-a9d1dfa90060.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 60690,
+      "sha256": "a9d1dfa9006079ed2b3b52cc67af426cee9f8378ac39b3ca996f6a1dc97d7267"
+    },
+    {
+      "source": "/art/v21-economy/cards/command_expansion.webp",
+      "sourceSha256": "b17da53621e1c8f7aaf342f9c6be19cff6bc508014dca3ce7d8568b4e42652ae",
+      "sourceBytes": 120874,
+      "path": "/art/v204-cards/command_expansion-384-5482f6286bd2.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33934,
+      "sha256": "5482f6286bd20854673a026c6c0e19fb6e9399dafee94e844b72b59047ae64b4"
+    },
+    {
+      "source": "/art/v21-economy/cards/command_expansion.webp",
+      "sourceSha256": "b17da53621e1c8f7aaf342f9c6be19cff6bc508014dca3ce7d8568b4e42652ae",
+      "sourceBytes": 120874,
+      "path": "/art/v204-cards/command_expansion-640-c465f3289b3b.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 65020,
+      "sha256": "c465f3289b3b1dd0634ed4442fad5f51940d4a40ea463b66875f51dc4bb4f3ce"
+    },
+    {
+      "source": "/art/v21-economy/cards/war_bonds.webp",
+      "sourceSha256": "bbb5ae2482b278bba6e91185f028bde51ae2f458491e45ac834a1bd04f93401a",
+      "sourceBytes": 142270,
+      "path": "/art/v204-cards/war_bonds-384-d1223ce0d52e.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 39580,
+      "sha256": "d1223ce0d52ecd078c0c4c867df62d90e824d198e0a1f9b0a9a8901b1435b957"
+    },
+    {
+      "source": "/art/v21-economy/cards/war_bonds.webp",
+      "sourceSha256": "bbb5ae2482b278bba6e91185f028bde51ae2f458491e45ac834a1bd04f93401a",
+      "sourceBytes": 142270,
+      "path": "/art/v204-cards/war_bonds-640-3fd9d9b52a68.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 74942,
+      "sha256": "3fd9d9b52a684fd0214809921ba3156f004f49280c585064b111fe60e6291c48"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/overdraft.webp",
+      "sourceSha256": "d728f89af6f46f328f7b1f4f2a305cde5b08de4d317fb9b67336b45bf5559ecb",
+      "sourceBytes": 92762,
+      "path": "/art/v204-cards/overdraft-384-6eb12c742aca.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 29284,
+      "sha256": "6eb12c742acafc1b08833abff8b8f365d488e743ed37ae676814708cba897d48"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/overdraft.webp",
+      "sourceSha256": "d728f89af6f46f328f7b1f4f2a305cde5b08de4d317fb9b67336b45bf5559ecb",
+      "sourceBytes": 92762,
+      "path": "/art/v204-cards/overdraft-640-5af9b20b62b8.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 58194,
+      "sha256": "5af9b20b62b8668c490f0095287ab01f1117f2288ee1fcbe4983c054e387a863"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/signal_jam.webp",
+      "sourceSha256": "f40cf4bd56e849a352f671f37d1011c1a20ca96d1811328a030bfbb3ad8540d3",
+      "sourceBytes": 89350,
+      "path": "/art/v204-cards/signal_jam-384-080638e85de9.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 26282,
+      "sha256": "080638e85de920fc0740906694e7397b88cf7daf8fb42f087356ebaceb1f7c98"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/signal_jam.webp",
+      "sourceSha256": "f40cf4bd56e849a352f671f37d1011c1a20ca96d1811328a030bfbb3ad8540d3",
+      "sourceBytes": 89350,
+      "path": "/art/v204-cards/signal_jam-640-865163bd0dda.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 53512,
+      "sha256": "865163bd0ddac57865a48b714f6626256b665fb44218c75329d975e3e6720147"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/airborne_insertion.webp",
+      "sourceSha256": "4a048c67b632cfd25a1c6ce2acb701b2bcc0268adb6b4364656359f239eb404c",
+      "sourceBytes": 106294,
+      "path": "/art/v204-cards/airborne_insertion-384-fd2c7b7b1215.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 31500,
+      "sha256": "fd2c7b7b1215e40cfb7520aac918611d7f10d9a3ab0eac1a5b7ca2cc97c0a393"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/airborne_insertion.webp",
+      "sourceSha256": "4a048c67b632cfd25a1c6ce2acb701b2bcc0268adb6b4364656359f239eb404c",
+      "sourceBytes": 106294,
+      "path": "/art/v204-cards/airborne_insertion-640-027dfe9df376.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 63918,
+      "sha256": "027dfe9df37657aee6fb7f4c1fa010a1fd329040392a6bca57900f1d0dedfbcf"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/forced_march.webp",
+      "sourceSha256": "189585d099093b0c176a97209fb36b49e892867037aadad02bbfc59793645851",
+      "sourceBytes": 127430,
+      "path": "/art/v204-cards/forced_march-384-b1be393cc0c0.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37240,
+      "sha256": "b1be393cc0c0464b60ad29abfbf6454375c4fec0d21a3acbef1250b8aa1ee885"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/forced_march.webp",
+      "sourceSha256": "189585d099093b0c176a97209fb36b49e892867037aadad02bbfc59793645851",
+      "sourceBytes": 127430,
+      "path": "/art/v204-cards/forced_march-640-120bdafcbff3.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 76772,
+      "sha256": "120bdafcbff3574e9f6c204591b2ebda294163a3da3f48781087dc6cdf1130d3"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/cyber_suppression.webp",
+      "sourceSha256": "bfc8ec25a5f4e63af03ac9f9b5372ebc61ca46682168b335b6f0a8762385e12d",
+      "sourceBytes": 90548,
+      "path": "/art/v204-cards/cyber_suppression-384-27bbde8e1383.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25908,
+      "sha256": "27bbde8e1383d918f48e784ff722f74435b6980ea5ae8f683e1b0cec49f21e7b"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/cyber_suppression.webp",
+      "sourceSha256": "bfc8ec25a5f4e63af03ac9f9b5372ebc61ca46682168b335b6f0a8762385e12d",
+      "sourceBytes": 90548,
+      "path": "/art/v204-cards/cyber_suppression-640-ad3ec45c438f.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 54270,
+      "sha256": "ad3ec45c438ff2c776c99c881d7f57260db362541be5f5338810fa7ca134f8d4"
+    },
+    {
+      "source": "/art/cards-v10/infantry.webp",
+      "sourceSha256": "e6c7818ea2e67a71a7ed684949374d0f1810fc26629bccb76dfbe91cf6705d0a",
+      "sourceBytes": 70192,
+      "path": "/art/v204-cards/infantry-384-662eb785ea52.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38944,
+      "sha256": "662eb785ea52bfb8caef3cd5f549beafdf5c561564bd3d7cc07084350ae1b796"
+    },
+    {
+      "source": "/art/cards-v10/infantry.webp",
+      "sourceSha256": "e6c7818ea2e67a71a7ed684949374d0f1810fc26629bccb76dfbe91cf6705d0a",
+      "sourceBytes": 70192,
+      "path": "/art/v204-cards/infantry-640-41a6251d490d.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 52478,
+      "sha256": "41a6251d490dd28f331839d89a95407535a2e76f660eca8573235e953c03420d"
+    },
+    {
+      "source": "/art/cards-v10/machinegun.webp",
+      "sourceSha256": "3fb1975d525dcb9d0b4698dca797c2ac9901e004161905b73aff83b1e7daf705",
+      "sourceBytes": 66642,
+      "path": "/art/v204-cards/machinegun-384-69c75a4d3cd6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 39028,
+      "sha256": "69c75a4d3cd60cc5770e14b15a9262df832586d2a7b7dbb3164810fba6abd6e1"
+    },
+    {
+      "source": "/art/cards-v10/machinegun.webp",
+      "sourceSha256": "3fb1975d525dcb9d0b4698dca797c2ac9901e004161905b73aff83b1e7daf705",
+      "sourceBytes": 66642,
+      "path": "/art/v204-cards/machinegun-640-e2534fe855e3.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50618,
+      "sha256": "e2534fe855e31b977e5b4544e4ef25e1f82c0914f9de4f1d132fc43864cf82fa"
+    },
+    {
+      "source": "/art/cards-v10/rocket.webp",
+      "sourceSha256": "be027718ce607f38dd35e1d29d0681013f82f0ab3d6cc2e61967584df6de04d5",
+      "sourceBytes": 67184,
+      "path": "/art/v204-cards/rocket-384-277bfc146b96.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38360,
+      "sha256": "277bfc146b9652afd694985fe525fc9919334adfae4bb7d8d0b570c811411a4c"
+    },
+    {
+      "source": "/art/cards-v10/rocket.webp",
+      "sourceSha256": "be027718ce607f38dd35e1d29d0681013f82f0ab3d6cc2e61967584df6de04d5",
+      "sourceBytes": 67184,
+      "path": "/art/v204-cards/rocket-640-144c3939334d.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 49968,
+      "sha256": "144c3939334dae2bb35da5fdb343832dcb094066f0441e2023fb0e8d3d663035"
+    },
+    {
+      "source": "/art/cards-v10/tank.webp",
+      "sourceSha256": "b12bc123b17dacb09a9307a8b013b078958d1451678a758f7406481161076a0b",
+      "sourceBytes": 60730,
+      "path": "/art/v204-cards/tank-384-51507f97caea.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34460,
+      "sha256": "51507f97caeaadfea423d2bced25a9469e356be8d37fdc54679eb32710ed6132"
+    },
+    {
+      "source": "/art/cards-v10/tank.webp",
+      "sourceSha256": "b12bc123b17dacb09a9307a8b013b078958d1451678a758f7406481161076a0b",
+      "sourceBytes": 60730,
+      "path": "/art/v204-cards/tank-640-86bd437a3a4a.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 46798,
+      "sha256": "86bd437a3a4a05fa32287163c34c5a3133accf3094880a7180cd6e08bf1c9562"
+    },
+    {
+      "source": "/art/cards-v10/helicopter.webp",
+      "sourceSha256": "8e2dd55749012eef7d16d7a5acbf76dedd05dee83af58d01c32b9e66256a2668",
+      "sourceBytes": 51636,
+      "path": "/art/v204-cards/helicopter-384-64663d167bb9.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 28422,
+      "sha256": "64663d167bb9c1295d874df61bda6af67e547d3ee0a08c42e136e57e2970e6de"
+    },
+    {
+      "source": "/art/cards-v10/helicopter.webp",
+      "sourceSha256": "8e2dd55749012eef7d16d7a5acbf76dedd05dee83af58d01c32b9e66256a2668",
+      "sourceBytes": 51636,
+      "path": "/art/v204-cards/helicopter-640-d85cd407911c.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 37584,
+      "sha256": "d85cd407911cf4b69d51f332027ad729b37972364a3babf6da79b71ef2050c0e"
+    },
+    {
+      "source": "/art/cards-v10/sniper.webp",
+      "sourceSha256": "51384aca7a2b1af959e038d3c29ce830249c1de1a4f9a3419df00bd792d03ff4",
+      "sourceBytes": 72952,
+      "path": "/art/v204-cards/sniper-384-3ff4062f7597.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 43936,
+      "sha256": "3ff4062f75979e4bf8dd9f94e3fa81890218ba14dae72b17318492b363664250"
+    },
+    {
+      "source": "/art/cards-v10/sniper.webp",
+      "sourceSha256": "51384aca7a2b1af959e038d3c29ce830249c1de1a4f9a3419df00bd792d03ff4",
+      "sourceBytes": 72952,
+      "path": "/art/v204-cards/sniper-640-fb755e66174f.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 56374,
+      "sha256": "fb755e66174fb05b351579251ee79d01fca6d6e861a611d43ab6c9eac56a7d72"
+    },
+    {
+      "source": "/art/cards-v10/medic.webp",
+      "sourceSha256": "5fc328cb4087d0d9183fa0bab6ca17160ff38835fd47ca194f18e8bd923d22c9",
+      "sourceBytes": 61392,
+      "path": "/art/v204-cards/medic-384-a825551b75d1.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34974,
+      "sha256": "a825551b75d1828687b023e404cf6daa707d46f4821092b925b5973bf3056238"
+    },
+    {
+      "source": "/art/cards-v10/medic.webp",
+      "sourceSha256": "5fc328cb4087d0d9183fa0bab6ca17160ff38835fd47ca194f18e8bd923d22c9",
+      "sourceBytes": 61392,
+      "path": "/art/v204-cards/medic-640-2be54d0c0e25.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 46060,
+      "sha256": "2be54d0c0e25fc38b24c2baf6cb55eb172458fea72e2d5101b40c088d58db369"
+    },
+    {
+      "source": "/art/cards-v10/mortar.webp",
+      "sourceSha256": "0b78286fb7d505ba48d2c718c8cea20f5954968d4b45760ab766179e190a1cbb",
+      "sourceBytes": 63040,
+      "path": "/art/v204-cards/mortar-384-a3c59a356e97.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 36252,
+      "sha256": "a3c59a356e97946eed71305c2c9ed3dc719337acaa0b735102ba674f71b9a929"
+    },
+    {
+      "source": "/art/cards-v10/mortar.webp",
+      "sourceSha256": "0b78286fb7d505ba48d2c718c8cea20f5954968d4b45760ab766179e190a1cbb",
+      "sourceBytes": 63040,
+      "path": "/art/v204-cards/mortar-640-6eb209c9f92a.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 47284,
+      "sha256": "6eb209c9f92ad4cc72a5b38fe39fa23a6f3834d2f3148d86437bb3a6cecc8da0"
+    },
+    {
+      "source": "/art/cards-v10/ifv.webp",
+      "sourceSha256": "b51ab30cdcc12cd973fd3436497b74584fe2d56540f558a374cd265d8d67e876",
+      "sourceBytes": 58528,
+      "path": "/art/v204-cards/ifv-384-b0b86dfb940e.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33216,
+      "sha256": "b0b86dfb940e7ad0436ee04683d8108db9c2e46e4e38b5791cfe0b8c53cfdc1a"
+    },
+    {
+      "source": "/art/cards-v10/ifv.webp",
+      "sourceSha256": "b51ab30cdcc12cd973fd3436497b74584fe2d56540f558a374cd265d8d67e876",
+      "sourceBytes": 58528,
+      "path": "/art/v204-cards/ifv-640-94f5797d61e1.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 44254,
+      "sha256": "94f5797d61e1124efe11c870473628abec618f6249900eb1f8ce96f987458702"
+    },
+    {
+      "source": "/art/cards-v10/morale.webp",
+      "sourceSha256": "47cfcea8fa3126991e4475c8ba922ffcc39f0e91578700bb3c2aaf6f59933850",
+      "sourceBytes": 60578,
+      "path": "/art/v204-cards/morale-384-3b9c79bcd7f8.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34662,
+      "sha256": "3b9c79bcd7f86e40a2d6e91386afc5a6423bbec20f894677fea9e2b0ec008250"
+    },
+    {
+      "source": "/art/cards-v10/morale.webp",
+      "sourceSha256": "47cfcea8fa3126991e4475c8ba922ffcc39f0e91578700bb3c2aaf6f59933850",
+      "sourceBytes": 60578,
+      "path": "/art/v204-cards/morale-640-b2e30f5c0995.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 44518,
+      "sha256": "b2e30f5c099586a0e1262bdf05b816d338b010e011013b4c48d98c748f5d4536"
+    },
+    {
+      "source": "/art/cards-v10/artillery.webp",
+      "sourceSha256": "fedbcc29453a1d2ba62add3756959014a1d6c387bdb5416449299366b31703ba",
+      "sourceBytes": 71776,
+      "path": "/art/v204-cards/artillery-384-a283c00ee4de.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 41884,
+      "sha256": "a283c00ee4deecd0bf40c0ca6927c106ae15a8b9a8e8ea53f0d47d894e7fcbbc"
+    },
+    {
+      "source": "/art/cards-v10/artillery.webp",
+      "sourceSha256": "fedbcc29453a1d2ba62add3756959014a1d6c387bdb5416449299366b31703ba",
+      "sourceBytes": 71776,
+      "path": "/art/v204-cards/artillery-640-32e033fff1f5.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 54582,
+      "sha256": "32e033fff1f57d58017b4ecf84f2a498003c88040f70d89421732a59a9b77766"
+    },
+    {
+      "source": "/art/cards-v10/supply.webp",
+      "sourceSha256": "9d2449328148551c826c6850be8f10e18b1b11bb91ecdcb8a682dfd2a47a550c",
+      "sourceBytes": 60180,
+      "path": "/art/v204-cards/supply-384-f75b3aa78c9c.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33612,
+      "sha256": "f75b3aa78c9c3566970bbfc97975c9322facf5ce5231f12922eec95ef4b7194c"
+    },
+    {
+      "source": "/art/cards-v10/supply.webp",
+      "sourceSha256": "9d2449328148551c826c6850be8f10e18b1b11bb91ecdcb8a682dfd2a47a550c",
+      "sourceBytes": 60180,
+      "path": "/art/v204-cards/supply-640-058604217edb.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 45460,
+      "sha256": "058604217edba4750849ff66c767a28e0c745bca03b86a32c29aca3bfe07b015"
+    },
+    {
+      "source": "/art/cards-v10/jam.webp",
+      "sourceSha256": "0e58b19ea9c9aeae4af0a7a7d8180c2eeba3f204edfde9d95649fcfecd5c5445",
+      "sourceBytes": 51320,
+      "path": "/art/v204-cards/jam-384-a0165bc6c777.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 29742,
+      "sha256": "a0165bc6c7772c1215a971eaf37441975b1b7d47ad25f3bd780d1982bf3bef8c"
+    },
+    {
+      "source": "/art/cards-v10/jam.webp",
+      "sourceSha256": "0e58b19ea9c9aeae4af0a7a7d8180c2eeba3f204edfde9d95649fcfecd5c5445",
+      "sourceBytes": 51320,
+      "path": "/art/v204-cards/jam-640-f1d558e03625.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 37922,
+      "sha256": "f1d558e0362568eb69a5a33252461b011eeea1f5d72fa290bcb44b42d161bad1"
+    },
+    {
+      "source": "/art/cards-v10/smoke.webp",
+      "sourceSha256": "a071408fab8b359f5eb3a57a25024283c2b1b451573a399c5d53e240fc358219",
+      "sourceBytes": 36710,
+      "path": "/art/v204-cards/smoke-384-18562b08433d.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 21228,
+      "sha256": "18562b08433d618535560a180471268c41b80539654add0299001dd877e428c0"
+    },
+    {
+      "source": "/art/cards-v10/smoke.webp",
+      "sourceSha256": "a071408fab8b359f5eb3a57a25024283c2b1b451573a399c5d53e240fc358219",
+      "sourceBytes": 36710,
+      "path": "/art/v204-cards/smoke-640-b3a226d414f1.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 27742,
+      "sha256": "b3a226d414f115dfa138177298007a2b1cd2807c82b6828097d245215b93e33e"
+    },
+    {
+      "source": "/art/cards-v10/recon.webp",
+      "sourceSha256": "0438bda8d00b231a5e5986c72bf63616bf1abbbcce1f4be95f7f645ba9cdff0d",
+      "sourceBytes": 65204,
+      "path": "/art/v204-cards/recon-384-27729b748a86.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37724,
+      "sha256": "27729b748a860818697fe20bbc84a6d665cb431aa434d7687623546a5e367c99"
+    },
+    {
+      "source": "/art/cards-v10/recon.webp",
+      "sourceSha256": "0438bda8d00b231a5e5986c72bf63616bf1abbbcce1f4be95f7f645ba9cdff0d",
+      "sourceBytes": 65204,
+      "path": "/art/v204-cards/recon-640-41df6b0f3c42.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50714,
+      "sha256": "41df6b0f3c42b3af66c9f236d3e02f92121d17f02634b37026e2f1006381dd29"
+    },
+    {
+      "source": "/art/cards-v10/flare.webp",
+      "sourceSha256": "f3a072b5d6a479bf590b1fb220a704e5846d2ac12fca195def9245df87b8df27",
+      "sourceBytes": 84806,
+      "path": "/art/v204-cards/flare-384-6d5852322692.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 24716,
+      "sha256": "6d5852322692cc737fa4445ab478b24f0fd4b842941a044054c269fd05bdb3fb"
+    },
+    {
+      "source": "/art/cards-v10/flare.webp",
+      "sourceSha256": "f3a072b5d6a479bf590b1fb220a704e5846d2ac12fca195def9245df87b8df27",
+      "sourceBytes": 84806,
+      "path": "/art/v204-cards/flare-640-e2fe14574e20.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 52426,
+      "sha256": "e2fe14574e209329e890ea4d1adbe4599539df9a8bfd1306491de3d63f2cc7fb"
+    },
+    {
+      "source": "/art/cards-v10/repair.webp",
+      "sourceSha256": "f8223ee13013b32feca39f290398ab0a56e7c25c768efea8596f348fecc3fba3",
+      "sourceBytes": 67060,
+      "path": "/art/v204-cards/repair-384-64a8f1b227b2.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38784,
+      "sha256": "64a8f1b227b26b8c99374f9dd2757cc8a4d72e2e4a799a5cab85caa740e1c9f7"
+    },
+    {
+      "source": "/art/cards-v10/repair.webp",
+      "sourceSha256": "f8223ee13013b32feca39f290398ab0a56e7c25c768efea8596f348fecc3fba3",
+      "sourceBytes": 67060,
+      "path": "/art/v204-cards/repair-640-522698d5514c.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 52138,
+      "sha256": "522698d5514cb7f1d8e267bc1717db4b621904dc11881b61405a0f6b622c147c"
+    },
+    {
+      "source": "/art/cards-v10/precision.webp",
+      "sourceSha256": "0e9a994e55658762770548e790ae7d23abe210739ab309774182ae6b5ea8a60c",
+      "sourceBytes": 66406,
+      "path": "/art/v204-cards/precision-384-51427f96d0f6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37924,
+      "sha256": "51427f96d0f696d34cf4aefdc3ea393563ef7689e03fc75e3cb271ea4c9d870b"
+    },
+    {
+      "source": "/art/cards-v10/precision.webp",
+      "sourceSha256": "0e9a994e55658762770548e790ae7d23abe210739ab309774182ae6b5ea8a60c",
+      "sourceBytes": 66406,
+      "path": "/art/v204-cards/precision-640-d52c99f40941.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50726,
+      "sha256": "d52c99f4094163a8f3a724e325eb2a7491bd16fefbc00e12b536161878cbf91e"
+    },
+    {
+      "source": "/art/v18-comeback/cards/toxic_cloud.webp",
+      "sourceSha256": "3939777fd3eb833c6e8d1f8f814c703a89a80ae0bd9b8a6e24ecbe3a80c6f0be",
+      "sourceBytes": 101216,
+      "path": "/art/v204-cards/toxic_cloud-384-a4f4c244abd5.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 27170,
+      "sha256": "a4f4c244abd5607bbaf8cdcfdf7d1d7ed1493ae29067e326d70d4144187382eb"
+    },
+    {
+      "source": "/art/v18-comeback/cards/toxic_cloud.webp",
+      "sourceSha256": "3939777fd3eb833c6e8d1f8f814c703a89a80ae0bd9b8a6e24ecbe3a80c6f0be",
+      "sourceBytes": 101216,
+      "path": "/art/v204-cards/toxic_cloud-640-2bf0beb38df8.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 54992,
+      "sha256": "2bf0beb38df81b268b0a22497de26d4200676b6536632a953d1beb9745a07c0f"
+    },
+    {
+      "source": "/art/v18-comeback/cards/smoke_withdrawal.webp",
+      "sourceSha256": "395715489b5e30a70ca19f8eba87a54abef7ab16409462d4e030db7e4719deba",
+      "sourceBytes": 91064,
+      "path": "/art/v204-cards/smoke_withdrawal-384-6d16c8900810.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 23794,
+      "sha256": "6d16c89008105bfbaa3cc00f2f7dff44c6230f00d861c1a6387ec33f5c05c08f"
+    },
+    {
+      "source": "/art/v18-comeback/cards/smoke_withdrawal.webp",
+      "sourceSha256": "395715489b5e30a70ca19f8eba87a54abef7ab16409462d4e030db7e4719deba",
+      "sourceBytes": 91064,
+      "path": "/art/v204-cards/smoke_withdrawal-640-95d3753b10b3.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 47028,
+      "sha256": "95d3753b10b35253005c961ea04ee2c7fb833c21f907f64d00a498a62371a44e"
+    },
+    {
+      "source": "/art/v18-comeback/cards/reserve_mobilization.webp",
+      "sourceSha256": "7413fab981c3f56a0e16fcaa0acda15aa756689dd01e63a9ed5bb58f42c2e7f1",
+      "sourceBytes": 87620,
+      "path": "/art/v204-cards/reserve_mobilization-384-1bc07f0ed7b1.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25176,
+      "sha256": "1bc07f0ed7b1df8a1a77fde2a715b03c9b34b5f407e0c9f53d79a6849f1b45ca"
+    },
+    {
+      "source": "/art/v18-comeback/cards/reserve_mobilization.webp",
+      "sourceSha256": "7413fab981c3f56a0e16fcaa0acda15aa756689dd01e63a9ed5bb58f42c2e7f1",
+      "sourceBytes": 87620,
+      "path": "/art/v204-cards/reserve_mobilization-640-65281cbc9762.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 47682,
+      "sha256": "65281cbc9762bd948d60c1b89f698adcd5c6a14a9c49d52e9005849ea45c8df5"
+    },
+    {
+      "source": "/art/v16-air/cards/fpv_drone.webp",
+      "sourceSha256": "1f283b15fbc2df1f905593159ffd55d99943837954211ff76a0e5d6d7aff674d",
+      "sourceBytes": 63238,
+      "path": "/art/v204-cards/fpv_drone-384-a67cb2b8b538.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25810,
+      "sha256": "a67cb2b8b5388c1f9d78927c5bbe1116390066f1fc7044bef08d0cd09888cda5"
+    },
+    {
+      "source": "/art/v16-air/cards/fpv_drone.webp",
+      "sourceSha256": "1f283b15fbc2df1f905593159ffd55d99943837954211ff76a0e5d6d7aff674d",
+      "sourceBytes": 63238,
+      "path": "/art/v204-cards/fpv_drone-640-00f68ccfd79b.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 40858,
+      "sha256": "00f68ccfd79b9c00298edc2545d370057574aeff9a2f2d74739c04643a3811cc"
+    },
+    {
+      "source": "/art/v16-air/cards/air_assault.webp",
+      "sourceSha256": "8a79a89ec26465be3b92e8d9c22b16283cd02990f09f858a9b540f50381a8c25",
+      "sourceBytes": 81988,
+      "path": "/art/v204-cards/air_assault-384-e5435da385f9.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35446,
+      "sha256": "e5435da385f9b4ee8b58aa126fe8419d72b16b546d99be6303e100e8fd81ff0b"
+    },
+    {
+      "source": "/art/v16-air/cards/air_assault.webp",
+      "sourceSha256": "8a79a89ec26465be3b92e8d9c22b16283cd02990f09f858a9b540f50381a8c25",
+      "sourceBytes": 81988,
+      "path": "/art/v204-cards/air_assault-640-bc546da946da.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 54784,
+      "sha256": "bc546da946da169c131ead6240ddbd5bb321c624749c63ac95cc9417efd11cb9"
+    },
+    {
+      "source": "/art/cards-v15/pickup.webp",
+      "sourceSha256": "e7543165c5377c73c497095f13a6eb732001c3d06941b0f1dec6e9d0e6eaf371",
+      "sourceBytes": 117338,
+      "path": "/art/v204-cards/pickup-384-e93a0c8f5946.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38516,
+      "sha256": "e93a0c8f5946c8ed035220125ef3526faee7865dc692b4565a1e68677b31c9df"
+    },
+    {
+      "source": "/art/cards-v15/pickup.webp",
+      "sourceSha256": "e7543165c5377c73c497095f13a6eb732001c3d06941b0f1dec6e9d0e6eaf371",
+      "sourceBytes": 117338,
+      "path": "/art/v204-cards/pickup-640-91fe24b02a31.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 67754,
+      "sha256": "91fe24b02a318117889a29f030a5a85f356a975578d1c7ed688dadd4961def46"
+    },
+    {
+      "source": "/art/v197-armor/tow-card.webp",
+      "sourceSha256": "7dac7666b5802b4fa660bb63a0cae2d21fdb8f34bd0f6aa9c635eb9952f205a0",
+      "sourceBytes": 1873978,
+      "path": "/art/v204-cards/tow-card-384-e9a21fd53285.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 43592,
+      "sha256": "e9a21fd53285ba06abab142aa8652c71bed3bfd1f03af9c427bcb45cad403615"
+    },
+    {
+      "source": "/art/v197-armor/tow-card.webp",
+      "sourceSha256": "7dac7666b5802b4fa660bb63a0cae2d21fdb8f34bd0f6aa9c635eb9952f205a0",
+      "sourceBytes": 1873978,
+      "path": "/art/v204-cards/tow-card-640-9aded1920f6a.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 98168,
+      "sha256": "9aded1920f6a1cab05937959ff2d683b9176317adca673bfeeb401c65a629c29"
+    },
+    {
+      "source": "/art/cards-v15/mortar_carrier.webp",
+      "sourceSha256": "4fe504b386976f92130dd712ad29186959c03d96ea4e90d5790d3f7e0b9e5ace",
+      "sourceBytes": 93158,
+      "path": "/art/v204-cards/mortar_carrier-384-18cb21e61f7a.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35356,
+      "sha256": "18cb21e61f7af536c247a36b8e632c5314370dcaff9f4fc0df24c295e92a4328"
+    },
+    {
+      "source": "/art/cards-v15/mortar_carrier.webp",
+      "sourceSha256": "4fe504b386976f92130dd712ad29186959c03d96ea4e90d5790d3f7e0b9e5ace",
+      "sourceBytes": 93158,
+      "path": "/art/v204-cards/mortar_carrier-640-827d609d2bf0.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 54398,
+      "sha256": "827d609d2bf0422a8f841f4a71dcbf0390bc8ece542183d38b4307059f8058b3"
+    },
+    {
+      "source": "/art/cards-v15/recovery_vehicle.webp",
+      "sourceSha256": "59d57720e2e5ae606aedae1d2c14b491b378e79bfcf271a38ad51dd256288ef4",
+      "sourceBytes": 86544,
+      "path": "/art/v204-cards/recovery_vehicle-384-e2ba7e8c5f50.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32008,
+      "sha256": "e2ba7e8c5f506b6ccc213b3369e798f53c5c95d783091b8ed8d0d0bbd7eb4959"
+    },
+    {
+      "source": "/art/cards-v15/recovery_vehicle.webp",
+      "sourceSha256": "59d57720e2e5ae606aedae1d2c14b491b378e79bfcf271a38ad51dd256288ef4",
+      "sourceBytes": 86544,
+      "path": "/art/v204-cards/recovery_vehicle-640-53f0a3cbf5c6.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 51028,
+      "sha256": "53f0a3cbf5c6bab0f33410aa973a5bf1aa18df33a071b43ed1f89374664165e0"
+    },
+    {
+      "source": "/art/cards-v15/command_vehicle.webp",
+      "sourceSha256": "852fd2d01e6adcf9d205d0e96d02ac9dc0b4b19a29ad31cddb303d7055f0971c",
+      "sourceBytes": 97102,
+      "path": "/art/v204-cards/command_vehicle-384-e1a58d3e0296.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35672,
+      "sha256": "e1a58d3e02969bda32598cd8e5852962b890e6849125739a7c0586c7aa045807"
+    },
+    {
+      "source": "/art/cards-v15/command_vehicle.webp",
+      "sourceSha256": "852fd2d01e6adcf9d205d0e96d02ac9dc0b4b19a29ad31cddb303d7055f0971c",
+      "sourceBytes": 97102,
+      "path": "/art/v204-cards/command_vehicle-640-d1938308a995.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 55730,
+      "sha256": "d1938308a995591c0cdfae86f1fc38adb921a3572e04cc113b906b65bc48cde8"
+    },
+    {
+      "source": "/art/cards-v15/mine_clearer.webp",
+      "sourceSha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240",
+      "sourceBytes": 97328,
+      "path": "/art/v204-cards/mine_clearer-384-8b91f79abcbd.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38606,
+      "sha256": "8b91f79abcbd96ba0446a499038f233b12227b70e7e40848af0bd3442825cfc2"
+    },
+    {
+      "source": "/art/cards-v15/mine_clearer.webp",
+      "sourceSha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240",
+      "sourceBytes": 97328,
+      "path": "/art/v204-cards/mine_clearer-640-ebd6e709426c.webp",
+      "width": 480,
+      "height": 480,
+      "bytes": 57986,
+      "sha256": "ebd6e709426cf6f366b90d26dab9b74b8d5b09ba3ecd8d3a96d3a9ceae702087"
+    },
+    {
+      "source": "/art/cards-v10/javelin.webp",
+      "sourceSha256": "2ede0a12af2573930ddc752e80aeecbdfe28d087d4a5739a60b0491fd196acc5",
+      "sourceBytes": 52438,
+      "path": "/art/v204-cards/javelin-384-22a334cbffb6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 30708,
+      "sha256": "22a334cbffb6533a25bfcccd602e8d81cb3af08a613dabb4136b82be8553beba"
+    },
+    {
+      "source": "/art/cards-v10/javelin.webp",
+      "sourceSha256": "2ede0a12af2573930ddc752e80aeecbdfe28d087d4a5739a60b0491fd196acc5",
+      "sourceBytes": 52438,
+      "path": "/art/v204-cards/javelin-640-7d49735994b9.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 39366,
+      "sha256": "7d49735994b90676e827a8e553ac5107e089a5303a4e2328d711523adc041cd1"
+    },
+    {
+      "source": "/art/cards-v10/anti_tank_gun.webp",
+      "sourceSha256": "fe36b6d713b63ee60a768faf9fe23e9a53d32b50a05bfa74b0eb689f1a65760b",
+      "sourceBytes": 69550,
+      "path": "/art/v204-cards/anti_tank_gun-384-0cdc52b78104.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 39660,
+      "sha256": "0cdc52b781044c15ed935a9b30228f479e50e7453808e8324e641dc61944964e"
+    },
+    {
+      "source": "/art/cards-v10/anti_tank_gun.webp",
+      "sourceSha256": "fe36b6d713b63ee60a768faf9fe23e9a53d32b50a05bfa74b0eb689f1a65760b",
+      "sourceBytes": 69550,
+      "path": "/art/v204-cards/anti_tank_gun-640-78ec78a85910.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 51676,
+      "sha256": "78ec78a85910abdedaaf253df419f22eed2478222547a40397a3f4a68a96493e"
+    },
+    {
+      "source": "/art/cards-v10/antitank_mine.webp",
+      "sourceSha256": "d1edf1442f1a7f27ca9e39a8d46341c976c6815d319de55b88b03d85df9cecaf",
+      "sourceBytes": 65828,
+      "path": "/art/v204-cards/antitank_mine-384-09ac18c7bea2.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 36952,
+      "sha256": "09ac18c7bea21c3c835e2cf16cfc83da02eb032da880e30a65761a6f02f74ae7"
+    },
+    {
+      "source": "/art/cards-v10/antitank_mine.webp",
+      "sourceSha256": "d1edf1442f1a7f27ca9e39a8d46341c976c6815d319de55b88b03d85df9cecaf",
+      "sourceBytes": 65828,
+      "path": "/art/v204-cards/antitank_mine-640-3b5e5633be8c.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 49110,
+      "sha256": "3b5e5633be8cde1a9d6c505d24aeec2d06a253dc0239c24b6fa2a8b0f12bedb2"
+    },
+    {
+      "source": "/art/cards-v10/aa_gun.webp",
+      "sourceSha256": "268be280aa2f3fe0014d659cd082ec0f5aed6eea7469cf156fc7843b9bead6e7",
+      "sourceBytes": 65752,
+      "path": "/art/v204-cards/aa_gun-384-da49b57b69ec.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37654,
+      "sha256": "da49b57b69ecbd192fb584743cbd5d0c7379d6d3a092508a0485916280140cc4"
+    },
+    {
+      "source": "/art/cards-v10/aa_gun.webp",
+      "sourceSha256": "268be280aa2f3fe0014d659cd082ec0f5aed6eea7469cf156fc7843b9bead6e7",
+      "sourceBytes": 65752,
+      "path": "/art/v204-cards/aa_gun-640-a3cdec3c16e5.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 48948,
+      "sha256": "a3cdec3c16e5b1fa145b1041863ff47b1d475ecd343a59bc3dc03598a94355ea"
+    },
+    {
+      "source": "/art/cards-v10/sam_vehicle.webp",
+      "sourceSha256": "6e2f16c6ddada5e172318002d6c820d5c64f6076986d56ed3c452bc7b7bf241a",
+      "sourceBytes": 64992,
+      "path": "/art/v204-cards/sam_vehicle-384-48167ed8a75b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 36778,
+      "sha256": "48167ed8a75bf4fad0fd33b17694ddf0471bcde0d310f2ab0230763776d02c87"
+    },
+    {
+      "source": "/art/cards-v10/sam_vehicle.webp",
+      "sourceSha256": "6e2f16c6ddada5e172318002d6c820d5c64f6076986d56ed3c452bc7b7bf241a",
+      "sourceBytes": 64992,
+      "path": "/art/v204-cards/sam_vehicle-640-9047431004a8.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 47804,
+      "sha256": "9047431004a897bb1db72e10976e733e69ffaa2e9257ffdb7127bf0aaaf0c151"
+    },
+    {
+      "source": "/art/cards-v10/steadfast.webp",
+      "sourceSha256": "2f7294b70d1c82ee5966a31dc742ad38997391c77b0675007ec1a5e6f2f87c1a",
+      "sourceBytes": 61132,
+      "path": "/art/v204-cards/steadfast-384-c61f595611d6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35758,
+      "sha256": "c61f595611d637f41adcc7925010e11241c869305bfcd6a34ec7edfd27fc12f0"
+    },
+    {
+      "source": "/art/cards-v10/steadfast.webp",
+      "sourceSha256": "2f7294b70d1c82ee5966a31dc742ad38997391c77b0675007ec1a5e6f2f87c1a",
+      "sourceBytes": 61132,
+      "path": "/art/v204-cards/steadfast-640-25a105e311d2.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 45998,
+      "sha256": "25a105e311d294959eb4e45dc14a2229eb307de6509ffa3aedb4b1af0f93d1db"
+    },
+    {
+      "source": "/art/cards-v10/supply_team.webp",
+      "sourceSha256": "248eca56f3922c0cf8bc2bf9f3caa346ecb62db1b13c927929f1d41dd3ded33f",
+      "sourceBytes": 66130,
+      "path": "/art/v204-cards/supply_team-384-f89177e62281.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38660,
+      "sha256": "f89177e622813fa3a536a2f289ffe6971b3a7aac606df785339648753f33d246"
+    },
+    {
+      "source": "/art/cards-v10/supply_team.webp",
+      "sourceSha256": "248eca56f3922c0cf8bc2bf9f3caa346ecb62db1b13c927929f1d41dd3ded33f",
+      "sourceBytes": 66130,
+      "path": "/art/v204-cards/supply_team-640-7c3a2779b9b3.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50718,
+      "sha256": "7c3a2779b9b3b9a5d7cc17ee927e235d6cfb4d8898a3f4ca0545f18a800dc2c4"
+    },
+    {
+      "source": "/art/cards-v10/strike_jet.webp",
+      "sourceSha256": "04f335f42cbdf49f3b71f523c5d427d533d145b2ccbabf78b8171f247eb511d6",
+      "sourceBytes": 61520,
+      "path": "/art/v204-cards/strike_jet-384-bfd866e0088c.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 31456,
+      "sha256": "bfd866e0088cdecede07dc49f02ed8903b69c39545aa1a525c64d7c392c363dd"
+    },
+    {
+      "source": "/art/cards-v10/strike_jet.webp",
+      "sourceSha256": "04f335f42cbdf49f3b71f523c5d427d533d145b2ccbabf78b8171f247eb511d6",
+      "sourceBytes": 61520,
+      "path": "/art/v204-cards/strike_jet-640-145a5070f064.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 45210,
+      "sha256": "145a5070f064f46f532b2a44299d81eca0900bac3cec501b58c22ada9f5fb27f"
+    },
+    {
+      "source": "/art/cards-v10/bomber.webp",
+      "sourceSha256": "152f07b0059945882a3216a611e0a277246e0931a3871640a9c34dafcee69f3b",
+      "sourceBytes": 46506,
+      "path": "/art/v204-cards/bomber-384-156397a21dd1.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 24892,
+      "sha256": "156397a21dd15c89a00f6a9629e598597fe80d457ddd41f2fcb0bd00f4662262"
+    },
+    {
+      "source": "/art/cards-v10/bomber.webp",
+      "sourceSha256": "152f07b0059945882a3216a611e0a277246e0931a3871640a9c34dafcee69f3b",
+      "sourceBytes": 46506,
+      "path": "/art/v204-cards/bomber-640-40c437b2ccf6.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 34064,
+      "sha256": "40c437b2ccf6b4b0bef193b24466011e379d29869a67eced38441f24116f33b7"
+    },
+    {
+      "source": "/art/cards-v10/marines.webp",
+      "sourceSha256": "155b454eaf5c865447e42c6e5a52339ee160201ba7da3b5ef0cf2b48976f6ef0",
+      "sourceBytes": 71818,
+      "path": "/art/v204-cards/marines-384-845d112637ba.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40868,
+      "sha256": "845d112637ba995ee350bded5f705aab43f1eac337fd7d2babfbb55fad650d92"
+    },
+    {
+      "source": "/art/cards-v10/marines.webp",
+      "sourceSha256": "155b454eaf5c865447e42c6e5a52339ee160201ba7da3b5ef0cf2b48976f6ef0",
+      "sourceBytes": 71818,
+      "path": "/art/v204-cards/marines-640-f8cec4177158.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 54318,
+      "sha256": "f8cec41771581408d2490aea0c0df7c4b086accc69d1f8fda929eb309ec24805"
+    },
+    {
+      "source": "/art/cards-v10/armed_police.webp",
+      "sourceSha256": "f136e702f46d0f95aaf5ffb3bc5eb2349eaa863d2bb130538d62072929c4999c",
+      "sourceBytes": 51808,
+      "path": "/art/v204-cards/armed_police-384-1fadf45dbc26.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 27868,
+      "sha256": "1fadf45dbc2685d392a07bfcb940a36b976971f55b297d5e78977a91e6684296"
+    },
+    {
+      "source": "/art/cards-v10/armed_police.webp",
+      "sourceSha256": "f136e702f46d0f95aaf5ffb3bc5eb2349eaa863d2bb130538d62072929c4999c",
+      "sourceBytes": 51808,
+      "path": "/art/v204-cards/armed_police-640-a700ab801b4a.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 38182,
+      "sha256": "a700ab801b4a83ddfd0bfa60a483758a582502bd641bc407b2664a9ba9125206"
+    },
+    {
+      "source": "/art/cards-v10/paratroopers.webp",
+      "sourceSha256": "de3c6382f549a78432e9b3f35a2aae9fd213631de417972ff6192a0af6bdec9c",
+      "sourceBytes": 60008,
+      "path": "/art/v204-cards/paratroopers-384-36270f8ef56b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33674,
+      "sha256": "36270f8ef56b4c913cba96f3a74ec7916548f76e41cbcd5062dda6ab45d7d1b1"
+    },
+    {
+      "source": "/art/cards-v10/paratroopers.webp",
+      "sourceSha256": "de3c6382f549a78432e9b3f35a2aae9fd213631de417972ff6192a0af6bdec9c",
+      "sourceBytes": 60008,
+      "path": "/art/v204-cards/paratroopers-640-ff2fe848da48.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 46012,
+      "sha256": "ff2fe848da486b665b103edeeb886f14cea8cb07e30b6cbb6b17f73d60dec37d"
+    },
+    {
+      "source": "/art/cards-v10/rangers.webp",
+      "sourceSha256": "c92bd966d94de2717b200940eacbba3676d563167ae9a54e752605b60d3e192b",
+      "sourceBytes": 71130,
+      "path": "/art/v204-cards/rangers-384-fecfe43ba450.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40002,
+      "sha256": "fecfe43ba45025e27edcaf7d5de8cbda7b0297e6ad7ab6ba712c491dfbed2ebd"
+    },
+    {
+      "source": "/art/cards-v10/rangers.webp",
+      "sourceSha256": "c92bd966d94de2717b200940eacbba3676d563167ae9a54e752605b60d3e192b",
+      "sourceBytes": 71130,
+      "path": "/art/v204-cards/rangers-640-887126d473ed.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 53572,
+      "sha256": "887126d473ed114926623f84aa4357c5782de5fc0ff43be3c5bf80c5161d9a81"
+    },
+    {
+      "source": "/art/cards-v10/militia.webp",
+      "sourceSha256": "af6cc720b5b0635ac429efbb3dcd5fb98106cf6dbcd1e9f851fa472e7cdfa1c3",
+      "sourceBytes": 67444,
+      "path": "/art/v204-cards/militia-384-e68425857036.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37680,
+      "sha256": "e6842585703658671d37e89149e7273aa60fd1e6027bcaca50a771495beb6afb"
+    },
+    {
+      "source": "/art/cards-v10/militia.webp",
+      "sourceSha256": "af6cc720b5b0635ac429efbb3dcd5fb98106cf6dbcd1e9f851fa472e7cdfa1c3",
+      "sourceBytes": 67444,
+      "path": "/art/v204-cards/militia-640-0096820bbb22.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50232,
+      "sha256": "0096820bbb2243520724163666774b348e9b5352aa38d12ed52aeb3edcbd8dea"
+    },
+    {
+      "source": "/art/cards-v10/assault.webp",
+      "sourceSha256": "327e4a39f02024386eafd1a0a893dc8738d3fe7fe143e7ca7f56e3b8a851b640",
+      "sourceBytes": 64024,
+      "path": "/art/v204-cards/assault-384-3394797aad02.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 36208,
+      "sha256": "3394797aad0234c994de759ffe22ade2d1b289bb614ed6deee8ad46d67e2e8db"
+    },
+    {
+      "source": "/art/cards-v10/assault.webp",
+      "sourceSha256": "327e4a39f02024386eafd1a0a893dc8738d3fe7fe143e7ca7f56e3b8a851b640",
+      "sourceBytes": 64024,
+      "path": "/art/v204-cards/assault-640-16577c2d3727.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 49670,
+      "sha256": "16577c2d37279d4c4e860950698408f4239300bf95aae4714a28bf9f1addfe5b"
+    },
+    {
+      "source": "/art/cards-v10/engineers.webp",
+      "sourceSha256": "59487baafd82aab505b5220a8315ac121cd68090fbfe8b6d53f5b1ce0e87f21c",
+      "sourceBytes": 63210,
+      "path": "/art/v204-cards/engineers-384-cc59de250f41.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 36262,
+      "sha256": "cc59de250f41ab8ed00880d1310a5aaab57bb3aed6e7ac39a22e2b531c43ae88"
+    },
+    {
+      "source": "/art/cards-v10/engineers.webp",
+      "sourceSha256": "59487baafd82aab505b5220a8315ac121cd68090fbfe8b6d53f5b1ce0e87f21c",
+      "sourceBytes": 63210,
+      "path": "/art/v204-cards/engineers-640-9131a8a07d40.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 48172,
+      "sha256": "9131a8a07d400477bf83493df86ebb055d31aebd2fdc9b8ed73389b1d48b2a57"
+    },
+    {
+      "source": "/art/cards-v10/mountain.webp",
+      "sourceSha256": "62bb9f872551c6d5d182494c045efd023d536737b9ee98d0a88f072a82c33906",
+      "sourceBytes": 75132,
+      "path": "/art/v204-cards/mountain-384-7ca53a6717ff.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 44940,
+      "sha256": "7ca53a6717ff6b5eb1dfd5c105613594a6f19d8648008c66bb6c88eda0f37d87"
+    },
+    {
+      "source": "/art/cards-v10/mountain.webp",
+      "sourceSha256": "62bb9f872551c6d5d182494c045efd023d536737b9ee98d0a88f072a82c33906",
+      "sourceBytes": 75132,
+      "path": "/art/v204-cards/mountain-640-3ed5979392e5.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 59296,
+      "sha256": "3ed5979392e54fef71332260fe095e12791be2e30cbd6d1e42c7f1433f029a7e"
+    },
+    {
+      "source": "/art/cards-v10/scouts.webp",
+      "sourceSha256": "f519a6650b73fdd5203494a9d9f08d369db3613fc46e397182806ffab556f78a",
+      "sourceBytes": 66310,
+      "path": "/art/v204-cards/scouts-384-38fd2eddee90.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38926,
+      "sha256": "38fd2eddee90ec2b8b861415ef2788e6989d6e10afde8e9728265a2420a22a2c"
+    },
+    {
+      "source": "/art/cards-v10/scouts.webp",
+      "sourceSha256": "f519a6650b73fdd5203494a9d9f08d369db3613fc46e397182806ffab556f78a",
+      "sourceBytes": 66310,
+      "path": "/art/v204-cards/scouts-640-ee2cbd3b4a66.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 49560,
+      "sha256": "ee2cbd3b4a66779943cca3d4e9ac516ad49883998aa1b604361362ef954db3b9"
+    },
+    {
+      "source": "/art/cards-v10/commandos.webp",
+      "sourceSha256": "a147a59e4a2178138aaddea1e5c2b80e0156765a6da30cf9261a1f2fc2cb06a7",
+      "sourceBytes": 41074,
+      "path": "/art/v204-cards/commandos-384-865706221c05.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 23212,
+      "sha256": "865706221c0543ae19b24d1ff0711e68dafb101af4808ab388dfc843fc07effa"
+    },
+    {
+      "source": "/art/cards-v10/commandos.webp",
+      "sourceSha256": "a147a59e4a2178138aaddea1e5c2b80e0156765a6da30cf9261a1f2fc2cb06a7",
+      "sourceBytes": 41074,
+      "path": "/art/v204-cards/commandos-640-7c0007036373.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 31674,
+      "sha256": "7c0007036373e0cef6b89da24ab4ca885cce0988e41c9a6c0018466db0308596"
+    },
+    {
+      "source": "/art/cards-v10/grenadiers.webp",
+      "sourceSha256": "12ac0d1a31cc2230b4f25ca665fb22533eb43772361ab3002568dd37cb141de8",
+      "sourceBytes": 61022,
+      "path": "/art/v204-cards/grenadiers-384-c44dc2d87a81.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35390,
+      "sha256": "c44dc2d87a81272ca4409b77ec34607dd8e3dadee200e815f12a389fc2a2fea7"
+    },
+    {
+      "source": "/art/cards-v10/grenadiers.webp",
+      "sourceSha256": "12ac0d1a31cc2230b4f25ca665fb22533eb43772361ab3002568dd37cb141de8",
+      "sourceBytes": 61022,
+      "path": "/art/v204-cards/grenadiers-640-8b40920f5b18.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 47068,
+      "sha256": "8b40920f5b18fdcb6b57e32f5397e1ec7f08f8d2e283d7bfc286931771ee2bdc"
+    },
+    {
+      "source": "/art/cards-v10/antiarmor.webp",
+      "sourceSha256": "9692864aaa9d916421cb710bed40f0e0998796109c96ff4e38eb071850bc34be",
+      "sourceBytes": 74354,
+      "path": "/art/v204-cards/antiarmor-384-b5d8af213be6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 43592,
+      "sha256": "b5d8af213be69d69276e15b5b71071a8e3be8bc0d238b511fcf9ec00adc90b12"
+    },
+    {
+      "source": "/art/cards-v10/antiarmor.webp",
+      "sourceSha256": "9692864aaa9d916421cb710bed40f0e0998796109c96ff4e38eb071850bc34be",
+      "sourceBytes": 74354,
+      "path": "/art/v204-cards/antiarmor-640-61cc7d971050.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 56042,
+      "sha256": "61cc7d97105078df9a7dbefe5d7f5849404248450d9993c14a8d0206c4c76dc8"
+    },
+    {
+      "source": "/art/cards-v10/manpads.webp",
+      "sourceSha256": "c1c1720b05357b6482627d6b1ae8409d093e1a5153aa495812a94a3b82eb9293",
+      "sourceBytes": 59304,
+      "path": "/art/v204-cards/manpads-384-59684b42b2f3.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33400,
+      "sha256": "59684b42b2f385e393aa0a2d34f29e43ba7d9da0aa7b1311f48b0d933e0e9bae"
+    },
+    {
+      "source": "/art/cards-v10/manpads.webp",
+      "sourceSha256": "c1c1720b05357b6482627d6b1ae8409d093e1a5153aa495812a94a3b82eb9293",
+      "sourceBytes": 59304,
+      "path": "/art/v204-cards/manpads-640-b178524db275.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 44194,
+      "sha256": "b178524db2757ce260d964321650add7fbfe50998d054d72ad4e9ba99c195963"
+    },
+    {
+      "source": "/art/cards-v10/heavy_mg.webp",
+      "sourceSha256": "2cb289df5ae0d071a643a472b3fe33f01d3549918f29ab4dbfb14e190aa9aeee",
+      "sourceBytes": 65878,
+      "path": "/art/v204-cards/heavy_mg-384-994e93c4ef7a.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38750,
+      "sha256": "994e93c4ef7aea7a9ce1dfe985c5e54e27d66719e839337781b8c6a97bb9dbc3"
+    },
+    {
+      "source": "/art/cards-v10/heavy_mg.webp",
+      "sourceSha256": "2cb289df5ae0d071a643a472b3fe33f01d3549918f29ab4dbfb14e190aa9aeee",
+      "sourceBytes": 65878,
+      "path": "/art/v204-cards/heavy_mg-640-1e9e8a6f0bc4.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50654,
+      "sha256": "1e9e8a6f0bc4e8d9507b9f5d8a2eb572d9128e0ecaac8fa50c45db6e3b694cce"
+    },
+    {
+      "source": "/art/v197-armor/light-tank-card.webp",
+      "sourceSha256": "d64185a19688d32ead3e4d0e70fc2298c8266e21a7166682aaedaec23ec7b9e4",
+      "sourceBytes": 1817816,
+      "path": "/art/v204-cards/light-tank-card-384-6b15efc63c59.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 44682,
+      "sha256": "6b15efc63c5968ad3aa65e4c6e83a9eaf3cd0de668a0abcf966817ee3504cf98"
+    },
+    {
+      "source": "/art/v197-armor/light-tank-card.webp",
+      "sourceSha256": "d64185a19688d32ead3e4d0e70fc2298c8266e21a7166682aaedaec23ec7b9e4",
+      "sourceBytes": 1817816,
+      "path": "/art/v204-cards/light-tank-card-640-8f129f27d23c.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 96910,
+      "sha256": "8f129f27d23cea144393c3894978406cd854de90ea70f28e39f0e92587cc9037"
+    },
+    {
+      "source": "/art/cards-v10/heavy_tank.webp",
+      "sourceSha256": "605d399bf004b085be57480a16c3ae8a418b94143483ee6010d91b903c3c0dae",
+      "sourceBytes": 57148,
+      "path": "/art/v204-cards/heavy_tank-384-ecb7ac96b3f0.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32270,
+      "sha256": "ecb7ac96b3f0c72cd24a3cc68a6c1b2045405b944fb22e2c0adfcfd1011b0114"
+    },
+    {
+      "source": "/art/cards-v10/heavy_tank.webp",
+      "sourceSha256": "605d399bf004b085be57480a16c3ae8a418b94143483ee6010d91b903c3c0dae",
+      "sourceBytes": 57148,
+      "path": "/art/v204-cards/heavy_tank-640-7a74a7bcba27.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 42606,
+      "sha256": "7a74a7bcba27fe72ddc93e05287fc79646ed48c24c52da9b01ff768cc6c03f72"
+    },
+    {
+      "source": "/art/cards-v10/rocket_heli.webp",
+      "sourceSha256": "1a6add7771cd685af2d3659625c1ce251a2fe76216a1ffa5d43ffdeec00cfd0b",
+      "sourceBytes": 43182,
+      "path": "/art/v204-cards/rocket_heli-384-674e592f17a7.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 23930,
+      "sha256": "674e592f17a75d606c51b9ff2753a457216f451fea11e4310b6d9ad1d1a0dc69"
+    },
+    {
+      "source": "/art/cards-v10/rocket_heli.webp",
+      "sourceSha256": "1a6add7771cd685af2d3659625c1ce251a2fe76216a1ffa5d43ffdeec00cfd0b",
+      "sourceBytes": 43182,
+      "path": "/art/v204-cards/rocket_heli-640-5de83ef92bd7.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 31468,
+      "sha256": "5de83ef92bd78042e8d0eafa5217da97b2b9a936f694106ab8789d518198e5f5"
+    },
+    {
+      "source": "/art/cards-v10/scout_drone.webp",
+      "sourceSha256": "7cc3aec1835189995fcd61fbf77f2e71a6e67a16a693a7b5d54cd68c2b1819d7",
+      "sourceBytes": 53748,
+      "path": "/art/v204-cards/scout_drone-384-53f2d6e5d4ac.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 30124,
+      "sha256": "53f2d6e5d4acdfad276cf710b3571f207f65ab3481dbf11e0cbbdfc3745d8d5c"
+    },
+    {
+      "source": "/art/cards-v10/scout_drone.webp",
+      "sourceSha256": "7cc3aec1835189995fcd61fbf77f2e71a6e67a16a693a7b5d54cd68c2b1819d7",
+      "sourceBytes": 53748,
+      "path": "/art/v204-cards/scout_drone-640-1bd159b8ae38.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 39124,
+      "sha256": "1bd159b8ae38f6385db92caba4c92aba486ebaff664b7db4b45b6a76cf958b4d"
+    },
+    {
+      "source": "/art/cards-v10/attack_drone.webp",
+      "sourceSha256": "4ece20248cc245cd6685288a3c26976e82c61f1a60507cc9fda41b357bd8718a",
+      "sourceBytes": 40112,
+      "path": "/art/v204-cards/attack_drone-384-933a16359703.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 21702,
+      "sha256": "933a163597036365933df5a18dc942881c83e239e53106fb9d2134a282122635"
+    },
+    {
+      "source": "/art/cards-v10/attack_drone.webp",
+      "sourceSha256": "4ece20248cc245cd6685288a3c26976e82c61f1a60507cc9fda41b357bd8718a",
+      "sourceBytes": 40112,
+      "path": "/art/v204-cards/attack_drone-640-f67f751330ba.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 29628,
+      "sha256": "f67f751330baabffb236097cadc2757e0a989efa87fcdbbb623be812c4d71f58"
+    },
+    {
+      "source": "/art/cards-v10/loiter_drone.webp",
+      "sourceSha256": "4c60eba70b312b332afea4bf2b9d2f438e8c9402d1785c56168366859557b50b",
+      "sourceBytes": 32266,
+      "path": "/art/v204-cards/loiter_drone-384-e81503855ca8.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 17182,
+      "sha256": "e81503855ca8a09adf814d74ced026f54cbb60306c6abb5cc49f54ea5c95eb7f"
+    },
+    {
+      "source": "/art/cards-v10/loiter_drone.webp",
+      "sourceSha256": "4c60eba70b312b332afea4bf2b9d2f438e8c9402d1785c56168366859557b50b",
+      "sourceBytes": 32266,
+      "path": "/art/v204-cards/loiter_drone-640-6886a7fb66f9.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 22812,
+      "sha256": "6886a7fb66f913656ed307dec6b3e0b7d8db959a35f8b0e2b3b6b753e7250865"
+    },
+    {
+      "source": "/art/cards-v10/interceptor.webp",
+      "sourceSha256": "25d2f1c0d61af7806a2351d5e8d7f964c7092ece3e516fbc55966d9c14501ea3",
+      "sourceBytes": 42814,
+      "path": "/art/v204-cards/interceptor-384-267b44444f02.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 23108,
+      "sha256": "267b44444f02bdd6388bf8793109868b1d431b2537ffeb9a82655de328809082"
+    },
+    {
+      "source": "/art/cards-v10/interceptor.webp",
+      "sourceSha256": "25d2f1c0d61af7806a2351d5e8d7f964c7092ece3e516fbc55966d9c14501ea3",
+      "sourceBytes": 42814,
+      "path": "/art/v204-cards/interceptor-640-4e08b6b5d825.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 31680,
+      "sha256": "4e08b6b5d82575c1b6ca84f0742ff5c4627e4dcb9fa854da39c42a45cf660a9f"
+    },
+    {
+      "source": "/art/cards-v10/rally.webp",
+      "sourceSha256": "fadc43b715e7cd1fa22c829a77650c60ef468f06140fc04d0abce87742ee00f0",
+      "sourceBytes": 61818,
+      "path": "/art/v204-cards/rally-384-245764da7fe6.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35604,
+      "sha256": "245764da7fe651203ca4e52917b74877d56fa0476f3648ae6b251529d5637040"
+    },
+    {
+      "source": "/art/cards-v10/rally.webp",
+      "sourceSha256": "fadc43b715e7cd1fa22c829a77650c60ef468f06140fc04d0abce87742ee00f0",
+      "sourceBytes": 61818,
+      "path": "/art/v204-cards/rally-640-59c034e9fc75.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 46096,
+      "sha256": "59c034e9fc75ea6c192ec1d017458d17be7b34c406cabb41e37c5a3e8b3a8a1b"
+    },
+    {
+      "source": "/art/cards-v10/ammo.webp",
+      "sourceSha256": "37b3d3fda0cf00f4d124e762162a149351ef60e00aef59d1555abd148b1551ff",
+      "sourceBytes": 53340,
+      "path": "/art/v204-cards/ammo-384-90114bbd10c2.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 27746,
+      "sha256": "90114bbd10c254c4429fbfc373920e6a30f5ad6a3ba15aee287917eab42e84ce"
+    },
+    {
+      "source": "/art/cards-v10/ammo.webp",
+      "sourceSha256": "37b3d3fda0cf00f4d124e762162a149351ef60e00aef59d1555abd148b1551ff",
+      "sourceBytes": 53340,
+      "path": "/art/v204-cards/ammo-640-21e200afc14e.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 38574,
+      "sha256": "21e200afc14efa310e71ff61b217f548961b51d68655bbf689a04d25c307a5f9"
+    },
+    {
+      "source": "/art/cards-v10/emp.webp",
+      "sourceSha256": "921677b194555f51f290bb2a0047e9aa5f86175fe5f87a2311ff8700162af6d3",
+      "sourceBytes": 39666,
+      "path": "/art/v204-cards/emp-384-c62263738feb.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 22160,
+      "sha256": "c62263738febe3f97d8feaf08a054de4583461f432af2ec25efbcc712221dd22"
+    },
+    {
+      "source": "/art/cards-v10/emp.webp",
+      "sourceSha256": "921677b194555f51f290bb2a0047e9aa5f86175fe5f87a2311ff8700162af6d3",
+      "sourceBytes": 39666,
+      "path": "/art/v204-cards/emp-640-3eb40f8e5e55.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 29868,
+      "sha256": "3eb40f8e5e55fda2a81e6af800a3b58ef2d292025f97e65943b5834c46966854"
+    },
+    {
+      "source": "/art/cards-v10/barrage.webp",
+      "sourceSha256": "b378b86be8ce57d75ffcf47fa3dce1f82788f979e14819412242794496dbd475",
+      "sourceBytes": 60976,
+      "path": "/art/v204-cards/barrage-384-bd8f0a20c910.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33804,
+      "sha256": "bd8f0a20c910209461d16757cc43213c894e8b26aaecb81e9bda2210c65db328"
+    },
+    {
+      "source": "/art/cards-v10/barrage.webp",
+      "sourceSha256": "b378b86be8ce57d75ffcf47fa3dce1f82788f979e14819412242794496dbd475",
+      "sourceBytes": 60976,
+      "path": "/art/v204-cards/barrage-640-8e290f65ea87.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 45776,
+      "sha256": "8e290f65ea8771baaf8ed37070dca078e4005947e5fd0b6309674fbc35d8839d"
+    },
+    {
+      "source": "/art/cards-v10/medevac.webp",
+      "sourceSha256": "477fc489aa7ed1f37cc597e7faa4031556b1c7edb4374e0dec6ac0ce2dd2b2bf",
+      "sourceBytes": 59570,
+      "path": "/art/v204-cards/medevac-384-dc405e1cb81b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33894,
+      "sha256": "dc405e1cb81bdfd97c6061f44c4e010f3b24613d334e8c5c11c1503b532e72f9"
+    },
+    {
+      "source": "/art/cards-v10/medevac.webp",
+      "sourceSha256": "477fc489aa7ed1f37cc597e7faa4031556b1c7edb4374e0dec6ac0ce2dd2b2bf",
+      "sourceBytes": 59570,
+      "path": "/art/v204-cards/medevac-640-77c1bbe24d78.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 44958,
+      "sha256": "77c1bbe24d78ddcc6e43ad94ff020294d037891ef8e600742c56227853a82830"
+    },
+    {
+      "source": "/art/cards-v10/fortify.webp",
+      "sourceSha256": "4fd40e1fe21972d2f916edc69602b83185da4d56c1d01cff027d98907a72d92b",
+      "sourceBytes": 68750,
+      "path": "/art/v204-cards/fortify-384-e60292ee9f0b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37124,
+      "sha256": "e60292ee9f0b1013e56bfabef27a153d5c8c4cd6fcea0ee1586d5989a472e138"
+    },
+    {
+      "source": "/art/cards-v10/fortify.webp",
+      "sourceSha256": "4fd40e1fe21972d2f916edc69602b83185da4d56c1d01cff027d98907a72d92b",
+      "sourceBytes": 68750,
+      "path": "/art/v204-cards/fortify-640-71874c0576da.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 50954,
+      "sha256": "71874c0576daf8d203009cedd83ccd083e3d17eeac41ed974127c99d973df5c7"
+    },
+    {
+      "source": "/art/cards-v10/sabotage.webp",
+      "sourceSha256": "052ed35bb0e90601775d9cbc9d398352f7ef47ce63145e873063338718d20762",
+      "sourceBytes": 44952,
+      "path": "/art/v204-cards/sabotage-384-f82fc2f17235.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25850,
+      "sha256": "f82fc2f172356b4bf538f32861a98f3a29f01d09df6cf0847e97186c8c5c4d5c"
+    },
+    {
+      "source": "/art/cards-v10/sabotage.webp",
+      "sourceSha256": "052ed35bb0e90601775d9cbc9d398352f7ef47ce63145e873063338718d20762",
+      "sourceBytes": 44952,
+      "path": "/art/v204-cards/sabotage-640-72a83d189684.webp",
+      "width": 412,
+      "height": 412,
+      "bytes": 33772,
+      "sha256": "72a83d189684af6fd168bf9c83dd022cb643be2c7aa6db73497f532eadc83494"
+    },
+    {
+      "source": "/art/cards-v10/war_production.webp",
+      "sourceSha256": "d8ac53a63a1fe2a942858714006a02c60100629daf39ce9c61edce012de99c1a",
+      "sourceBytes": 76502,
+      "path": "/art/v204-cards/war_production-384-0ed59985509f.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 29254,
+      "sha256": "0ed59985509fb6fbb53a04fa78dd4941ece5fc1fab564ce86e4af8720cc41e8b"
+    },
+    {
+      "source": "/art/cards-v10/war_production.webp",
+      "sourceSha256": "d8ac53a63a1fe2a942858714006a02c60100629daf39ce9c61edce012de99c1a",
+      "sourceBytes": 76502,
+      "path": "/art/v204-cards/war_production-640-8fbfc633dd60.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 53326,
+      "sha256": "8fbfc633dd60dc1744a084a2fad1bade065a46c24e16162be1532d72e5c5ddce"
+    },
+    {
+      "source": "/art/cards-v10/foraged_supplies.webp",
+      "sourceSha256": "24646b4c318bf5162f4b684eb9e6d7f41eea109360c62c429a1c500854aadc84",
+      "sourceBytes": 94786,
+      "path": "/art/v204-cards/foraged_supplies-384-ee7e98d9ad33.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37808,
+      "sha256": "ee7e98d9ad33eda7f27a27bce0275645ee8f53995ea7b740a172332468ac25d3"
+    },
+    {
+      "source": "/art/cards-v10/foraged_supplies.webp",
+      "sourceSha256": "24646b4c318bf5162f4b684eb9e6d7f41eea109360c62c429a1c500854aadc84",
+      "sourceBytes": 94786,
+      "path": "/art/v204-cards/foraged_supplies-640-2a158a6c8322.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 67066,
+      "sha256": "2a158a6c832245ef372f37b84bba5dd33f429a7e17babbd8ea50553b634c9c8a"
+    },
+    {
+      "source": "/art/cards-v10/blitz_doctrine.webp",
+      "sourceSha256": "1025872207ac113715ff966caea43b309c74f9238a8e96456ff10588f65cb632",
+      "sourceBytes": 85972,
+      "path": "/art/v204-cards/blitz_doctrine-384-0d98f2e38942.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32562,
+      "sha256": "0d98f2e38942df9166e2a736142c4338581b6f7b3e41d25b2a2fed38599f5ecc"
+    },
+    {
+      "source": "/art/cards-v10/blitz_doctrine.webp",
+      "sourceSha256": "1025872207ac113715ff966caea43b309c74f9238a8e96456ff10588f65cb632",
+      "sourceBytes": 85972,
+      "path": "/art/v204-cards/blitz_doctrine-640-dbc1d6999cbc.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 59080,
+      "sha256": "dbc1d6999cbced775b8cf7e61b51fcf23d2a575999f5e7b0ce5ce956663da811"
+    },
+    {
+      "source": "/art/cards-v10/forward_hq.webp",
+      "sourceSha256": "493cae6ba2c33c489c4e32717fc64a4ee102b082cc9136dd60912e7075ce235e",
+      "sourceBytes": 71940,
+      "path": "/art/v204-cards/forward_hq-384-ec1739ac8915.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 28332,
+      "sha256": "ec1739ac8915a46afcc37016aef52b993bc6659f909861801b02bcb230535077"
+    },
+    {
+      "source": "/art/cards-v10/forward_hq.webp",
+      "sourceSha256": "493cae6ba2c33c489c4e32717fc64a4ee102b082cc9136dd60912e7075ce235e",
+      "sourceBytes": 71940,
+      "path": "/art/v204-cards/forward_hq-640-5afa553e01ce.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 50914,
+      "sha256": "5afa553e01ce8f6b7a4e70adecac572277858ece01f2e72c19c40e2085307f21"
+    },
+    {
+      "source": "/art/cards-v10/comm_blackout.webp",
+      "sourceSha256": "538d8028f569628540033f566cf5fd42e278dd10d316e3857026c80f93cf6a2f",
+      "sourceBytes": 52212,
+      "path": "/art/v204-cards/comm_blackout-384-0cdf602c41dc.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 20334,
+      "sha256": "0cdf602c41dc9eba8ddaa561891a12ed8d7fd358eb815fc523aaa91e8eda2531"
+    },
+    {
+      "source": "/art/cards-v10/comm_blackout.webp",
+      "sourceSha256": "538d8028f569628540033f566cf5fd42e278dd10d316e3857026c80f93cf6a2f",
+      "sourceBytes": 52212,
+      "path": "/art/v204-cards/comm_blackout-640-1601b2fefea9.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 35936,
+      "sha256": "1601b2fefea991e7d2ac03c160e0af92bce507ac9fe8fb35f83620d4d71e39da"
+    },
+    {
+      "source": "/art/cards-v10/supply_interdiction.webp",
+      "sourceSha256": "61eed90901ba172ab421f6cee5f13ca7f971f60c23965425b193795a75993e77",
+      "sourceBytes": 104958,
+      "path": "/art/v204-cards/supply_interdiction-384-f2a9bec263f7.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40872,
+      "sha256": "f2a9bec263f707a3c9778ec5388a139c34177148c16c1a972b0ddf1bf32b1bb9"
+    },
+    {
+      "source": "/art/cards-v10/supply_interdiction.webp",
+      "sourceSha256": "61eed90901ba172ab421f6cee5f13ca7f971f60c23965425b193795a75993e77",
+      "sourceBytes": 104958,
+      "path": "/art/v204-cards/supply_interdiction-640-974daee229fc.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 72770,
+      "sha256": "974daee229fcb7422d9b73cd1d8bc8f7389345d976da04e695d56d0fd5a1e6e7"
+    },
+    {
+      "source": "/art/cards-v10/spoof_attack.webp",
+      "sourceSha256": "0da28133c0b1e30462dad77cd9081e4cefb1a90ec79b36e12025a446b571c166",
+      "sourceBytes": 68544,
+      "path": "/art/v204-cards/spoof_attack-384-793675d5b365.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25994,
+      "sha256": "793675d5b36582399b5af5f9b44a461b71d110d6cf6a8cbf9ea86db3dce8e17e"
+    },
+    {
+      "source": "/art/cards-v10/spoof_attack.webp",
+      "sourceSha256": "0da28133c0b1e30462dad77cd9081e4cefb1a90ec79b36e12025a446b571c166",
+      "sourceBytes": 68544,
+      "path": "/art/v204-cards/spoof_attack-640-ca059966c17d.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 46658,
+      "sha256": "ca059966c17d17c628025992058ddbd4ad9f917f1b5d3e63564b6c7143b382df"
+    },
+    {
+      "source": "/art/cards-v10/radar_jam.webp",
+      "sourceSha256": "011bfa974ad11c4a68e48023b6168e6b7cd6ddab075ae19a6a1ae73cbc63fc45",
+      "sourceBytes": 90142,
+      "path": "/art/v204-cards/radar_jam-384-efc422d2d01f.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32920,
+      "sha256": "efc422d2d01f9458ef6d10ce4be0aaef4663af3f4ececc9b24d12245501ee4cc"
+    },
+    {
+      "source": "/art/cards-v10/radar_jam.webp",
+      "sourceSha256": "011bfa974ad11c4a68e48023b6168e6b7cd6ddab075ae19a6a1ae73cbc63fc45",
+      "sourceBytes": 90142,
+      "path": "/art/v204-cards/radar_jam-640-8248b4ca4adb.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 61374,
+      "sha256": "8248b4ca4adb26d8d9caa71e46f361758674a667c86d9e0c6c47246dbc01e62e"
+    },
+    {
+      "source": "/art/cards-v10/glider_assault.webp",
+      "sourceSha256": "f53182c5c8d26426e5492ed926de7a194dea98a8a516b8b01508411b2448f8ec",
+      "sourceBytes": 93878,
+      "path": "/art/v204-cards/glider_assault-384-d8171a640972.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33936,
+      "sha256": "d8171a640972c82449a8f6b217899a0db48cff4adfd36194fba0a120e45ec6ba"
+    },
+    {
+      "source": "/art/cards-v10/glider_assault.webp",
+      "sourceSha256": "f53182c5c8d26426e5492ed926de7a194dea98a8a516b8b01508411b2448f8ec",
+      "sourceBytes": 93878,
+      "path": "/art/v204-cards/glider_assault-640-a4afe177aec1.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62086,
+      "sha256": "a4afe177aec15dc4c7d922fb38817a4999ae87f443623d44c32880ccd51b4adf"
+    },
+    {
+      "source": "/art/cards-v10/pathfinders.webp",
+      "sourceSha256": "3c3d7c02633e3b3320cf3c9353071d0fbd167c608408b8582c58cc7876616cf3",
+      "sourceBytes": 72100,
+      "path": "/art/v204-cards/pathfinders-384-4a89aed9c8f5.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 25962,
+      "sha256": "4a89aed9c8f5140e55ef2b2407b35a77c04f87a76bf15116b33ab5e6dad5d4d5"
+    },
+    {
+      "source": "/art/cards-v10/pathfinders.webp",
+      "sourceSha256": "3c3d7c02633e3b3320cf3c9353071d0fbd167c608408b8582c58cc7876616cf3",
+      "sourceBytes": 72100,
+      "path": "/art/v204-cards/pathfinders-640-ad7d920cb62c.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 47778,
+      "sha256": "ad7d920cb62c3a8c086c3deb780d3f42264b59e16c9809128e2b3e49e5beb40a"
+    },
+    {
+      "source": "/art/cards-v10/ambush_squad.webp",
+      "sourceSha256": "e3f5858e275fa9eb61b3c627a956c318f737bb8685c96f80df2f686e44605e75",
+      "sourceBytes": 100394,
+      "path": "/art/v204-cards/ambush_squad-384-9d7028fea9f4.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40444,
+      "sha256": "9d7028fea9f450e030533f19daa9606074098cdb94ab69d9e4610694b5b5abe7"
+    },
+    {
+      "source": "/art/cards-v10/ambush_squad.webp",
+      "sourceSha256": "e3f5858e275fa9eb61b3c627a956c318f737bb8685c96f80df2f686e44605e75",
+      "sourceBytes": 100394,
+      "path": "/art/v204-cards/ambush_squad-640-5019c662a068.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 70792,
+      "sha256": "5019c662a068e59412659a4addba4a4dea81a500a47b9a0c500497f84f5a1071"
+    },
+    {
+      "source": "/art/cards-v10/sniper_team.webp",
+      "sourceSha256": "d244cfba5f1af7b36d88986ee42cfc75d5488265bdd09511de5ef788765492bf",
+      "sourceBytes": 93802,
+      "path": "/art/v204-cards/sniper_team-384-c24e7a7a868e.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37600,
+      "sha256": "c24e7a7a868e75d3d1799dafde36ccb4b00ea0a3a4e05888c17660d5f9d0dc6b"
+    },
+    {
+      "source": "/art/cards-v10/sniper_team.webp",
+      "sourceSha256": "d244cfba5f1af7b36d88986ee42cfc75d5488265bdd09511de5ef788765492bf",
+      "sourceBytes": 93802,
+      "path": "/art/v204-cards/sniper_team-640-61aa36a23bfd.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 66016,
+      "sha256": "61aa36a23bfd5f0af279a385242417a42f0352e240e2810f79189b9bc1e4ec7f"
+    },
+    {
+      "source": "/art/cards-v10/veteran_squad.webp",
+      "sourceSha256": "b711cd191cd14b8f6b26ed7805c86d7a1796f3f9bf8a3628c6fba199f3521798",
+      "sourceBytes": 112740,
+      "path": "/art/v204-cards/veteran_squad-384-15b534a7fe05.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 44470,
+      "sha256": "15b534a7fe056dfc272e31312e34bd0388af7e3a023a4f5855c81d911dab4499"
+    },
+    {
+      "source": "/art/cards-v10/veteran_squad.webp",
+      "sourceSha256": "b711cd191cd14b8f6b26ed7805c86d7a1796f3f9bf8a3628c6fba199f3521798",
+      "sourceBytes": 112740,
+      "path": "/art/v204-cards/veteran_squad-640-d24a7a0719c4.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 79720,
+      "sha256": "d24a7a0719c43ecdea6afaa3dbc5d5935a0384abcb614efdbc901334ad645e73"
+    },
+    {
+      "source": "/art/cards-v10/medic_team.webp",
+      "sourceSha256": "5445b3be6e18a3bd51e86d5dcf9dbbb7b6065f4cb993a857abfb948a787defc4",
+      "sourceBytes": 106194,
+      "path": "/art/v204-cards/medic_team-384-42c7da6e53eb.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 42474,
+      "sha256": "42c7da6e53ebe68df5553bd89a9eb1d6845fab19adeea3dd7e5bc605c8ecd471"
+    },
+    {
+      "source": "/art/cards-v10/medic_team.webp",
+      "sourceSha256": "5445b3be6e18a3bd51e86d5dcf9dbbb7b6065f4cb993a857abfb948a787defc4",
+      "sourceBytes": 106194,
+      "path": "/art/v204-cards/medic_team-640-a61c45f715e4.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 75206,
+      "sha256": "a61c45f715e4e2364c6e399bea5eb43dfda90d2f34d47ad500abe460af09eb4a"
+    },
+    {
+      "source": "/art/cards-v10/combat_engineers.webp",
+      "sourceSha256": "02a62d754c7d1ebd1509766681c4b8ebf10ee7a61a36f4de61eb27a11feaef2d",
+      "sourceBytes": 100828,
+      "path": "/art/v204-cards/combat_engineers-384-4449c1029153.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38788,
+      "sha256": "4449c102915396c475c823698e9af71dc92e459c9758321a648b73285e01e1ec"
+    },
+    {
+      "source": "/art/cards-v10/combat_engineers.webp",
+      "sourceSha256": "02a62d754c7d1ebd1509766681c4b8ebf10ee7a61a36f4de61eb27a11feaef2d",
+      "sourceBytes": 100828,
+      "path": "/art/v204-cards/combat_engineers-640-0b52426bec72.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 69872,
+      "sha256": "0b52426bec728bad7072077d56c0d1d352220375693b2e5f5b225600beb302d9"
+    },
+    {
+      "source": "/art/cards-v10/naval_gunfire.webp",
+      "sourceSha256": "f71c1cda1090b5e34dbecbb6ff3cf23ad41abb391e8977eb0e7be35c7f16b116",
+      "sourceBytes": 81136,
+      "path": "/art/v204-cards/naval_gunfire-384-e35279b9430b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 30084,
+      "sha256": "e35279b9430b89a85e52880df3fbf170c9866f1d7fdb3c0eebf0f8047be9bebc"
+    },
+    {
+      "source": "/art/cards-v10/naval_gunfire.webp",
+      "sourceSha256": "f71c1cda1090b5e34dbecbb6ff3cf23ad41abb391e8977eb0e7be35c7f16b116",
+      "sourceBytes": 81136,
+      "path": "/art/v204-cards/naval_gunfire-640-78f5f7fae742.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 54888,
+      "sha256": "78f5f7fae7421b7151e8936a2f70593be410432b7de64b17c80aedce62cc5bda"
+    },
+    {
+      "source": "/art/cards-v10/cluster_munitions.webp",
+      "sourceSha256": "6fe50efdb79b5aa45e2943cae32e63f80ada77e38737a23d1af36fe38d970bb5",
+      "sourceBytes": 47996,
+      "path": "/art/v204-cards/cluster_munitions-384-704eac954894.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 18622,
+      "sha256": "704eac954894c914150df2ad1f3e8216f591a3ed99fc3df737df0100590a43ea"
+    },
+    {
+      "source": "/art/cards-v10/cluster_munitions.webp",
+      "sourceSha256": "6fe50efdb79b5aa45e2943cae32e63f80ada77e38737a23d1af36fe38d970bb5",
+      "sourceBytes": 47996,
+      "path": "/art/v204-cards/cluster_munitions-640-2e074bec151b.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 31904,
+      "sha256": "2e074bec151bc1d4a2fe31dc6c80e1626419e3d709f25a2cd34136fb64a343cf"
+    },
+    {
+      "source": "/art/cards-v10/thermobaric.webp",
+      "sourceSha256": "d02dc54df3baf56166f76b431a62fe65ae6f567bb6935e3b9583508d5c97d28c",
+      "sourceBytes": 88334,
+      "path": "/art/v204-cards/thermobaric-384-1b114b5b9c86.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32288,
+      "sha256": "1b114b5b9c862d7617fbd49d2bfa060a62fb3b35e4b1647dcbd01a7c5f4cfefa"
+    },
+    {
+      "source": "/art/cards-v10/thermobaric.webp",
+      "sourceSha256": "d02dc54df3baf56166f76b431a62fe65ae6f567bb6935e3b9583508d5c97d28c",
+      "sourceBytes": 88334,
+      "path": "/art/v204-cards/thermobaric-640-c84479304ce0.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 59208,
+      "sha256": "c84479304ce06c9fddb1b0ca67a21d88a616be5495e96d8a0dec0b6191980814"
+    },
+    {
+      "source": "/art/cards-v10/precision_rocket.webp",
+      "sourceSha256": "c2948be2fa2cb7444fe26187521b74340d5b31f27182d23448d6af7079c6da70",
+      "sourceBytes": 39466,
+      "path": "/art/v204-cards/precision_rocket-384-09a342c52e99.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 15148,
+      "sha256": "09a342c52e9914bf07ab27846482c60301eb0e1daa38bcbf54b6375c23e3632d"
+    },
+    {
+      "source": "/art/cards-v10/precision_rocket.webp",
+      "sourceSha256": "c2948be2fa2cb7444fe26187521b74340d5b31f27182d23448d6af7079c6da70",
+      "sourceBytes": 39466,
+      "path": "/art/v204-cards/precision_rocket-640-478635cd909f.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 27014,
+      "sha256": "478635cd909fa2e569343be91e4a3ce425975ad6064c27f44b8f78e7953dec5b"
+    },
+    {
+      "source": "/art/cards-v10/entrench.webp",
+      "sourceSha256": "876f872980ca48785d43ae18fc58992bfb12b5acacd9b47247924466c89aaeeb",
+      "sourceBytes": 82326,
+      "path": "/art/v204-cards/entrench-384-a5baa5cc4b51.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 31400,
+      "sha256": "a5baa5cc4b518079a3557b0817832692b954b277e86c5f0b25a857818c8cb8f4"
+    },
+    {
+      "source": "/art/cards-v10/entrench.webp",
+      "sourceSha256": "876f872980ca48785d43ae18fc58992bfb12b5acacd9b47247924466c89aaeeb",
+      "sourceBytes": 82326,
+      "path": "/art/v204-cards/entrench-640-4fdb89c57493.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 56578,
+      "sha256": "4fdb89c574934923b6312f33b419be38a4e343b75072e1d326475eccc89f4c39"
+    },
+    {
+      "source": "/art/cards-v10/command_lockdown.webp",
+      "sourceSha256": "2252cdcf8713c8b726f0183472bbc7e98394d17979d9e38f39c782f389bc9db2",
+      "sourceBytes": 81028,
+      "path": "/art/v204-cards/command_lockdown-384-e8ccfd9c8fe3.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32282,
+      "sha256": "e8ccfd9c8fe3460f908f2a577267a8e0d3dcccb9af4e61582025c4e25eec77e7"
+    },
+    {
+      "source": "/art/cards-v10/command_lockdown.webp",
+      "sourceSha256": "2252cdcf8713c8b726f0183472bbc7e98394d17979d9e38f39c782f389bc9db2",
+      "sourceBytes": 81028,
+      "path": "/art/v204-cards/command_lockdown-640-2c0670e7e3b9.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 56458,
+      "sha256": "2c0670e7e3b9b2106f6ee148a3b14f716dbc73f645a2c22520489710a0b7b933"
+    },
+    {
+      "source": "/art/cards-v10/emergency_levy.webp",
+      "sourceSha256": "03953eea09217405c29b8bdc096595df034c7a64ae20bcbefb7ee28a9bdca4ae",
+      "sourceBytes": 89286,
+      "path": "/art/v204-cards/emergency_levy-384-3156e4ce4ffb.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35476,
+      "sha256": "3156e4ce4ffbf8104ce10b126a4c9f0ffef75cbf762e91c785f38cf233016f77"
+    },
+    {
+      "source": "/art/cards-v10/emergency_levy.webp",
+      "sourceSha256": "03953eea09217405c29b8bdc096595df034c7a64ae20bcbefb7ee28a9bdca4ae",
+      "sourceBytes": 89286,
+      "path": "/art/v204-cards/emergency_levy-640-102ad39e1ce7.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62142,
+      "sha256": "102ad39e1ce7868c147030b0917b4b1eb1673504a27eb98adec838c6546b4bd0"
+    },
+    {
+      "source": "/art/cards-v10/battlefield_salvage.webp",
+      "sourceSha256": "1c4f53372e08220006e730726b3a22315245bf52240a92ea6727a2c3f735093e",
+      "sourceBytes": 113038,
+      "path": "/art/v204-cards/battlefield_salvage-384-472dc1d403db.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 42676,
+      "sha256": "472dc1d403db52179947b0a6416b0d3d806916d7e28c56a7a41e5df89ec4e85e"
+    },
+    {
+      "source": "/art/cards-v10/battlefield_salvage.webp",
+      "sourceSha256": "1c4f53372e08220006e730726b3a22315245bf52240a92ea6727a2c3f735093e",
+      "sourceBytes": 113038,
+      "path": "/art/v204-cards/battlefield_salvage-640-7010fe70a0e0.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 76394,
+      "sha256": "7010fe70a0e0015aec63f8c5129a682f4e4b0bb8c243bf687659d5a0bb4ab669"
+    },
+    {
+      "source": "/art/cards-v10/shock_action.webp",
+      "sourceSha256": "8354999c5ef78f89cfbc9f5aaed7da0e02c689dd57eec2ea7eed1f13bcc6682f",
+      "sourceBytes": 91608,
+      "path": "/art/v204-cards/shock_action-384-72d7806e79ac.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34876,
+      "sha256": "72d7806e79ac462f6e4b74edc96fbb068d09c37e978c2b42628286c43d9f6a48"
+    },
+    {
+      "source": "/art/cards-v10/shock_action.webp",
+      "sourceSha256": "8354999c5ef78f89cfbc9f5aaed7da0e02c689dd57eec2ea7eed1f13bcc6682f",
+      "sourceBytes": 91608,
+      "path": "/art/v204-cards/shock_action-640-c95249f0bc76.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62204,
+      "sha256": "c95249f0bc7674ddd562ad91e971251951eca38647edd2c8f3868a340de5a135"
+    },
+    {
+      "source": "/art/cards-v10/sensor_blind.webp",
+      "sourceSha256": "4f5c6bd23c5fe8633a9a1d5d7af2eea13b942aa2729d29869312434c99c01179",
+      "sourceBytes": 28322,
+      "path": "/art/v204-cards/sensor_blind-384-a1c1493fcbee.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 8412,
+      "sha256": "a1c1493fcbee7f4d9952ce533fc7c19a0c691c0314cc3a1a8a9782102ff757fe"
+    },
+    {
+      "source": "/art/cards-v10/sensor_blind.webp",
+      "sourceSha256": "4f5c6bd23c5fe8633a9a1d5d7af2eea13b942aa2729d29869312434c99c01179",
+      "sourceBytes": 28322,
+      "path": "/art/v204-cards/sensor_blind-640-20873b1ce8bd.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 16654,
+      "sha256": "20873b1ce8bdbb56920dd54b077102a117d2e8f3d92c104f23333c0c1650e84a"
+    },
+    {
+      "source": "/art/cards-v10/logistics_strike.webp",
+      "sourceSha256": "a128bd75c3915e2008bc14d28b0700cb277eaaa64043615c629fedcf5cb7d707",
+      "sourceBytes": 98078,
+      "path": "/art/v204-cards/logistics_strike-384-c3c4c4165b59.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35882,
+      "sha256": "c3c4c4165b59b5fdbceab06cb13dd17a92d45f67778038f4425eec2c34121acc"
+    },
+    {
+      "source": "/art/cards-v10/logistics_strike.webp",
+      "sourceSha256": "a128bd75c3915e2008bc14d28b0700cb277eaaa64043615c629fedcf5cb7d707",
+      "sourceBytes": 98078,
+      "path": "/art/v204-cards/logistics_strike-640-8f349d4660d6.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 66748,
+      "sha256": "8f349d4660d62b8115c81bbb7116645d0440ae1ec9c54af1a2f66b04e71333ee"
+    },
+    {
+      "source": "/art/cards-v10/freq_hop.webp",
+      "sourceSha256": "25d10d76cb0d9645c49ae7867b493507b2333714cc85f4a4b685a9964bfbbdb6",
+      "sourceBytes": 83480,
+      "path": "/art/v204-cards/freq_hop-384-015b8ad0d9be.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33118,
+      "sha256": "015b8ad0d9be480f5a4ed59704e30c618b6b0f08c9f736a5b02791639e627963"
+    },
+    {
+      "source": "/art/cards-v10/freq_hop.webp",
+      "sourceSha256": "25d10d76cb0d9645c49ae7867b493507b2333714cc85f4a4b685a9964bfbbdb6",
+      "sourceBytes": 83480,
+      "path": "/art/v204-cards/freq_hop-640-f947c22861df.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 59456,
+      "sha256": "f947c22861df9674e89b63574bffb58454e6f9241b126cba33c8af4f80ea8e0c"
+    },
+    {
+      "source": "/art/cards-v10/ewarfare.webp",
+      "sourceSha256": "a7112653cddf8e11c2de75dc29c6af9a4483328ce90bcceedbf8375f02d6c7be",
+      "sourceBytes": 88230,
+      "path": "/art/v204-cards/ewarfare-384-8e0bc90ca13a.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33012,
+      "sha256": "8e0bc90ca13a13a40c8589435f899093b1846354e64e53a73ccbed5d570bb205"
+    },
+    {
+      "source": "/art/cards-v10/ewarfare.webp",
+      "sourceSha256": "a7112653cddf8e11c2de75dc29c6af9a4483328ce90bcceedbf8375f02d6c7be",
+      "sourceBytes": 88230,
+      "path": "/art/v204-cards/ewarfare-640-eb20d5f8a2b0.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 59686,
+      "sha256": "eb20d5f8a2b06322e0464c2ab21291549340e8d87ba98341d40dcd16258f938d"
+    },
+    {
+      "source": "/art/cards-v10/airborne_at.webp",
+      "sourceSha256": "2d4ec30acbd3d69666554063e4de6679b3a2d045d59e5212cb8ef919cd0ac347",
+      "sourceBytes": 93574,
+      "path": "/art/v204-cards/airborne_at-384-c20df986b486.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34258,
+      "sha256": "c20df986b4867e52ed8100df1f1ec25b25893a5e1e01732849d36e7ade72b591"
+    },
+    {
+      "source": "/art/cards-v10/airborne_at.webp",
+      "sourceSha256": "2d4ec30acbd3d69666554063e4de6679b3a2d045d59e5212cb8ef919cd0ac347",
+      "sourceBytes": 93574,
+      "path": "/art/v204-cards/airborne_at-640-538369f8dc18.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62646,
+      "sha256": "538369f8dc18eddb61631bd62e2c4e7e016edaad35a4a36cf7de51cc39c524f8"
+    },
+    {
+      "source": "/art/cards-v10/rapid_insertion.webp",
+      "sourceSha256": "8ff2eef58c1590ae4abe522adbd22a8e15ad0def68f628ff83a1468b65e049c4",
+      "sourceBytes": 81510,
+      "path": "/art/v204-cards/rapid_insertion-384-e65ccef67e4c.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 30038,
+      "sha256": "e65ccef67e4cef7214b531ae051a1660a68a3d5b6d71825fa5121e84294d52cd"
+    },
+    {
+      "source": "/art/cards-v10/rapid_insertion.webp",
+      "sourceSha256": "8ff2eef58c1590ae4abe522adbd22a8e15ad0def68f628ff83a1468b65e049c4",
+      "sourceBytes": 81510,
+      "path": "/art/v204-cards/rapid_insertion-640-00d3196ba5d7.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 54318,
+      "sha256": "00d3196ba5d72e08e53e3a0d120588bf3c03b2239078305382e351db9165c746"
+    },
+    {
+      "source": "/art/cards-v10/sapper_assault.webp",
+      "sourceSha256": "3c3946f3393dc1d4db849e4e947385fd89dcec73c49d37e01fc5e38444391d0a",
+      "sourceBytes": 95784,
+      "path": "/art/v204-cards/sapper_assault-384-1cf48be96207.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35754,
+      "sha256": "1cf48be96207b3e144bda611c22a9e2532037bc508c21ff4f8bab6ae01677236"
+    },
+    {
+      "source": "/art/cards-v10/sapper_assault.webp",
+      "sourceSha256": "3c3946f3393dc1d4db849e4e947385fd89dcec73c49d37e01fc5e38444391d0a",
+      "sourceBytes": 95784,
+      "path": "/art/v204-cards/sapper_assault-640-4b1ed060a86b.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 64640,
+      "sha256": "4b1ed060a86b99e2bec89853ebfcdf8becee0aef89eda488ae6776c2b037082b"
+    },
+    {
+      "source": "/art/cards-v10/recon_jump.webp",
+      "sourceSha256": "4722c007076e323c1705a39e62ce97e76e07e10e8a7fef3dedb1336452f2a4ca",
+      "sourceBytes": 45688,
+      "path": "/art/v204-cards/recon_jump-384-88911afdb1cd.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 15508,
+      "sha256": "88911afdb1cd30415a025cdd14f3759f8b897a346661a76f69d71994fe7bffbe"
+    },
+    {
+      "source": "/art/cards-v10/recon_jump.webp",
+      "sourceSha256": "4722c007076e323c1705a39e62ce97e76e07e10e8a7fef3dedb1336452f2a4ca",
+      "sourceBytes": 45688,
+      "path": "/art/v204-cards/recon_jump-640-e23f6c343a0f.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 29170,
+      "sha256": "e23f6c343a0f1a76d52616814817b5722199a87bc27b1de30a6125769adad85f"
+    },
+    {
+      "source": "/art/cards-v10/creeping_barrage.webp",
+      "sourceSha256": "8b5c20d673899fa3d61057bda08d3f18aa4793c47f585eae92433daf99b4c3d1",
+      "sourceBytes": 94538,
+      "path": "/art/v204-cards/creeping_barrage-384-4b1e235d52ff.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 35214,
+      "sha256": "4b1e235d52ff79568e941fc4a5b86830c8adc5bab7676435e0e8295a5a1cc233"
+    },
+    {
+      "source": "/art/cards-v10/creeping_barrage.webp",
+      "sourceSha256": "8b5c20d673899fa3d61057bda08d3f18aa4793c47f585eae92433daf99b4c3d1",
+      "sourceBytes": 94538,
+      "path": "/art/v204-cards/creeping_barrage-640-ce4eb33aecaf.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62870,
+      "sha256": "ce4eb33aecaf9a4970942335ce637fbec80692c13de4adae43597a807d2091a3"
+    },
+    {
+      "source": "/art/cards-v10/smoke_cover.webp",
+      "sourceSha256": "effd617d4d5f3f4d4051963fe59a0437f89ae25cffe3d55b9a1e93470575b8d3",
+      "sourceBytes": 65730,
+      "path": "/art/v204-cards/smoke_cover-384-ffd203518769.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 24770,
+      "sha256": "ffd2035187695cd5996548f5dea64eea5dc5acc82dce6f301cc7b23de8da52d5"
+    },
+    {
+      "source": "/art/cards-v10/smoke_cover.webp",
+      "sourceSha256": "effd617d4d5f3f4d4051963fe59a0437f89ae25cffe3d55b9a1e93470575b8d3",
+      "sourceBytes": 65730,
+      "path": "/art/v204-cards/smoke_cover-640-798f28f4f240.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 44820,
+      "sha256": "798f28f4f240374e1d6796f701034df2c9e50a6fc70715a074d09f8d9cbb4282"
+    },
+    {
+      "source": "/art/cards-v10/heavy_barrage.webp",
+      "sourceSha256": "3c57d84a5d5d5d1b9e931d9bc8af5282def5333f23dbeeb2a0ce8aa143c89b1a",
+      "sourceBytes": 89264,
+      "path": "/art/v204-cards/heavy_barrage-384-40fe2d1a2680.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 33754,
+      "sha256": "40fe2d1a2680b81da5c5ae98a5719e9aa0851578313feb112186dd2506190743"
+    },
+    {
+      "source": "/art/cards-v10/heavy_barrage.webp",
+      "sourceSha256": "3c57d84a5d5d5d1b9e931d9bc8af5282def5333f23dbeeb2a0ce8aa143c89b1a",
+      "sourceBytes": 89264,
+      "path": "/art/v204-cards/heavy_barrage-640-d4fe93f64c7c.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 61288,
+      "sha256": "d4fe93f64c7c1ac877bb1de912da89cfa0ba6cf798432539b85c970ebf9ce8d2"
+    },
+    {
+      "source": "/art/cards-v10/illumination_round.webp",
+      "sourceSha256": "968290272e8270687fa23a076bbc24f3e218c1708670f4ae526e4f1c0b5b891f",
+      "sourceBytes": 63748,
+      "path": "/art/v204-cards/illumination_round-384-076f44144cfa.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 21310,
+      "sha256": "076f44144cfa61a91b5b914159dc4115d73e1cd335cb3bba9fd2a095eac1bc5b"
+    },
+    {
+      "source": "/art/cards-v10/illumination_round.webp",
+      "sourceSha256": "968290272e8270687fa23a076bbc24f3e218c1708670f4ae526e4f1c0b5b891f",
+      "sourceBytes": 63748,
+      "path": "/art/v204-cards/illumination_round-640-b61c7dcd3f22.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 40170,
+      "sha256": "b61c7dcd3f22e06effd7817521e9474e813989ef91045cc5d6c4c0f6cf243972"
+    },
+    {
+      "source": "/art/cards-v10/minefield.webp",
+      "sourceSha256": "1ad290c053121a5708ccd4ed7ac9cfc3fc3f4b785227d70a18b1d853b76939af",
+      "sourceBytes": 102706,
+      "path": "/art/v204-cards/minefield-384-151e7a00510f.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 39268,
+      "sha256": "151e7a00510f8925d1878eaeab3c4eaeda6b477d67b7fc8524bc7967b4b4d5c4"
+    },
+    {
+      "source": "/art/cards-v10/minefield.webp",
+      "sourceSha256": "1ad290c053121a5708ccd4ed7ac9cfc3fc3f4b785227d70a18b1d853b76939af",
+      "sourceBytes": 102706,
+      "path": "/art/v204-cards/minefield-640-047424899a0c.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 70560,
+      "sha256": "047424899a0c48aa36e0df616a347ba967aafb328b27231b65381fcf5df54d2c"
+    },
+    {
+      "source": "/art/cards-v10/field_hospital.webp",
+      "sourceSha256": "2cad18fb3b0903418bea8c8fb190d8ba7c3dfdc032c077380573b86bad3a3c75",
+      "sourceBytes": 90226,
+      "path": "/art/v204-cards/field_hospital-384-44f8b11cd898.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34690,
+      "sha256": "44f8b11cd898700f45080e3be4815ee63582ce05a43ae90c03fb178b01ee46f2"
+    },
+    {
+      "source": "/art/cards-v10/field_hospital.webp",
+      "sourceSha256": "2cad18fb3b0903418bea8c8fb190d8ba7c3dfdc032c077380573b86bad3a3c75",
+      "sourceBytes": 90226,
+      "path": "/art/v204-cards/field_hospital-640-168437d498f8.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 61510,
+      "sha256": "168437d498f84c66bffe9a4847d1b8ffee3f30d8dba71bb2649afc44f3495260"
+    },
+    {
+      "source": "/art/cards-v10/fallback.webp",
+      "sourceSha256": "1c2117f2db0e671247782ad61f8b58c98c45bfa6d19d9467ed4b189bc2f4e086",
+      "sourceBytes": 107272,
+      "path": "/art/v204-cards/fallback-384-233c52a65854.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40740,
+      "sha256": "233c52a65854b05de8bb836deb906cb9788d3fcefcc8c87bbfd5a538bbcc17bf"
+    },
+    {
+      "source": "/art/cards-v10/fallback.webp",
+      "sourceSha256": "1c2117f2db0e671247782ad61f8b58c98c45bfa6d19d9467ed4b189bc2f4e086",
+      "sourceBytes": 107272,
+      "path": "/art/v204-cards/fallback-640-d939c5464389.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 72282,
+      "sha256": "d939c54643893eafe29ab12f9668350b8c2c6869cf9473ac40c9860f0a4357de"
+    },
+    {
+      "source": "/art/cards-v10/fire_team.webp",
+      "sourceSha256": "a61920f92afd875a61896242a2b59f31f72dc5ec4aa42864df5810d70ca1c10c",
+      "sourceBytes": 94006,
+      "path": "/art/v204-cards/fire_team-384-6fc203c49606.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38250,
+      "sha256": "6fc203c49606f9500f48ecac660e6dfa94f840a68517b7d331abf23d95c3b52a"
+    },
+    {
+      "source": "/art/cards-v10/fire_team.webp",
+      "sourceSha256": "a61920f92afd875a61896242a2b59f31f72dc5ec4aa42864df5810d70ca1c10c",
+      "sourceBytes": 94006,
+      "path": "/art/v204-cards/fire_team-640-7ebbaf1bc9a8.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 66764,
+      "sha256": "7ebbaf1bc9a8f5564509f91705048c3b470c57c809194a3764e5cfb022859cab"
+    },
+    {
+      "source": "/art/cards-v10/assault_grenadiers.webp",
+      "sourceSha256": "226c3f6a448315280208d26c9ed431ec9d168b4558624c5402ef43672a553e2a",
+      "sourceBytes": 82516,
+      "path": "/art/v204-cards/assault_grenadiers-384-d536ddedba8c.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32284,
+      "sha256": "d536ddedba8cd655282ee2a4504ab3b7c9e3a8800ee3d84f9a8b2f7769611ef1"
+    },
+    {
+      "source": "/art/cards-v10/assault_grenadiers.webp",
+      "sourceSha256": "226c3f6a448315280208d26c9ed431ec9d168b4558624c5402ef43672a553e2a",
+      "sourceBytes": 82516,
+      "path": "/art/v204-cards/assault_grenadiers-640-8719115a2e2b.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 57554,
+      "sha256": "8719115a2e2baaf38942855d05d3cebab85c211419b4030f52f8de25bf71c223"
+    },
+    {
+      "source": "/art/cards-v10/lmg_team.webp",
+      "sourceSha256": "9ec482704c8c8646d66fd64d8003db2d380b4ed1b4a7a61d10bd025c00556b3f",
+      "sourceBytes": 89202,
+      "path": "/art/v204-cards/lmg_team-384-bb8d1b7e009d.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 34764,
+      "sha256": "bb8d1b7e009dd4f0a830045669f1ad4879d69fd78f179780c6891419b7cea513"
+    },
+    {
+      "source": "/art/cards-v10/lmg_team.webp",
+      "sourceSha256": "9ec482704c8c8646d66fd64d8003db2d380b4ed1b4a7a61d10bd025c00556b3f",
+      "sourceBytes": 89202,
+      "path": "/art/v204-cards/lmg_team-640-da60ac6be7d7.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 62502,
+      "sha256": "da60ac6be7d79865d1b34edff61fff5ba826c4e47f5402715dfc42e66897d0e3"
+    },
+    {
+      "source": "/art/cards-v10/flame_team.webp",
+      "sourceSha256": "fd48be30f05ebf000e8e8762b4e39d56e4c1cdf2981b551cba525482813deffd",
+      "sourceBytes": 126370,
+      "path": "/art/v204-cards/flame_team-384-0dde93568c96.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38194,
+      "sha256": "0dde93568c9692c478a8637f4267704104edef79dfeb1b9008e621da0cc01eb0"
+    },
+    {
+      "source": "/art/cards-v10/flame_team.webp",
+      "sourceSha256": "fd48be30f05ebf000e8e8762b4e39d56e4c1cdf2981b551cba525482813deffd",
+      "sourceBytes": 126370,
+      "path": "/art/v204-cards/flame_team-640-d94371fe4fa6.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 76108,
+      "sha256": "d94371fe4fa6e4a4290d7ea1ebeef30d4b36377427630f1dc8d71fd032093ec7"
+    },
+    {
+      "source": "/art/v204-weapons/mlrs-card.webp",
+      "sourceSha256": "056d7a8285f66e11d56f416eda840df25f361e4953b6cff73599a0af43dbcbf3",
+      "sourceBytes": 1675760,
+      "path": "/art/v204-cards/mlrs-card-384-8401e1346cb4.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 38352,
+      "sha256": "8401e1346cb4721a4d18722338b49bfe04fdf2d6047b96c8637e54b9f9ca53f9"
+    },
+    {
+      "source": "/art/v204-weapons/mlrs-card.webp",
+      "sourceSha256": "056d7a8285f66e11d56f416eda840df25f361e4953b6cff73599a0af43dbcbf3",
+      "sourceBytes": 1675760,
+      "path": "/art/v204-cards/mlrs-card-640-1774ea92cd63.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 85240,
+      "sha256": "1774ea92cd63bf1d975c0dafa066cde3382a121f1d8fe7b6905946c58b32859b"
+    },
+    {
+      "source": "/art/cards-v10/scout_car.webp",
+      "sourceSha256": "9550ee8247269502143b05e2dd604ff2c7e2c72a6767f8a2f245a43645f44996",
+      "sourceBytes": 141286,
+      "path": "/art/v204-cards/scout_car-384-c05d231172ad.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 40404,
+      "sha256": "c05d231172aded5e7259253ef6ed991ac344a9ca07ebfac25a9a0d59928ea44d"
+    },
+    {
+      "source": "/art/cards-v10/scout_car.webp",
+      "sourceSha256": "9550ee8247269502143b05e2dd604ff2c7e2c72a6767f8a2f245a43645f44996",
+      "sourceBytes": 141286,
+      "path": "/art/v204-cards/scout_car-640-a2a86809f56d.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 85088,
+      "sha256": "a2a86809f56d4e44a201e68bce45d85fcdc79d9118a2c7995d7fd6156c28121a"
+    },
+    {
+      "source": "/art/cards-v10/flame_tank.webp",
+      "sourceSha256": "517766cab829b948913f8c4c13ecbc18f05fd2e4e02d3af37bc8b7d8131b7616",
+      "sourceBytes": 166280,
+      "path": "/art/v204-cards/flame_tank-384-7e0dc8bed6bf.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 45386,
+      "sha256": "7e0dc8bed6bfd0ff230e330d33e827e02cb8cc4f3c51de31e2dbbe717c8da2d1"
+    },
+    {
+      "source": "/art/cards-v10/flame_tank.webp",
+      "sourceSha256": "517766cab829b948913f8c4c13ecbc18f05fd2e4e02d3af37bc8b7d8131b7616",
+      "sourceBytes": 166280,
+      "path": "/art/v204-cards/flame_tank-640-ca7957b43135.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 96770,
+      "sha256": "ca7957b43135840e54d91d72005cbd5d2e40a9323bd76842edb5136c56a540d4"
+    },
+    {
+      "source": "/art/cards-v10/light_mortar.webp",
+      "sourceSha256": "deb2323531130db46c08ce9075d3bf35d9c2ffb2e6759b3430523801ae49b988",
+      "sourceBytes": 137090,
+      "path": "/art/v204-cards/light_mortar-384-dfd7fdc0b276.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 41158,
+      "sha256": "dfd7fdc0b276534c90d162b5cad1ae3e78d1d423ff256457aca44cc00ada6653"
+    },
+    {
+      "source": "/art/cards-v10/light_mortar.webp",
+      "sourceSha256": "deb2323531130db46c08ce9075d3bf35d9c2ffb2e6759b3430523801ae49b988",
+      "sourceBytes": 137090,
+      "path": "/art/v204-cards/light_mortar-640-d924ecfa78ab.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 81132,
+      "sha256": "d924ecfa78ab9a19132ebb3e750ab7d39fd95ed5d2e111bd4f0645c300fc8782"
+    },
+    {
+      "source": "/art/v190/cards/rapid_reinforcements.webp",
+      "sourceSha256": "23186d86b3513f812b16ffd99999acc416d2efc5925cc39ceab66d18eacf3d54",
+      "sourceBytes": 517002,
+      "path": "/art/v204-cards/rapid_reinforcements-384-29f4895361b4.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 51902,
+      "sha256": "29f4895361b4f65187b21dba3e83ca86b4347e9b5928d1490c1d9faa252f5554"
+    },
+    {
+      "source": "/art/v190/cards/rapid_reinforcements.webp",
+      "sourceSha256": "23186d86b3513f812b16ffd99999acc416d2efc5925cc39ceab66d18eacf3d54",
+      "sourceBytes": 517002,
+      "path": "/art/v204-cards/rapid_reinforcements-640-707f3ee93241.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 124374,
+      "sha256": "707f3ee93241722898d8a09c826ac605746816450d082a4545415fd51e2a7032"
+    },
+    {
+      "source": "/art/v190/cards/escort_gunship.webp",
+      "sourceSha256": "1d4b0604d413b1a9ab32d58c3898915d059347d29c50a9add807f6dd1a1cc920",
+      "sourceBytes": 316204,
+      "path": "/art/v204-cards/escort_gunship-384-3fa6feab683b.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 32788,
+      "sha256": "3fa6feab683ba45b274659e408cadf990565a669c37489b7bf19fe70eda83ce2"
+    },
+    {
+      "source": "/art/v190/cards/escort_gunship.webp",
+      "sourceSha256": "1d4b0604d413b1a9ab32d58c3898915d059347d29c50a9add807f6dd1a1cc920",
+      "sourceBytes": 316204,
+      "path": "/art/v204-cards/escort_gunship-640-8e56641be070.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 71696,
+      "sha256": "8e56641be0700eb22be8f3e8a9f3eb623ab75973218dea46458ea69faaa3fb43"
+    },
+    {
+      "source": "/art/v190/cards/field_gun.webp",
+      "sourceSha256": "e71421f3c614a21b803ca1a01ab9df273b336cae5ba79046ad897d2729577baf",
+      "sourceBytes": 454000,
+      "path": "/art/v204-cards/field_gun-384-41e2f38f35c3.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 42928,
+      "sha256": "41e2f38f35c39caf66f050231692bff7f1ad0b7c61faf3e5eef78761f33d1b66"
+    },
+    {
+      "source": "/art/v190/cards/field_gun.webp",
+      "sourceSha256": "e71421f3c614a21b803ca1a01ab9df273b336cae5ba79046ad897d2729577baf",
+      "sourceBytes": 454000,
+      "path": "/art/v204-cards/field_gun-640-96f1e79b768c.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 99012,
+      "sha256": "96f1e79b768c5a627a918fe0131b8dcbba7394d135e1b8053bad0cd8fa49a2ef"
+    },
+    {
+      "source": "/art/v190/cards/siege_gun.webp",
+      "sourceSha256": "e0c9a658e08a17b8f091cfee10f540ab95ff23228a3bad3c884f4fb28a69942f",
+      "sourceBytes": 499242,
+      "path": "/art/v204-cards/siege_gun-384-355426b7bb35.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 41398,
+      "sha256": "355426b7bb359d63176759a68924667e2a6ca8058932a0c49bdcde27d3d7448c"
+    },
+    {
+      "source": "/art/v190/cards/siege_gun.webp",
+      "sourceSha256": "e0c9a658e08a17b8f091cfee10f540ab95ff23228a3bad3c884f4fb28a69942f",
+      "sourceBytes": 499242,
+      "path": "/art/v204-cards/siege_gun-640-23bb1d74cf58.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 103220,
+      "sha256": "23bb1d74cf58ea705bd9dbfef981cb15ec929f44335a98d22972a0c277286790"
+    },
+    {
+      "source": "/art/v190/cards/fort_bunker.webp",
+      "sourceSha256": "df41dba853cfbf3e06097734bfd6556649ff5b2dc2df704120f523b4f760b4aa",
+      "sourceBytes": 491406,
+      "path": "/art/v204-cards/fort_bunker-384-0f8024398c7e.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 43368,
+      "sha256": "0f8024398c7e2cadc4846c702704b28d154897b4868e83cab597a287c313f9e2"
+    },
+    {
+      "source": "/art/v190/cards/fort_bunker.webp",
+      "sourceSha256": "df41dba853cfbf3e06097734bfd6556649ff5b2dc2df704120f523b4f760b4aa",
+      "sourceBytes": 491406,
+      "path": "/art/v204-cards/fort_bunker-640-ace59648fd6f.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 102722,
+      "sha256": "ace59648fd6f94213afdbf9c029d53a13388c2c32dbee4ff8da77d0cf1eb72d8"
+    },
+    {
+      "source": "/art/v190/cards/fort_machinegun.webp",
+      "sourceSha256": "08feda2f7559567256090c08d661caa318df64b7c9d2250d58b0fc5e1688daf2",
+      "sourceBytes": 453322,
+      "path": "/art/v204-cards/fort_machinegun-384-cd2c2b34c571.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 42902,
+      "sha256": "cd2c2b34c5714cf99c10dccded8e5a9acb3b32400e230e36dacf6bd438bd1925"
+    },
+    {
+      "source": "/art/v190/cards/fort_machinegun.webp",
+      "sourceSha256": "08feda2f7559567256090c08d661caa318df64b7c9d2250d58b0fc5e1688daf2",
+      "sourceBytes": 453322,
+      "path": "/art/v204-cards/fort_machinegun-640-95b851421c75.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 100556,
+      "sha256": "95b851421c75124b84bc064493caf88a76cc9709016273cf18deb04dcec9f245"
+    },
+    {
+      "source": "/art/v190/cards/fort_aa.webp",
+      "sourceSha256": "0fcfb5507bdef83eec2704d16fa9d59506e59736c8afb607e75332121df72b6e",
+      "sourceBytes": 314144,
+      "path": "/art/v204-cards/fort_aa-384-06ca8d294330.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 30274,
+      "sha256": "06ca8d2943305acc57ed86bc9291f9ea5987101a7e31195e57e2175cd196eae2"
+    },
+    {
+      "source": "/art/v190/cards/fort_aa.webp",
+      "sourceSha256": "0fcfb5507bdef83eec2704d16fa9d59506e59736c8afb607e75332121df72b6e",
+      "sourceBytes": 314144,
+      "path": "/art/v204-cards/fort_aa-640-f55ab48ea673.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 67250,
+      "sha256": "f55ab48ea673b6c2a6a85b7f3292631e531d23e58624bb69c2d5d9bc6bc0126e"
+    },
+    {
+      "source": "/art/v190/cards/fort_spawn.webp",
+      "sourceSha256": "7a4eca320f8d608a4af5c544e204be8929a62792c60ed3d2c2a30c57f47f18ce",
+      "sourceBytes": 368346,
+      "path": "/art/v204-cards/fort_spawn-384-fc0d0b0b7af2.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 37742,
+      "sha256": "fc0d0b0b7af233987622fcea31c3ada630faed0f75d5d187c3cae4b276ff5735"
+    },
+    {
+      "source": "/art/v190/cards/fort_spawn.webp",
+      "sourceSha256": "7a4eca320f8d608a4af5c544e204be8929a62792c60ed3d2c2a30c57f47f18ce",
+      "sourceBytes": 368346,
+      "path": "/art/v204-cards/fort_spawn-640-944446ad1d38.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 87386,
+      "sha256": "944446ad1d38fbf435714742b74b190326f9531a69b129039051d8e3d028d9f7"
+    },
+    {
+      "source": "/art/v190/cards/fort_wire.webp",
+      "sourceSha256": "12d3d1e5a67925f4528ef39a4b8b6b336383e082bf2197ef4c04db0936035190",
+      "sourceBytes": 527218,
+      "path": "/art/v204-cards/fort_wire-384-3ab815af8e72.webp",
+      "width": 384,
+      "height": 384,
+      "bytes": 53008,
+      "sha256": "3ab815af8e72229dba8a8554e140cdd9356b1dd7f8dffe13ee9b3e995a9b6528"
+    },
+    {
+      "source": "/art/v190/cards/fort_wire.webp",
+      "sourceSha256": "12d3d1e5a67925f4528ef39a4b8b6b336383e082bf2197ef4c04db0936035190",
+      "sourceBytes": 527218,
+      "path": "/art/v204-cards/fort_wire-640-5c4c43131960.webp",
+      "width": 640,
+      "height": 640,
+      "bytes": 125056,
+      "sha256": "5c4c431319602ff5aef0258bd502f37a2039d0e5015bb8e7dd1ecac24f5645c4"
+    },
+    {
+      "source": "/art/cards-v10/frame.webp",
+      "sourceSha256": "1f09e044d5c7eae0be719e37207b202f42470f11511ab4e4ca8488e4334f579a",
+      "sourceBytes": 232436,
+      "path": "/art/v204-cards/frame-384-2b0eafaf53bc.webp",
+      "width": 384,
+      "height": 576,
+      "bytes": 16648,
+      "sha256": "2b0eafaf53bccff977984967ec6a297440fd5a798f41f7c889dbe9cbd95598df"
+    },
+    {
+      "source": "/art/cards-v10/frame.webp",
+      "sourceSha256": "1f09e044d5c7eae0be719e37207b202f42470f11511ab4e4ca8488e4334f579a",
+      "sourceBytes": 232436,
+      "path": "/art/v204-cards/frame-640-462a9dfc9f73.webp",
+      "width": 640,
+      "height": 960,
+      "bytes": 47460,
+      "sha256": "462a9dfc9f73979a6c836d54b5727849a6581b322b14fa106dccbd3754c76b4e"
+    },
+    {
+      "source": "/art/cards-v10/frame-rare.webp",
+      "sourceSha256": "b4a05a3c0810efe847c4bbbd29179f8eb1da1631c489cb7f1c087f48c51c7315",
+      "sourceBytes": 773274,
+      "path": "/art/v204-cards/frame-rare-384-7ef17f015d0f.webp",
+      "width": 384,
+      "height": 576,
+      "bytes": 57522,
+      "sha256": "7ef17f015d0f5315b04a0a749e156dce3c52b924ad692d178c64d13e0f81795f"
+    },
+    {
+      "source": "/art/cards-v10/frame-rare.webp",
+      "sourceSha256": "b4a05a3c0810efe847c4bbbd29179f8eb1da1631c489cb7f1c087f48c51c7315",
+      "sourceBytes": 773274,
+      "path": "/art/v204-cards/frame-rare-640-630a5cbce98d.webp",
+      "width": 640,
+      "height": 960,
+      "bytes": 171166,
+      "sha256": "630a5cbce98d2d840beec13116d49704ddd6a1267cc8e09b73add7663f368628"
+    },
+    {
+      "source": "/art/cards-v10/frame-epic.webp",
+      "sourceSha256": "bf5b34e0ed1e099944c09e70b687b7281561bda935ba9a38854806c3541aaba2",
+      "sourceBytes": 654180,
+      "path": "/art/v204-cards/frame-epic-384-7ca7db9adad8.webp",
+      "width": 384,
+      "height": 576,
+      "bytes": 55900,
+      "sha256": "7ca7db9adad82fcf408f73d5fef6f09dbbedcf53ef162e1a88dc81b4a170c2ea"
+    },
+    {
+      "source": "/art/cards-v10/frame-epic.webp",
+      "sourceSha256": "bf5b34e0ed1e099944c09e70b687b7281561bda935ba9a38854806c3541aaba2",
+      "sourceBytes": 654180,
+      "path": "/art/v204-cards/frame-epic-640-059a3a4068a8.webp",
+      "width": 640,
+      "height": 960,
+      "bytes": 152358,
+      "sha256": "059a3a4068a824a3d474a2c5ce49a6edeac1acf7ffbc9c7ca4972515b6fa5b9d"
+    },
+    {
+      "source": "/art/cards-v10/frame-legendary.webp",
+      "sourceSha256": "272ee3f88064312c8815ee3309b0dc7c96abb293648e13212287f144c84a6305",
+      "sourceBytes": 666184,
+      "path": "/art/v204-cards/frame-legendary-384-58e51788ea47.webp",
+      "width": 384,
+      "height": 576,
+      "bytes": 55690,
+      "sha256": "58e51788ea471be8e50531161701447be2e68312a851bf5653ecaa567ac23107"
+    },
+    {
+      "source": "/art/cards-v10/frame-legendary.webp",
+      "sourceSha256": "272ee3f88064312c8815ee3309b0dc7c96abb293648e13212287f144c84a6305",
+      "sourceBytes": 666184,
+      "path": "/art/v204-cards/frame-legendary-640-5151137e74ad.webp",
+      "width": 640,
+      "height": 960,
+      "bytes": 156312,
+      "sha256": "5151137e74ad5c711ac8e0e089e6fc30774b69e408b21ce9db5a4ad2ea16b5ee"
+    }
+  ]
+}

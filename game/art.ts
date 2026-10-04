@@ -34,7 +34,9 @@ import { TANK_IDS_V202, TANK_ASSET_ROOT } from './tank-layout-v202';
 import { tankPartsV202, tankPreviewV202 } from './tank-art-v202';
 import { buildEmplacementParts } from './emplacement-art-v202';
 import { emplacementSize, EMPLACEMENT_SCALE, type EmplacementName } from './emplacement-layout';
-import type { PaintedGunParts } from './gun-art';
+import {drawArticulatedGun, type PaintedGunParts} from './gun-art';
+import {modularGunParts,helicopterParts,weaponEffects,type HelicopterParts,type WeaponEffects} from './weapon-art-v204';
+import {WEAPON_ART_ROOT,WEAPON_LAYOUT,HELI_LAYOUT} from './weapon-layout-v204';
 import { loadFPVArt, loadMapBackground, loadV16Art } from './art-v16';
 import { loadTreeArtV17, treeFramesV17, type TreeArtV17 } from './tree-art-v17';
 import { loadPatrolArtV17, type PatrolArtV17 } from './patrol-art-v17';
@@ -44,6 +46,8 @@ import { loadComebackArtV18, comebackFramesV18, type ComebackArtV18 } from './co
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  weaponEffects?: WeaponEffects;
+  helicopterParts?: HelicopterParts;
   gunParts?: Record<string, PaintedGunParts>;
   ammoCrate?: HTMLImageElement;
   ammoCrateFrame?: HTMLCanvasElement;
@@ -354,7 +358,6 @@ const VEHICLE_TINTS: Record<string, [number, number, number]> = {
   loiter_drone: [0.88, 0.8, 0.6], // sand loitering munition
   interceptor: [0.7, 0.76, 0.86], // air-superiority grey-blue
   fpv_drone: [0.9, 0.72, 0.6], // burnt-orange FPV
-  strike_jet: [0.76, 0.78, 0.82], // strike grey
   bomber: [0.68, 0.7, 0.66], // dark night bomber
   air_assault: [0.84, 0.86, 0.74], // drab assault
 };
@@ -599,7 +602,6 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
   const loadImage = (source: string) => loadArtImage(source, compact);
   const generatedSpriteIds = [
     'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
-    'escort_gunship',
   ] as const;
   return Promise.all([
     Promise.all([
@@ -641,13 +643,14 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     loadImage('/art/v195-logistics/ammo-crate.png'),
     Promise.all(V197_VEHICLE_IDS.map(async id => {
       const [sprite, wreck] = await Promise.all([
-        id === 'light_tank' ? Promise.resolve(null) : loadImage(vehicleAssetV197(id, 'sprite')),
-        loadImage(vehicleAssetV197(id, 'wreck')),
+        id === 'light_tank' || id === 'mlrs' ? Promise.resolve(null) : loadImage(vehicleAssetV197(id, 'sprite')),
+        loadImage(id==='mlrs'?`${WEAPON_ART_ROOT}/mlrs-wreck.webp`:vehicleAssetV197(id, 'wreck')),
       ]);
       return {id, sprite, wreck};
     })),
     Promise.all(TANK_IDS_V202.map(async id =>
       [id, tankPartsV202(id, await loadImage(`${TANK_ASSET_ROOT}/${id}.webp`))] as const)),
+    Promise.all(['mlrs','field-gun','siege-gun','helicopter','flame'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
   ]).then(
     ([
       [
@@ -687,6 +690,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       ammoCrate,
       v197Vehicles,
       v202Tanks,
+      weaponSheets,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
@@ -704,7 +708,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       );
       const rotors = generatedRotors(rotorcraft);
       const emplacementFrames = buildEmplacements(emplacements);
-      const gunParts = {...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames)};
+      const gunParts:Record<string,PaintedGunParts> = {...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
+      const gunPreviews=Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map(id=>{const a=WEAPON_LAYOUT[id], frame=surface(a.bodyWidth+80,a.bodyHeight+80);drawArticulatedGun(frame.getContext('2d')!,gunParts[id],{id,x:frame.width/2,y:frame.height,facing:1});return [id,[frame]];}));
       const heFrames = packedBlastFrames(heBlastSheet),
         grenadeFrames = packedBlastFrames(grenadeBlastSheet),
         airFrames = packedBlastFrames(airBlastSheet),
@@ -725,6 +730,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       );
       return {
         gunParts,
+        helicopterParts:helicopterParts(weaponSheets[3]),
+        weaponEffects:weaponEffects(weaponSheets[4],weaponSheets[0]),
         ammoCrate,
         generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
@@ -743,6 +750,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
+          ...gunPreviews,
           ...Object.fromEntries(v197Vehicles.filter(v => v.sprite).map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite!)]])),
         },
         terrain,
@@ -1014,13 +1022,16 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
 }
 export function unitSize(id: CardId): [number, number] {
   const c = CARDS[id];
+  if(id==='mlrs')return [168,100];
+  if(id==='field_gun')return [156,80];
+  if(id==='siege_gun')return [264,110];
+  if(id==='helicopter'||id==='rocket_heli'||id==='escort_gunship')return [HELI_LAYOUT.width,HELI_LAYOUT.height+14];
   if (c.fortification) {
     if (c.fortification === 'wire') return [116, 34];
     if (c.fortification === 'aa') return [112, 82];
     if (c.fortification === 'spawn') return [118, 64];
     return [112, 64];
   }
-  if (id === 'escort_gunship') return [220, 110];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];

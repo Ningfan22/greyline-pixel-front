@@ -3,6 +3,7 @@ import type { Blast, Particle, Projectile } from './engine';
 import { drawSmokePuff, blendEffectFrame, type PaintedBlasts } from './effect-atlas';
 import { blastFrameAt } from './blast-animation';
 import { isPrecisionObserver } from './precision-team';
+import type {WeaponEffects} from './weapon-art-v204';
 function hexa(hex: string, a: number) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a.toFixed(3)})`;
@@ -123,7 +124,7 @@ function streak(
   for (let i = 0; i < length; i++)
     ctx.fillRect(Math.round(x - dx * i), Math.round(y - dy * i), width, width);
 }
-export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
+export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile,effects?:WeaponEffects) {
   const kind = p.ammunition ?? (p.radius ? 'cannon' : 'rifle');
   const t = 1 - Math.max(0, p.life) / p.total;
   const dy = p.ty - p.startY - 4 * (p.arc ?? 0) * (1 - 2 * t);
@@ -133,6 +134,7 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
   const travelled = Math.hypot(p.x - p.startX, p.y - p.startY);
   ctx.save();
   if (kind === 'flame') {
+    if(effects){ctx.restore();return;}
     const length = Math.min(30, travelled + 4);
     streak(ctx, p.x, p.y, angle, length, '#df641e', 5, 0.7);
     streak(ctx, p.x, p.y, angle, length * 0.7, '#ffba48', 3, 0.9);
@@ -162,6 +164,11 @@ export function drawProjectile(ctx: CanvasRenderingContext2D, p: Projectile) {
     streak(ctx, p.x, p.y, angle, 12, '#baae8d', 1, 0.45);
     streak(ctx, p.x, p.y, angle, 5, '#f5e6c1', 1, 0.95);
   } else if (kind === 'rocket') {
+    if(effects&&p.sourceCardId==='mlrs'){
+      const frame=effects.rocket,width=34,height=width*frame.height/frame.width;
+      ctx.imageSmoothingEnabled=false;ctx.translate(Math.round(p.x),Math.round(p.y));ctx.rotate(angle);
+      ctx.drawImage(frame,-width*.98,-height/2,width,height);ctx.restore();return;
+    }
     streak(ctx, p.x, p.y, angle, 7, '#3e443b', 2);
     streak(ctx, p.x, p.y - 1, angle, 5, '#b6b7a3');
     streak(ctx, p.x - dx * 7, p.y - vy * 7, angle, 3, '#d7a467', 1, 0.85);

@@ -15,5 +15,15 @@ export default defineConfig({
   build: {
     outDir: fileURLToPath(new URL('./dist-pages', import.meta.url)),
     emptyOutDir: true,
+    rolldownOptions: {
+      input: {
+        index: fileURLToPath(
+          new URL('./static-app/index.html', import.meta.url),
+        ),
+        weapons: fileURLToPath(
+          new URL('./static-app/qa-weapons.html', import.meta.url),
+        ),
+      },
+    },
   },
 });

@@ -1,0 +1,80 @@
+{
+  "version": 204,
+  "date": "2026-10-04",
+  "mode": "built-in imagegen",
+  "notes": "Independent authored components; lossless exact WebP copies verified against imagegen PNG RGBA. No artwork painted procedurally.",
+  "prompts": "prompts.json",
+  "entries": [
+    {
+      "id": "mlrs",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-28ef8f52-a834-4b6d-a983-a2c110ea9dc6.png",
+      "path": "/art/v204-weapons/mlrs.webp",
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "32073031bf9d9aaf1e00a06a33565ade82b970206787eae0d53d25497ed84195",
+      "sha256": "b98cb6e7d2c24286511a3d86af26245952b9cd665d23b2f8872e168324d42c9f",
+      "bytes": 1170028
+    },
+    {
+      "id": "flame",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-64189de4-d252-43bc-a2ba-c49643e3ff1f.png",
+      "path": "/art/v204-weapons/flame.webp",
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "7886afe01360f8a82a8fed15b7e43fdb4bbba210ae5644aee7eefc365a3c6b75",
+      "sha256": "82193cb409811a3da41a9d8499e8a80fa16a24bf7f66c783c0635f51d87096e6",
+      "bytes": 1405942
+    },
+    {
+      "id": "helicopter",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-340661b1-aded-4367-9ddf-6a45277b1ea7.png",
+      "path": "/art/v204-weapons/helicopter.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "4c6274652517a76dba7466084443ad6604d32abaaf0184283430c0b70e2ea3e2",
+      "sha256": "5e75e0072cb6c2c9d1573f5175207abb5c44cbf2d60567f0c58687ee1b68c775",
+      "bytes": 586420
+    },
+    {
+      "id": "field-gun",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-50fb0141-d857-40cf-adf7-e6616d1f4cc9.png",
+      "path": "/art/v204-weapons/field-gun.webp",
+      "width": 1774,
+      "height": 887,
+      "rgbaSha256": "74e5ac79fb159acf7fa2349c6582795d7cb941605aff3861de0e661e3124765d",
+      "sha256": "aa5233b480e437c25efabf9d2cd5f2de5ac03b73dbda8073d7e000551a91b8f2",
+      "bytes": 535586
+    },
+    {
+      "id": "siege-gun",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-0604faad-d420-4902-b254-683da1ac070b.png",
+      "path": "/art/v204-weapons/siege-gun.webp",
+      "width": 2048,
+      "height": 768,
+      "rgbaSha256": "2e77e4763c56e1f3a91c5b32d6acf26919bac0de4def3ec86462cedc7e3181f6",
+      "sha256": "dd991b7147570a1d8484ec27840db029cd6d69ae952e1b851cb18494b2854e15",
+      "bytes": 1178802
+    },
+    {
+      "id": "mlrs-card",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-4f14fcb5-a3e0-477f-9959-5a24fe9d3654.png",
+      "path": "/art/v204-weapons/mlrs-card.webp",
+      "width": 1254,
+      "height": 1254,
+      "rgbaSha256": "49c71d194e5b03dd77c6e8ca1a5cb1b49435e934a6ecb8366640bc9fc5f7247b",
+      "sha256": "056d7a8285f66e11d56f416eda840df25f361e4953b6cff73599a0af43dbcbf3",
+      "bytes": 1675760
+    },
+    {
+      "id": "mlrs-wreck",
+      "source": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-58bfba4a-bfb1-4a52-b445-234ac9e3fc44.png",
+      "path": "/art/v204-weapons/mlrs-wreck.webp",
+      "width": 1536,
+      "height": 1024,
+      "rgbaSha256": "fd4069d64c3ccc7a2efe11836826e860cf401de93587001518f090caeee70a3f",
+      "sha256": "99f6a1b86c6a7042097031b76797a94803b1b7f84f9fb1456df6e565eb703a22",
+      "bytes": 1275368
+    }
+  ],
+  "wreckPrompt": "wreck-prompt.txt"
+}

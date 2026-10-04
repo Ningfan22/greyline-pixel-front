@@ -10,7 +10,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const root = fileURLToPath(new URL('..', import.meta.url));
 
 test('the committed bake matches its compiler, authoring inputs and generated outputs', () => {
-  const provenance = JSON.parse(readFileSync(join(root, 'public/art/v203-battle/provenance.json'), 'utf8'));
+  const provenance = JSON.parse(readFileSync(join(root, 'public/art/v204-battle/provenance.json'), 'utf8'));
   assert.deepEqual(checkBakedBattleArt(root, provenance), []);
   assert(provenance.compilerSources.length >= 30);
   assert(provenance.originalSources.length > 20);

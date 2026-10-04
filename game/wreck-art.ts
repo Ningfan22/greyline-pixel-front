@@ -1,5 +1,6 @@
 import { transparentSheet } from './sprite-atlas';
 import { WRECKS, type WreckKind } from './wreck-geometry';
+import {mlrsWreckFrame} from './weapon-art-v204';
 import { vehicleFrameV197, isV197Vehicle, type V197VehicleId } from './vehicle-art-v197';
 
 /** Extract authored wrecks; no live sprite, tint or vertical compression is used. */
@@ -22,6 +23,7 @@ export function wreckFrames(
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {
+      if(id==='mlrs')return [id,mlrsWreckFrame(authoredVehicles[id])];
       if (isV197Vehicle(id)) return [id, vehicleFrameV197(id, authoredVehicles[id], true)];
       const frame = document.createElement('canvas');
       frame.width = shape.width;

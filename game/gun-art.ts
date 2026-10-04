@@ -16,7 +16,7 @@ export function drawArticulatedGun(
   const pose = gunPose(body);
   if (!pose) return;
   const hullAngle = CARDS[body.id].emplacement ? 0 : body.hullAngle ?? 0;
-  const recoil = body.moving ? 0 : Math.min(1, Math.max(0, (body.fire ?? 0) / .25)) ** 2 * 5;
+  const recoil = body.moving || body.id==='mlrs' ? 0 : Math.min(1, Math.max(0, (body.fire ?? 0) / .25)) ** 2 * 5;
   const drawBody = () => {
     ctx.save();
     ctx.translate(body.x, body.y + depth);

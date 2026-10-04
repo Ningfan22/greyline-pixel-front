@@ -5,48 +5,22 @@ import { assetUrl } from './asset-url';
 import { CARDS, copyLimit, type CardId } from './cards';
 import { CARD_COPY } from './card-copy';
 import { rarityOf } from './collection';
-import { isV197Vehicle, vehicleAssetV197 } from './vehicle-art-v197';
 
-const ADDITIONAL_CARD_ART = new Set([
-  'pickup',
-  'mortar_carrier',
-  'recovery_vehicle',
-  'command_vehicle',
-  'mine_clearer',
-]);
-export function cardPictureUrl(id: CardId) {
-  if (isV197Vehicle(id)) return assetUrl(vehicleAssetV197(id, 'card'));
-  if (id === 'rapid_reinforcements' || id === 'escort_gunship' ||
-      id === 'field_gun' || id === 'siege_gun' ||
-      id === 'fort_bunker' || id === 'fort_machinegun' || id === 'fort_aa' ||
-      id === 'fort_spawn' || id === 'fort_wire')
-    return assetUrl(`/art/v190/cards/${id}.webp`);
-  if(id==='glider_transport')return cardPictureUrl('glider_assault');
-  if (
-    id === 'field_logistics' ||
-    id === 'command_expansion' ||
-    id === 'war_bonds'
-  )
-    return assetUrl(`/art/v21-economy/cards/${id}.webp`);
-  if (
-    id === 'toxic_cloud' ||
-    id === 'smoke_withdrawal' ||
-    id === 'reserve_mobilization'
-  )
-    return assetUrl(`/art/v18-comeback/cards/${id}.webp`);
-  if (id === 'fpv_drone' || id === 'air_assault')
-    return assetUrl(`/art/v16-air/cards/${id}.webp`);
-  if (
-    id === 'overdraft' ||
-    id === 'signal_jam' ||
-    id === 'airborne_insertion' ||
-    id === 'forced_march' ||
-    id === 'cyber_suppression'
-  )
-    return assetUrl(`/art/v23-doctrine/cards/${id}.webp`);
-  return assetUrl(
-    `/art/${ADDITIONAL_CARD_ART.has(id) ? 'cards-v15' : 'cards-v10'}/${id}.webp`,
-  );
+import { cardPicturePath } from './card-picture-path';
+import { CARD_IMAGE_VARIANTS } from './card-image-data';
+export const cardPictureUrl = (id: CardId) => assetUrl(cardPicturePath(id));
+export function cardImageSources(path: string) {
+  const entries = (
+    CARD_IMAGE_VARIANTS as Record<string, { path: string; width: number }[]>
+  )[path];
+  return entries
+    ? {
+        src: assetUrl(entries[0].path),
+        srcSet: entries
+          .map((v) => `${assetUrl(v.path)} ${v.width}w`)
+          .join(', '),
+      }
+    : { src: assetUrl(path) };
 }
 
 export function cardStats(id: CardId, cost = CARDS[id].cost) {
@@ -59,32 +33,34 @@ export function cardStats(id: CardId, cost = CARDS[id].cost) {
         ['目标', c.targetGround ? '落点' : '全局'],
       ]
     : c.type === 'fortification'
-    ? [
-        ['工期',`${c.buildTime ?? 0}秒`],
-        ['生命',String(c.hp ?? '—')],
-        ['驻守',c.garrisonCapacity ? `${c.garrisonCapacity}人` : '不可'],
-        ['射程',c.range ? String(c.range) : '—'],
-      ]
-    : [
-        [
-          '编制',
-          c.members
-            ? `${c.members}人`
-            : c.airlift
-              ? '1机5人'
-              : c.emplacement
-                ? '1门'
-                : c.air
-                  ? '1架'
-                  : '1辆',
-        ],
-        ['生命', String(c.hp ?? '—')],
-        ['火力', String(c.damage || '—')],
-        [
-          c.armorTier ? '护甲' : c.range ? '射程' : '视野',
-          c.armorTier ? String(c.armorTier) : String(c.range || c.sight || (c.observer ? 820 : '—')),
-        ],
-      ];
+      ? [
+          ['工期', `${c.buildTime ?? 0}秒`],
+          ['生命', String(c.hp ?? '—')],
+          ['驻守', c.garrisonCapacity ? `${c.garrisonCapacity}人` : '不可'],
+          ['射程', c.range ? String(c.range) : '—'],
+        ]
+      : [
+          [
+            '编制',
+            c.members
+              ? `${c.members}人`
+              : c.airlift
+                ? '1机5人'
+                : c.emplacement
+                  ? '1门'
+                  : c.air
+                    ? '1架'
+                    : '1辆',
+          ],
+          ['生命', String(c.hp ?? '—')],
+          ['火力', String(c.damage || '—')],
+          [
+            c.armorTier ? '护甲' : c.range ? '射程' : '视野',
+            c.armorTier
+              ? String(c.armorTier)
+              : String(c.range || c.sight || (c.observer ? 820 : '—')),
+          ],
+        ];
 }
 
 /** One generated print frame, with live text for balance changes and accessibility. */
@@ -105,10 +81,15 @@ export const CardFace = memo(function CardFace({
   const stats = cardStats(id, value);
   const [pictureFailed, setPictureFailed] = useState(false);
   const rarity = rarityOf(id);
-  const frameSrc =
-    rarity === 'common'
-      ? assetUrl('/art/cards-v10/frame.webp')
-      : assetUrl(`/art/cards-v10/frame-${rarity}.webp`);
+  const picture = cardImageSources(cardPicturePath(id)),
+    frame = cardImageSources(
+      rarity === 'common'
+        ? '/art/cards-v10/frame.webp'
+        : `/art/cards-v10/frame-${rarity}.webp`,
+    );
+  const imageSizes = eager
+    ? '(max-width: 600px) 100px, 160px'
+    : '(max-width: 600px) 160px, 240px';
   const nameLen = c.name.length;
   const enLen = copy.en.length;
   const ruleLen = copy.rule.length;
@@ -122,7 +103,9 @@ export const CardFace = memo(function CardFace({
         width={1024}
         height={1536}
         className="printed-card-frame"
-        src={frameSrc}
+        src={frame.src}
+        srcSet={frame.srcSet}
+        sizes={imageSizes}
         alt=""
         aria-hidden="true"
         decoding="async"
@@ -132,7 +115,10 @@ export const CardFace = memo(function CardFace({
         width={720}
         height={720}
         className="printed-card-picture"
-        src={cardPictureUrl(id)}
+        src={picture.src}
+        srcSet={picture.srcSet}
+        sizes={imageSizes}
+        fetchPriority={eager ? 'high' : 'auto'}
         alt=""
         aria-hidden="true"
         loading={eager ? 'eager' : 'lazy'}
@@ -185,3 +171,27 @@ export const CardFace = memo(function CardFace({
     </figure>
   );
 });
+
+const warming = new Set<string>();
+/** Warm only the selected deck's display-sized art, after the lobby paints. */
+export function preloadCardFaces(ids: readonly CardId[]) {
+  if (typeof Image === 'undefined') return;
+  const paths = [
+    ...new Set(ids.map(cardPicturePath)),
+    ...['frame', 'frame-rare', 'frame-epic', 'frame-legendary'].map(
+      (id) => `/art/cards-v10/${id}.webp`,
+    ),
+  ];
+  for (const path of paths) {
+    const sources = cardImageSources(path);
+    if (warming.has(sources.src)) continue;
+    warming.add(sources.src);
+    const image = new Image();
+    image.decoding = 'async';
+    image.fetchPriority = 'low';
+    image.sizes = '(max-width: 600px) 100px, 160px';
+    if (sources.srcSet) image.srcset = sources.srcSet;
+    image.onerror = () => warming.delete(sources.src);
+    image.src = sources.src;
+  }
+}

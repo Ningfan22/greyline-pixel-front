@@ -470,7 +470,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'MLRS',
     typeLabel: '远程覆盖',
     ability: '大面积齐射',
-    rule: '三发覆盖，长装填、无装甲。',
+    rule: '16管逐发齐射，装填14秒。',
     flavor: '一轮齐射，地皮翻一遍。',
   },
   heavy_tank: {

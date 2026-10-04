@@ -46,6 +46,7 @@ import {
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
 import { drawArticulatedGun } from './gun-art';
+import {drawHelicopter,drawFlameStream} from './weapon-art-v204';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
 import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorches, drawTreads, drawDragMarks, drawVeterancyPips } from './ambience';
@@ -63,6 +64,8 @@ import {
 } from './ballistics';
 import {
   CARDS,
+  muzzlePoint,
+  directShotIntercept,
   ground,
   H,
   W,
@@ -413,6 +416,8 @@ export function render(
           foregroundBounds.push(
             ...treeBoxesV17(prop, s.time, visibleGround(prop.x)),
           );
+        ctx.save();
+        if(front && !s.sight[0][Math.floor(prop.x/64)])ctx.filter='grayscale(1)';
         drawScenery(
           ctx,
           prop,
@@ -422,6 +427,7 @@ export function render(
           art.trees,
           visibleGround,
         );
+        ctx.restore();
       }
     for (const w of s.wrecks) {
       if (foregroundObject(w.id) !== front) continue;
@@ -637,6 +643,15 @@ export function render(
     }
     ctx.restore();
   }
+  ctx.save();
+  // Saturation blending removes color while preserving the scene's luminance.
+  ctx.globalCompositeOperation = 'saturation';
+  ctx.fillStyle = '#808080';
+  for (let x = Math.floor(left / 64) * 64; x < right; x += 64)
+    if (!s.sight[0][Math.floor(x / 64)]) {
+      ctx.fillRect(x, -H, 64, H * 3);
+    }
+  ctx.restore();
   const layer = (u: GameState['units'][number]) =>
     CARDS[u.id].fortification ? 2 : CARDS[u.id].air
       ? 3
@@ -856,6 +871,8 @@ export function render(
     if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far');
     if (c.fortification) {
       drawFortification(ctx,u,s.time,art);
+    } else if (art.helicopterParts && (u.id==='helicopter'||u.id==='rocket_heli'||u.id==='escort_gunship')) {
+      ctx.save();ctx.globalAlpha=alpha;drawHelicopter(ctx,art.helicopterParts,u,s.time,isDead);ctx.restore();
     } else if (art.gunParts?.[u.id] || (c.emplacement && art.gunParts?.[c.emplacement])) {
       const parts = art.gunParts[u.id] ?? art.gunParts[c.emplacement!];
       drawArticulatedGun(ctx, parts, u, alpha, infantryDepth(u.lane));
@@ -891,6 +908,11 @@ export function render(
     if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art,'near');
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
+    if(art.weaponEffects && !u.wounded && !u.surrendered && (u.flameUntil??0)>s.time && u.flameTarget && (!c.members || (u.reloadingUntil??0)<=s.time)){
+      const target=u.flameTarget,origin=visualMuzzle??muzzlePoint(u,target.x);
+      const stop=directShotIntercept(s,'flame',origin.x,origin.y,target.x,target.y);
+      drawFlameStream(ctx,art.weaponEffects,origin.x,origin.y+infantryDepth(u.lane),stop?.x??target.x,(stop?.y??target.y)+infantryDepth(u.lane),s.time,u.uid);
+    }
     // Stationary infantry in cover get a per-unit prop (sandbags for deep
     // cover, rubble for light) drawn over their lower body, anchoring them
     // to the ground they are hiding behind.
@@ -1241,7 +1263,7 @@ export function render(
           : (sourceOffsets.get(p.sourceUid) ?? { x: 0, y: 0 });
       projectileOffsets.set(p, offset);
     }
-    drawProjectile(ctx, projectileForRender(s, p, offset));
+    drawProjectile(ctx, projectileForRender(s, p, offset),art.weaponEffects);
     if (!reduced)
       whipStreaks.consider(
         p,
@@ -1256,15 +1278,6 @@ export function render(
       drawBlast(ctx, b, art.explosions, art.combatExplosions, art.combatExplosionsV13, art.paintedBlasts);
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts, art.smoke);
-  ctx.save();
-  // Saturation blending removes color while preserving the scene's luminance.
-  ctx.globalCompositeOperation = 'saturation';
-  ctx.fillStyle = '#808080';
-  for (let x = Math.floor(left / 64) * 64; x < right; x += 64)
-    if (!s.sight[0][Math.floor(x / 64)]) {
-      ctx.fillRect(x, -H, 64, H * 3);
-    }
-  ctx.restore();
   ctx.globalAlpha = 1;
   if (gas) {
     ctx.font = '12px monospace';

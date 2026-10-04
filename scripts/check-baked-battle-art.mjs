@@ -29,7 +29,7 @@ export function checkBakedBattleArt(root, provenance, expectedCompilerPaths = BA
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const root = fileURLToPath(new URL('..', import.meta.url));
   let errors;
-  try {errors = checkBakedBattleArt(root, JSON.parse(readFileSync(resolve(root, 'public/art/v203-battle/provenance.json'), 'utf8')));}
+  try {errors = checkBakedBattleArt(root, JSON.parse(readFileSync(resolve(root, 'public/art/v204-battle/provenance.json'), 'utf8')));}
   catch (error) {errors = [String(error)];}
   if (errors.length) {
     console.error('战场图集已过期，停止构建。请先重新烘焙素材：\n' +

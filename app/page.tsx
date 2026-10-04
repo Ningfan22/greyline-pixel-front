@@ -4,6 +4,7 @@ import { DECK, chooseAiDeck, type CardId } from '@/game/engine';
 import Battle from './battle';
 import { getBattleAudio } from '@/game/audio';
 import { loadBattleArt } from '@/game/art';
+import {preloadCardFaces} from '@/game/card-art';
 import DeckBuilder from './deck-builder';
 import HomeMenu, { type LobbyPage } from './home-menu';
 import { DEFAULT_MAP, isMapId, type MapId } from '@/game/maps';
@@ -101,6 +102,11 @@ export default function Home() {
     const id = window.setTimeout(warm, 400);
     return () => window.clearTimeout(id);
   }, [loaded, mapId]);
+  useEffect(()=>{
+    if(!loaded)return;
+    const id=window.setTimeout(()=>preloadCardFaces(deck),600);
+    return ()=>window.clearTimeout(id);
+  },[loaded,deck]);
   const save = (next: CardId[]) => {
     if (!collection) return '收藏仍在加载，请稍候';
     if (!validDeckWithCollection(next, collection))

@@ -40,7 +40,7 @@ test('nine distinct v197 generated paintings survive lossless serving with their
 for (const id of V197_VEHICLE_IDS) {
   // The old light-tank painting is preserved above as an archival source;
   // its active layered model is covered by v198-tank-barrel-render.test.mjs.
-  if (id !== 'light_tank') test(`${id}: compact dedicated sprite selector, true transparency, ground baseline and measured weapon mouths`, async () => {
+  if (id !== 'light_tank' && id !== 'mlrs') test(`${id}: compact dedicated sprite selector, true transparency, ground baseline and measured weapon mouths`, async () => {
     const frame = vehicleFrameV197(id, await loadImage(asset(`${VEHICLE_ART_V197[id].stem}-sprite.webp`)));
     const geometry = tankGeometry(id);
     assert.deepEqual([frame.width, frame.height], unitSize(id));
@@ -69,7 +69,8 @@ for (const id of V197_VEHICLE_IDS) {
         'movement clearance must shrink with the visible carrier');
     }
   });
-  test(`${id}: dedicated wreck collision follows its new authored metal in both directions`, async () => {
+  // MLRS now uses the authored six-wheel v204 carrier and wreck, covered in v204-weapons.
+  if(id!=='mlrs')test(`${id}: dedicated wreck collision follows its new authored metal in both directions`, async () => {
     const frame = vehicleFrameV197(id, await loadImage(asset(`${VEHICLE_ART_V197[id].stem}-wreck.webp`)), true);
     const geometry = wreckGeometry(id);
     assert.equal(geometry.atlas, 'v197');

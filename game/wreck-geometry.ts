@@ -2,6 +2,7 @@ import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
 import { VEHICLE_SCALE } from './vehicle-geometry';
 import { paintedTankWreckGeometry } from './tank-wreck-geometry';
+import {MLRS_WRECK} from './weapon-layout-v204';
 import { VEHICLE_ART_V197, isV197Vehicle } from './vehicle-art-v197';
 
 type Rect = [number, number, number, number];
@@ -33,7 +34,7 @@ export type WreckKind =
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197' | 'v204';
   source: Rect;
   width: number;
   height: number;
@@ -97,16 +98,10 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     spriteOffset: 0,
   },
   mlrs: {
-    atlas: 'v197',
-    source: [...VEHICLE_ART_V197.mlrs.wreckCrop],
-    width: VEHICLE_ART_V197.mlrs.wreckSize[0],
-    height: VEHICLE_ART_V197.mlrs.wreckSize[1],
-    parts: [
-      [.04, .61, .75, .07], [.13, .8, .61, .14], [.16, .94, .64, .025],
-      [.71, .5, .095, .08], [.19, .34, .11, .12],
-      [.39, .23, .12, .12], [.69, .135, .035, .12],
-    ],
-    support: [.07, .93, 1], spriteOffset: 0,
+    atlas:'v204',source:[...MLRS_WRECK.crop],
+    width:MLRS_WRECK.width,height:MLRS_WRECK.height,
+    parts:[[.114,.57,.77,.05],[.10,.68,.12,.24],[.29,.68,.11,.24],[.74,.68,.12,.23],[.631,.211,.15,.41],[.193,.211,.1145,.281],[.795,.405,.15,.189]],
+    support:[.09,.93,1],spriteOffset:0,
   },
   mortar_carrier: shape(
     'support',
