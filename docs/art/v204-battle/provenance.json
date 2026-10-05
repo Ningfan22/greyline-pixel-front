@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 3215.6277079999995,
-  "canvasesCreated": 581,
-  "frames": 445,
+  "compileMs": 2622.161292,
+  "canvasesCreated": 642,
+  "frames": 465,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -13,11 +13,11 @@
     },
     {
       "path": "scripts/battle-art-bake-inputs.mjs",
-      "sha256": "a26c1af3f2b008ad4e13c6c27bec41bf8a09de9518b938c9c4c90c710dc0f21c"
+      "sha256": "d82124111251123e7029e465219038868ccae5861b2d4347f1b1f706218cfaf2"
     },
     {
       "path": "game/art.ts",
-      "sha256": "ef83469a41ce06b7c541ce0ae0ce53c6cff70286ff41e4e1f962cf4d054caeb9"
+      "sha256": "741e47cc654fb9d44b5d35da4f1e4af5e18ca195e03a7f6ea7cdeabcb3568404"
     },
     {
       "path": "game/art-v16.ts",
@@ -53,11 +53,19 @@
     },
     {
       "path": "game/gun-art.ts",
-      "sha256": "612fac9971d66549d49f3dec47fcf055d9fd16a01912f972ae26cb7d91d6dcb9"
+      "sha256": "c7187baa1b1556029359f643235da5ac58fca4621f59fb71cb91b3dc88aa81c6"
     },
     {
       "path": "game/gun-geometry.ts",
-      "sha256": "43e91b0573105bf14ed5fc2e034ecf072197f5f133966370a783c680178e95ac"
+      "sha256": "1458267081d4b71e54792f97b47e9fae6a088ca8a0e43947679a4694f9092bf7"
+    },
+    {
+      "path": "game/vehicle-gun-art.ts",
+      "sha256": "20e7a024cb5995819dc39160bcfb57da82d638e5cf63d121bdb8895a6dd10576"
+    },
+    {
+      "path": "game/vehicle-gun-layout.ts",
+      "sha256": "636e510ea0c7bb1d4f68e5b875af688868fbcf370a9058adecf250df51129070"
     },
     {
       "path": "game/vehicle-missile-art-v209.ts",
@@ -85,7 +93,7 @@
     },
     {
       "path": "game/vehicle-geometry.ts",
-      "sha256": "79f04356691abf4ea94f6cf96f25d8d455653c73c21e873c8d9592faac1439be"
+      "sha256": "6c69f723dc92a8715480b0d6f0066279df4edfe740d01146f0a094ea8a6cda46"
     },
     {
       "path": "game/mobile-vehicle-art.ts",
@@ -93,7 +101,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "a7689308cb5410a0d29100056f880e9abef05c86c0b8f7f4792c7733dd478ad4"
+      "sha256": "2c399c325ef9fb7a379e1537399a25268c3a11e12155a8ba48b35605b662b585"
     },
     {
       "path": "game/maps.ts",
@@ -590,7 +598,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "dd8e8475f8742538376a6cd212c058289410427c42a284e6a63d8a4550fb438b"
+    "sha256": "8fccbcb4c618e07c43dddcb04de0f945d5f478a06d366ab060d5794a0bba9e08"
   },
   "atlasFiles": [
     {
@@ -602,12 +610,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-80270d3195af.png",
-      "bytes": 2847600,
+      "path": "/art/v204-battle/frames-1-c6135c786315.png",
+      "bytes": 2962886,
       "width": 2048,
-      "height": 1384,
-      "sha256": "80270d3195afda724b3887d61f1e01433ccf4658abe62c5ca1e42307db7e2627",
-      "rgbaSha256": "f6576e6878682e19ec0438e846f751fbbfb3edf2aece3477d717d48519c603a1"
+      "height": 1546,
+      "sha256": "c6135c78631552acc81f03aee011076934097594b606ea0a72b358aa6a231c84",
+      "rgbaSha256": "fce4c00bf0b8a29eed9bd085b34eeb126e499d00e1cedeba470c4f867dd22956"
     }
   ],
   "external": [],
@@ -645,5 +653,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5200058
+  "sharedBytes": 5315344
 }

@@ -1,3 +1,4 @@
+import {vehicleGunMount} from './vehicle-gun-layout';
 import { CARDS, type CardId } from './cards';
 import { TANK_IDS_V202, tankLayoutV202 } from './tank-layout-v202';
 import { EMPLACEMENT_CUTS } from './emplacement-art-v202';
@@ -98,7 +99,7 @@ for (const id of ['helicopter', 'rocket_heli', 'escort_gunship'] as const)
   };
 export function gunMount(id: CardId): GunMount | null {
   return (
-    MOUNTS[id] ??
+    vehicleGunMount(id) ?? MOUNTS[id] ??
     (CARDS[id].emplacement ? MOUNTS[CARDS[id].emplacement!] : null) ??
     null
   );

@@ -7,7 +7,9 @@ export function stanceHeightClass(pose: Unit['pose']): StanceClass {
 }
 type PoseClock = Partial<Pick<Unit, 'poseAnimFrom' | 'poseAnimSeen' | 'poseAnimAt' | 'poseAnimUrgent'>>;
 export function stanceTransitionDuration(u: PoseClock): number {
-  if (u.poseAnimUrgent) return u.poseAnimSeen === 'prone' ? 0.45 : 0.25;
+  if (u.poseAnimUrgent) return u.poseAnimSeen === 'stand'
+    ? u.poseAnimFrom === 'prone' ? 0.65 : 0.3
+    : u.poseAnimSeen === 'prone' ? 0.45 : 0.25;
   // Going all the way to/from the ground traverses BOTH authored segments.
   return POSE_TRANSITION_S * ((u.poseAnimFrom === 'stand' && u.poseAnimSeen === 'prone') ||
     (u.poseAnimFrom === 'prone' && u.poseAnimSeen === 'stand') ? 2 : 1);

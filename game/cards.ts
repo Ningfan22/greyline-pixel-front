@@ -3199,3 +3199,8 @@ Object.assign(CARDS.sam_vehicle, {
   description:'远程雷达导弹覆盖约三分之二战场空域',
   detail:'5费280生命。每3.6秒一发240伤制导防空导弹，射程2560（全战场宽度约三分之二）、对空雷达2600。普通170–230生命固定翼通常一发击落，260生命武装直升机通常两发；需实际命中，导弹仍有飞行时间，山体和雷达干扰可影响拦截。雷达不提供远程地面视野。',
 });
+
+// Autocannon: a real six-round string followed by a short feed/aim pause.
+Object.assign(CARDS.ifv,{rate:0.12,burstSize:6,burstPause:1.8,
+  description:'机炮连续短连射，压制步兵与空中',
+  detail:'420生命，射程500。每0.12秒发射一发13伤机炮，连续6发后停1.8秒；逐发消耗弹药，炮管轻微后坐，车体保持稳定，可对空。'});

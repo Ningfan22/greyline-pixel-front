@@ -45,7 +45,7 @@ import {
   ragdollChoice,
 } from './adult-animation';
 import { tankGeometry } from './vehicle-geometry';
-import { drawArticulatedGun } from './gun-art';
+import { drawArticulatedGun, visualGunMuzzle } from './gun-art';
 import {drawHelicopter,drawFlameStream} from './weapon-art-v204';
 import { wreckKind, wreckGeometry, wreckObstacles } from './wreck-geometry';
 import { drawScenery } from './scenery-art';
@@ -764,7 +764,7 @@ export function render(
           x: u.x + u.facing * specialist.muzzle.x,
           y: u.y + 3 - specialist.muzzle.height,
         }
-      : null;
+      : art.gunParts?.[u.id] ? visualGunMuzzle(u) : null;
     if (visualMuzzle && u.fire > 0)
       sourceOffsets.set(u.uid, {
         x: visualMuzzle.x - u.muzzleX,
@@ -832,11 +832,8 @@ export function render(
     }
     // Body motion comes from the authored intermediate frames. Keep one
     // fully opaque soldier, including during escort idle/walk changes.
-    // Armored vehicles and gun emplacements react when they fire. Real tanks
-    // soak recoil through the breech: the barrel slides back into the
-    // mantlet while the hull stays planted, so tanks with a measured barrel
-    // band recoil the muzzle only. Lighter vehicles and emplacements still
-    // rock the whole hull against the suspension.
+    // Independent gun parts absorb recoil while vehicle hulls stay planted.
+    // Retain the measured barrel-band path for any legacy tank artwork.
     let recoilX = 0;
     let recoilY = 0;
     let barrelRecoil = 0;
@@ -849,7 +846,7 @@ export function render(
         // kicks back visibly without swallowing a short heavy-tank barrel.
         const barrelLen = barrelBand[2] - barrelBand[0];
         barrelRecoil = Math.min(15, barrelLen * 0.3) * k * k;
-      } else {
+      } else if (!c.vehicle && !c.armored) {
         const recoil = 3 * k * k;
         recoilX = -u.facing * recoil;
         recoilY = recoil * 0.35;
@@ -875,7 +872,7 @@ export function render(
       ctx.save();ctx.globalAlpha=alpha;drawHelicopter(ctx,art.helicopterParts,u,s.time,isDead);ctx.restore();
     } else if (art.gunParts?.[u.id] || (c.emplacement && art.gunParts?.[c.emplacement])) {
       const parts = art.gunParts[u.id] ?? art.gunParts[c.emplacement!];
-      drawArticulatedGun(ctx, parts, u, alpha, infantryDepth(u.lane));
+      drawArticulatedGun(ctx, parts, u, alpha, infantryDepth(u.lane), frame);
     } else if (barrelBand) {
       drawTankSprite(
         ctx,

@@ -1,3 +1,5 @@
+import {splitVehicleGun} from './vehicle-gun-art';
+import {VEHICLE_GUNS,type VehicleGunId} from './vehicle-gun-layout';
 import { CARDS, modelOf, type CardId } from './cards';
 import {VEHICLE_IDS_V209,vehicleSourceV209,vehicleFrameV209,MISSILE_LAYOUT_V209,VEHICLE_MISSILE_ROOT} from './vehicle-missile-art-v209';
 import {soldierArt,soldierFrame,type SoldierArt} from './soldier-art';
@@ -687,6 +689,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       vehicleArt[1] = stableHelicopters(vehicles);
       vehicleArt[0] = stableTracks(vehicleArt[0], 5);
       const reinforcementArt = reinforcementFrames(reinforcement);
+      reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const wingArt = figureFrames(
         fixedWing,
         4,
@@ -699,14 +702,18 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       );
       const rotors = generatedRotors(rotorcraft);
       const emplacementFrames = buildEmplacements(emplacements);
-      const gunParts:Record<string,PaintedGunParts> = {...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
+      const mobileFrames={...mobileVehicleFrames(mobileVehicles,supportVehicles),...Object.fromEntries(v209Vehicles.map(({id,sprite})=>[id,[vehicleFrameV209(id,sprite)]]))};
+      const vehicleParts=Object.fromEntries((Object.keys(VEHICLE_GUNS) as VehicleGunId[]).map(id=>{
+        const phases=(id==='ifv'?reinforcementArt[0]:mobileFrames[id]).map(frame=>splitVehicleGun(id,frame));
+        return [id,{...phases[0],bodyFrames:phases.map(parts=>parts.body)}];
+      }));
+      const gunParts:Record<string,PaintedGunParts> = {...vehicleParts,...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
       const gunPreviews=Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map(id=>{const a=WEAPON_LAYOUT[id], frame=surface(a.bodyWidth+80,a.bodyHeight+80);drawArticulatedGun(frame.getContext('2d')!,gunParts[id],{id,x:frame.width/2,y:frame.height,facing:1});return [id,[frame]];}));
       const heFrames = packedBlastFrames(heBlastSheet),
         grenadeFrames = packedBlastFrames(grenadeBlastSheet),
         airFrames = packedBlastFrames(airBlastSheet),
         fuelFrames = packedBlastFrames(fuelBlastSheet),
         earthFrames = packedBlastFrames(earthBlastSheet);
-      reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
       const parachute = atlasFrames(transparentSheet(parachuteSheet), 5, 1, 96)[0];
       const glider=gliderAtlas(gliderSheet);
       const wreckFramesMap = wreckFrames(

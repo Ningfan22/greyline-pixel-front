@@ -1,3 +1,4 @@
+import {hasVehicleGun} from './vehicle-gun-layout';
 import { smallArmsHitMultiplier, smallArmsAccuracyScale } from './infantry-survival';
 import { infantryGeometry } from './infantry-geometry';
 import {soldierMuzzle,soldierBusyMoving,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
@@ -3289,6 +3290,8 @@ type MuzzleBody = Pick<
 type FiringBody = MuzzleBody & Pick<Unit, 'side' | 'member'>;
 export function muzzleOffset(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).x;
+  const mount = gunMount(u.id);
+  if (mount && hasVehicleGun(u.id)) return mount.pivotX + Math.cos(mount.restElevation)*mount.barrelLength;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleX;
   if (CARDS[u.id].emplacement) {
@@ -3313,6 +3316,8 @@ export function muzzleOffset(u: MuzzleBody) {
 }
 export function muzzleHeight(u: MuzzleBody) {
   if (CARDS[u.id].members) return soldierMuzzle(u).height;
+  const mount = gunMount(u.id);
+  if (mount && hasVehicleGun(u.id)) return mount.pivotHeight + Math.sin(mount.restElevation)*mount.barrelLength;
   const tank = tankGeometry(u.id);
   if (tank) return tank.muzzleY;
   if (CARDS[u.id].emplacement) {
@@ -3848,7 +3853,7 @@ function setStance(
   u: Unit,
   time: number,
   desired: Unit['pose'],
-  options?: { force?: boolean; travel?: boolean; worksite?: boolean; danger?: boolean; firing?: boolean },
+  options?: { force?: boolean; travel?: boolean; worksite?: boolean; danger?: boolean; firing?: boolean; escape?: boolean },
 ): Unit['pose'] {
   // Already in the requested pose: never re-arm the lock on a re-asserted
   // state. Continuous override blocks (observer hold, medic treatment,
@@ -3869,10 +3874,10 @@ function setStance(
   // height until support is restored; never run a hidden drill underneath it.
   if (u.motion === 'bank') return u.pose;
   // Emergency lowering pauses the magazine drill; ordinary actions wait.
-  if (!u.wounded && !lowering && magazineReloadActive(u, time)) return u.pose;
+  if (!u.wounded && !lowering && !options?.escape && magazineReloadActive(u, time)) return u.pose;
   if (
     !u.wounded &&
-    !options?.worksite && !options?.firing && !lowering &&
+    !options?.worksite && !options?.firing && !options?.escape && !lowering &&
     u.stanceLockUntil !== undefined &&
     time < u.stanceLockUntil
   )
@@ -3882,7 +3887,7 @@ function setStance(
   u.stanceLockUntil = time + STANCE_COOLDOWN_S;
   const nextClass = stanceClass(desired);
   if (nextClass !== 'motion') {
-    u.poseAnimUrgent = lowering;
+    u.poseAnimUrgent = lowering || !!options?.escape;
     u.poseAnimFrom = curClass;
     u.poseAnimSeen = nextClass;
     u.poseAnimFromTravel = curClass === 'crouch' || curClass === 'prone' ? fromTravel : 0;
@@ -4309,11 +4314,12 @@ function moveSoldier(
   // Cover a nearby observed threat while withdrawing. Once clear, turn and
   // march at the same walking pace as an advance instead of shuffling home.
   const baseward = dir === (u.side === 0 ? -1 : 1);
-  const threat = baseward && (u.tactic !== 'retreat' || orderedWithdrawal(s, u))
+  const escape = heavyEscape(u,s.time);
+  const threat = !escape && baseward && (u.tactic !== 'retreat' || orderedWithdrawal(s, u))
     ? withdrawalFacingThreat(s, u) : undefined;
   const coverFacing = threat ? Math.sign(threat.x - u.x) : 0;
   const backpedal = !!coverFacing && coverFacing !== dir;
-  speed = (baseward ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * (backpedal ? 0.65 : 1) : speed) * 0.55;
+  speed = (baseward && !escape ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * (backpedal ? 0.65 : 1) : speed) * 0.55;
   if (s.units.some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
@@ -4540,8 +4546,9 @@ function moveSoldier(
       u.passingLane = undefined;
     else {
       const change = u.passingLane - u.lane;
-      u.lane += Math.max(-12 * dt, Math.min(12 * dt, change));
-      if (Math.abs(change) <= 12 * dt) {
+      const laneSpeed = escape ? 24 : 12;
+      u.lane += Math.max(-laneSpeed * dt, Math.min(laneSpeed * dt, change));
+      if (Math.abs(change) <= laneSpeed * dt) {
         u.lane = u.passingLane;
         u.passingLane = undefined;
         u.trafficWait = 0;
@@ -4564,7 +4571,7 @@ function moveSoldier(
         u.escortTankUid === following.escortTankUid));
   const passage =
     !coordinated && (u.trafficYieldUntil ?? 0) > s.time ? 0.55 : 0;
-  speed *= Math.max(passage, flow(following));
+  speed *= Math.max(escape ? 0.85 : passage, flow(following));
   const beforeX = u.x;
   u.facing = dir;
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
@@ -4771,7 +4778,14 @@ function antiTankGuardPost(s: GameState, u: Unit) {
   const contactDir = Math.sign(foe.x - operator.x) || (u.side === 0 ? 1 : -1);
   return Math.max(80, Math.min(W - 80, operator.x - contactDir * (24 + u.member * 12)));
 }
-/** Keep a remembered lethal firing line until observed clear or real support arrives. */
+/** A committed escape from unsupported heavy fire turns into a forward run
+ * toward safety. Small-arms covering withdrawals keep their existing drill. */
+function heavyEscape(u: Unit, time: number): boolean {
+  return !!(CARDS[u.id].members && u.withdrawHeavyUid !== undefined &&
+    !u.withdrawSmallArms && (u.withdrawUntil ?? 0) > time &&
+    u.withdrawGoal !== undefined && !u.withdrawStandby);
+}
+/** Keep a lethal firing line until observed clear or real support arrives. */
 function continueHeavyWithdrawal(s: GameState, u: Unit) {
   if (u.withdrawHeavyUid === undefined) return;
   const clear = () => {
@@ -4827,7 +4841,8 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
         u.withdrawSupportReady = support >= Math.max(4,hostile*0.9);
       }
     }
-    if (!isCombatant(foe) || (u.withdrawSmallArms ? u.withdrawSupportReady : heavySupport(s, u, foe))) {
+    if (!isCombatant(foe) || (u.withdrawSmallArms ? u.withdrawSupportReady : (heavySupport(s, u, foe) &&
+      (Math.abs(foe.x-u.x)>=360 || effectiveHeavyCounter(s,u,foe))))) {
       clear();
       return;
     }
@@ -5146,7 +5161,10 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       ((CARDS[foe.id].armored && (weaponCard(foe).damage ?? 0) > 0 && (power > 0 || Math.abs(foe.x-center) < 520)) || (sustainedAirThreat(foe) && power >= 8)) &&
       squad.some((mate) => tacticalReach(s, foe, mate, 0) ||
         ((weaponCard(foe).damage ?? 0) > 0 && CARDS[foe.id].armored && Math.abs(foe.x-mate.x) < 520)) &&
-      !friends.some((friend) => effectiveHeavyCounter(s, friend, foe)),
+      (!friends.some((friend) => effectiveHeavyCounter(s, friend, foe)) ||
+       // Even supported riflemen must clear a tank's close blast zone.
+       (CARDS[foe.id].armored && Math.abs(foe.x-center)<320 &&
+        squad.every(mate=>!effectiveHeavyCounter(s,mate,foe)))),
   );
   // When friendly AT/AA is effectively countering a visible heavy threat,
   // infantry hold at standoff instead of charging into its kill zone — the
@@ -5191,7 +5209,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     const shelter = !unsupportedHeavy ? seekCover(s,mate,danger,true) : null;
     const desired = unsupportedHeavy
       ? unsupportedHeavy.foe.x +
-        away * (unitRange(s, unsupportedHeavy.foe) + 220)
+        away * (unitRange(s, unsupportedHeavy.foe) + 220 + index * 48)
       : shelter ?? danger.x + away * (unitRange(s,danger) + 120);
     const slot = infantrySpace(
       s,
@@ -5211,18 +5229,19 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     mate.withdrawStandbySince = undefined;
     mate.withdrawStartedAt = s.time;
     mate.withdrawUntil = s.time + 4.8;
-    mate.duckUntil = s.time + 2;
+    mate.duckUntil = unsupportedHeavy ? 0 : s.time + 2;
     // Dive into nearby cover; in open ground lower the profile while moving,
     // rather than committing the entire fallback to a slow crawl. Real MG
     // near-misses/hits can still force the emergency prone reaction.
     const dive = shelter !== null;
     if (dive) mate.duckProneUntil = s.time + 2.4;
-    setStance(mate,s.time,dive ? 'prone' : 'crouch',{danger:true});
+    mate.duckProneUntil = unsupportedHeavy ? 0 : mate.duckProneUntil;
+    setStance(mate,s.time,unsupportedHeavy ? 'run' : dive ? 'prone' : 'crouch',{danger:!unsupportedHeavy,escape:!!unsupportedHeavy,travel:true});
     mate.withdrawNextAt = s.time + 2;
     mate.withdrawSafeSince = undefined;
     mate.withdrawGroup = index % 2;
     mate.withdrawGoal = slot.x;
-    mate.passingLane = slot.lane;
+    mate.passingLane = unsupportedHeavy ? [-24,-12,0,12,24][index % 5] : slot.lane;
     mate.coverGoal = null;
     mate.firingGoal = null;
     mate.dispersionGoal = undefined;
@@ -9113,10 +9132,11 @@ export function tick(s: GameState, dt: number) {
         u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
       }
     }
+    if (heavyEscape(u,s.time)) desiredPose = 'run';
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
     u.pose = c.members
-      ? setStance(u, s.time, desiredPose, { travel: (order === 'crouch' || order === 'prone') && (u.contactUntil ?? 0) <= s.time && !previousWork.tending })
+      ? setStance(u, s.time, desiredPose, { escape:heavyEscape(u,s.time), travel: (order === 'crouch' || order === 'prone') && (u.contactUntil ?? 0) <= s.time && !previousWork.tending })
       : desiredPose;
     if (c.members && u.withdrawStandby)
       u.pose = setStance(u, s.time, 'crouch', { force: true });
@@ -9125,6 +9145,7 @@ export function tick(s: GameState, dt: number) {
     if (
       c.members &&
       (u.flinchUntil ?? 0) > s.time &&
+      !heavyEscape(u,s.time) &&
       (u.evadeUntil ?? 0) <= s.time &&
       u.climbing <= 0 &&
       u.motion === 'ground'
@@ -9866,7 +9887,7 @@ export function tick(s: GameState, dt: number) {
     const withdrawalStep =
       withdrawing &&
       Math.abs(u.withdrawGoal! - u.x) > 0.5 &&
-      (!withdrawalThreat || !withdrawalCoverPossible ||
+      (heavyEscape(u,s.time) || !withdrawalThreat || !withdrawalCoverPossible ||
         // A theoretical firing line is not covering fire. If nobody can
         // actually answer, stop waiting for a burst that never happens.
         (!coveringMate(s,u,withdrawalThreat,true) && s.time-u.withdrawStartedAt! >= 0.35) ||
@@ -10914,7 +10935,7 @@ export function tick(s: GameState, dt: number) {
     } else if (
       u.logisticsOrder !== 'hold' &&
       !treating &&
-      !reloadingUnderContact &&
+      (!reloadingUnderContact || heavyEscape(u,s.time)) &&
       !shocked &&
       // Let the real barrel recoil finish before moving; an immediate danger
       // withdrawal still takes priority over this short firing dwell.
@@ -10954,7 +10975,9 @@ export function tick(s: GameState, dt: number) {
         // flipped prone↔crouch every frame near 65 suppression — the
         // "rapidly prone and stand up" twitch.
         let moveWant: Unit['pose'];
-        if (
+        if (heavyEscape(u,s.time)) {
+          moveWant = 'run';
+        } else if (
           (u.assaultSurgeUntil ?? 0) > s.time &&
           !withdrawing &&
           !retreating
@@ -10986,13 +11009,13 @@ export function tick(s: GameState, dt: number) {
         } else {
           moveWant = 'walk';
         }
-        u.pose = setStance(u, s.time, moveWant, { travel: true });
+        u.pose = setStance(u, s.time, moveWant, { travel: true, escape:heavyEscape(u,s.time) });
       }
-      if (c.members && (s.players[u.side].entrenchUntil ?? 0) > s.time)
+      if (c.members && !heavyEscape(u,s.time) && (s.players[u.side].entrenchUntil ?? 0) > s.time)
         u.pose = setStance(u, s.time, 'prone', { force: true });
       const orderSpeed = c.members
         ? u.pose === 'run'
-          ? 1.7
+          ? heavyEscape(u,s.time) ? 2.4 : 1.7
           : u.pose === 'crouch'
             ? 0.55
             : u.pose === 'prone'
@@ -11075,6 +11098,7 @@ export function tick(s: GameState, dt: number) {
         );
         if (laneChange) u.moving = true;
         if (
+          !heavyEscape(u,s.time) &&
           ((withdrawing && withdrawalThreat) || (escortAhead && target)) &&
           withdrawalFacingThreat(s, u) &&
           (u.x - beforeMove) * moveDir > 0.001 &&
@@ -11144,6 +11168,7 @@ export function tick(s: GameState, dt: number) {
     if (
       c.members &&
       (u.duckUntil ?? 0) > s.time &&
+      !heavyEscape(u,s.time) &&
       u.motion === 'ground' &&
       u.climbing <= 0 &&
       (u.pose === 'idle' || u.pose === 'walk' || u.pose === 'run' || u.pose === 'crouch')

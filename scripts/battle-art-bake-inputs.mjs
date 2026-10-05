@@ -5,7 +5,7 @@ export const BATTLE_ART_COMPILER_INPUTS = [
   'game/art.ts', 'game/art-v16.ts', 'game/battle-art-loader.ts', 'game/battle-art-assets.ts',
   'game/sprite-atlas.ts', 'game/soldier-art.ts', 'game/soldier-pose.ts',
   'game/tank-art-v202.ts', 'game/tank-layout-v202.ts', 'game/gun-art.ts', 'game/gun-geometry.ts',
-  'game/vehicle-missile-art-v209.ts', 'game/weapon-art-v204.ts', 'game/weapon-layout-v204.ts',
+  'game/vehicle-gun-art.ts', 'game/vehicle-gun-layout.ts', 'game/vehicle-missile-art-v209.ts', 'game/weapon-art-v204.ts', 'game/weapon-layout-v204.ts',
   'game/emplacement-art-v202.ts', 'game/emplacement-layout.ts',
   'game/vehicle-art-v197.ts', 'game/vehicle-geometry.ts', 'game/mobile-vehicle-art.ts',
   'game/cards.ts', 'game/maps.ts', 'game/terrain-render.ts',

@@ -16,7 +16,7 @@ export interface TankGeometry {
    * Bounding box [x0, y0, x1, y1] of the thin muzzle section of the barrel,
    * in final draw space (origin at bottom-centre, y up). Used to slide the
    * barrel back into the mantlet on recoil while the hull stays planted.
-   * Only the three real tanks have this; other vehicles kick the whole hull.
+   * Legacy barrels only; modern weapons recoil their independent gun part.
   */
   barrelBand?: [number, number, number, number];
 }
