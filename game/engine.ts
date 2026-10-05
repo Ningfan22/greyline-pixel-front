@@ -4953,7 +4953,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
       clear();
       return;
     }
-    if (tacticalReach(s, foe, u, 24) || (!u.withdrawSmallArms && CARDS[foe.id].armored && Math.abs(foe.x-u.x)<520)) {
+    if (tacticalReach(s, foe, u, 24) || (!u.withdrawSmallArms && armedGroundArmor(foe) && Math.abs(foe.x-u.x)<520)) {
       const away = Math.sign(u.x - foe.x) || (u.side === 0 ? -1 : 1);
       u.withdrawStandby = false;
       u.withdrawStandbySince = undefined;
@@ -5143,9 +5143,12 @@ function planVehicleReverse(s: GameState, u: Unit) {
     if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0 && d <= Math.max(360, reach))
       contactInRange = true;
     if (d > Math.max(700, reach)) continue;
+    const w = weaponCard(v);
+    // An AA truck is a contact to engage, but its aircraft-only missiles
+    // cannot force a ground vehicle into a close-threat reverse.
+    if (w.airOnly) continue;
     if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0)
       closeDist = Math.min(closeDist, d);
-    const w = weaponCard(v);
     if (
       ((w.penetration ?? 0) > 0 ||
         (w.armorMultiplier ?? 1) >= 1.5 ||
@@ -5214,6 +5217,14 @@ function planVehicleReverse(s: GameState, u: Unit) {
   u.vehicleReverseGoal = Math.max(55, Math.min(W - 55, goal));
   u.vehicleReverseUntil = s.time + Math.abs(goal - u.x) / Math.max(8, c.speed! * u.pace * 0.8 * 0.65) + 1;
 }
+/** Only a real ground weapon makes armour a blast threat to riflemen.
+ * Radar/AA damage belongs to aircraft, never a hypothetical tank cannon. */
+function armedGroundArmor(source: Unit) {
+  const card=CARDS[source.id],weapon=weaponCard(source);
+  return !!(card.armored && !card.air &&
+    (((weapon.damage??0)>0 && !weapon.airOnly && !weapon.armorOnly) ||
+      ((isBattleTank(source.id)||source.id==='tow_ifv') && source.secondaryAmmo!==0)));
+}
 function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const order = infantryOrder(s, u);
   if (
@@ -5222,7 +5233,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     CARDS[u.id].indirect ||
     CARDS[u.id].airOnly ||
     !visibleToSide(s, u.side, threat) ||
-    !(tacticalReach(s, threat, u, 36) || ((weaponCard(threat).damage ?? 0) > 0 && CARDS[threat.id].armored &&
+    !(tacticalReach(s, threat, u, 36) || (armedGroundArmor(threat) &&
       Math.abs(threat.x - u.x) < 520 && !heavySupport(s,u,threat)))
   )
     return;
@@ -5266,7 +5277,7 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
       visibleToSide(s, u.side, v) &&
       Math.abs(v.x - center) <= 640 &&
       squad.some((mate) => tacticalReach(s, v, mate, 36) ||
-        ((weaponCard(v).damage ?? 0) > 0 && CARDS[v.id].armored && Math.abs(v.x - mate.x) < 520)),
+        (armedGroundArmor(v) && Math.abs(v.x - mate.x) < 520)),
   );
   const pressures = foes.map((foe) => ({
     foe,
@@ -5277,12 +5288,12 @@ function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
     ({ foe, power }) =>
       // A slow HE gun can kill a rifleman in one shot despite modest average
       // DPS. Armour the squad cannot penetrate still requires real AT cover.
-      ((CARDS[foe.id].armored && (weaponCard(foe).damage ?? 0) > 0 && (power > 0 || Math.abs(foe.x-center) < 520)) || (sustainedAirThreat(foe) && power >= 8)) &&
+      ((armedGroundArmor(foe) && (power > 0 || Math.abs(foe.x-center) < 520)) || (sustainedAirThreat(foe) && power >= 8)) &&
       squad.some((mate) => tacticalReach(s, foe, mate, 0) ||
-        ((weaponCard(foe).damage ?? 0) > 0 && CARDS[foe.id].armored && Math.abs(foe.x-mate.x) < 520)) &&
+        (armedGroundArmor(foe) && Math.abs(foe.x-mate.x) < 520)) &&
       (!friends.some((friend) => effectiveHeavyCounter(s, friend, foe)) ||
        // Even supported riflemen must clear a tank's close blast zone.
-       (CARDS[foe.id].armored && Math.abs(foe.x-center)<320 &&
+       (armedGroundArmor(foe) && Math.abs(foe.x-center)<320 &&
         squad.every(mate=>!effectiveHeavyCounter(s,mate,foe)))),
   );
   // When friendly AT/AA is effectively countering a visible heavy threat,

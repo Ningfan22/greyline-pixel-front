@@ -2681,10 +2681,13 @@ Object.assign(CARDS.paratroopers, {
   detail:
     '3费5人220生命。点击战场指定落点，五名伞兵在降落伞下下降，着陆前不能开火。无精锐空降的强度与机降直升机的索降投送；原先地面加速由机动增援班承担。',
 });
-for (const id of ['ifv','tow_ifv','sam_vehicle','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','scout_car','light_tank'] as const)
+for (const id of ['ifv','tow_ifv','mortar_carrier','recovery_vehicle','command_vehicle','mine_clearer','scout_car','light_tank'] as const)
   CARDS[id].armorTier = 1;
 for (const id of ['tank','flame_tank'] as const) CARDS[id].armorTier = 2;
 CARDS.heavy_tank.armorTier = 3;
+// The painted SAM is a wheeled radar truck, not the IFV its original card
+// template inherited. Keep vehicle fuel/navigation without armour.
+Object.assign(CARDS.sam_vehicle,{armored:false,vehicle:true,armorTier:0});
 Object.assign(CARDS.mountain, {
   infantryAbility: 'mountain_fire',
   tag: '山地 · 掩体远射',
@@ -3197,7 +3200,7 @@ Object.assign(CARDS.strike_jet, {
 Object.assign(CARDS.sam_vehicle, {
   damage:240, range:2560, airRadarRange:2600,
   description:'远程雷达导弹覆盖约三分之二战场空域',
-  detail:'5费280生命。每3.6秒一发240伤制导防空导弹，射程2560（全战场宽度约三分之二）、对空雷达2600。普通170–230生命固定翼通常一发击落，260生命武装直升机通常两发；需实际命中，导弹仍有飞行时间，山体和雷达干扰可影响拦截。雷达不提供远程地面视野。',
+  detail:'5费280生命。每3.6秒一发240伤制导防空导弹，射程2560（全战场宽度约三分之二）、对空雷达2600。普通170–230生命固定翼通常一发击落，260生命武装直升机通常两发；需实际命中，导弹仍有飞行时间，山体和雷达干扰可影响拦截。雷达不提供远程地面视野。无装甲卡车底盘，可被步枪、机枪和反坦克武器攻击；导弹仅对空。',
 });
 
 // Autocannon: a real six-round string followed by a short feed/aim pause.

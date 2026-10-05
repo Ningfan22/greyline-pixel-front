@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2807.764041,
+  "compileMs": 2594.779,
   "canvasesCreated": 633,
   "frames": 459,
   "compilerSources": [
@@ -105,7 +105,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "487fd05f46d60660409acd208f9cdf400e194b500396ba606fc2470fc1e108cb"
+      "sha256": "1edf86eff8eb84fd649c567e711a337bd2cedf5888e8ad6f4d7eceff0e203a3c"
     },
     {
       "path": "game/maps.ts",

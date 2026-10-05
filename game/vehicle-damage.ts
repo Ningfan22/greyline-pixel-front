@@ -26,17 +26,17 @@ export interface VehicleTrackHit {
   time: number;
 }
 
-function mobileArmor(u: VehicleDamageState) {
+function mobileVehicle(u: VehicleDamageState) {
   const c = CARDS[u.id];
-  return !!c.armored && !c.air && !c.static && !c.emplacement && u.hp > 0;
+  return !!(c.armored || c.vehicle) && !c.air && !c.static && !c.emplacement && u.hp > 0;
 }
 
 export function isImmobilized(u: VehicleDamageState): boolean {
-  return mobileArmor(u) && (u.trackIntegrity ?? TRACK_INTEGRITY) <= 0;
+  return mobileVehicle(u) && (u.trackIntegrity ?? TRACK_INTEGRITY) <= 0;
 }
 
 export function vehicleNeedsRepair(u: VehicleDamageState): boolean {
-  return mobileArmor(u) &&
+  return mobileVehicle(u) &&
     (u.hp < u.maxHp || (u.trackIntegrity ?? TRACK_INTEGRITY) < TRACK_INTEGRITY);
 }
 
@@ -49,7 +49,7 @@ function directPenetration(ammo: Ammunition) {
 /** A lower-hull impact wears the exposed running gear. An upper-hull hit is
  * still ordinary HP damage: taking any armor hit does not pin a tank. */
 export function damageVehicleTracks(u: VehicleDamageState, hit: VehicleTrackHit): boolean {
-  if (!mobileArmor(u) || !Number.isFinite(hit.damage) || hit.damage <= 0 ||
+  if (!mobileVehicle(u) || !Number.isFinite(hit.damage) || hit.damage <= 0 ||
       hit.source === 'gas' || hit.hitX === undefined || hit.hitY === undefined ||
       !Number.isFinite(hit.hitX) || !Number.isFinite(hit.hitY)) return false;
   const ammo = hit.ammunition;
@@ -90,7 +90,7 @@ export function damageVehicleTracks(u: VehicleDamageState, hit: VehicleTrackHit)
 /** Return true on the tick where genuine stationary repair restores mobility.
  * HP healing alone never resets a damaged track. */
 export function advanceTrackRepair(u: VehicleDamageState, dt: number, time: number): boolean {
-  if (!mobileArmor(u) || (u.trackIntegrity ?? TRACK_INTEGRITY) >= TRACK_INTEGRITY ||
+  if (!mobileVehicle(u) || (u.trackIntegrity ?? TRACK_INTEGRITY) >= TRACK_INTEGRITY ||
       u.moving || u.motion !== 'ground' || !Number.isFinite(dt) || dt <= 0 ||
       !Number.isFinite(time) || (u.trackDamagedAt ?? -Infinity) >= time) return false;
   const last = u.trackLastRepairAt;
