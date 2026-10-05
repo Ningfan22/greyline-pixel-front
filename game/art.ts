@@ -1,3 +1,4 @@
+import {IFV_ART_V219,ifvPartsV219,ifvPreviewV219} from './ifv-art-v219';
 import {splitVehicleGun} from './vehicle-gun-art';
 import {VEHICLE_GUNS,type VehicleGunId} from './vehicle-gun-layout';
 import { CARDS, modelOf, type CardId } from './cards';
@@ -642,6 +643,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(['mlrs','field-gun','siege-gun','helicopter'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
     Promise.all(VEHICLE_IDS_V209.map(async id=>({id,sprite:await loadImage(vehicleSourceV209(id)),wreck:await loadImage(vehicleSourceV209(id,true))}))),
     Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
+    loadImage(IFV_ART_V219.source).then(ifvPartsV219),
   ]).then(
     ([
       [
@@ -684,12 +686,13 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       weaponSheets,
       v209Vehicles,
       missileSheets,
+      ifvParts,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
       vehicleArt[0] = stableTracks(vehicleArt[0], 5);
       const reinforcementArt = reinforcementFrames(reinforcement);
-      reinforcementArt[0] = stableTracks(reinforcementArt[0], 6);
+      reinforcementArt[0] = [ifvPreviewV219(ifvParts)];
       const wingArt = figureFrames(
         fixedWing,
         4,
@@ -704,7 +707,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       const emplacementFrames = buildEmplacements(emplacements);
       const mobileFrames={...mobileVehicleFrames(mobileVehicles,supportVehicles),...Object.fromEntries(v209Vehicles.map(({id,sprite})=>[id,[vehicleFrameV209(id,sprite)]]))};
       const vehicleParts=Object.fromEntries((Object.keys(VEHICLE_GUNS) as VehicleGunId[]).map(id=>{
-        const phases=(id==='ifv'?reinforcementArt[0]:mobileFrames[id]).map(frame=>splitVehicleGun(id,frame));
+        if(id==='ifv')return [id,ifvParts];
+        const phases=mobileFrames[id].map(frame=>splitVehicleGun(id,frame));
         return [id,{...phases[0],bodyFrames:phases.map(parts=>parts.body)}];
       }));
       const gunParts:Record<string,PaintedGunParts> = {...vehicleParts,...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
@@ -1049,7 +1053,7 @@ export function unitSize(id: CardId): [number, number] {
   return modelOf(id) === 'tank'
     ? [205, 108]
     : modelOf(id) === 'ifv'
-      ? [165, 105]
+      ? [IFV_ART_V219.width, IFV_ART_V219.height]
       : c.air
         ? [235, 118]
         : [96, 72];

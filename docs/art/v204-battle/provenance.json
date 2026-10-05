@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2539.8317909999996,
-  "canvasesCreated": 642,
-  "frames": 465,
+  "compileMs": 3130.740792,
+  "canvasesCreated": 633,
+  "frames": 459,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -13,11 +13,11 @@
     },
     {
       "path": "scripts/battle-art-bake-inputs.mjs",
-      "sha256": "d82124111251123e7029e465219038868ccae5861b2d4347f1b1f706218cfaf2"
+      "sha256": "89751f0f9211d05acf886be7f591f9aa2cf8ac37886b9fc1d04097bf9b802541"
     },
     {
       "path": "game/art.ts",
-      "sha256": "741e47cc654fb9d44b5d35da4f1e4af5e18ca195e03a7f6ea7cdeabcb3568404"
+      "sha256": "c053e22d2074b2c070fdab66d520c6adcb2d29dcb4ac87e9edc104c2ae9ea09a"
     },
     {
       "path": "game/art-v16.ts",
@@ -44,6 +44,10 @@
       "sha256": "20220fee7b87e71b967f2b57f63d0315437a8bc3d214cc7250c56e34e295f1bd"
     },
     {
+      "path": "game/ifv-art-v219.ts",
+      "sha256": "1ed960e9e5bf4360f28244d24227c8800325ab0dd8ad7eee77a8647492aa16ef"
+    },
+    {
       "path": "game/tank-art-v202.ts",
       "sha256": "b7daf01dae2bec578db94a023f9b0a7aba686022b458320d6cd527fa70e95fe5"
     },
@@ -65,7 +69,7 @@
     },
     {
       "path": "game/vehicle-gun-layout.ts",
-      "sha256": "636e510ea0c7bb1d4f68e5b875af688868fbcf370a9058adecf250df51129070"
+      "sha256": "fa1276ba442c117555e5d3daefa579c6d5234b8f21538c5b7d9bd5b69b99b30f"
     },
     {
       "path": "game/vehicle-missile-art-v209.ts",
@@ -436,6 +440,11 @@
       "sha256": "106bd8287365680116f446d8e2b1430941708e50c111a7b4a9295931fe453eec"
     },
     {
+      "path": "/art/v219-ifv/ifv.png",
+      "bytes": 1391851,
+      "sha256": "ad75d066d93a4ae066498f9f5e9fbfa2ccebf27d719e6510320c7341f2b28265"
+    },
+    {
       "path": "/art/v209-vehicles-missiles/sam-wreck.png",
       "bytes": 1639328,
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
@@ -598,7 +607,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "8fccbcb4c618e07c43dddcb04de0f945d5f478a06d366ab060d5794a0bba9e08"
+    "sha256": "011185de6a27f7976948addf798772b59d04709973bdc01d50b9a1ff90f0f736"
   },
   "atlasFiles": [
     {
@@ -610,12 +619,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-c6135c786315.png",
-      "bytes": 2962886,
+      "path": "/art/v204-battle/frames-1-e3e5d2c2d0c7.png",
+      "bytes": 3004866,
       "width": 2048,
-      "height": 1546,
-      "sha256": "c6135c78631552acc81f03aee011076934097594b606ea0a72b358aa6a231c84",
-      "rgbaSha256": "fce4c00bf0b8a29eed9bd085b34eeb126e499d00e1cedeba470c4f867dd22956"
+      "height": 1541,
+      "sha256": "e3e5d2c2d0c7782db9464b9b461c81997416faa7eb2dbd3eb6d1d0f5ca92ecbb",
+      "rgbaSha256": "c9582fa82d06843b3f31fa6a1924e83654299aa643b92cfafa02be4ebb0fd8f2"
     }
   ],
   "external": [],
@@ -653,5 +662,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5315344
+  "sharedBytes": 5357324
 }

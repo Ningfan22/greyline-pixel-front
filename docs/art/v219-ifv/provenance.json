@@ -1,0 +1,10 @@
+{
+  "generator": "image_gen.imagegen",
+  "generated": "2026-10-05",
+  "source": "ifv.png",
+  "references": [
+    "/art/reinforcements-v5.png",
+    "/art/v203-tanks/tank.webp"
+  ],
+  "brief": "Realistic muted olive tracked six-road-wheel IFV, strict right-facing side profile, finer restrained pixel texture matching the existing realistic tanks. Transparent body and independent 25 mm barrel, measured crops, shared world scale. No procedural silhouette replacement."
+}

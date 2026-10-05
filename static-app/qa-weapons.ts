@@ -42,7 +42,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400, contactPaintAt=-1;
-let state = createGame(218),
+let state = createGame(219),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -65,7 +65,7 @@ function scene(next: string) {
   mode = next;
   commandRoot.render(null);
   paused = false;
-  state = createGame(218, undefined, undefined, undefined, { weather: false });
+  state = createGame(219, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -85,7 +85,22 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if(next==='densewreck') {
+  if(next==='ifvbase') {
+    camera=2880;paused=true;capture=false;
+    const own=spawn(0,'ifv',3660);Object.assign(own,{pace:1,cooldown:0});actors=[own];
+  }else if(next==='videowreck'||next==='wreckduel') {
+    camera=1040;paused=true;capture=false;
+    for(let x=1000;x<1900;x++)state.terrain[x]=374+8*Math.sin((x-1000)/250)+2*Math.sin(x/70);
+    state.original=state.terrain.slice();state.terrainVersion++;
+    for(const [i,id] of (['sam_vehicle','scout_car','light_tank'] as const).entries()){
+      const x=1500+i*65,w={id:++state.uid,cardId:id,side:1 as const,x,y:state.terrain[x],angle:0,age:20,falling:false,vx:0,vy:0,facing:1};
+      Object.assign(w,wreckContact(x=>state.terrain[Math.floor(x)],w));state.wrecks.push(w);
+    }
+    state.scenery=createScenery(state.terrain,[{kind:'tree',x:1530,seed:212}]);
+    const oneFoot=(side:0|1,x:number)=>{const n=state.units.length,u=spawn(side,'infantry',x);state.units.splice(n+1);Object.assign(u,{x,y:state.terrain[Math.floor(x)],pace:1,personalMorale:100,cooldown:0,secondaryCooldown:0,fragCooldown:1e9});return u;};
+    if(next==='videowreck'){const tank=spawn(0,'tank',1210);Object.assign(tank,{pace:1,cooldown:0,secondaryCooldown:0});actors.push(tank);}
+    for(let i=0;i<4;i++){actors.push(oneFoot(0,1460-i*18));actors.push(oneFoot(1,1530+i*18));}
+  }else if(next==='densewreck') {
     camera=650;paused=true;capture=false;
     for(let i=0;i<3;i++){
       const w={id:++state.uid,cardId:'tank' as const,side:1 as const,x:1200+i*35,y:374,angle:0,age:5,falling:false,vx:0,vy:0,facing:1};
@@ -352,7 +367,7 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','contactmemory','gunfollow','densewreck'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','contactmemory','gunfollow','densewreck','ifvbase','videowreck','wreckduel'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#selectgun')!.onclick=()=>{
@@ -478,7 +493,7 @@ function loop(now: number) {
       ctx.save();ctx.translate(195,500);ctx.scale(4,4);drawProjectile(ctx,{...p,x:Math.cos(heading)*frame.width/2,y:Math.sin(heading)*frame.width/2,heading},art.weaponEffects);ctx.restore();}
     }
     status.textContent =
-      `${state.time.toFixed(1)}秒 · ` +
+      `${state.time.toFixed(1)}秒 · ${mode==='ifvbase'?'敌基地 HP '+state.players[1].hp.toFixed(0)+' · ':''}` +
       actors
         .map(
           (u) =>
@@ -486,7 +501,7 @@ function loop(now: number) {
         )
         .join(' ｜ ') +
       (mode==='contactmemory' ? ` | 最后观测记录：${snapshot(state).contacts.map(c=>`${CARDS[c.id!]?.name??'步兵'} @ ${Math.round(c.x)}px`).join('，')} | 当前可见敌军 ${state.units.filter(u=>u.side===1&&visibleToSide(state,0,u)).length}` : ['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
-        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','gunfollow','densewreck'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??(mode==='gunfollow'?'自动跟随':'自主战斗')}`).join(' | ')
+        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','gunfollow','densewreck','ifvbase','videowreck','wreckduel'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??(mode==='gunfollow'?'自动跟随':'自主战斗')}`).join(' | ')
         : ['lethality','withdraw','shelter','tankescape'].includes(mode)
         ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
         : mode === 'wreck'

@@ -3594,7 +3594,7 @@ function firingSolution(
   // geometry instead of repeatedly copying a full soldier and rebuilding it.
   const forecast = prepared ?? firingForecast(u, target.x);
   let covered: { height: number; targetY: number } | null = null;
-  for (const targetY of upper === centre ? [target.y - centre] : [target.y - centre, target.y - upper]) {
+  for (const targetY of target.aimY !== undefined ? [target.aimY] : upper === centre ? [target.y - centre] : [target.y - centre, target.y - upper]) {
     const height = firingHeight(s, u, target.x, targetY, planStanding, forecast);
     if (height === null) continue;
     // Indirect fire clears cover along the actual parabolic trajectory. A
@@ -3615,7 +3615,7 @@ function firingSolution(
 }
 
 type CoverTarget = Pick<Unit, 'x' | 'y'> &
-  Partial<Pick<Unit, 'pose' | 'id' | 'moving'>>;
+  Partial<Pick<Unit, 'pose' | 'id' | 'moving'>> & { aimY?: number };
 function canFireFromCover(
   s: GameState,
   u: Unit,
@@ -4022,11 +4022,12 @@ function stepWreckEgress(s: GameState, u: Unit, dt: number, wasMoving: boolean) 
       u.squadOrder === 'hold' || u.squadOrder === 'retreat' || u.motion !== 'ground' || !s.wrecks.length)
     return false;
   if (u.wreckEgressX === undefined) {
-    if (wasMoving || s.time - (u.lastCombatShotAt ?? -Infinity) < 1) {
+    if (s.time - (u.lastCombatShotAt ?? -Infinity) < 1) {
       u.wreckBlockedSince = undefined;
       return false;
     }
-    // Only stationary, silent foot soldiers need this geometric check.
+    // A soldier shuffling inside a hull is still trapped. Throttle the check
+    // while allowing normal travelling soldiers time to walk through.
     if (s.time < (u.wreckEgressCheckAt ?? 0)) return false;
     u.wreckEgressCheckAt = s.time + .5 + (u.uid % 5) * .03;
   }
@@ -4043,7 +4044,7 @@ function stepWreckEgress(s: GameState, u: Unit, dt: number, wasMoving: boolean) 
       return false;
     }
     u.wreckBlockedSince ??= s.time;
-    if (s.time - u.wreckBlockedSince < 1) return false;
+    if (s.time - u.wreckBlockedSince < (wasMoving ? 3 : 1)) return false;
     const dir = u.side === 0 ? 1 : -1;
     let best: number | undefined, score = Infinity;
     for (const box of boxes) {
@@ -9268,6 +9269,7 @@ export function tick(s: GameState, dt: number) {
         u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
       }
     }
+    if (u.wreckEgressX !== undefined) desiredPose = 'walk';
     if (heavyEscape(u,s.time)) desiredPose = 'run';
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
@@ -9755,6 +9757,15 @@ export function tick(s: GameState, dt: number) {
       (v) => !(ineffectiveCoverFire && v.uid === failedContact!.uid) &&
         firingSolution(s, u, v, false, false, selectionForecast(v.x)) !== null,
     );
+    // Keep ranging the same visible, shootable contact when equally ranked
+    // soldiers shuffle past each other. A new higher-priority threat still wins.
+    if (target && tankDoctrine && u.tankAim?.key.startsWith('unit:')) {
+      const lockedUid = Number(u.tankAim.key.slice(5));
+      const locked = candidates.find(v => v.uid === lockedUid);
+      if (locked && tankTargetPriority(u, locked, concentrations) <=
+          tankTargetPriority(u, target, concentrations) &&
+          firingSolution(s, u, locked, false, false, selectionForecast(locked.x))) target = locked;
+    }
     if (
       target &&
       CARDS[target.id].members &&
@@ -9865,8 +9876,7 @@ export function tick(s: GameState, dt: number) {
       (baseX - u.x) * dir > muzzleOffset(u) + 16) &&
     Math.abs(baseX - u.x) <= range &&
     Math.abs(baseX - u.x) >= (c.minRange ?? 0) &&
-    (Math.abs(baseX - u.x) < 60 ||
-      firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null);
+    firingHeight(s, u, baseX, ground(s, baseX) - 25) !== null;
     // Counter-battery: a howitzer with no visible target can fire at a
     // fresh sound-ranging fix on an enemy battery position.
     let counterBattery: BatteryReport | null = null;
@@ -10116,19 +10126,30 @@ export function tick(s: GameState, dt: number) {
         reconFire = { x: lt.x, y: lt.y };
       }
     }
+    // The known HQ is also a physical aim point. Too close to depress the
+    // gun, back out to a real firing slot instead of driving into its footprint.
+    const baseAimBlocked = !target && !candidates.length && !threat && c.armored &&
+      !c.air && !c.static && !c.indirect && !c.airOnly && (!c.armorOnly || c.canAttackBase) &&
+      Math.abs(baseX - u.x) <= range && !baseInRange &&
+      Math.abs(baseX - u.x) >= (c.minRange ?? 0);
+    const firingContact: CoverTarget | null = baseAimBlocked
+      ? { x: baseX, y: ground(s, baseX), aimY: ground(s, baseX) - 25 } : threat;
     const completingFiringMove = c.armored && u.firingGoal != null &&
       !!u.lastThreat && u.lastThreat.until > s.time;
+    const awaitingTankReobserve = tankDoctrine && !target && u.tankAim?.key.startsWith('unit:') &&
+      s.time - u.tankAim.seenAt < 2;
     const blockedContact = !!(
-      (c.members || (c.armored && !c.air && !c.static && (candidates.length || completingFiringMove) &&
+      !awaitingTankReobserve &&
+      (c.members || (c.armored && !c.air && !c.static && (candidates.length || completingFiringMove || baseAimBlocked) &&
         !isImmobilized(u) && (u.vehicleReverseUntil ?? 0) <= s.time)) &&
       !airContact &&
       !c.indirect &&
       !target &&
       !baseInRange &&
       !closeThreat &&
-      threat &&
+      firingContact &&
       order !== 'rush' &&
-      Math.abs(threat.x - u.x) <= range + 15
+      Math.abs(firingContact.x - u.x) <= range + 15
     );
     if (
       blockedContact &&
@@ -10147,35 +10168,35 @@ export function tick(s: GameState, dt: number) {
       else u.firingWatchAnchorX = undefined;
       if (
         u.firingGoal != null &&
-        (((!c.armored || candidates.length > 0) && !u.firingTransit && !canFireFromCover(s, u, u.firingGoal, threat!) &&
+        (((!c.armored || candidates.length > 0) && !u.firingTransit && !canFireFromCover(s, u, u.firingGoal, firingContact!) &&
           !((order !== 'hold' || c.armored) && candidates[0] && enemyCoverShot(s,
             { ...u, x: u.firingGoal, y: ground(s, u.firingGoal), moving: false }, candidates[0]))) ||
           Math.abs(u.firingGoal - u.x) <= 1)
       )
         u.firingGoal = null;
-      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!c.armored || candidates.length)) {
-        u.firingGoal = nearbyFiringPosition(s, u, threat!);
+      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!c.armored || candidates.length || baseAimBlocked)) {
+        u.firingGoal = nearbyFiringPosition(s, u, firingContact!);
         u.firingTransit = false;
-        if (u.firingGoal === null && order !== 'hold' && c.armored && !c.static) {
+        if (u.firingGoal === null && order !== 'hold' && c.armored && !c.static && !baseAimBlocked && !u.vehicleReverseHeld) {
           // No immediate firing slot is not a permanent halt. Continue short
           // supported steps toward the observed contact, retaining the same
           // safe gap as the firing-position search and never crossing a cliff.
-          const toward = Math.sign(threat!.x - u.x);
-          const available = Math.abs(threat!.x - u.x) - blockedContactGap(u, threat!);
+          const toward = Math.sign(firingContact!.x - u.x);
+          const available = Math.abs(firingContact!.x - u.x) - blockedContactGap(u, firingContact!);
           if (available > 4 && clearGroundRoute(s, u.x, u.x + toward * Math.min(320, available))) {
             u.firingGoal = u.x + toward * Math.min(24, available);
             u.firingTransit = true;
           }
         }
         if (u.firingGoal === null && order !== 'hold' && c.members) {
-          const toward = Math.sign(threat!.x - u.x);
+          const toward = Math.sign(firingContact!.x - u.x);
           // Match the same contact clearance as the planned firing slots.
           // Reapplying the old half-range gap here cancelled every approach
           // before a rifle could actually look past the blocking wreck.
           const standoff = isAntiTankOperator(u)
             ? Math.max(280, (c.minRange ?? 0) + 80)
             : Math.max(56, (c.minRange ?? 0) + 25);
-          const available = Math.abs(threat!.x - u.x) - standoff;
+          const available = Math.abs(firingContact!.x - u.x) - standoff;
           if (available > 4) {
             // Walk a depth passage beside the obstacle, then reassess the firing ray.
             u.firingGoal = u.x + toward * Math.min(32, available);
@@ -11110,6 +11131,7 @@ export function tick(s: GameState, dt: number) {
           !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
          ((!target && (u.secondaryCombatUntil ?? 0) <= s.time) || breachRun) &&
          !baseInRange &&
+          !awaitingTankReobserve &&
           !blockedContact &&
          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
          ((u.minimumRangeHoldUntil ?? 0) <= s.time || order === 'rush') &&
