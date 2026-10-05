@@ -91,9 +91,13 @@ test('a tank aiming at rear armor cannot mirror its secondary muzzle toward infa
   for(const side of [0,1]){
     const s=arena(),tank=spawn(s,side,'tank',at(side,1800)),armor=spawn(s,1-side,'light_tank',at(side,1300));
     const infantry=spawn(s,1-side,'infantry',at(side,2100));
-    s.units=s.units.filter(u=>u===tank||u===armor||u===infantry);
+    const observer=spawn(s,side,'pathfinders',at(side,1750));
+    s.units=s.units.filter(u=>u===tank||u===armor||u===infantry||u===observer);
+    for(const u of [armor,infantry,observer])u.cooldown=1e9;
     for(const u of s.units)watch(u);
-    refreshVision(s);run(s,.8);
+    // Rear armor is beyond tank observation range: use a real spotter and
+    // allow the stationary main gun its normal 1.2-second aiming delay.
+    refreshVision(s);run(s,1.5);
     assert(tank.shots>0,'the main gun really fires at visible rear armor');
     assert.equal(tank.gunFacing,-dir(side),'the main gun owns the actual painted facing');
     assert.equal(tank.secondaryShots,0,'the opposite infantry cannot invent a mirrored machinegun mouth');

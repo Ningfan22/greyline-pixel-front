@@ -6067,7 +6067,7 @@ function towHowitzer(s: GameState, u: Unit, dt: number) {
   return true;
 }
 
-// Direct-fire emplacements remain fixed after their initial deployment.
+// Direct-fire crews retain a live firing position, then follow a quiet front.
 function towEmplacement(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id];
   if (isImmobilized(u) || u.resupplyState === 'waiting') return false;
@@ -6075,8 +6075,9 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
       u.squadOrderX !== undefined && (u.squadOrderUntil ?? Infinity) > s.time) {
     const delta = u.squadOrderX - u.x;
     if (Math.abs(delta) <= 1) {
-      u.squadOrder = 'watch'; u.squadOrderX = u.x;
+      u.squadOrder = undefined; u.squadOrderX = undefined; u.squadOrderUntil = 0;
       u.emplaced = true; u.emplacementSetupUntil = s.time + 1.2;
+      u.emplacementIdleSince = s.time;
       return true;
     }
     u.emplaced = false;
@@ -6087,11 +6088,22 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
     u.moving = Math.abs(u.x - before) > .001; u.vx = (u.x - before) / dt;
     u.walk += Math.min(Math.abs(u.x - before) / 8, .95);
     u.fire = 0; u.secondaryFire = 0;
+    // Reaching a known enemy stop line completes the bound as well. Keeping
+    // an unreachable march order would suppress firing forever at this line.
+    if (!u.moving) {
+      u.squadOrder = undefined; u.squadOrderX = undefined; u.squadOrderUntil = 0;
+      u.emplaced = true; u.emplacementSetupUntil = s.time + 1.2;
+      u.emplacementIdleSince = s.time;
+    }
     return true;
   }
+  if (s.time < (u.emplacementSetupUntil ?? 0)) return true;
   if (c.emplacement === 'howitzer') return towHowitzer(s, u, dt);
-  if (!c.emplacement || u.emplaced) return false;
-  const canEngage = s.units.some(
+  if (!c.emplacement) return false;
+  const baseX=u.side===0?W-70:70, baseDistance=Math.abs(baseX-u.x);
+  const canEngage = (!c.airOnly && (!c.armorOnly||c.canAttackBase) &&
+    baseDistance<=(c.range??0) && baseDistance>=(c.minRange??0) &&
+    firingHeight(s,u,baseX,ground(s,baseX)-25)!==null) || s.units.some(
     (v) =>
       v.side !== u.side &&
       isCombatant(v) &&
@@ -6102,9 +6114,16 @@ function towEmplacement(s: GameState, u: Unit, dt: number) {
       Math.abs(v.x - u.x) <= unitRange(s, u) &&
       firingSolution(s, u, v) !== null,
   );
-  if (canEngage || u.shots > 0) {
+  if (canEngage) {
+    u.emplacementIdleSince = undefined;
     u.emplaced = true;
     return false;
+  }
+  if (s.players[u.side].order === 'hold') return false;
+  if (u.emplaced) {
+    u.emplacementIdleSince ??= s.time;
+    if (s.time - u.emplacementIdleSince < 6) return false;
+    u.emplaced = false;
   }
   const goal = emplacementPosition(s, u.side, u.id),
     delta = goal - u.x;

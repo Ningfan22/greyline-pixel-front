@@ -48,6 +48,12 @@ const living = (u: Unit) =>
   u.hp > 0 && !u.wounded && !u.surrendered && !u.rappelling && !u.glider;
 export const controllableUnit = living;
 
+/** Gun crews and mobile batteries keep their automatic task while inspected. */
+export function automaticFireSupport(id: CardId) {
+  const c = CARDS[id];
+  return !c.members && !c.air && !!(c.emplacement || c.indirect);
+}
+
 /** Command feedback follows real workers; issuing hold never claims that a
  * travelling or fighting soldier has already started shovelling. */
 export function trenchConstructionLabel(
@@ -90,15 +96,16 @@ export function ordersForUnit(id: CardId) {
       },
     ];
   return [
+    ...(automaticFireSupport(id) ? [{id:'escort' as const,label:'自动跟随',description:'恢复跟随己方战线，接敌后自行架炮射击'}] : []),
     {
       id: 'attack' as const,
       label: c.airlift ? '继续投送' : '前进',
-      description: '继续向前执行任务，接敌时自主还击',
+      description: c.emplacement ? '向前转移一段距离，架炮后恢复自动跟随' : '继续向前执行任务，接敌时自主还击',
     },
     {
       id: 'retreat' as const,
       label: '后退',
-      description: '向后转移一段距离，再停下警戒',
+      description: automaticFireSupport(id) ? '向后转移一段距离，再恢复自动跟随' : '向后转移一段距离，再停下警戒',
     },
     {
       id: 'watch' as const,
@@ -281,6 +288,13 @@ export function setSquadOrder(
       if (order === 'attack') {
         u.patrolExiting = false;
         u.patrolDir = side === 0 ? 1 : -1;
+      }
+      if (automaticFireSupport(u.id) && order === 'escort') {
+        u.squadOrder = undefined;
+        u.squadOrderX = undefined;
+        u.squadOrderUntil = 0;
+        u.emplacementIdleSince = undefined;
+        u.emplacementSetupUntil = undefined;
       }
     }
     return {
@@ -554,6 +568,7 @@ export function updateSquadOrders(s: GameState, dt: number) {
   for (const u of s.units) {
     if (
       u.squadOrder === 'retreat' &&
+      !automaticFireSupport(u.id) &&
       u.squadOrderX !== undefined &&
       living(u) &&
       Math.abs(u.x - u.squadOrderX) <= 12
@@ -830,8 +845,13 @@ export function pickSquad(
   return unit?.squad ?? null;
 }
 
-/** Opening the command fan is itself an explicit stop/watch order, never a temporary UI pause. */
+/** Inspecting fire support is not a navigation command. Other groups retain
+ * their existing selection stop; explicit gun watch is still a real hold. */
 export function selectUnitGroup(s: GameState, side: Side, squad: number) {
+  if (s.status !== 'playing') return {ok:false,message:'请先继续作战'};
+  const members = s.units.filter(u=>u.side===side&&u.squad===squad&&living(u));
+  if (!members.length) return {ok:false,message:'这支小队已无法接令'};
+  if (automaticFireSupport(members[0].id)) return {ok:true,message:`${CARDS[members[0].id].name}：查看指令`};
   const result = setSquadOrder(s, side, squad, 'watch');
   if (!result.ok) return result;
   for (const u of s.units) {

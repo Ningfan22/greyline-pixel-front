@@ -77,6 +77,7 @@ import {
   setSquadOrder,
   selectUnitGroup,
   ordersForUnit,
+  automaticFireSupport,
   trenchConstructionLabel,
 } from '@/game/squad-orders';
 import { unitSelectionBounds } from '@/game/selection-render';
@@ -1269,6 +1270,7 @@ export default function Battle({
               order={
                 selectedMembers[0].squadOrder ??
                 (selectedMembers[0].escortTankUid !== undefined
+                  || automaticFireSupport(selectedMembers[0].id)
                   ? 'escort'
                   : undefined)
               }
@@ -2055,7 +2057,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v216
+          GREYLINE <i /> 林间前线 · v217
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

@@ -37,7 +37,7 @@ for(const side of [0,1]) {
  });
  for(const id of ['artillery','barrage','anti_tank_gun','aa_gun'])test(`side ${side}: ${id} real crew-towed advance/retreat commands replace placement`,()=>{
   if(!CARDS[id])return;
-  assert.deepEqual(ordersForUnit(id).map(o=>o.id),['attack','retreat','watch']);
+  assert.deepEqual(ordersForUnit(id).map(o=>o.id),['escort','attack','retreat','watch']);
   const s=arena(),u=one(s,side,id,at(side,1200));assert(setSquadOrder(s,side,u.squad,'attack').ok);run(s,3);assert((u.x-at(side,1200))*(side?-1:1)>50);const forward=u.x;
   assert(setSquadOrder(s,side,u.squad,'retreat').ok);run(s,3);assert((forward-u.x)*(side?-1:1)>30);assert(u.moving);assert.equal(u.shots,0,'cannot fire while crew pushes it');
  });
@@ -79,7 +79,7 @@ test('ammo-empty gun can return for supply; fixed fortification cannot move',()=
  const fort=one(s,0,'fort_machinegun',1400,{ammo:0,ammoReserve:0});assert(!issueLogisticsOrder(s,fort.uid,'advance'));
 });
 test('shortage uses the existing unit command fan, with no second lower-left selector',()=>{
- const source=readFileSync(new URL('../app/battle.tsx',import.meta.url),'utf8');assert(!source.includes('logistics-selection-button'));assert(!source.includes('<LogisticsMenu'));assert(source.includes('<UnitLogisticsFan'));assert(source.includes('!logisticsStatus &&'));const fan=readFileSync(new URL('../app/unit-logistics-fan.tsx',import.meta.url),'utf8');assert(fan.includes("label:'继续推进'"));assert(fan.includes("label:'回去补给'"));
+ const source=readFileSync(new URL('../app/battle.tsx',import.meta.url),'utf8');assert(!source.includes('logistics-selection-button'));assert(!source.includes('<LogisticsMenu'));assert(source.includes('<UnitLogisticsFan'));assert(source.includes('!logisticsStatus &&'));const fan=readFileSync(new URL('../app/unit-logistics-fan.tsx',import.meta.url),'utf8');assert(fan.includes("label:'继续推进'"));assert(fan.includes("'回去补给'"));
 });
 
 for(const seed of [211,212,213]) test(`seed ${seed}: equal opposing rifle squads actually exchange fire instead of mutually stalling`,()=>{

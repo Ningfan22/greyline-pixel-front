@@ -92,8 +92,12 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
       u.patrolExiting = true;
       u.patrolDir = u.side === 0 ? -1 : 1;
     } else if (Math.abs(goal - u.x) < 1) {
-      u.squadOrder = 'watch';
-      u.squadOrderX = u.x;
+      if (!c.air && c.indirect) {
+        u.squadOrder = undefined; u.squadOrderX = undefined; u.squadOrderUntil = 0;
+      } else {
+        u.squadOrder = 'watch';
+        u.squadOrderX = u.x;
+      }
     }
   }
   u.moving = Math.abs(u.x - oldX) > 0.001;
