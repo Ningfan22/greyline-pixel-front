@@ -39,7 +39,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400;
-let state = createGame(214),
+let state = createGame(215),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -62,13 +62,15 @@ function scene(next: string) {
   mode = next;
   commandRoot.render(null);
   paused = false;
-  state = createGame(214, undefined, undefined, undefined, { weather: false });
+  state = createGame(215, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
     scenery: [],
     walls: [],
     wrecks: [],
+    knownScenery: [{}, {}],
+    knownWalls: [{}, {}],
     aiIn: 1e9,
     night: false,
   });
@@ -80,7 +82,14 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if(['tankescape','ifvburst','scoutgun','commandgun'].includes(next)) {
+  if(['towhouse','javelinhouse'].includes(next)) {
+    camera=500;paused=true;capture=false;
+    state.scenery=createScenery(state.terrain,[{kind:'house',x:1060,seed:215}]);
+    const shooter=spawn(0,next==='towhouse'?'tow_ifv':'javelin',720);watch(shooter);shooter.cooldown=0;
+    const observer=spawn(0,'scouts',1430);watch(observer);observer.cooldown=1e9;
+    const target=spawn(1,'heavy_tank',1420);watch(target);Object.assign(target,{cooldown:1e9,secondaryCooldown:1e9,hp:10000,maxHp:10000});
+    actors=[...state.units.filter(u=>u.side===0&&u.id===shooter.id),target];
+  } else if(['tankescape','ifvburst','scoutgun','commandgun'].includes(next)) {
     camera=760;paused=true;capture=false;
     if(next==='tankescape') {
       const n=state.units.length;spawn(0,'infantry',1200);
@@ -286,6 +295,11 @@ document.querySelector<HTMLButtonElement>('#step')!.onclick = () => {
   }
   paused = true;
 };
+document.querySelector<HTMLButtonElement>('#halfstep')!.onclick = () => {
+  if (mode === 'parts' || mode === 'fog') return;
+  for (let i = 0; i < 30; i++) tick(state, 1 / 60);
+  paused = true;
+};
 document.querySelector<HTMLButtonElement>('#step10')!.onclick = () => {
   if (mode === 'parts' || mode === 'fog') return;
   for (let i = 0; i < 600; i++) {
@@ -299,7 +313,7 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
@@ -404,7 +418,7 @@ function loop(now: number) {
         )
         .join(' ｜ ') +
       (['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
-        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
+        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','towhouse','javelinhouse'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
         : ['lethality','withdraw','shelter','tankescape'].includes(mode)
         ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
         : mode === 'wreck'

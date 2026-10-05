@@ -1,4 +1,5 @@
 import {hasVehicleGun} from './vehicle-gun-layout';
+import { guidedCoverRoute, guidedSegmentIntercept, guidedShotIntercept, type GuidancePoint } from './guided-cover';
 import { smallArmsHitMultiplier, smallArmsAccuracyScale } from './infantry-survival';
 import { infantryGeometry } from './infantry-geometry';
 import {soldierMuzzle,soldierBusyMoving,updateSoldierGait,updateSoldierGround,beginSoldierTurn,updateSoldierTurn,soldierPose,type SoldierPose,type SoldierTurn} from './soldier-pose';
@@ -642,6 +643,7 @@ export interface Projectile {
   passedCover?: number[];
   uid?: number;
   guided?: boolean;
+  guidanceRoute?: GuidancePoint[];
   topAttack?: boolean;
   loftX?: number;
   loftY?: number;
@@ -3176,6 +3178,7 @@ export function projectileIntercept(
   // therefore fly straight to their aim point and detonate there on life
   // expiry; burst() snaps the blast down to the soil under the target.
   if (p.fromAir) return null;
+  if (p.guided) return guidedSegmentIntercept(s, sx, sy, tx, ty);
   if (!isCoverBullet(p.ammunition ?? (p.radius ? 'cannon' : 'rifle')))
     return terrainIntercept(s, sx, sy, tx, ty);
   const totalPath = Math.hypot(p.tx - p.startX, p.ty - p.startY) || 1;
@@ -3551,7 +3554,8 @@ function firingHeight(
       return false;
     return (
       u.id === 'javelin' ||
-      !directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty)
+      !(c.guided ? guidedShotIntercept(s, point.x, point.y, tx, ty) :
+        directShotIntercept(s, ammunition(u.id, u.member), point.x, point.y, tx, ty))
     );
   };
   if (clear(aimed, height, gun?.muzzle ?? shot.point)) return height;
@@ -3588,7 +3592,7 @@ function firingSolution(
     if (height === null) continue;
     // Indirect fire clears cover along the actual parabolic trajectory. A
     // straight muzzle-to-target wall test must not silence an observed battery.
-    if (forecast.card.indirect) return { height, targetY };
+    if (forecast.card.indirect || forecast.card.guided) return { height, targetY };
     const standing = planStanding ? standingForecast(forecast, u, target.x) : null,
       origin = aimedGunSolution(u, target.x, targetY)?.muzzle ??
         (standing && height === standing.height ? standing.point : forecast.point);
@@ -4088,6 +4092,7 @@ function enemyCoverShot(s: GameState, u: Unit, target: Unit | undefined) {
   if (
     !target ||
     !demolitionWeapon ||
+    c.guided ||
     c.indirect ||
     !c.radius ||
     CARDS[target.id].air ||
@@ -10654,7 +10659,8 @@ export function tick(s: GameState, dt: number) {
           coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
-          !directShotIntercept(s, ammunition(u.id, u.member), sx, sy, tx, ty)
+          !(c.guided ? guidedShotIntercept(s, sx, sy, tx, ty) :
+            directShotIntercept(s, ammunition(u.id, u.member), sx, sy, tx, ty))
         ) {
           const closeBurst =
             (u.assaultBurstUntil ?? 0) > s.time &&
@@ -11261,8 +11267,10 @@ export function tick(s: GameState, dt: number) {
           tracked.y - bodyHeight(tracked) + (jammed ? (rnd(s) - 0.5) * 36 : 0);
       }
       const climbing = p.topAttack && !p.lofted;
-      const goalX = climbing ? p.loftX! : p.tx,
-        goalY = climbing ? p.loftY! : p.ty;
+      if (!climbing) p.guidanceRoute ??= guidedCoverRoute(s, p.x, p.y, p.tx, p.ty);
+      const waypoint = p.guidanceRoute?.[0];
+      const goalX = climbing ? p.loftX! : waypoint?.x ?? p.tx,
+        goalY = climbing ? p.loftY! : waypoint?.y ?? p.ty;
       const dx = goalX - p.x,
         dy = goalY - p.y,
         dist = Math.hypot(dx, dy),
@@ -11278,6 +11286,7 @@ export function tick(s: GameState, dt: number) {
         p.x = goalX;
         p.y = goalY;
         if (climbing) p.lofted = true;
+        else if (waypoint) p.guidanceRoute!.shift();
         else p.life = 0;
       } else {
         p.x += (dx / dist) * step;
