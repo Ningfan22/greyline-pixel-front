@@ -1,4 +1,4 @@
-import {ifvLayoutV219} from './ifv-art-v219';
+import {ifvLayoutV220} from './ifv-art-v220';
 import type { CardId } from './cards';
 /** Measured painted barrel bounds in the existing final world-sized frames.
  * These are original pixels, not replacement illustrations or drawn shapes. */
@@ -15,7 +15,7 @@ export function hasVehicleGun(id: string): id is VehicleGunId {
 }
 export function vehicleGunMount(id: CardId) {
   if(!hasVehicleGun(id)) return null;
-  if(id==='ifv') { const a=ifvLayoutV219(); return {pivotX:a.pivotX,pivotHeight:a.pivotHeight,barrelLength:a.barrelLength,minElevation:-12*Math.PI/180,maxElevation:70*Math.PI/180,restElevation:0}; }
+  if(id==='ifv') { const a=ifvLayoutV220(); return {pivotX:a.pivotX,pivotHeight:a.pivotHeight,barrelLength:a.barrelLength,minElevation:-12*Math.PI/180,maxElevation:70*Math.PI/180,restElevation:0}; }
   const a=VEHICLE_GUNS[id];
   return {pivotX:a.pivot[0]-a.size[0]/2,pivotHeight:a.size[1]-a.pivot[1]-3,
     barrelLength:a.muzzle[0]-a.pivot[0],minElevation:-12*Math.PI/180,

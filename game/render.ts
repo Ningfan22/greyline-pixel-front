@@ -112,12 +112,12 @@ function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number,
   ctx.fillText(`建设 ${Math.ceil(remaining)}秒`, x, y - 9);
   ctx.restore();
 }
-export function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art, layer: 'far' | 'near') {
+export function drawArtilleryCrew(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art, layer: 'far' | 'near', groundAt?: (x:number)=>number) {
   if (!art.soldiers) return;
   // The original gun remains its own sprite. Each operator is an instance of
   // the existing infantry rig, with a separate stance and hand-work phase.
   const member = layer === 'far' ? 0 : 1;
-  const crew = artilleryCrewPose(u, member, time);
+  const crew = artilleryCrewPose(u, member, time, groundAt);
   const rig = actorSoldierPoseFrame(art.soldiers, u, crew.pose, member + 1);
   drawSprite(ctx, rig.image, u.x + crew.facing * crew.x,
     u.y + infantryDepth(u.lane) + crew.y + rig.image.height - rig.anchorY,
@@ -866,7 +866,7 @@ export function render(
       recoilY +
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);
-    if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far');
+    if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far',x=>ground(s,x));
     if (c.fortification) {
       drawFortification(ctx,u,s.time,art);
     } else if (art.helicopterParts && (u.id==='helicopter'||u.id==='rocket_heli'||u.id==='escort_gunship')) {
@@ -900,10 +900,10 @@ export function render(
           ? (microDir ?? choice?.dir ?? u.facing) < 0
           : u.side === 1,
         alpha,
-        c.armored || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
+        c.armored || c.emplacement || geometry || u.glider || c.oneWay ? u.hullAngle : 0,
       );
     }
-    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art,'near');
+    if (c.emplacement && !isDead) drawArtilleryCrew(ctx,u,s.time,art,'near',x=>ground(s,x));
     if (!c.members && isDead) ctx.restore();
     if (isDead) continue;
     if(art.weaponEffects && !u.wounded && !u.surrendered && (u.flameUntil??0)>s.time && u.flameTarget && (!c.members || (u.reloadingUntil??0)<=s.time)){

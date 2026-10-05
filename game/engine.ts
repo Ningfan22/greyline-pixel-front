@@ -1,3 +1,4 @@
+import {emplacementContact} from './emplacement-ground';
 import {hasVehicleGun} from './vehicle-gun-layout';
 import { tankAimReady, type TankAim } from './tank-fire-control';
 import { guidedCoverRoute, guidedSegmentIntercept, guidedShotIntercept, type GuidancePoint } from './guided-cover';
@@ -1184,7 +1185,9 @@ export function spawnUnit(
       x: px,
       y: c.air
         ? (c.altitude ?? AIR_ALTITUDE)
-        : c.armored || c.vehicle
+        : c.emplacement
+          ? emplacementContact(x=>ground(s,x),px,id,dir).y
+          : c.armored || c.vehicle
           ? vehicleContact(s, px, id).y
           : ground(s, px),
       hp,
@@ -1206,7 +1209,7 @@ export function spawnUnit(
       passedWalls: [],
       facing: dir,
       retreatUntil: 0,
-      hullAngle: c.armored || c.vehicle ? vehicleContact(s, px, id).angle : 0,
+      hullAngle: c.emplacement ? emplacementContact(x=>ground(s,x),px,id,dir).angle : c.armored || c.vehicle ? vehicleContact(s, px, id).angle : 0,
       wounded: false,
       woundedTime: 0,
       bleedOut: 0,
@@ -8595,6 +8598,7 @@ export function tick(s: GameState, dt: number) {
   s.frontX = [front0, front1];
   updateSquadCommand(s);
   for (const u of s.units) {
+    if(CARDS[u.id].emplacement && u.hp>0){const contact=emplacementContact(x=>ground(s,x),u.x,u.id,u.gunFacing??(u.side===0?1:-1));u.y=contact.y;u.hullAngle=contact.angle;}
     if (CARDS[u.id].members) pauseMagazineDrill(u,s.time,dt);
     const launcherBusy = u.id === 'grenadiers' && launcherDrillBusy(u, s.time - dt);
     u.poseAnimProgress = stanceTransitionProgress(u, s.time) ?? undefined;
@@ -11379,7 +11383,7 @@ export function tick(s: GameState, dt: number) {
         blend = 1 - Math.exp(-dt * 9);
       u.y += (contact.y - u.y) * blend;
       u.hullAngle += (contact.angle - u.hullAngle) * blend;
-    } else if (!c.members || u.motion === 'ground')
+    } else if (!c.emplacement && (!c.members || u.motion === 'ground'))
       u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
     // A tank's main-gun facing owns its painted body. Select its secondary
     // target only after this tick's main-gun aim, so an opposite contact cannot
@@ -11392,6 +11396,7 @@ export function tick(s: GameState, dt: number) {
         !crouchMotionActive(u) && !proneMotionActive(u))
       fireCoax(s, u);
   }
+  for(const u of s.units) if(CARDS[u.id].emplacement && u.hp>0){const contact=emplacementContact(x=>ground(s,x),u.x,u.id,u.gunFacing??(u.side===0?1:-1));u.y=contact.y;u.hullAngle=contact.angle;}
   for (const u of s.units) if (CARDS[u.id].members) {
     if(u.soldierRise&&s.time-u.soldierRise.at>=(u.soldierRise.duration??.35))u.soldierRise=undefined;
     if(u.soldierLanding&&s.time-u.soldierLanding.at>=u.soldierLanding.duration)u.soldierLanding=undefined;

@@ -1,4 +1,4 @@
-import {IFV_ART_V219,ifvPartsV219,ifvPreviewV219} from './ifv-art-v219';
+import {IFV_ART_V220,ifvPartsV220,ifvPreviewV220} from './ifv-art-v220';
 import {splitVehicleGun} from './vehicle-gun-art';
 import {VEHICLE_GUNS,type VehicleGunId} from './vehicle-gun-layout';
 import { CARDS, modelOf, type CardId } from './cards';
@@ -643,7 +643,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(['mlrs','field-gun','siege-gun','helicopter'].map(id=>loadImage(`${WEAPON_ART_ROOT}/${id}.webp`))),
     Promise.all(VEHICLE_IDS_V209.map(async id=>({id,sprite:await loadImage(vehicleSourceV209(id)),wreck:await loadImage(vehicleSourceV209(id,true))}))),
     Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
-    loadImage(IFV_ART_V219.source).then(ifvPartsV219),
+    loadImage(IFV_ART_V220.source).then(ifvPartsV220),
   ]).then(
     ([
       [
@@ -692,7 +692,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       vehicleArt[1] = stableHelicopters(vehicles);
       vehicleArt[0] = stableTracks(vehicleArt[0], 5);
       const reinforcementArt = reinforcementFrames(reinforcement);
-      reinforcementArt[0] = [ifvPreviewV219(ifvParts)];
+      reinforcementArt[0] = [ifvPreviewV220(ifvParts)];
       const wingArt = figureFrames(
         fixedWing,
         4,
@@ -1053,7 +1053,7 @@ export function unitSize(id: CardId): [number, number] {
   return modelOf(id) === 'tank'
     ? [205, 108]
     : modelOf(id) === 'ifv'
-      ? [IFV_ART_V219.width, IFV_ART_V219.height]
+      ? [IFV_ART_V220.width, IFV_ART_V220.height]
       : c.air
         ? [235, 118]
         : [96, 72];

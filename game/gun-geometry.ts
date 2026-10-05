@@ -127,7 +127,7 @@ export function gunPose(
   const mount = gunMount(body.id);
   if (!mount) return null;
   const dir = facing < 0 ? -1 : 1;
-  const hull = CARDS[body.id].emplacement ? 0 : (body.hullAngle ?? 0);
+  const hull = (body.hullAngle ?? 0);
   const e = clamp(
     elevation ?? mount.restElevation,
     mount.minElevation,
@@ -187,7 +187,7 @@ export function aimedGunSolution(body: GunBody, tx: number, ty: number) {
   if (!mount) return null;
   const facing = tx < body.x ? -1 : 1;
   const rest = gunPose(body, mount.restElevation, facing)!;
-  const hull = CARDS[body.id].emplacement ? 0 : (body.hullAngle ?? 0);
+  const hull = (body.hullAngle ?? 0);
   const dx = Math.abs(tx - rest.pivot.x),
     dy = ty - rest.pivot.y;
   const boreOffset = mount.muzzleOffset?.[1] ?? 0;

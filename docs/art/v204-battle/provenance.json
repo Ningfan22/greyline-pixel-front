@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 3130.740792,
+  "compileMs": 2807.764041,
   "canvasesCreated": 633,
   "frames": 459,
   "compilerSources": [
@@ -13,11 +13,11 @@
     },
     {
       "path": "scripts/battle-art-bake-inputs.mjs",
-      "sha256": "89751f0f9211d05acf886be7f591f9aa2cf8ac37886b9fc1d04097bf9b802541"
+      "sha256": "28177cd9d1c1071317b148dc0956cb74b88c7cec2c04e53b7779782212104e11"
     },
     {
       "path": "game/art.ts",
-      "sha256": "c053e22d2074b2c070fdab66d520c6adcb2d29dcb4ac87e9edc104c2ae9ea09a"
+      "sha256": "932b2cd1c28e3371f33df6c2fd7735eb470d65879bfc1a9ece5b13991109ebf4"
     },
     {
       "path": "game/art-v16.ts",
@@ -44,8 +44,8 @@
       "sha256": "20220fee7b87e71b967f2b57f63d0315437a8bc3d214cc7250c56e34e295f1bd"
     },
     {
-      "path": "game/ifv-art-v219.ts",
-      "sha256": "1ed960e9e5bf4360f28244d24227c8800325ab0dd8ad7eee77a8647492aa16ef"
+      "path": "game/ifv-art-v220.ts",
+      "sha256": "5e3cda1f03f0035ba4f338d9480af730762a7948fd8c30a00455a3f3315c6816"
     },
     {
       "path": "game/tank-art-v202.ts",
@@ -57,11 +57,11 @@
     },
     {
       "path": "game/gun-art.ts",
-      "sha256": "c7187baa1b1556029359f643235da5ac58fca4621f59fb71cb91b3dc88aa81c6"
+      "sha256": "c5d14926bc63d89eb004596c281650f2014021366136bd514f32ca11ec71ac72"
     },
     {
       "path": "game/gun-geometry.ts",
-      "sha256": "1458267081d4b71e54792f97b47e9fae6a088ca8a0e43947679a4694f9092bf7"
+      "sha256": "39ae17ac78374c05c6ec3ffdb167a2e9113dc5d1e7ddc54a35a6d53770426133"
     },
     {
       "path": "game/vehicle-gun-art.ts",
@@ -69,7 +69,7 @@
     },
     {
       "path": "game/vehicle-gun-layout.ts",
-      "sha256": "fa1276ba442c117555e5d3daefa579c6d5234b8f21538c5b7d9bd5b69b99b30f"
+      "sha256": "f4d7e79f42521c73ce4a7370adf4f95d44067a4452cf74c0179395ab2f012907"
     },
     {
       "path": "game/vehicle-missile-art-v209.ts",
@@ -440,19 +440,19 @@
       "sha256": "106bd8287365680116f446d8e2b1430941708e50c111a7b4a9295931fe453eec"
     },
     {
-      "path": "/art/v219-ifv/ifv.png",
-      "bytes": 1391851,
-      "sha256": "ad75d066d93a4ae066498f9f5e9fbfa2ccebf27d719e6510320c7341f2b28265"
-    },
-    {
-      "path": "/art/v209-vehicles-missiles/sam-wreck.png",
-      "bytes": 1639328,
-      "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
+      "path": "/art/v220-ifv/ifv.png",
+      "bytes": 1288634,
+      "sha256": "2df041e48da655033a3cd6996df0d9b96bb579b275250cb8cce700d96b505173"
     },
     {
       "path": "/art/v209-vehicles-missiles/scout-wreck.png",
       "bytes": 1241246,
       "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
+    },
+    {
+      "path": "/art/v209-vehicles-missiles/sam-wreck.png",
+      "bytes": 1639328,
+      "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
     },
     {
       "path": "/art/battlefield-v3.png",
@@ -607,7 +607,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "011185de6a27f7976948addf798772b59d04709973bdc01d50b9a1ff90f0f736"
+    "sha256": "4a99b328c654f0d9ac647d72496771500dacd364a752dce26273081d12f65f53"
   },
   "atlasFiles": [
     {
@@ -619,12 +619,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-e3e5d2c2d0c7.png",
-      "bytes": 3004866,
+      "path": "/art/v204-battle/frames-1-365a0a028420.png",
+      "bytes": 3001211,
       "width": 2048,
       "height": 1541,
-      "sha256": "e3e5d2c2d0c7782db9464b9b461c81997416faa7eb2dbd3eb6d1d0f5ca92ecbb",
-      "rgbaSha256": "c9582fa82d06843b3f31fa6a1924e83654299aa643b92cfafa02be4ebb0fd8f2"
+      "sha256": "365a0a0284202f6e54ff1d3f172027c4b591f13c96db899825876c19ad5f55c4",
+      "rgbaSha256": "2f27827ac3ca506d5893f47caf0881d01d4329d07848ecaa80389730ed3a5e54"
     }
   ],
   "external": [],
@@ -662,5 +662,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5357324
+  "sharedBytes": 5353669
 }

@@ -6,7 +6,7 @@ import { soldierPose, solveLimb, type Point, type SoldierPose } from './soldier-
 type CrewOwner = Pick<Unit, 'id' | 'uid' | 'x' | 'side' | 'moving'> & Partial<Unit>;
 /** Operators keep the infantry rig and real walking legs. Their hands belong
  * to the carriage contact, so the shoulders bend without the gloves sliding. */
-export function artilleryCrewPose(owner: CrewOwner, member: number, time: number) {
+export function artilleryCrewPose(owner: CrewOwner, member: number, time: number, ground?: (x:number)=>number) {
   const name = CARDS[owner.id].emplacement as EmplacementName;
   const facing = (owner.gunFacing ?? (owner.side === 0 ? 1 : -1)) < 0 ? -1 : 1;
   const moving = !!owner.moving;
@@ -20,13 +20,17 @@ export function artilleryCrewPose(owner: CrewOwner, member: number, time: number
     rifleReady: 0, fire: 0, secondaryFire: 0,
     scavengeUntil: moving ? 0 : time + 1, digElapsed: time + member * .85,
   }, time);
+  const angle=owner.hullAngle??0;
+  const groundY=(localX:number)=>ground ? ground(owner.x+facing*localX)-(owner.y??0)+3 : 3;
   if (!moving) return {
     pose: { ...base, weaponVisible: false, prop: undefined }, facing,
-    x: -(42 + member * 32), y: 3,
+    x: -(42 + member * 32), y: groundY(-(42 + member * 32)),
   };
 
-  const grip = emplacementCrewGrip(name, member);
-  const handY = grip[1] + (name === 'aa_gun' ? 0 : -3);
+  const originalGrip = emplacementCrewGrip(name, member);
+  const grip=[originalGrip[0]*Math.cos(angle)-facing*originalGrip[1]*Math.sin(angle),facing*originalGrip[0]*Math.sin(angle)+originalGrip[1]*Math.cos(angle)];
+  const crewX=grip[0]-18,crewY=groundY(crewX);
+  const handY = grip[1]-crewY + (name === 'aa_gun' ? 3 : 0);
   const lean = .70 + Math.max(0, 26 + handY) * .045;
   const hip: Point = [base.hip[0] - 3, base.hip[1] + 3];
   const neck: Point = [hip[0] + Math.sin(lean) * 22, hip[1] - Math.cos(lean) * 22];
@@ -42,5 +46,5 @@ export function artilleryCrewPose(owner: CrewOwner, member: number, time: number
     nearElbow: nearArm.joint, nearHand: nearArm.end, farElbow: farArm.joint, farHand: farArm.end,
     weaponVisible: false, slung: false, prop: undefined,
   };
-  return { pose, facing, x: grip[0] - 18, y: 3 };
+  return { pose, facing, x: crewX, y: crewY };
 }

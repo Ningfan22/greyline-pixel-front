@@ -18,13 +18,13 @@ export function drawArticulatedGun(
 ) {
   const pose = gunPose(body);
   if (!pose) return;
-  const hullAngle = CARDS[body.id].emplacement ? 0 : body.hullAngle ?? 0;
+  const hullAngle = body.hullAngle ?? 0;
   const recoil = gunRecoil(body);
   const drawBody = () => {
     ctx.save();
     ctx.translate(body.x, body.y + depth + (parts.bodyGroundOffset ?? 0));
     ctx.rotate(hullAngle);
-    ctx.scale((body.facing ?? pose.facing) < 0 ? -1 : 1, 1);
+    ctx.scale((CARDS[body.id].emplacement ? (body.gunFacing ?? pose.facing) : (body.facing ?? pose.facing)) < 0 ? -1 : 1, 1);
     const chassis = parts.bodyFrames?.[motionFrame % parts.bodyFrames.length] ?? parts.body;
     ctx.drawImage(chassis, -chassis.width / 2, -chassis.height);
     ctx.restore();
