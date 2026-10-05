@@ -2,7 +2,7 @@ import { isBattleTank } from './tank-doctrine';
 import type { Unit } from './engine';
 
 export interface TankAim { key: string; x: number; y: number; originX: number; seenAt: number; readyAt: number }
-export const TANK_ACQUIRE_S = 1.2;
+export const TANK_ACQUIRE_S = 3;
 /** A new contact needs ranging; stopping/repositioning needs a fresh stable
  * firing platform. Loading overlaps observation, never restarts every round. */
 export function tankAimReady(u: Unit, time: number, key: string, x: number, y: number) {

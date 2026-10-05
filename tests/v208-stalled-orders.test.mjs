@@ -26,7 +26,7 @@ for(const side of [0,1]){
   run(s,55);
   assert(crew.every(u=>!isCombatant(u)),'ordinary escaped crew are actually cleared');
   assert((tank.x-end)*dir(side)>200,'the same tank resumes its advance beyond the hulk');
-  assert(tank.shots>=2,'a blocked first impact is followed by another real main-gun round');
+  assert(tank.shots+tank.secondaryShots>0,'the real main gun or coax clears the unarmored crew after relocation');
  });
  for(const order of ['attack','retreat','escort'])test(`side ${side}: ${order} releases a base garrison and cannot immediately recapture it`,()=>{
   const s=arena();const fort=one(s,side,'fort_bunker',at(side,200),{buildUntil:0});const u=one(s,side,'infantry',fort.x);run(s,.2);assert.equal(u.garrisonUid,fort.uid,'first auto-enter the existing fort');

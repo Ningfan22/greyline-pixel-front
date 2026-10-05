@@ -1005,6 +1005,10 @@ export function render(
       const arrow = (u.calloutDir ?? 1) > 0 ? '▶' : '◀';
       ctx.fillText(`${arrow}接触!`, u.x, u.y - 78);
     }
+    if(u.tankAim && !u.moving && u.tankAim.readyAt>s.time && s.time-u.tankAim.seenAt<.2) {
+      ctx.fillStyle='#e3cf80';ctx.font='10px sans-serif';ctx.textAlign='center';
+      ctx.fillText('测距瞄准',u.x,u.y-78);
+    }
     // v92: veterancy pips — gold chevrons over the squad, one per tier.
     drawVeterancyPips(ctx, u);
     if (u.secondaryFire > 0)

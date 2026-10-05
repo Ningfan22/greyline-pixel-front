@@ -22,7 +22,7 @@ for(const side of [0,1]){
     rounds.add(p.uid);const gun=aimedGunSolution(tank,p.tx,p.ty);assert(gun?.canFire,'breach round must use an actually reachable impact');
    }
   }
-  assert(firstShot<4,JSON.stringify({firstShot,x:tank.x,shots:tank.shots}));
+  assert(firstShot<6,JSON.stringify({firstShot,x:tank.x,shots:tank.shots}));
   assert(!isCombatant(enemy),JSON.stringify({hp:enemy.hp,x:tank.x,shots:tank.shots,ammo:tank.ammo,goal:tank.firingGoal,breach:[tank.breachPropId,tank.breachPartId,tank.breachShots],parts:s.scenery[0].parts.map(p=>p.hp)}));
   assert((tank.x-at(side,1450))*dir(side)>60,JSON.stringify({x:tank.x,enemyX:enemy.x,shots:tank.shots,ammo:tank.ammo,fuel:tank.fuel,resupply:tank.resupplyState,contacts:s.groundContacts[side]}));assert(rounds.size>0);
  });

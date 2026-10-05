@@ -77,7 +77,8 @@ for (const side of [0, 1]) {
     }
     const start = squad.map(u => u.x), hp = crew[0].hp;
     refreshVision(s);
-    run(s, 30);
+    // The defender now walks out of the blocked hull instead of staying fixed.
+    run(s, 45);
     assert(squad.filter(u => u.shots >= 3).length >= 8,
       `most of the line finds real shots: ${squad.map(u => u.shots)}`);
     assert(crew[0].hp < hp - 30, 'rounds reach and damage the exposed defender');

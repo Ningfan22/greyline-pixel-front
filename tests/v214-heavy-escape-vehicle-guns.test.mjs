@@ -54,7 +54,10 @@ for(const side of [0,1])for(const id of ['scout_car','command_vehicle','pickup',
 for(const side of [0,1])test(`side ${side}: surviving riflemen keep sprinting away under real tank shell flinch`,()=>{
  const s=arena(),n=s.units.length;spawnUnit(s,side,'infantry',mirror(side,1200));const own=s.units.slice(n);
  own.forEach((u,i)=>Object.assign(u,{x:mirror(side,1200-i*18),y:374,lane:0,pose:'crouch',stanceLockUntil:60,decisionIn:0,pace:1,personalMorale:100,cooldown:1e9,fragCooldown:1e9}));
- const tank=one(s,1-side,'tank',mirror(side,1500),{cooldown:0});watch(tank);refreshVision(s);const starts=own.map(u=>u.x);run(s,6);
+ const tank=one(s,1-side,'tank',mirror(side,1500),{cooldown:0});watch(tank);
+ // A forward observer keeps the fleeing riflemen actually seen throughout
+ // the tank's longer acquisition; no hidden target can bypass fog of war.
+ const observer=one(s,1-side,'scouts',mirror(side,1050));watch(observer);refreshVision(s);const starts=own.map(u=>u.x);run(s,6);
  assert(tank.shots>0,'real enemy shell fire stays lethal');const survivors=own.filter(u=>u.hp>0&&!u.wounded&&!u.surrendered);assert(survivors.length>=2,'the burst does not root all survivors in place');
  assert(survivors.every(u=>(starts[own.indexOf(u)]-u.x)*(side?-1:1)>150&&!u.backpedaling),JSON.stringify(survivors.map(u=>({x:u.x,pose:u.pose,flinch:u.flinchUntil}))));
 });

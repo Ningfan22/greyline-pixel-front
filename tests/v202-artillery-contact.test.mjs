@@ -96,8 +96,8 @@ test('a tank aiming at rear armor cannot mirror its secondary muzzle toward infa
     for(const u of [armor,infantry,observer])u.cooldown=1e9;
     for(const u of s.units)watch(u);
     // Rear armor is beyond tank observation range: use a real spotter and
-    // allow the stationary main gun its normal 1.2-second aiming delay.
-    refreshVision(s);run(s,1.5);
+    // allow the stationary main gun its normal 3-second aiming delay.
+    refreshVision(s);run(s,3.5);
     assert(tank.shots>0,'the main gun really fires at visible rear armor');
     assert.equal(tank.gunFacing,-dir(side),'the main gun owns the actual painted facing');
     assert.equal(tank.secondaryShots,0,'the opposite infantry cannot invent a mirrored machinegun mouth');
