@@ -1,5 +1,8 @@
 import {createElement} from 'react';
 import {createRoot} from 'react-dom/client';
+import ContactMapMarks from '../app/contact-map-marks';
+import {vehicleFuelRatio} from '../game/vehicle-logistics';
+import {snapshot} from '../game/engine';
 import UnitLogisticsFan from '../app/unit-logistics-fan';
 import SquadMenu from '../app/squad-menu';
 import {ordersForUnit} from '../game/squad-orders';
@@ -38,8 +41,8 @@ let mode = 'vehicles',
   phase = 0,
   last = performance.now(),
   facing = 1,
-  camera = 400;
-let state = createGame(215),
+  camera = 400, contactPaintAt=-1;
+let state = createGame(216),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -62,7 +65,7 @@ function scene(next: string) {
   mode = next;
   commandRoot.render(null);
   paused = false;
-  state = createGame(215, undefined, undefined, undefined, { weather: false });
+  state = createGame(216, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -82,7 +85,25 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if(['towhouse','javelinhouse'].includes(next)) {
+  if(['fuelstall','tankaim','rpgheavy','contactmemory'].includes(next)) {
+    camera=650;paused=true;capture=false;contactPaintAt=-1;
+    if(next==='contactmemory') {
+      const observer=spawn(0,'scouts',1000);watch(observer);observer.cooldown=1e9;
+      const n=state.units.length,foot=spawn(1,'infantry',1310);state.units.splice(n+1);watch(foot);foot.cooldown=1e9;foot.fragCooldown=1e9;
+      const tank=spawn(1,'tank',1540);watch(tank);Object.assign(tank,{cooldown:1e9,secondaryCooldown:1e9});actors=[observer,foot,tank];
+    }else {
+      const own=spawn(0,next==='rpgheavy'?'antiarmor':'tank',1000);watch(own);Object.assign(own,{cooldown:0,secondaryCooldown:1e9,fuel:next==='fuelstall'?0:100,logisticsOrder:next==='fuelstall'?'resupply':undefined});
+      const target=spawn(1,'heavy_tank',1510);watch(target);Object.assign(target,{cooldown:1e9,secondaryCooldown:1e9,hp:10000,maxHp:10000,logisticsOrder:'hold'});
+      const observer=spawn(0,'scouts',1050);watch(observer);observer.cooldown=1e9;
+      for(const u of state.units.filter(u=>u.side===0&&u!==own)){watch(u);u.cooldown=1e9;u.fragCooldown=1e9;}
+      actors=[own,target];
+      if(next==='fuelstall'){
+        const close=()=>commandRoot.render(null);
+        commandRoot.render(createElement(UnitLogisticsFan,{unit:own,reason:logisticsAlert(own)!.reason,x:48,y:63,onClose:close,
+          onOrder:order=>{issueLogisticsOrder(state,own.uid,order);close();}}));
+      }
+    }
+  }else if(['towhouse','javelinhouse'].includes(next)) {
     camera=500;paused=true;capture=false;
     state.scenery=createScenery(state.terrain,[{kind:'house',x:1060,seed:215}]);
     const shooter=spawn(0,next==='towhouse'?'tow_ifv':'javelin',720);watch(shooter);shooter.cooldown=0;
@@ -313,9 +334,23 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse'])
+for (const id of ['flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','contactmemory'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
+document.querySelector<HTMLButtonElement>('#losecontact')!.onclick=()=>{
+  if(mode!=='contactmemory')return;
+  for(const u of state.units.filter(u=>u.side===0)){u.x=200;u.squadOrderX=200;}
+  for(const u of actors.slice(1)){u.x+=300;u.squadOrderX=u.x;}
+  state.time+=.01;refreshVision(state);
+};
+document.querySelector<HTMLButtonElement>('#reobserve')!.onclick=()=>{
+  if(mode!=='contactmemory')return;
+  for(const u of state.units.filter(u=>u.side===0)){u.x=1550;u.squadOrderX=1550;}state.time+=.01;refreshVision(state);
+};
+document.querySelector<HTMLButtonElement>('#deliverfuel')!.onclick=()=>{
+  if(mode!=='fuelstall')return;
+  const u=actors[0];state.ammoCrates=[{uid:++state.uid,side:0,x:u.x,stock:1800,maxStock:1800,landAt:state.time,expiresAt:state.time+180}];
+};
 document.querySelector<HTMLButtonElement>('#vehiclewrecks')!.onclick = () => {mode='vehiclewrecks';paused=false;};
 document.querySelector<HTMLButtonElement>('#vehicles')!.onclick = () => { mode='vehicles';paused=false; };
 document.querySelector<HTMLButtonElement>('#capture')!.onclick = () => {capture=true;paused=false;};
@@ -391,6 +426,10 @@ function loop(now: number) {
     if (!paused && mode !== 'fog' && state.time < 50) tick(state, dt);
     if(capture&&state.projectiles.some(p=>p.sourceUid===actors[0]?.uid&&(p.ammunition==='rocket'||['ifvburst','scoutgun','commandgun'].includes(mode))&&Math.hypot(p.x-p.startX,p.y-p.startY)>(['ifvburst','scoutgun','commandgun'].includes(mode)?12:110))){paused=true;capture=false;}
 
+    if(mode==='contactmemory'&&(contactPaintAt<0||state.time-contactPaintAt>=.2||(paused&&contactPaintAt!==state.time))){
+      contactPaintAt=state.time;
+      commandRoot.render(createElement('div',{style:{position:'absolute',left:25,right:25,bottom:40}},createElement('p',{style:{color:'#ebc69a',margin:0,fontSize:12}},'敌军最后观测位置（失去视野后保留）'),createElement('div',{style:{position:'relative',height:32,background:'#344132',border:'1px solid #526049'}},createElement(ContactMapMarks,{contacts:snapshot(state).contacts,time:state.time}))));
+    }
     if (mode === 'fog') state.sight[0].fill(false);
     for (const p of state.projectiles)
       if (p.sourceCardId === 'mlrs' && p.launcherTube !== undefined)
@@ -414,11 +453,11 @@ function loop(now: number) {
       actors
         .map(
           (u) =>
-            `${CARDS[u.id].name}：发射 ${u.shots - (initial.get(u.uid) ?? 0)}${(u.ammo ?? -1) >= 0 ? '，待发 ' + u.ammo + '，备弹 ' + (u.ammoReserve ?? 0) : ''}${(u.reloadingUntil ?? 0) > state.time ? '，装填 ' + Math.ceil(u.reloadingUntil! - state.time) + '秒' : ''}`,
+            `${CARDS[u.id].name}${['fuelstall','tankaim'].includes(mode)?'（燃油'+Math.round(vehicleFuelRatio(u)*100)+'%）':''}：发射 ${u.shots - (initial.get(u.uid) ?? 0)}${(u.ammo ?? -1) >= 0 ? '，待发 ' + u.ammo + '，备弹 ' + (u.ammoReserve ?? 0) : ''}${(u.reloadingUntil ?? 0) > state.time ? '，装填 ' + Math.ceil(u.reloadingUntil! - state.time) + '秒' : ''}`,
         )
         .join(' ｜ ') +
-      (['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
-        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','towhouse','javelinhouse'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
+      (mode==='contactmemory' ? ` | 最后观测记录：${snapshot(state).contacts.map(c=>`${CARDS[c.id!]?.name??'步兵'} @ ${Math.round(c.x)}px`).join('，')} | 当前可见敌军 ${state.units.filter(u=>u.side===1&&visibleToSide(state,0,u)).length}` : ['vision','reconvision'].includes(mode) ? ` | 敌步兵${visibleToSide(state,0,actors[1])?'可见':'未被发现'} · 该飞机${mode==='vision'?'不能揭示树林地面':'提供大范围地面侦察'}`
+        : ['friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy'].includes(mode) ? ' | '+actors.map(u=>`${u.side===0?'我方':'敌方'} HP ${Math.max(0,u.hp).toFixed(1)}，机枪发射${u.secondaryShots}，移动${Math.round(u.x-(starts.get(u.uid)??u.x))}px，${u.logisticsOrder??u.squadOrder??'自主战斗'}`).join(' | ')
         : ['lethality','withdraw','shelter','tankescape'].includes(mode)
         ? ' | '+actors.filter(u=>u.side===0).map(u=>`HP ${Math.max(0,u.hp).toFixed(1)}/${u.maxHp.toFixed(0)}, ${u.pose}, retreat ${Math.round((starts.get(u.uid)??u.x)-u.x)}px, ${u.wounded?'wounded':u.hp<=0?'down':'active'}`).join(' | ')
         : mode === 'wreck'

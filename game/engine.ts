@@ -1,4 +1,5 @@
 import {hasVehicleGun} from './vehicle-gun-layout';
+import { tankAimReady, type TankAim } from './tank-fire-control';
 import { guidedCoverRoute, guidedSegmentIntercept, guidedShotIntercept, type GuidancePoint } from './guided-cover';
 import { smallArmsHitMultiplier, smallArmsAccuracyScale } from './infantry-survival';
 import { infantryGeometry } from './infantry-geometry';
@@ -449,6 +450,9 @@ export interface Unit {
   vehicleReverseHeld?: boolean;
   /** Last genuinely observed contact at the fallback line; brief sight loss is not an advance order. */
   vehicleContactUntil?: number;
+  tankAim?: TankAim;
+  tankMovedAt?: number;
+  withdrawClearSince?: number;
   /** A real coax/sidearm engagement counts as combat even without a primary-weapon target. */
   secondaryCombatUntil?: number;
   minimumRangeThreatUid?: number;
@@ -4799,6 +4803,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     u.withdrawSupportReady = false;
     u.withdrawStandby = false;
     u.withdrawStandbySince = undefined;
+    u.withdrawClearSince = undefined;
     u.withdrawUntil = 0;
     u.withdrawGoal = undefined;
     u.passingLane = undefined;
@@ -4823,6 +4828,7 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   const foe = s.units.find((v) => v.uid === u.withdrawHeavyUid);
   const seen = foe && visibleToSide(s, u.side, foe);
   if (seen) {
+    u.withdrawClearSince=undefined;
     u.withdrawHeavySeenAt = s.time;
     u.withdrawHeavyX = foe.x;
     u.withdrawHeavyY = foe.y - bodyHeight(foe);
@@ -4875,12 +4881,12 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
   } else if (
     u.withdrawHeavyX !== undefined &&
     u.withdrawHeavyY !== undefined &&
-    pointVisible(s, u.side, u.withdrawHeavyX, u.withdrawHeavyY)
+    !(s.groundContacts?.[u.side]??[]).some(c=>c.uid===u.withdrawHeavyUid&&!contactIsStale(s.time,c)) &&
+    pointVisible(s, u.side, u.withdrawHeavyX, ground(s,u.withdrawHeavyX)-6)
   ) {
-    // The remembered position has actually been observed clear, not merely hidden by fog.
-    clear();
-    return;
-  }
+    u.withdrawClearSince??=s.time;
+    if(s.time-u.withdrawClearSince>=1.5){clear();return;}
+  } else u.withdrawClearSince=undefined;
   if (
     (u.withdrawUnderFireUntil ?? 0) > s.time &&
     (u.withdrawGoal === undefined || Math.abs(u.withdrawGoal - u.x) <= 4)
@@ -4899,9 +4905,9 @@ function continueHeavyWithdrawal(s: GameState, u: Unit) {
     return;
   }
   // Lost contact eventually permits a probe. A still-visible tank covering
-  // this lane does not become safe merely because standby lasted 30 seconds.
+  // this lane does not become safe merely because standby lasted 60 seconds.
   if (!seen && (u.withdrawUnderFireUntil ?? 0) <= s.time &&
-      s.time - (u.withdrawStandbySince ?? s.time) > 30) {
+      s.time - (u.withdrawStandbySince ?? s.time) > 60) {
     clear();
     return;
   }
@@ -9031,6 +9037,7 @@ export function tick(s: GameState, dt: number) {
     u.flash = Math.max(0, u.flash - dt);
     u.fire = Math.max(0, u.fire - dt);
     if (u.id === 'mortar' && u.moving) u.mortarSiteShots = 0;
+    if(isBattleTank(u.id)&&u.moving)u.tankMovedAt=s.time;
     u.moving = false;
     if(u.glider){
       stepGlider(s,u,dt,{spawn:spawnUnit,crash:v=>finishDeath(s,v,v.side,'bullet')});
@@ -10611,11 +10618,15 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       const aimedGun = aimedGunSolution(u, tx, ty);
       if (aimedGun) {
-        u.gunElevation = aimedGun.elevation;
+        const oldElevation=u.gunElevation??0;
+        u.gunElevation=isBattleTank(u.id) ? oldElevation+Math.max(-.9*dt,Math.min(.9*dt,aimedGun.elevation-oldElevation)) : aimedGun.elevation;
         u.gunFacing = aimedGun.facing;
       }
+      const tankReady = tankAimReady(u,s.time,target ? `unit:${target.uid}` :
+        coverShot ? `cover:${coverShot.propId}:${coverShot.partId}` : `base:${enemySide}`,tx,ty);
       if (
         u.cooldown <= 0 &&
+        tankReady && (!isBattleTank(u.id)||!aimedGun||Math.abs((u.gunElevation??0)-aimedGun.elevation)<.015) &&
         (!aimedGun || aimedGun.canFire) &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
         (!c.members || (!soldierBusyMoving(u) && !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
@@ -10631,6 +10642,7 @@ export function tick(s: GameState, dt: number) {
         // A deliberate breach round is meant to collide with this surface.
         (coverShot || firingHeight(s, u, tx, ty) !== null)
       ) {
+        if (isBattleTank(u.id) && aimedGun) u.gunElevation=aimedGun.elevation;
         if (c.members && !c.indirect && firingHeight(s, u, tx, ty) === standingMuzzleHeight(u)) {
           // v128: never snap the pose per shot — the peek/cover block owns
           // stance. Keep the exposure window alive across the whole burst and
@@ -10960,6 +10972,10 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
+          !(c.members && order!=='rush' && (s.groundContacts?.[u.side]??[]).some(contact=>
+            !contactIsStale(s.time,contact) && !visibleToSide(s,u.side,contact) &&
+            contact.clearSince===undefined && (contact.x-u.x)*dir>0 &&
+            Math.abs(contact.x-u.x)<=Math.max(360,contact.range??0)+100)) &&
           antiTankGuardGoal === null &&
           // Rocket artillery advances only to the screened rear firing line.
           u.id !== 'mlrs' &&
@@ -11756,6 +11772,7 @@ export function tick(s: GameState, dt: number) {
 }
 export function snapshot(s: GameState, viewer: Side = 0) {
   return {
+    contacts:(s.groundContacts?.[viewer]??[]).map(c=>({...c})),
     ammoCrates: (s.ammoCrates ?? []).filter(c => c.side === viewer || pointVisible(s, viewer, c.x, ground(s, c.x) - 24)).map(c => ({ ...c })),
     campaign: s.campaign ? { ...s.campaign } : null,
     gas: s.comeback?.gas ? { ...s.comeback.gas } : null,

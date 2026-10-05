@@ -71,7 +71,10 @@ export function stepUnitControl(s: GameState, u: Unit, dt: number) {
       const dir = u.patrolDir || u.facing || (u.side === 0 ? 1 : -1);
       u.x += dir * Math.max(36, (c.speed ?? 160) * 0.3) * dt;
       u.facing = dir;
-    } else u.x = vehicleTravelX(u, anchor);
+    } else {
+      const speed=(c.speed??0)*.8*.65;
+      u.x=vehicleTravelX(u,u.x+Math.max(-speed*dt,Math.min(speed*dt,anchor-u.x)));
+    }
   } else if (order === 'retreat' && !c.static) {
     const goal = fixedWingUnit(u)
       ? u.side === 0

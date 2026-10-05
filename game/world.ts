@@ -1,6 +1,7 @@
 import { villageScenerySites, type MapScenerySite } from './maps';
 import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
+import { contactKind, type ContactKind } from './contact-markers';
 import { treeBoxesV17 } from './tree-state-v17';
 import { STRIDE, terrainMinima, heightfieldIntercept } from './terrain-ray';
 import type { GameState, Side, Unit } from './engine';
@@ -26,6 +27,10 @@ export interface GroundContact {
   x: number;
   y: number;
   seenAt: number;
+  id?: Unit['id'];
+  squad?: number;
+  kind?: ContactKind;
+  range?: number;
   clearSince?: number;
 }
 export const CONTACT_CLEAR_CONFIRM_S = 1.5;
@@ -813,7 +818,8 @@ function rememberGroundContacts(s: GameState, side: Side) {
       remembered.delete(u.uid);
       continue;
     }
-    remembered.set(u.uid, {uid:u.uid, side:u.side, x:u.x, y:u.y, seenAt:s.time});
+    remembered.set(u.uid, {uid:u.uid, side:u.side, x:u.x, y:u.y, seenAt:s.time,
+      id:u.id,squad:u.squad,kind:contactKind(u.id),range:CARDS[u.id].range??0});
   }
   for (const c of remembered.values()) {
     if (visibleToSide(s, side, c)) continue;

@@ -2573,11 +2573,11 @@ export function weaponCard(u: { id: CardId; member: number }): Card {
       ? {
           ...c,
           members: 1,
-          damage: 60,
+          damage: 100,
           rate: 5.5,
           range: c.range!,
           radius: 14,
-          armorMultiplier: 1.8,
+          armorMultiplier: 2.4,
           infantryMultiplier: 0.45,
         }
       : {
@@ -3204,3 +3204,15 @@ Object.assign(CARDS.sam_vehicle, {
 Object.assign(CARDS.ifv,{rate:0.12,burstSize:6,burstPause:1.8,
   description:'机炮连续短连射，压制步兵与空中',
   detail:'420生命，射程500。每0.12秒发射一发13伤机炮，连续6发后停1.8秒；逐发消耗弹药，炮管轻微后坐，车体保持稳定，可对空。'});
+
+// v216: infantry can observe beyond its own gun reach; tank crews need spotters.
+for(const id of ['tank','light_tank','heavy_tank'] as CardId[]) {
+  const card=CARDS[id];card.sight=id==='light_tank'?440:id==='heavy_tank'?420:450;
+  card.detail+=' 观察'+card.sight+'，小于主炮射程；新目标先停车稳定、测距瞄准1.2秒再射击，依赖步兵和侦察共享视野。';
+}
+CARDS.antiarmor.sight=780;
+CARDS.antiarmor.armorMultiplier=2.4;
+CARDS.antiarmor.penetrationTier=3;
+CARDS.antiarmor.detail=CARDS.antiarmor.detail!.replace('60伤','100伤').replace('每8.25秒','每5.5秒').replace('观察680','观察780').replace('对甲乘1.8','对甲乘2.4')+' 命中坦克造成240点反甲基础伤害，装甲与命中位置仍影响实伤。';
+for(const card of Object.values(CARDS)) if(card.members && !card.air && !card.internal && !card.airOnly && (card.range??0)>0)
+  card.sight=Math.max(card.sight??0,(card.range??0)+100);

@@ -95,10 +95,11 @@ for (const side of [0, 1]) {
   test(`side ${side}: a dry hull cannot drive on any order but can defend with loaded weapons, then accepts an actual dropped supply`, () => {
     const s = arena(side), u = one(s, side, 'tank', 1200, { fuel: 0, cooldown: 0, secondaryCooldown: 0 });
     if (side === 0) assert(issueLogisticsOrder(s, u.uid, 'resupply'));
-    one(s, 1 - side, 'tank', W - 1650, { squadOrder: 'watch', squadOrderX: position(side, 1650), hp: 1e7, maxHp: 1e7 });
+    one(s, 1 - side, 'tank', W - 1630, { squadOrder: 'watch', squadOrderX: position(side, 1630), hp: 1e7, maxHp: 1e7 });
     refreshVision(s); const x = u.x;
     run(s, .5);
-    assert.equal(u.x, x); assert.equal(u.resupplyState, 'waiting'); assert(u.shots > 0);
+    assert.equal(u.x, x); assert.equal(u.resupplyState, 'waiting'); assert.equal(u.shots, 0, 'main gun must still settle and aim');
+    run(s, 1); assert.equal(u.x, x); assert(u.shots > 0, 'a dry hull can fire after acquiring a visible target');
     u.squadOrder = 'retreat'; u.squadOrderX = x - direction(side) * 200; run(s, .2); assert.equal(u.x, x);
     u.squadOrder = 'watch'; u.squadOrderX = x + direction(side) * 100; run(s, .2); assert.equal(u.x, x);
     s.units = [u]; u.cooldown = 1e9;

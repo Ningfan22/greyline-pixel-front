@@ -1,4 +1,5 @@
 'use client';
+import ContactMapMarks from './contact-map-marks';
 /* eslint-disable jsx-a11y/prefer-tag-over-role -- Custom battlefield meters and the draggable mini-map have explicit accessible roles and keyboard support. */
 import {
   useCallback,
@@ -1628,7 +1629,7 @@ export default function Battle({
               />
             ))}
           {view.units
-            .filter((u) => u.hp > 0)
+            .filter((u) => u.hp > 0 && (u.side===0 || CARDS[u.id].air))
             .map((u) => (
               <i
                 key={u.uid}
@@ -1639,6 +1640,7 @@ export default function Battle({
                 }}
               />
             ))}
+          <ContactMapMarks contacts={view.contacts} time={view.time}/>
           {view.batteryReports?.map((r) => (
             <i
               key={r.uid}
@@ -2053,7 +2055,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v215
+          GREYLINE <i /> 林间前线 · v216
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

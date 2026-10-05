@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {tick,refreshVision,setOrder,CARDS,spawnUnit} from '../game/engine.ts';
 import {tankTargetPriority} from '../game/tank-doctrine.ts';
-import {tankRoleArena} from './fixtures/tank-role-arena.mjs';
+import {tankRoleArena as baseTankRoleArena} from './fixtures/tank-role-arena.mjs';
+// Tanks now depend on allied observation for targets beyond their own sight.
+// The scout remains on this side of the ridge in the blocked-shot scenario.
+function tankRoleArena(...args){
+  const a=baseTankRoleArena(...args);
+  const observer=a.one(a.side,'scouts',a.x+a.dir*50);
+  observer.squadOrder='watch';observer.squadOrderX=observer.x;
+  refreshVision(a.s);return {...a,observer};
+}
 const step=(s,n)=>{for(let i=0;i<n;i++)tick(s,1/60);};
 function firstRound(s,u,seconds=2){
   for(let i=0;i<seconds*60;i++){
@@ -35,8 +43,8 @@ test('nearby armor is preferred, then real tanks reverse to a legal firing dista
   for(const side of [0,1])for(const id of ['light_tank','heavy_tank']){
     const {s,tank,targets,x,dir}=tankRoleArena(id,side);targets.armor.x=x+dir*200;
     assert(tankTargetPriority(tank,targets.armor)<tankTargetPriority(tank,targets.gun));
-    s.units=[tank,targets.armor];setOrder(s,side,'advance');
-    refreshVision(s);const p=firstRound(s,tank,10);
+    s.units=s.units.filter(v=>v.side===side||v===targets.armor);setOrder(s,side,'advance');
+    refreshVision(s);const p=firstRound(s,tank,12);
     assert.equal(p.targetUid,targets.armor.uid);assert.equal(p.ammunition,'ap');
     assert.equal(p.damage,CARDS[id].penetration);
   }
@@ -47,7 +55,7 @@ test('light tanks distinguish launcher operators from rifle escorts and retain o
   assert(tankTargetPriority(tank,vehicle)<tankTargetPriority(tank,targets.launcher));
   assert.equal(firstRound(s,tank).targetUid,vehicle.uid);
   for(const id of ['light_tank','heavy_tank']){
-    const a=tankRoleArena(id);a.s.units=[a.tank,a.targets.armor];refreshVision(a.s);
+    const a=tankRoleArena(id);a.s.units=[a.tank,a.observer,a.targets.armor];refreshVision(a.s);
     assert.equal(firstRound(a.s,a.tank).targetUid,a.targets.armor.uid);
   }
 });
@@ -71,9 +79,11 @@ test('preferences grant neither hidden-target knowledge, blocked shots nor forwa
 test('main-battle guns still finish damaged armor while their coax independently engages infantry',()=>{
   const {s,tank,targets,add}=tankRoleArena(),other=add('heavy_tank',430);
   targets.armor.hp=300;other.hp=950;tank.secondaryCooldown=0;refreshVision(s);
+  // Coax can engage during main-gun ranging; its projectile may have already
+  // impacted by the time the delayed main gun fires.
+  let coax;for(let i=0;i<120&&!coax;i++){tick(s,1/60);coax=s.projectiles.find(p=>p.sourceUid===tank.uid&&p.weapon==='coax'&&[targets.rifle1.uid,targets.rifle2.uid,targets.rifle3.uid,targets.launcher.uid].includes(p.targetUid));}
+  assert(coax);assert([targets.rifle1.uid,targets.rifle2.uid,targets.rifle3.uid,targets.launcher.uid].includes(coax.targetUid));
   assert.equal(firstRound(s,tank).targetUid,targets.armor.uid);
-  const coax=s.projectiles.find(p=>p.sourceUid===tank.uid&&p.weapon==='coax');assert(coax);
-  assert([targets.rifle1.uid,targets.rifle2.uid,targets.rifle3.uid,targets.launcher.uid].includes(coax.targetUid));
 });
 test('AI buys a role suited to visible opposition and hidden armor does not change its choice',()=>{
   for(const [mode,expected]of [['armor','tank'],['budget-armor','light_tank'],['light','light_tank'],['battery','heavy_tank'],['hidden','heavy_tank']]){

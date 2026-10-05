@@ -29,6 +29,7 @@ export function vehicleOutOfFuel(u: Pick<Unit, 'id' | 'fuel'>) {
  * so an idle, blocked, airborne or physically pushed hull burns no fuel here. */
 export function vehicleTravelX(u: Pick<Unit, 'id' | 'x' | 'fuel'>, proposedX: number) {
   if (!hasVehicleFuel(u)) return proposedX;
+  if (vehicleOutOfFuel(u)) { u.fuel=0; return u.x; }
   u.fuel ??= VEHICLE_FUEL_CAPACITY;
   const delta = proposedX - u.x;
   const distance = Math.min(Math.abs(delta), vehicleFuelRatio(u) * VEHICLE_FUEL_RANGE);

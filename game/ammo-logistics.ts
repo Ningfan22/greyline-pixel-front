@@ -110,7 +110,7 @@ export function logisticsAlert(u: Unit) {
   const ammo = ammoLevel <= AMMO_LOW_RATIO;
   const stock = stockLevel <= SUPPLY_CARRY * AMMO_LOW_RATIO;
   if (!fuel && !ammo && !stock && !u.logisticsWarning) return null;
-  const reason = [fuel ? '燃油不足' : '', ammo ? '弹药不足' : '', stock ? '补给储备不足' : ''].filter(Boolean).join(' · ') || '补给尚未补满';
+  const reason = [fuel ? vehicleOutOfFuel(u) ? '燃油耗尽 · 原地等待补给' : '燃油不足' : '', ammo ? '弹药不足' : '', stock ? '补给储备不足' : ''].filter(Boolean).join(' · ') || '补给尚未补满';
   return { fuel, ammo, stock, reason };
 }
 export function logisticsNeedsDecision(u: Unit) {

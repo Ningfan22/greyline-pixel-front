@@ -4,8 +4,9 @@ import { artilleryCrewPose } from './artillery-crew-pose';
 import {drawLogisticsIndicator} from './logistics-indicator';
 import { gliderArtIndex } from './glider';
 import { isPrecisionObserver } from './precision-team';
-import { ammoProfile, logisticsRatio, AMMO_LOW_RATIO } from './ammo-logistics';
-import { hasVehicleFuel } from './vehicle-logistics';
+import { ammoProfile, ammoRatio, logisticsRatio, AMMO_LOW_RATIO } from './ammo-logistics';
+import { hasVehicleFuel, vehicleFuelRatio, vehicleOutOfFuel } from './vehicle-logistics';
+import {contactMarkers,drawContactIcon} from './contact-markers';
 import { infantryGeometry } from './infantry-geometry';
 import { crouchTravelAmount } from './crouch-locomotion';
 import { proneTravelAmount } from './prone-locomotion';
@@ -1086,7 +1087,15 @@ export function render(
       ctx.fillStyle = '#23362dbb';
       ctx.fillRect(u.x - bw / 2, by + 5, bw, 2);
       ctx.fillStyle = ammunitionRatio <= AMMO_LOW_RATIO || u.resupplyState ? '#d49e65' : '#b9b56e';
-      ctx.fillRect(u.x - bw / 2, by + 5, Math.round(bw * Math.max(0, Math.min(1, ammunitionRatio))), 2);
+      if(hasVehicleFuel(u)) {
+        // Two quiet segments in the same line: ammunition left, fuel right.
+        const half=Math.floor((bw-2)/2);
+        ctx.fillStyle=ammoRatio(u)<=AMMO_LOW_RATIO?'#d49e65':'#b9b56e';
+        ctx.fillRect(u.x-bw/2,by+5,Math.round(half*ammoRatio(u)),2);
+        ctx.fillStyle=vehicleFuelRatio(u)<=.5?'#d49e65':'#80b4b0';
+        ctx.fillRect(u.x-bw/2+half+2,by+5,Math.round(half*vehicleFuelRatio(u)),2);
+        if(vehicleOutOfFuel(u)){ctx.font='9px monospace';ctx.fillStyle='#e4b979';ctx.fillText('断油',Math.round(u.x-10),Math.round(by-5));}
+      } else ctx.fillRect(u.x - bw / 2, by + 5, Math.round(bw * Math.max(0, Math.min(1, ammunitionRatio))), 2);
     }
   }
   if (!coverDrawn) drawCoverProps(true);
@@ -1097,6 +1106,11 @@ export function render(
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
   for (const u of sorted) drawLogisticsIndicator(ctx,u);
+  for(const mark of contactMarkers(s.groundContacts?.[0]??[])) {
+    if(mark.uids.some(uid=>visibleToSide(s,0,{uid,side:mark.side}))||mark.x<camera-20||mark.x>camera+viewportWidth+20)continue;
+    const y=mark.y-42;ctx.save();ctx.globalAlpha=.7;ctx.fillStyle='#292e25';ctx.fillRect(Math.round(mark.x-12),Math.round(y-2),24,18);
+    ctx.fillStyle='#d0ac79';drawContactIcon(ctx,mark.kind,mark.x,y,2);ctx.restore();
+  }
   // Muzzle-flash illumination: each active shooter casts a brief warm glow
   // onto the terrain around him. Additive blending makes concurrent fire
   // stack into the flickering ambience of a real firefight.
