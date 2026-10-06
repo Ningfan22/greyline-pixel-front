@@ -1,7 +1,7 @@
 import type { GameState, Side, Unit } from './engine';
 import { CARDS } from './cards';
-import { buildingHull, sceneryIntercept, segmentBox } from './world';
-import { wreckContact, wreckObstacles } from './wreck-geometry';
+import { buildingHull, buildingStage, sceneryIntercept, segmentBox } from './world';
+import { wreckContact } from './wreck-geometry';
 
 export interface GliderFlight {
   landingX: number;
@@ -37,18 +37,13 @@ export function clearGliderLanding(s: GameState,x: number,side: Side) {
   if(hi-lo>20)return false;
   for(const prop of s.scenery){
     if(Math.abs(prop.x-x)>420)continue;
+    if(prop.kind==='house'&&buildingStage(prop)>=2)continue;
     const parts=prop.kind==='house'?buildingHull(prop,px=>floor(s,px)):
       prop.parts.filter(p=>p.hp>0&&p.kind==='trunk');
     if(parts.some(p=>p.x<right&&p.x+p.w>left&&p.h>10))return false;
   }
   for(const wall of s.walls)if(wall.hp>0&&wall.height>10&&wall.x-wall.width/2<right&&wall.x+wall.width/2>left)return false;
-  return !s.wrecks.some(w=>{
-    if(w.falling||CARDS[w.cardId].members)return false;
-    const parts=wreckObstacles(w).filter(b=>b.x<right&&b.x+b.w>left);
-    // A detailed wreck can be many thin contour bands; their individual
-    // rectangle height is not the height of the obstruction on the runway.
-    return parts.length>0&&Math.max(...parts.map(b=>b.y+b.h))-Math.min(...parts.map(b=>b.y))>10;
-  });
+  return true;
 }
 export function gliderLanding(s: GameState,request: number,side: Side): number | null {
   const desired=Math.max(650,Math.min(s.terrain.length-650,request));

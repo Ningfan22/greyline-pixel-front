@@ -26,13 +26,12 @@ for(const side of [0,1]){
   run(s,5,()=>{foes.forEach((u,i)=>{u.x=at(side,1450+(i?(s.time%1<.5?4:0):(s.time%1<.5?0:4)));u.squadOrderX=u.x;});});
   assert(tank.shots>0,'actual shell after the full acquisition');assert(foes.some(u=>u.hp<u.maxHp),'live enemies receive damage');
  });
- test(`side ${side}: shuffling infantry leave dense wrecks under a tree on a traversable slope and resume mutual fire`,()=>{
+ test(`side ${side}: infantry exchange real fire across dense decorative wrecks under a live tree on a slope`,()=>{
   const s=arena();for(let x=1000;x<1900;x++){const px=at(side,x);s.terrain[px]=374+8*Math.sin((x-1000)/250)+2*Math.sin(x/70);}s.original=s.terrain.slice();s.terrainVersion++;
   for(const [i,id] of ['sam_vehicle','scout_car','light_tank'].entries()){const x=at(side,1500+i*65),w={id:++s.uid,cardId:id,side:1-side,x,y:s.terrain[Math.floor(x)],angle:0,age:20,falling:false,vx:0,vy:0,facing:side?-1:1};Object.assign(w,wreckContact(x=>s.terrain[Math.floor(x)],w));s.wrecks.push(w);}
   s.scenery=createScenery(s.terrain,[{kind:'tree',x:at(side,1530),seed:212}]);
   const own=[],foes=[];for(let i=0;i<4;i++){own.push(one(s,side,'infantry',at(side,1460-i*18)));foes.push(one(s,1-side,'infantry',at(side,1530+i*18)));}refreshVision(s);
-  const exited=new Set();run(s,40,()=>{for(const u of [...own,...foes])if(u.wreckEgressX!==undefined)exited.add(u.uid);});
-  assert(exited.size>=4,'movement no longer excludes trapped soldiers');
+  run(s,40,()=>assert([...own,...foes].every(u=>u.wreckEgressX===undefined),'wrecks cannot force an exit that cancels shooting'));
   assert(own.reduce((n,u)=>n+u.shots,0)>0&&foes.reduce((n,u)=>n+u.shots,0)>0,JSON.stringify({own:own.map(u=>[u.x,u.shots,u.hp]),foes:foes.map(u=>[u.x,u.shots,u.hp])}));
   assert([...own,...foes].some(u=>u.hp<u.maxHp),'real projectile impacts, not only muzzle FX');
  });

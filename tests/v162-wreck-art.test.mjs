@@ -72,7 +72,7 @@ test('six remaining complete paintings have clean frame borders and solid cover 
   assert.equal(hashes.size,6);
 });
 
-test('cause-specific wreck cover blocks real rays through metal but not empty sky, mirrored on slopes',()=>{
+test('cause-specific wreck artwork keeps mirrored slope support without blocking combat rays',()=>{
   for(const id of ['tank','heavy_tank'])for(const cause of ['bullet','blast','burn'])for(const facing of [-1,1]){
     const s=createGame(162);startGame(s);s.units=[];s.scenery=[];s.walls=[];
     const w={id:1,cardId:id,cause,x:1500,y:374,angle:0,side:0,facing,falling:false};
@@ -86,7 +86,7 @@ test('cause-specific wreck cover blocks real rays through metal but not empty sk
     w.angle=0;w.y=374;s.wrecks=[w];
     const boxes=wreckObstacles(w),b=boxes.find(b=>b.w>30&&b.y>330);assert(b);
     const x=b.x+b.w/2,y=b.y+b.h/2;
-    assert(sceneryIntercept(s,x-1,y,x+1,y,false,true));
+    assert.equal(sceneryIntercept(s,x-1,y,x+1,y,false,true),null);
     const top=Math.min(...boxes.map(b=>b.y));assert.equal(sceneryIntercept(s,1300,top-8,1700,top-8,false,true),null);
     const mirror=wreckObstacles({...w,facing:-facing});
     assert.equal(mirror.length,boxes.length);

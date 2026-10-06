@@ -1,5 +1,4 @@
 import { villageScenerySites, type MapScenerySite } from './maps';
-import { wreckObstacles } from './wreck-geometry';
 import { CARDS } from './cards';
 import { contactKind, type ContactKind } from './contact-markers';
 import { treeBoxesV17 } from './tree-state-v17';
@@ -323,7 +322,10 @@ export function obstacleBoxes(s: GameState, ignoreProps = false): Obstacle[] {
   const boxes: Obstacle[] = [];
   for (const prop of s.scenery) {
     if (prop.kind === 'house') {
-      boxes.push(...buildingHull(prop, (x) => floorAt(s, x)));
+      // Ruined buildings remain visible artwork, but no longer obstruct
+      // travel, observation, firing positions or projectile paths.
+      if (buildingStage(prop) < 2)
+        boxes.push(...buildingHull(prop, (x) => floorAt(s, x)));
       continue;
     }
     if (
@@ -336,11 +338,6 @@ export function obstacleBoxes(s: GameState, ignoreProps = false): Obstacle[] {
         if (part.hp > 0)
           boxes.push({ ...part, prop, part, foliage: part.kind === 'crown' });
   }
-  for (const wreck of s.wrecks)
-    if (!wreck.falling && !CARDS[wreck.cardId].members) {
-      for (const part of wreckObstacles(wreck))
-        boxes.push({ ...part, wreck, rubble: true });
-    }
   const hardBoxes = boxes.filter((box) => !box.prop);
   geometryCache.set(s, {
     time: s.time,
@@ -351,8 +348,8 @@ export function obstacleBoxes(s: GameState, ignoreProps = false): Obstacle[] {
   });
   return ignoreProps ? hardBoxes : boxes;
 }
-/** Props and wrecks occupy a depth lane, not the full walking corridor.
- * Their separate obstacleBoxes still stop bullets and provide cover.
+/** Standing props occupy a depth lane, not the full walking corridor.
+ * Ruins and vehicle wrecks are presentation only, never combat obstacles.
  * Physical low walls live in GameState.walls and are vaulted explicitly.
  */
 export function traversalBoxes(_s: GameState): Obstacle[] {

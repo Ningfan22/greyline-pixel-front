@@ -53,13 +53,13 @@ test('both sides fly, roll, wait for the door and disembark sequentially; empty 
     drawWreckFire(ctx,s,0,W);drawWreckSmoke(ctx,s,0,W);
   }
 });
-test('clear runway checks terrain, obstacles and hulls; invalid calls keep card and energy',()=>{
+test('clear runway checks terrain and live walls but ignores decorative wrecks; invalid calls keep card and energy',()=>{
   const s=arena();assert.equal(gliderLanding(s,1600,0),1600);
   s.walls=[{x:1600,width:1000,height:60,hp:100,maxHp:100}];
   assert.equal(gliderLanding(s,1600,0),null);const {result,card}=call(s);assert(!result.ok);
   assert.equal(s.players[0].energy,10);assert(s.players[0].hand.includes(card));assert.equal(s.units.length,0);
   s.walls=[];s.terrain[1600]=500;assert(!clearGliderLanding(s,1600,0));s.terrain.fill(374);
-  s.wrecks=[{cardId:'tank',x:1600,y:374,angle:0,side:0}];assert(!clearGliderLanding(s,1600,0));
+  s.wrecks=[{cardId:'tank',x:1600,y:374,angle:0,side:0}];assert(clearGliderLanding(s,1600,0));
 });
 test('interception destroys occupied hull; landed hull is no longer an airborne target',()=>{
   const s=arena(),{u}=call(s,0,2600);

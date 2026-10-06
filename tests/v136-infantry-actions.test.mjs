@@ -127,7 +127,7 @@ test('locked prone shooters reposition instead of accepting a fictitious standin
   }
 });
 
-test('first-half cover clearance includes wrecks, keeps enemy-side cover, and never bypasses soil', () => {
+test('wrecks never intercept either half of a rifle path; soil still blocks', () => {
   for (const side of [0,1]) {
     const s=arena(), mirror=x=>side?W-x:x;
     const p={ammunition:'rifle',startX:mirror(600),startY:350,tx:mirror(1000),ty:350};
@@ -136,7 +136,7 @@ test('first-half cover clearance includes wrecks, keeps enemy-side cover, and ne
     for(let x=600;x<790;x+=5) assert.equal(projectileIntercept(s,p,mirror(x),350,mirror(x+5),350),null);
     wreck.x=mirror(950);
     s.time+=1; // world geometry cache is rebuilt on the next simulation tick
-    assert(projectileIntercept(s,p,mirror(810),350,mirror(1000),350),'distant cover still intercepts');
+    assert.equal(projectileIntercept(s,p,mirror(810),350,mirror(1000),350),null,'even distant wrecks are decorative');
     s.wrecks=[];
     for(let x=660;x<680;x++)s.terrain[mirror(x)]=340;
     s.terrainVersion++;

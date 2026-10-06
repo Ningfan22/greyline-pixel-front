@@ -424,9 +424,6 @@ export interface Unit {
   firingWatchAnchorX?: number;
   /** Consecutive rounds stopped by terrain/scenery, rather than ordinary aim misses. */
   blockedAimSince?: number;
-  wreckBlockedSince?: number;
-  wreckEgressCheckAt?: number;
-  wreckEgressX?: number;
   blockedFireTargetUid?: number;
   blockedFireCount?: number;
   /** A planned firing-position bound may approach a visible contact, but never pass it. */
@@ -3213,9 +3210,8 @@ export function projectileIntercept(
   return hardHit;
 }
 
-/** Solid metal and soil block both directions along the whole shot.
- * Nearby depth scenery still uses its probabilistic cover rule below, but a
- * wreck must never become a one-way firing port for its surviving crew. */
+/** Soil blocks both directions. Vehicle wrecks and ruins are decorative;
+ * standing depth scenery retains its probabilistic cover rule below. */
 function smallArmsRayIntercept(
   s: GameState, sx: number, sy: number, tx: number, ty: number,
 ) {
@@ -4018,80 +4014,6 @@ function clearGroundRoute(s: GameState, from: number, to: number) {
   return true;
 }
 
-/** A wreck is cover, not a permanent home inside a solid hull. Relocation
- * uses real footwork and observed contact spacing; it cannot teleport a crew. */
-function stepWreckEgress(s: GameState, u: Unit, dt: number, wasMoving: boolean) {
-  if (!CARDS[u.id].members || u.garrisonUid !== undefined || u.logisticsOrder === 'hold' ||
-      u.squadOrder === 'hold' || u.squadOrder === 'retreat' || u.motion !== 'ground' || !s.wrecks.length)
-    return false;
-  if (u.wreckEgressX === undefined) {
-    if (s.time - (u.lastCombatShotAt ?? -Infinity) < 1) {
-      u.wreckBlockedSince = undefined;
-      return false;
-    }
-    // A soldier shuffling inside a hull is still trapped. Throttle the check
-    // while allowing normal travelling soldiers time to walk through.
-    if (s.time < (u.wreckEgressCheckAt ?? 0)) return false;
-    u.wreckEgressCheckAt = s.time + .5 + (u.uid % 5) * .03;
-  }
-  const boxes = obstacleBoxes(s);
-  const inside = (x: number, y: number) => boxes.some(box => box.wreck &&
-    x > box.x - 2 && x < box.x + box.w + 2 && y > box.y - 2 && y < box.y + box.h + 2);
-  const buried = (body: Unit) => {
-    const muzzle = muzzlePoint(body, body.x + (body.facing || 1) * 100);
-    return inside(body.x, body.y - muzzleHeight(body)) || inside(muzzle.x, muzzle.y);
-  };
-  if (u.wreckEgressX === undefined) {
-    if (!buried(u)) {
-      u.wreckBlockedSince = undefined;
-      return false;
-    }
-    u.wreckBlockedSince ??= s.time;
-    if (s.time - u.wreckBlockedSince < (wasMoving ? 3 : 1)) return false;
-    const dir = u.side === 0 ? 1 : -1;
-    let best: number | undefined, score = Infinity;
-    for (const box of boxes) {
-      if (!box.wreck) continue;
-      for (const x of [box.x - 60, box.x + box.w + 60]) {
-        const distance = Math.abs(x - u.x);
-        if (distance > 360 || x < 125 || x > W - 125 || !clearGroundRoute(s, u.x, x) ||
-            Math.abs(contactSafeX(s, u, x) - x) > 1) continue;
-        const forecast = { ...u, x, y: ground(s, x), pose: 'idle' as const };
-        if ([1, -1].some(facing => buried({ ...forecast, facing }) ||
-            buried({ ...forecast, facing, pose: 'prone' }))) continue;
-        const cost = distance + ((x - u.x) * dir > 0 ? 60 : 0);
-        if (cost < score) { best = x; score = cost; }
-      }
-    }
-    if (best === undefined) return false;
-    u.wreckEgressX = best;
-  }
-  // A new observed enemy may make a previously legal exit unreachable.
-  // Release that exit so normal combat/withdrawal can choose another action.
-  if (Math.abs(contactSafeX(s, u, u.wreckEgressX) - u.wreckEgressX) > 1) {
-    u.wreckEgressX = undefined;
-    u.wreckBlockedSince = undefined;
-    return false;
-  }
-  const delta = u.wreckEgressX - u.x;
-  if (Math.abs(delta) < 1) {
-    if (u.squadOrder === 'watch') u.squadOrderX = u.x;
-    u.wreckEgressX = undefined;
-    u.wreckBlockedSince = undefined;
-    u.firingGoal = null;
-    u.firingWatchAnchorX = undefined;
-    return false;
-  }
-  u.fire = 0;
-  u.secondaryFire = 0;
-  u.coverGoal = null;
-  u.firingGoal = null;
-  u.pose = setStance(u, s.time, 'walk', { travel: true, firing: true });
-  const speed = CARDS[u.id].speed! * u.pace;
-  moveSoldier(s, u, Math.sign(delta), Math.min(speed, Math.abs(delta) / (dt * .55)), dt);
-  return true;
-}
-
 function blockedContactGap(u: Unit, target: CoverTarget) {
   const c = CARDS[u.id];
   if (c.members) return isAntiTankOperator(u)
@@ -4414,7 +4336,7 @@ function moveSoldier(
   const watchAdjustment = u.firingGoal != null && u.firingWatchAnchorX !== undefined &&
     Math.abs(u.firingGoal - u.firingWatchAnchorX) <= 32;
   if (!dir || speed <= 0 || u.garrisonUid !== undefined || u.logisticsOrder === 'hold' ||
-      (localUnitOrder(s, u) === 'watch' && !watchAdjustment && u.wreckEgressX === undefined) ||
+      (localUnitOrder(s, u) === 'watch' && !watchAdjustment) ||
       (u.motion === 'ground' && stanceTransitionActive(u, s.time))) return;
   // Cover a nearby observed threat while withdrawing. Once clear, turn and
   // march at the same walking pace as an advance instead of shuffling home.
@@ -9284,7 +9206,6 @@ export function tick(s: GameState, dt: number) {
         u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
       }
     }
-    if (u.wreckEgressX !== undefined) desiredPose = 'walk';
     if (heavyEscape(u,s.time)) desiredPose = 'run';
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
@@ -9408,7 +9329,6 @@ export function tick(s: GameState, dt: number) {
         );
       continue;
     }
-    if (resupplyGoal === null && !previousWork.tending && stepWreckEgress(s,u,dt,wasMoving)) continue;
     if (resupplyGoal !== null) {
       u.fire = 0;
       u.secondaryFire = 0;

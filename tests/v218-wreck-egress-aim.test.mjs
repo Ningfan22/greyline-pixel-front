@@ -117,7 +117,7 @@ for (const side of [0, 1])
     ['tank', 3, 1230],
     ['light_tank', 3, 1330],
   ])
-    test(`${side}/${kind}/${count}: buried infantry and a dense advance escape the wreck contact deadlock`, () => {
+    test(`${side}/${kind}/${count}: dense troops engage across decorative wrecks and continue after defeating the defender`, () => {
       const { s, tank, foe, foot } = dense(side, kind, count, enemyX);
       let prior = new Map(s.units.map((u) => [u.uid, u.x])),
         enemyWalk = 0;
@@ -154,8 +154,8 @@ for (const side of [0, 1])
         'tank resumes the same battle beyond the wreck',
       );
       assert(
-        enemyWalk > 20,
-        'defender leaves the obstructed hull with real movement',
+        enemyWalk <= 32,
+        'a watch defender does not invent an exit from decorative wrecks',
       );
     });
 for (const side of [0, 1])

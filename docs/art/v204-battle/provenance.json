@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2594.779,
+  "compileMs": 2435.641833,
   "canvasesCreated": 633,
   "frames": 459,
   "compilerSources": [
@@ -121,7 +121,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "5901874dbfa3218e16e5a2c276794e7c5d33ff52d7182a3a46db00a4a540b51e"
+      "sha256": "eb0aff199a2495bfc50ae9bbcca0a5e337727f34d5eea05d209b23bfdc345e08"
     },
     {
       "path": "game/battlefield-effects-art.ts",
@@ -445,14 +445,14 @@
       "sha256": "2df041e48da655033a3cd6996df0d9b96bb579b275250cb8cce700d96b505173"
     },
     {
-      "path": "/art/v209-vehicles-missiles/scout-wreck.png",
-      "bytes": 1241246,
-      "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
-    },
-    {
       "path": "/art/v209-vehicles-missiles/sam-wreck.png",
       "bytes": 1639328,
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
+    },
+    {
+      "path": "/art/v209-vehicles-missiles/scout-wreck.png",
+      "bytes": 1241246,
+      "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
     },
     {
       "path": "/art/battlefield-v3.png",
