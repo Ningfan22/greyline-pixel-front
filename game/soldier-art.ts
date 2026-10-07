@@ -241,26 +241,32 @@ export function soldierFrame(art:SoldierArt,u:SoldierBody,time:number) {
   return {image:frame,pose,anchorY:SOLDIER_FRAME.anchorY};
 }
 
-function paintFrame(frame:HTMLCanvasElement,art:SoldierArt,pose:SoldierPose) {
-  const ctx=context(frame);
+function paintFrame(frame:HTMLCanvasElement,art:SoldierArt,pose:SoldierPose,readbackFree=false) {
+  const ctx=readbackFree?frame.getContext('2d')!:context(frame);
   ctx.clearRect(0,0,frame.width,frame.height);
   ctx.save();ctx.translate(SOLDIER_FRAME.anchorX,SOLDIER_FRAME.anchorY);
   paintSoldier(ctx,art,pose);ctx.restore();
-  const d=ctx.getImageData(0,0,frame.width,frame.height);
-  for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
-  ctx.putImageData(d,0,0);
+  // The small-screen renderer keeps the native nearest-neighbour rotated
+  // sprite edges. Its live pose stays GPU-backed, with no per-actor readback.
+  // Full hard-alpha export/desktop rasters retain their exact previous pixels.
+  if(!readbackFree){
+    const d=ctx.getImageData(0,0,frame.width,frame.height);
+    for(let i=3;i<d.data.length;i+=4)d.data[i]=d.data[i]>127?255:0;
+    ctx.putImageData(d,0,0);
+  }
 }
 type ActorRaster={image:HTMLCanvasElement;key:string;version:number};
 const actorRasters=new WeakMap<SoldierArt,WeakMap<object,Map<number,ActorRaster>>>();
 /** Renderer-only raster. Draw it immediately: the same actor owns and reuses
  * this canvas on subsequent frames. Different actors and crew slots never
  * share mutable pixels. The public soldierFrame API remains immutable. */
-export function actorSoldierFrame(art:SoldierArt,owner:object,u:SoldierBody,time:number,slot=0) {
+export function actorSoldierFrame(art:SoldierArt,owner:object,u:SoldierBody,time:number,slot=0,readbackFree=false) {
   const pose=soldierPose(u,time);
-  return actorSoldierPoseFrame(art,owner,pose,slot);
+  return actorSoldierPoseFrame(art,owner,pose,slot,readbackFree);
 }
 /** Crew actions provide a rig pose while retaining the same bounded raster cache. */
-export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPose,slot=0) {
+export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPose,slot=0,readbackFree=false) {
+  const rasterSlot=slot*2+(readbackFree?1:0);
   // Include phase and full precision: ankle rotation also depends on phase.
   // This is an exact unchanged-pose check, not an animation frame-rate cap.
   const key=JSON.stringify(pose);
@@ -268,13 +274,13 @@ export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPo
   if(!actors){actors=new WeakMap();actorRasters.set(art,actors);}
   let slots=actors.get(owner);
   if(!slots){slots=new Map();actors.set(owner,slots);}
-  let entry=slots.get(slot);
+  let entry=slots.get(rasterSlot);
   if(!entry){
     entry={image:make(SOLDIER_FRAME.width,SOLDIER_FRAME.height),key:'',version:0};
-    slots.set(slot,entry);
+    slots.set(rasterSlot,entry);
   }
   if(entry.key!==key){
-    paintFrame(entry.image,art,pose);entry.key=key;entry.version++;
+    paintFrame(entry.image,art,pose,readbackFree);entry.key=key;entry.version++;
   }
   return {image:entry.image,pose,anchorY:SOLDIER_FRAME.anchorY,version:entry.version};
 }

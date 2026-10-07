@@ -4287,7 +4287,7 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
       ? 105
       : 150;
   let limit = proposedX;
-  for (const enemy of s.units) {
+  for (const enemy of nearUnits(s, u.x, Math.abs(proposedX - u.x) + gap, contactNearScratch)) {
     if (enemy.side === u.side || !isCombatant(enemy) || CARDS[enemy.id].air ||
         enemy.rappelling || enemy.parachuting || (enemy.x - u.x) * dir < 0 ||
         (enemy.x - u.x) * dir > Math.abs(proposedX - u.x) + gap ||
@@ -4358,7 +4358,7 @@ function moveSoldier(
   const coverFacing = threat ? Math.sign(threat.x - u.x) : 0;
   const backpedal = !!coverFacing && coverFacing !== dir;
   speed = (baseward && !escape ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * (backpedal ? 0.65 : 1) : speed) * 0.55;
-  if (s.units.some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
+  if (nearUnits(s, u.x, 42, contactNearScratch).some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
@@ -8336,6 +8336,7 @@ const tacticNearScratch: Unit[] = [];
 const tacticOutScratch: Unit[] = [];
 const coverNearScratch: Unit[] = [];
 const scanNearScratch: Unit[] = [];
+const contactNearScratch: Unit[] = [];
 const ammoNearScratch: Unit[] = [];
 
 /**
@@ -8432,7 +8433,12 @@ export function tick(s: GameState, dt: number) {
   const soldierPositions=new Map<number,{x:number;y:number;lane:number;facing:number;pose:SoldierPose}>();
   for(const u of s.units)if(CARDS[u.id].members){
     u.gaitPhase??=u.walk;
-    soldierPositions.set(u.uid,{x:u.x,y:u.y,lane:u.lane,facing:u.facing,pose:soldierPose(u,s.time)});
+    // Most soldiers keep their facing. Capture the old state, but solve its
+    // complete historical skeleton only when a turn actually needs it.
+    const body={...u,soldierTurn:u.soldierTurn?{...u.soldierTurn}:undefined},at=s.time;
+    let pose:SoldierPose|undefined;
+    soldierPositions.set(u.uid,{x:u.x,y:u.y,lane:u.lane,facing:u.facing,
+      get pose(){return pose??=soldierPose(body,at);}});
   }
   for (const u of s.units)
     if (CARDS[u.id].air)

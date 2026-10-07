@@ -5,7 +5,8 @@ import {fileURLToPath} from 'node:url';
 import {statSync} from 'node:fs';
 const {createCanvas, Image} = createRequire(import.meta.url)('@napi-rs/canvas');
 const requests = [], failures = new Set();
-globalThis.document = {createElement: () => createCanvas(1, 1)};
+const firstContexts=new WeakMap();
+globalThis.document = {createElement: () => {const canvas=createCanvas(1,1),original=canvas.getContext.bind(canvas);canvas.getContext=(type,options)=>{if(!firstContexts.has(canvas))firstContexts.set(canvas,options);return original(type,options);};return canvas;}};
 globalThis.Image = class extends Image {
   set src(path) {
     requests.push(path);
@@ -34,6 +35,9 @@ test('baked load retries only a failed atlas and preserves every final source pi
   const start = performance.now();
   const baked = await loadBakedBattleArt();
   const restoreMs = performance.now() - start;
+  for(const parts of Object.values(baked.soldiers.bodies))for(const frame of Object.values(parts))assert.equal(firstContexts.get(frame)?.willReadFrequently,true,'baked body pieces must match original CPU compositor sources');
+  for(const frame of Object.values(baked.soldiers.equipment))assert.equal(firstContexts.get(frame)?.willReadFrequently,true);
+  assert(!firstContexts.get(baked.vehicles[0][0])?.willReadFrequently,'vehicle imagery keeps its GPU drawing path');
   stop();
   assert.equal(requests.filter(path => path === BAKED_BATTLE_ART.atlases[0].path).length, 1);
   assert.equal(requests.filter(path => path === failedPath).length, 2);

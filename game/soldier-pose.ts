@@ -403,7 +403,7 @@ export function soldierStride(u:SoldierBody,low=stanceHeightClass(u.pose)==='pro
   const run=clamp(u.gaitRun??(u.pose==='run'||u.tactic==='retreat'?1:0));
   return low>=1?mix(8.5,3.5,smooth(low-1)):mix(12.5+run*.5,8.5,smooth(low));
 }
-function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready',settled=false):SoldierBodyPose {
+function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready',settled=false,unplanted=false):SoldierBodyPose {
   const weapon=soldierWeapon(u);
   let stance=soldierStance(u,time,settled),hip=stance.hip,lean=stance.lean;
   const phase=(u.gaitPhase??u.walk??0)*Math.PI/4;
@@ -504,9 +504,10 @@ function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready'
     };
     leg(hip,nearLeg,phase,false);leg(add(hip,[-1,0]),farLeg,phase+Math.PI,true);
   }
-  return turnSoldierBody(groundSoldierBody({hip,neck,shoulder,head:add(neck,[1,2]),headAngle:stance.low>1.5?.10:lean*.2,
+  const body={hip,neck,shoulder,head:add(neck,[1,2]),headAngle:stance.low>1.5?.10:lean*.2,
     nearKnee:nearLeg.joint,farKnee:farLeg.joint,nearFoot:nearLeg.end,farFoot:farLeg.end,
-    phase,travel,low:stance.low},u.soldierGround),u,time);
+    phase,travel,low:stance.low};
+  return unplanted ? body : turnSoldierBody(groundSoldierBody(body,u.soldierGround),u,time);
 }
 function mountedWeapon(u:SoldierBody,body:SoldierBodyPose,time?:number,settled=false){
   const ready=settled?(u.rappelling||u.parachuting||u.wounded||u.surrendered?0:1):soldierAimWeight(u,time);
@@ -668,7 +669,12 @@ export function updateSoldierGround(u:Unit,floor:(x:number)=>number,time:number,
     if(old){old.weight=clamp(old.weight-dt/.12);if(old.weight===0)u.soldierGround=undefined;}
     return;
   }
-  const p=soldierPose({...u,soldierGround:undefined,soldierTurn:undefined},time),facing=u.facing||1;
+  const action=actionFor(u,time);
+  // Planting needs hips and boots, not gun sockets, arm IK or head aiming.
+  // Transitions which blend a full historical pose keep their original path.
+  const historical=action==='casualty'||action==='surrender'||u.soldierRise||u.soldierLanding;
+  const p=historical?soldierPose({...u,soldierGround:undefined,soldierTurn:undefined},time)
+    :soldierBodyPose(u,time,action,false,true),facing=u.facing||1;
   const near=floor(u.x+p.nearFoot[0]*facing)-u.y,far=floor(u.x+p.farFoot[0]*facing)-u.y;
   const hip=floor(u.x+p.hip[0]*facing)-u.y;
   // At sprint speed a swinging foot crosses sloped ground faster than a

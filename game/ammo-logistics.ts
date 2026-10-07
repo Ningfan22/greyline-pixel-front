@@ -67,8 +67,11 @@ export function ammoSummary(u: Pick<Unit, 'id' | 'member' | 'ammo' | 'ammoReserv
     });
 }
 export function ammoRatio(u: Unit) {
-  const rows = ammoSummary(u);
-  return rows.length ? Math.min(...rows.map((row) => row.ratio)) : 1;
+  const {primary, secondary} = ammoProfile(u);
+  let ratio = Infinity;
+  if(primary) ratio = (Math.max(0,u.ammo ?? primary.mag) + Math.max(0,u.ammoReserve ?? primary.reserve)) / (primary.mag + primary.reserve);
+  if(secondary) ratio = Math.min(ratio,(Math.max(0,u.secondaryAmmo ?? secondary.mag) + Math.max(0,u.secondaryAmmoReserve ?? secondary.reserve)) / (secondary.mag + secondary.reserve));
+  return ratio === Infinity ? 1 : ratio;
 }
 export function logisticsRatio(u: Unit) {
   return Math.min(ammoRatio(u), vehicleFuelRatio(u),supplyStockRatio(u));
@@ -119,6 +122,15 @@ export function logisticsAlert(u: Unit) {
 export function logisticsNeedsDecision(u: Unit) {
   return !!logisticsAlert(u) && !u.logisticsOrder;
 }
+const supplierCache=new WeakMap<GameState,{units:Unit[];length:number;at:number;suppliers:Unit[]}>();
+function suppliers(s:GameState) {
+  let cache=supplierCache.get(s);
+  if(!cache||cache.units!==s.units||cache.length!==s.units.length||cache.at!==s.time){
+    cache={units:s.units,length:s.units.length,at:s.time,suppliers:s.units.filter(v=>supplyCapacity(v)>0)};
+    supplierCache.set(s,cache);
+  }
+  return cache.suppliers;
+}
 function sources(s: GameState, u: Unit): Source[] {
   const neededCosts = ammoSummary(u).filter(row => row.total < row.maxTotal)
     .map(row => roundCost(u, row.channel === 'secondary'));
@@ -127,7 +139,7 @@ function sources(s: GameState, u: Unit): Source[] {
   const base = { x: u.side === 0 ? 110 : s.terrain.length - 110, radius: 140, base: true };
   return [base,
     ...(s.ammoCrates ?? []).filter((c) => c.side === u.side && c.landAt <= s.time && c.expiresAt > s.time && c.stock >= minimumCost).map((crate) => ({ x: crate.x, radius: AMMO_CRATE_RADIUS, stock: crate.stock, crate })),
-    ...s.units.filter((v) => v !== u && v.side === u.side && supplyCapacity(v)>0 && living(v) && (v.supplyStock ?? supplyCapacity(v)) >= minimumCost && !v.resupplyState).map((unit) => ({ x: unit.x, radius: unit.id==='supply_truck'?180:120, stock: unit.supplyStock ?? supplyCapacity(unit), unit }))];
+    ...suppliers(s).filter((v) => v !== u && v.side === u.side && living(v) && (v.supplyStock ?? supplyCapacity(v)) >= minimumCost && !v.resupplyState).map((unit) => ({ x: unit.x, radius: unit.id==='supply_truck'?180:120, stock: unit.supplyStock ?? supplyCapacity(unit), unit }))];
 }
 function roundCost(u: Unit, secondary: boolean) {
   if (secondary) return 1;
@@ -189,6 +201,13 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   const needsStock=capacity>0&&u.supplyStock!<=capacity*AMMO_LOW_RATIO;
   if(capacity&&Math.abs(u.x-baseX)<=140)u.supplyStock=Math.min(capacity,u.supplyStock!+dt*(u.id==='supply_truck'?150:80));
   if(u.id==='supply_team'&&u.supplyStock!<capacity){const truck=s.units.find(v=>v!==u&&v.side===u.side&&v.id==='supply_truck'&&living(v)&&Math.abs(v.x-u.x)<=180&&(v.supplyStock??0)>0);if(truck){const give=Math.min(capacity-u.supplyStock!,truck.supplyStock!,dt*40);u.supplyStock!+=give;truck.supplyStock!-=give;}}
+  // A full load has nothing to transfer or plan. Keep live refill scans for
+  // partially supplied units; an explicit return order still completes below.
+  if (!u.resupplyState && !u.logisticsOrder && fullySupplied(u)) {
+    u.logisticsWarning = undefined;
+    u.resupplyGoal = undefined; u.resupplyReturnX = undefined;
+    return null;
+  }
   let available = sources(s, u);
   if (logisticsAlert(u)) u.logisticsWarning = true;
   // An old automatic retreat or a previous resupply choice must never override

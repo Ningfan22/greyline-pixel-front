@@ -45,11 +45,22 @@ export async function loadBakedBattleArt(): Promise<SharedBattleArt> {
     Promise.all(manifest.external.map(async path => [path, await imageAt(path)] as const)),
   ]);
   const imageMap = new Map(externals), frames: HTMLCanvasElement[] = [];
+  // The live soldier compositor resolves hard pixel alpha on a CPU raster.
+  // Its source parts must share that backing, as the original soldierArt
+  // compiler does. GPU-backed baked parts forced readback on every pose.
+  const soldierFrames = new Set<number>();
+  function collectSoldierFrames(value:unknown) {
+    if(!value || typeof value !== 'object')return;
+    const object=value as Record<string,unknown>;
+    if('$frame' in object){soldierFrames.add(object.$frame as number);return;}
+    for(const entry of Object.values(object))collectSoldierFrames(entry);
+  }
+  collectSoldierFrames((manifest.graph as Record<string,unknown>).soldiers);
   report('prepare', 0, manifest.frames.length);
   for (let index = 0; index < manifest.frames.length; index++) {
     const [page, x, y, width, height] = manifest.frames[index];
     const frame = document.createElement('canvas'); frame.width = width; frame.height = height;
-    const context = frame.getContext('2d')!;
+    const context = frame.getContext('2d', soldierFrames.has(index) ? {willReadFrequently:true} : undefined)!;
     context.imageSmoothingEnabled = false;
     context.drawImage(atlases[page], x, y, width, height, 0, 0, width, height);
     frames.push(frame);

@@ -154,3 +154,17 @@ test('mutable filtered sprites refresh on version or decay changes with one outp
   }
   assert.equal(canvasCreates,before+1,'pose and decay history must not grow filtered canvas storage');
 });
+
+
+test('small-screen live rasters keep the exact rig and parts without per-pose readback',()=>{
+ const art=artFixture(),owner={},u=body({pose:'walk',moving:true,gaitWeight:1,gaitPhase:1.1});
+ const hard=actorSoldierFrame(art,owner,u,10),fast=actorSoldierFrame(art,owner,u,10,0,true);
+ assert.notEqual(hard.image,fast.image);assert.deepEqual(fast.pose,hard.pose);
+ assert.equal(operations.get(fast.image).putImageData,0,'no alpha read/resolve/upload on the mobile path');
+ const source=rgba(fast.image),canonical=rgba(hard.image);let opaque=0,matched=0;
+ for(let i=3;i<source.length;i+=4)if(source[i]===255&&canonical[i]===255){opaque++;if(source[i-1]===canonical[i-1]&&source[i-2]===canonical[i-2]&&source[i-3]===canonical[i-3])matched++;}
+ assert(opaque>400);assert(matched/opaque>.97,'all opaque source pixels retain their palette');
+ const allocations=canvasCreates;
+ for(let i=0;i<80;i++){const frame=actorSoldierFrame(art,owner,{...u,gaitPhase:i*.23},10+i/30,0,true);assert.equal(frame.image,fast.image);assert.equal(operations.get(frame.image).putImageData,0);}
+ assert.equal(canvasCreates,allocations);assert(rgba(hard.image).equals(canonical),'mobile painting cannot mutate a hard-alpha export');
+});

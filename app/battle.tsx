@@ -1,4 +1,5 @@
 'use client';
+import {BattleFrameBudget} from '../game/battle-frame-budget';
 import ContactMapMarks from './contact-map-marks';
 /* eslint-disable jsx-a11y/prefer-tag-over-role -- Custom battlefield meters and the draggable mini-map have explicit accessible roles and keyboard support. */
 import {
@@ -510,17 +511,23 @@ export default function Battle({
       });
     const ctx = canvas.current!.getContext('2d')!;
     let raf = 0,
-      last = performance.now(),
       lastView = 0,
       accumulator = 0;
     const reduced = window.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
+    const budget = new BattleFrameBudget();
+    const mobileDisplay = window.matchMedia('(max-width: 900px), (pointer: coarse)');
     const frame = (now: number) => {
       if (stopped) return;
+      if(document.hidden || portraitGate.current) {
+        budget.reset(now); accumulator = 0;
+        raf = requestAnimationFrame(frame); return;
+      }
+      const dt = budget.take(now, mobileDisplay.matches);
+      if(dt === null){raf = requestAnimationFrame(frame); return;}
+      const workStarted = performance.now();
       const s = game.current!;
-      const dt = (now - last) / 1000;
-      last = now;
       if (keys.current.has('a'))
         camera.current = Math.max(0, camera.current - dt * 650);
       if (keys.current.has('d'))
@@ -553,6 +560,7 @@ export default function Battle({
           camera.current,
           viewport.current,
           selectedSquadRef.current,
+          mobileDisplay.matches || budget.fps === 20,
         );
       audio.current?.update(
         s,
@@ -569,6 +577,7 @@ export default function Battle({
         setCameraView(camera.current);
         lastView = now;
       }
+      budget.record(now, performance.now() - workStarted);
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -587,7 +596,8 @@ export default function Battle({
     const el = canvas.current!;
     el.addEventListener('wheel', wheel, { passive: false });
     const visibility = () => {
-      last = performance.now();
+      budget.reset(performance.now());
+      accumulator = 0;
       keys.current.clear();
       if (document.hidden) audio.current?.setActive(false);
       if (document.hidden && game.current!.status === 'playing') {
@@ -2057,7 +2067,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v224
+          GREYLINE <i /> 林间前线 · v225
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}

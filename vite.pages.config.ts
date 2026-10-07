@@ -20,6 +20,7 @@ export default defineConfig({
         index: fileURLToPath(
           new URL('./static-app/index.html', import.meta.url),
         ),
+        performance: fileURLToPath(new URL('./static-app/qa-performance.html', import.meta.url)),
         weapons: fileURLToPath(
           new URL('./static-app/qa-weapons.html', import.meta.url),
         ),
