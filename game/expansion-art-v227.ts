@@ -6,7 +6,7 @@ const LAYOUT:Record<string,{aspect:number;pivot:[number,number]}>={
  mortar_60:{aspect:0.5346,pivot:[.30,.75]},mortar_81:{aspect:0.6108,pivot:[.30,.76]},mortar_120:{aspect:0.4224,pivot:[.35,.68]},
  howitzer_105:{aspect:0.3511,pivot:[.76,.24]},howitzer_120:{aspect:0.3178,pivot:[.70,.26]},howitzer_122:{aspect:0.3577,pivot:[.74,.22]},
  howitzer_152:{aspect:0.3947,pivot:[.74,.21]},howitzer_155:{aspect:0.3043,pivot:[.68,.23]},howitzer_203:{aspect:0.3124,pivot:[.69,.21]},field_gun_85:{aspect:0.4357,pivot:[.74,.24]},
- sp_howitzer_122:{aspect:0.4608,pivot:[.68,.34]},sp_howitzer_155:{aspect:0.5603,pivot:[.65,.43]},
+ sp_howitzer_122:{aspect:0.4608,pivot:[.63,.283]},sp_howitzer_155:{aspect:0.5603,pivot:[.658,.378]},
 };
 export function expansionGunLayout(id:CardId){
  const a=LAYOUT[id];if(!a)return null;
@@ -27,9 +27,9 @@ export function expansionGunParts(id:CardId,bodySource:HTMLImageElement,barrelSo
  if(id==='mortar_60'||id==='mortar_120'){b.translate(a.bodyWidth,0);b.scale(-1,1);}
  b.drawImage(bodySource,0,0,a.bodyWidth,a.bodyHeight);
  if(a.fixedTube)return {body,barrel:surface(1,1),barrelPivot:[0,0],sourceElevation:0};
- const width=Math.round(a.barrelLength/ .90),height=Math.max(3,Math.round(width*barrelSource.height/barrelSource.width));
+ const width=Math.round(a.barrelLength/ (id.startsWith('sp_')?.86:.90)),height=Math.max(3,Math.round(width*barrelSource.height/barrelSource.width));
  const barrel=surface(width,height),c=barrel.getContext('2d')!;c.imageSmoothingEnabled=false;c.drawImage(barrelSource,0,0,width,height);
- return {body,barrel,barrelPivot:[width*.10,height/2],sourceElevation:0};
+ return {body,barrel,barrelPivot:[width*(id.startsWith('sp_')?.14:.10),height/2],sourceElevation:0,barrelBehindBody:id.startsWith('sp_')};
 }
 /** Remove only transparent padding from imported authored fort pixels. */
 export function groundedFortSprite(source:HTMLImageElement,width:number,height:number){

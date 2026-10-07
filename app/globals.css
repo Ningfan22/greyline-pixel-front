@@ -6434,3 +6434,6 @@ body:has(.game-shell.touch-battle) {
 /* Keep card values readable even if the image frame cannot be fetched. */
 .printed-card-fallback {border:3px solid #94886b;background:#3c4436;}
 .printed-card-fallback::after {content:'';position:absolute;left:2%;right:2%;top:69%;bottom:2%;background:#d9ceb0;z-index:-1;}
+
+/* Paper remains readable while artwork arrives. */
+.printed-card{background:linear-gradient(to bottom,#293328 0 69%,#d5cab0 69% 100%);border-radius:8px;}

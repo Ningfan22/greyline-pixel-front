@@ -9,14 +9,15 @@ import { rarityOf } from './collection';
 import { cardPicturePath } from './card-picture-path';
 import { CARD_IMAGE_VARIANTS } from './card-image-data';
 export const cardPictureUrl = (id: CardId) => assetUrl(cardPicturePath(id));
-export function cardImageSources(path: string) {
+export function cardImageSources(path: string, detail = false) {
   const entries = (
     CARD_IMAGE_VARIANTS as Record<string, { path: string; width: number }[]>
   )[path];
-  return entries
+  const choices=entries?.filter(v=>detail||v.width<=320);
+  return choices?.length
     ? {
-        src: assetUrl(entries[0].path),
-        srcSet: entries
+        src: assetUrl(choices[0].path),
+        srcSet: choices
           .map((v) => `${assetUrl(v.path)} ${v.width}w`)
           .join(', '),
       }
@@ -84,13 +85,14 @@ export const CardFace = memo(function CardFace({
   const [frameOriginal,setFrameOriginal]=useState(false);
   const [frameFailed,setFrameFailed]=useState(false);
   const rarity = rarityOf(id);
-  const picture = cardImageSources(cardPicturePath(id)),
+  const detail=className.includes('detail-card');
+  const picture = cardImageSources(cardPicturePath(id),detail),
     frame = cardImageSources(
       rarity === 'common'
         ? '/art/cards-v10/frame.webp'
-        : `/art/cards-v10/frame-${rarity}.webp`,
+        : `/art/cards-v10/frame-${rarity}.webp`,detail,
     );
-  const imageSizes = eager
+  const imageSizes = detail ? '(max-width: 600px) 280px, 360px' : eager
     ? '(max-width: 600px) 100px, 160px'
     : '(max-width: 600px) 160px, 240px';
   const nameLen = c.name.length;
@@ -114,6 +116,7 @@ export const CardFace = memo(function CardFace({
         alt=""
         aria-hidden="true"
         decoding="async"
+        loading={eager ? 'eager' : 'lazy'}
         draggable={false}
       />
       <img
@@ -187,16 +190,20 @@ export function preloadCardFaces(ids: readonly CardId[]) {
       (id) => `/art/cards-v10/${id}.webp`,
     ),
   ];
-  for (const path of paths) {
-    const sources = cardImageSources(path);
-    if (warming.has(sources.src)) continue;
-    warming.add(sources.src);
-    const image = new Image();
-    image.decoding = 'async';
-    image.fetchPriority = 'low';
-    image.sizes = '(max-width: 600px) 100px, 160px';
-    if (sources.srcSet) image.srcset = sources.srcSet;
-    image.onerror = () => warming.delete(sources.src);
-    image.src = sources.src;
+  const queue=paths.filter(path=>!warming.has(cardImageSources(path).src));
+  async function worker(){
+    for(let path=queue.shift();path;path=queue.shift()){
+      const sources=cardImageSources(path);
+      if(warming.has(sources.src))continue;
+      warming.add(sources.src);
+      await new Promise<void>(resolve=>{
+        const image=new Image();image.decoding='async';image.fetchPriority='low';
+        image.sizes='(max-width: 600px) 100px, 160px';
+        image.onload=()=>resolve();image.onerror=()=>{warming.delete(sources.src);resolve();};
+        if(sources.srcSet)image.srcset=sources.srcSet;
+        image.src=sources.src;
+      });
+    }
   }
+  void worker();void worker();
 }

@@ -9,6 +9,8 @@ export function battleArtPath(source: string) {
 function imageAt(path: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    image.fetchPriority = 'low';
+    image.decoding = 'async';
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`无法加载 ${path}`));
     image.src = assetUrl(path);

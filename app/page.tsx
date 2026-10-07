@@ -91,22 +91,18 @@ export default function Home() {
     };
   }, []);
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || page !== 'home') return;
     // Paint the lobby first, then use its idle time to fetch the same compact
     // resources the battle will await. Failures remain retryable on entry.
     const warm = () => {void loadBattleArt(mapId).catch(() => {});};
-    if (typeof window.requestIdleCallback === 'function') {
-      const id = window.requestIdleCallback(warm, {timeout: 1200});
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(warm, 400);
+    const id = window.setTimeout(warm, 5000);
     return () => window.clearTimeout(id);
-  }, [loaded, mapId]);
+  }, [loaded, mapId, page]);
   useEffect(()=>{
-    if(!loaded)return;
-    const id=window.setTimeout(()=>preloadCardFaces(deck),600);
+    if(!loaded||page!=='home')return;
+    const id=window.setTimeout(()=>preloadCardFaces(deck),2500);
     return ()=>window.clearTimeout(id);
-  },[loaded,deck]);
+  },[loaded,deck,page]);
   const save = (next: CardId[]) => {
     if (!collection) return '收藏仍在加载，请稍候';
     if (!validDeckWithCollection(next, collection))

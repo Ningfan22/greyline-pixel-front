@@ -30,12 +30,12 @@ for (const path of paths) {
   variants[path] = [];
   const vehicleId = path.startsWith('/art/v223-vehicles/') ? stem : null,
     crop = vehicleId ? VEHICLE_CROPS_V223[vehicleId] : null;
-  for (const width of [384, 640]) {
+  for (const width of [192, 320, 640]) {
     let picture = sharp(original);
     if (crop) picture = picture.extract({ left: crop[0], top: crop[1], width: crop[2], height: crop[3] });
     const encoded = await picture
       .resize({ width, withoutEnlargement: true, kernel: 'nearest' })
-      .webp({ quality: 85, alphaQuality: 100, effort: 6 })
+      .webp({ quality: 80, alphaQuality: 100, effort: 6 })
       .toBuffer();
     const file = `${stem}-${width}-${hash(encoded).slice(0, 12)}.webp`;
     writeFileSync(resolve(folder, file), encoded);
@@ -80,13 +80,13 @@ console.log(
   JSON.stringify({
     sources: paths.length,
     originalBytes: entries
-      .filter((e) => e.width === 384)
+      .filter((e) => e.width === 192)
       .reduce((s, e) => s + e.sourceBytes, 0),
-    smallBytes: entries
-      .filter((e) => e.width === 384)
+    thumbnailBytes: entries
+      .filter((e) => e.width === 192)
       .reduce((s, e) => s + e.bytes, 0),
-    largeBytes: entries
-      .filter((e) => e.width === 640)
+    displayBytes: entries
+      .filter((e) => e.width === 320)
       .reduce((s, e) => s + e.bytes, 0),
   }),
 );

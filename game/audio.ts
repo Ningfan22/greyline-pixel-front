@@ -138,7 +138,7 @@ export class BattleAudio {
     this.prefetchStarted = true;
     for (const file of FILES) {
       if (this.buffers.has(file) || this.prefetched.has(file)) continue;
-      fetch(assetUrl('/audio/' + file))
+      fetch(assetUrl('/audio/' + file), {priority:'low'})
         .then((response) =>
           response.ok
             ? response.arrayBuffer()
@@ -178,6 +178,7 @@ export class BattleAudio {
                   }
                   const response = await fetch(assetUrl('/audio/' + file), {
                     signal: controller.signal,
+                    priority: 'low',
                   });
                   if (!response.ok) throw new Error('Audio unavailable');
                   return ctx.decodeAudioData(await response.arrayBuffer());

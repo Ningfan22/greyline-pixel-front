@@ -226,7 +226,7 @@ export default function HomeMenu({
   useEffect(() => {
     const mixer = getBattleAudio();
     // 页面加载后立即预取音频，首次点击时音乐即刻播放，无需等待下载。
-    mixer.prefetch();
+    // Artwork has priority; audio loads after the first interaction.
     // 回到主菜单时立即恢复背景音乐（音频已解锁的情况下）。
     mixer.setActive(true);
     const unlock = () => {
@@ -251,7 +251,7 @@ export default function HomeMenu({
       <style>{`@font-face{font-family:'Greyline Menu Pixel';src:url('${assetUrl('/fonts/fusion-pixel-12px-monospaced-zh_hans.otf.woff2')}') format('woff2');font-weight:400;font-style:normal;font-display:swap;}`}</style>
       <img
         className={styles.backdrop}
-        src={assetUrl('/art/home-camp-v14.png')}
+        src={assetUrl('/art/v229-menu/home-camp-1280.webp')}
         alt=""
         aria-hidden="true"
         fetchPriority="high"
@@ -259,7 +259,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v228</small>
+          <small>GREYLINE · v229</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (

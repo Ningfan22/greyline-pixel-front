@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 4753.084457999999,
+  "compileMs": 4575.938584,
   "canvasesCreated": 711,
   "frames": 501,
   "compilerSources": [
@@ -17,11 +17,11 @@
     },
     {
       "path": "game/expansion-v227.ts",
-      "sha256": "cd140c829d8b122c624e4fb7a8fb08101b881c8612e50013930001dbe8314616"
+      "sha256": "fe057dc31df9b30e498d928147161a6464da6c8eded7209de61e2e5d21d2677b"
     },
     {
       "path": "game/expansion-art-v227.ts",
-      "sha256": "07b14055575fb955644236c65ea4c9849056ed14e02e8461f43ded67becad436"
+      "sha256": "80281806dd5646abab4a54afc1a1cec5b3df5bdb52a1719e94994aa88190577d"
     },
     {
       "path": "game/fortification-ground.ts",
@@ -37,7 +37,7 @@
     },
     {
       "path": "game/battle-art-loader.ts",
-      "sha256": "9de0f3aecdf75a0e33548a4ff408a3605c781142855719d155c46a7097093678"
+      "sha256": "ffa05527bdee08a1e47c7458b069732fd5003c8c676063ac4c878c06edd1ba0a"
     },
     {
       "path": "game/battle-art-assets.ts",
@@ -113,7 +113,7 @@
     },
     {
       "path": "game/vehicle-geometry.ts",
-      "sha256": "e3000d8bb2762570dce9443ad05e77b88419456e10555969d0fcebb56910293d"
+      "sha256": "07d2723a4422c5977e4cc3e2b886ebf4dadf7b57ae89b6d29a0f2925e9451159"
     },
     {
       "path": "game/mobile-vehicle-art.ts",
@@ -636,14 +636,14 @@
       "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
     },
     {
-      "path": "/art/v223-vehicles/supply_truck-wreck.png",
-      "bytes": 1993174,
-      "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
-    },
-    {
       "path": "/art/v227-installations/mortar_81-barrel.png",
       "bytes": 254891,
       "sha256": "7b954339340ccb82408b3f1be0b1f4d130778e14e6c4fc37079e341168198832"
+    },
+    {
+      "path": "/art/v223-vehicles/supply_truck-wreck.png",
+      "bytes": 1993174,
+      "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
     },
     {
       "path": "/art/v223-vehicles/pickup-wreck.png",
@@ -666,6 +666,11 @@
       "sha256": "e72d904d2e4dc869a5ee809f521371b199d36f94c93d76ebd8e6918ae70c3e73"
     },
     {
+      "path": "/art/v227-installations/howitzer_122-barrel.png",
+      "bytes": 167867,
+      "sha256": "fa66c7d3aac52cece9b0cf8ba15467f98d859973463fdd3f054b9be8071702c2"
+    },
+    {
       "path": "/art/v227-installations/howitzer_152-barrel.png",
       "bytes": 165267,
       "sha256": "6836db68e79d982f7ae8b69c3e0aa366a786099957a53c69085e87b5095f2cca"
@@ -674,11 +679,6 @@
       "path": "/art/v227-installations/howitzer_155-barrel.png",
       "bytes": 191659,
       "sha256": "923e61802bba5749e37082d5f3248b51e472a5ad070e77e2dc8ce873c3f6d5f5"
-    },
-    {
-      "path": "/art/v227-installations/howitzer_122-barrel.png",
-      "bytes": 167867,
-      "sha256": "fa66c7d3aac52cece9b0cf8ba15467f98d859973463fdd3f054b9be8071702c2"
     },
     {
       "path": "/art/v227-installations/howitzer_203-barrel.png",
@@ -853,7 +853,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "56a94730e0c3332b4badc00b35114f5aef558d94c42870ee438895017578d81c"
+    "sha256": "9a3ac5786e5a7c25cd91457a76594db03fb307f9e5bd3f524f2f3608becdd45f"
   },
   "atlasFiles": [
     {
@@ -865,12 +865,12 @@
       "rgbaSha256": "1df023bcebf608b8e873c0a94df7b8012f0989f44fab2a8b0f3ec48fe1a63a20"
     },
     {
-      "path": "/art/v204-battle/frames-1-346bc83f25b7.png",
-      "bytes": 3582463,
+      "path": "/art/v204-battle/frames-1-ea28f0ff7c47.png",
+      "bytes": 3599122,
       "width": 2048,
       "height": 1726,
-      "sha256": "346bc83f25b7bb5b94974fc8ad5bd9d5ba401d58288fac0043df42e261ec4671",
-      "rgbaSha256": "578ffe0c526e7f35b5f3025dc62881ad2a230f6a9c670b985d1167ce3d8de2d0"
+      "sha256": "ea28f0ff7c473dc3e4efdf2d43cb089331666b60574795cf6af5630591bcd336",
+      "rgbaSha256": "4b8ec4ca8c8fdca7c390dbd5da6201130c2fb27a905f11ed9757c587b43d70c9"
     }
   ],
   "external": [],
@@ -908,5 +908,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5956134
+  "sharedBytes": 5972793
 }
