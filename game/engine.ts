@@ -1,3 +1,4 @@
+import {rememberInfantryContact,infantryAttentionDirection,faceInfantryContact} from './infantry-attention';
 import {airDefensePosition} from './air-defense-position';
 import {prepareParachuteTransport,stepParachuteTransport,type ParachuteFlight} from './parachute-transport';
 import {tacticalActionScale,soldierHitChance,type InfantryTraining} from './infantry-training';
@@ -409,6 +410,8 @@ export interface Unit {
   antiTankRevealedUntil?: number;
   camouflageRevealedUntil?: number;
   rapidUntil?: number;
+  attentionX?: number;
+  attentionUntil?: number;
   teamRole?: TeamRole;
   teamMoveGoal?: number;
   teamMoveUntil?: number;
@@ -4352,19 +4355,19 @@ function moveSoldier(
   // Cover a nearby observed threat while withdrawing. Once clear, turn and
   // march at the same walking pace as an advance instead of shuffling home.
   const baseward = dir === (u.side === 0 ? -1 : 1);
-  const escape = heavyEscape(u,s.time)||(u.pose==='run'&&(u.combatRunUntil??0)>s.time);
+  const escape = heavyEscape(u,s.time);
   const threat = !escape && baseward && (u.tactic !== 'retreat' || orderedWithdrawal(s, u))
     ? withdrawalFacingThreat(s, u) : undefined;
-  const coverFacing = threat ? Math.sign(threat.x - u.x) : 0;
-  const backpedal = !!coverFacing && coverFacing !== dir;
-  speed = (baseward && !escape ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) * (backpedal ? 0.65 : 1) : speed) * 0.55;
+  const coverFacing = infantryAttentionDirection(s,u) || (threat ? Math.sign(threat.x - u.x) : 0);
+  const backpedal = !escape && !!coverFacing && coverFacing !== dir;
+  speed = (backpedal ? Math.min(speed,(CARDS[u.id].speed??speed)*u.pace)*.65 : baseward && !escape ? Math.min(speed, (CARDS[u.id].speed ?? speed) * u.pace) : speed) * 0.55;
   if (nearUnits(s, u.x, 42, contactNearScratch).some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
   if (!requestCrouchStep(u,s.time) || !requestProneStep(u,s.time)) return;
-  u.facing = dir;
+  u.facing = backpedal ? coverFacing : dir;
   const y = ground(s, u.x),
     ahead = ground(s, u.x + dir * 24);
   const depth = y - s.original[Math.floor(u.x)];
@@ -4611,7 +4614,7 @@ function moveSoldier(
     !coordinated && (u.trafficYieldUntil ?? 0) > s.time ? 0.55 : 0;
   speed *= Math.max(escape ? 0.85 : passage, flow(following));
   const beforeX = u.x;
-  u.facing = dir;
+  u.facing = backpedal ? coverFacing : dir;
   u.x = Math.max(55, Math.min(W - 55, u.x + dir * speed * dt));
   const distance = Math.hypot(u.x - beforeX, u.lane - beforeLane);
   // Gait advances by travelled distance so feet stop when the soldier stops.
@@ -9704,6 +9707,7 @@ export function tick(s: GameState, dt: number) {
       candidates[0] ??
       airContact ??
       (u.lastThreat && u.lastThreat.until > s.time ? u.lastThreat : null);
+    if(c.members && threat && !airContact)rememberInfantryContact(u,threat.x,s.time+4);
     if(c.members && (threat || u.withdrawHeavyUid!==undefined))u.combatRunUntil=s.time+6;
     // Selection does not change the shooter's body or the scene. Targets on
     // one side share its muzzle transform; their sight/impact rays stay distinct.
@@ -10490,6 +10494,12 @@ export function tick(s: GameState, dt: number) {
       // Spotters hold the radio pose on a timer the renderer can read.
       if (u.id === 'scouts' || precisionObserver) u.observingUntil = s.time + 0.25;
     }
+    if(c.members && u.teamRole==='overwatch' && !seeking && !withdrawing &&
+      !treating && !u.withdrawStandby && u.motion==='ground' && order==='advance' &&
+      (u.observingHoldUntil??0)<=s.time && infantryAttentionDirection(s,u)){
+      u.pose=setStance(u,s.time,u.suppression>55||u.member%3===2?'prone':'crouch');
+      u.aimUntil=Math.max(u.aimUntil??0,s.time+.6);
+    }
     // v128: while the observer hold is active the soldier is pinned to the
     // deck watching aircraft / scanning — the cover block below must not
     // pop him back up to a crouch every tick (that was the prone/up twitch).
@@ -10853,6 +10863,7 @@ export function tick(s: GameState, dt: number) {
             c.indirect ? (aimedGun || u.id === 'mlrs' ? 0.45 : 2) : flight.minimum,
             Math.abs(tx - sx) / flight.speed,
           );
+          if(c.members)rememberInfantryContact(u,tx,s.time+4);
           u.facing = c.sortie
             ? c.patrolTime
               ? u.patrolDir
@@ -11148,6 +11159,8 @@ export function tick(s: GameState, dt: number) {
           moveWant = pinned ? 'prone' : 'crouch';
         } else if (order === 'prone') {
           moveWant = 'prone';
+        } else if (u.teamRole==='probe' && !closeThreat && !withdrawing) {
+          moveWant=u.suppression>65?'prone':'crouch';
         } else if ((u.combatRunUntil??0)>s.time && u.suppression<65) {
           moveWant = 'run';
         } else if (withdrawing || escortAhead || retreating || closeThreat) {
@@ -11159,6 +11172,11 @@ export function tick(s: GameState, dt: number) {
         } else {
           moveWant = 'walk';
         }
+        const attention=infantryAttentionDirection(s,u);
+        const travelDirection=withdrawing?Math.sign(u.withdrawGoal!-u.x):
+          closeThreat?Math.sign(u.x-closeThreat.x):seeking?Math.sign(moveGoal!-u.x):
+          displacing?Math.sign(u.displaceGoal!-u.x):dir;
+        if(attention && travelDirection===-attention && !heavyEscape(u,s.time) && moveWant==='run')moveWant='walk';
         u.pose = setStance(u, s.time, moveWant, { travel: true, escape:heavyEscape(u,s.time)||(moveWant==='run'&&(u.combatRunUntil??0)>s.time) });
       }
       if (c.members && !heavyEscape(u,s.time) && (s.players[u.side].entrenchUntil ?? 0) > s.time)
@@ -11380,6 +11398,7 @@ export function tick(s: GameState, dt: number) {
     stepCrouchLocomotion(u,s.time,dt);
     stepProneLocomotion(u,s.time,dt);
     const previous=soldierPositions.get(u.uid);
+    faceInfantryContact(s,u);
     if(previous)updateSoldierGait(u,previous,dt,s.time);
     updateSoldierGround(u,x=>ground(s,x),s.time,dt);
     updateSoldierTurn(u,s.time);

@@ -1,9 +1,11 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!doctype html><html lang="zh-CN">
+<script type="module" crossorigin src="./assets/soldiers-CIVVIjOY.js"></script>
+<link rel="modulepreload" crossorigin href="./assets/render-BNPGpfQN.js">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>全兵种动作检查 · 灰线</title>
 <style>body{margin:20px;background:#18221c;color:#e5dfca;font:16px system-ui}button,select{font:inherit;margin:4px;padding:8px;background:#354438;color:inherit;border:1px solid #839177}canvas{display:block;max-width:100%;image-rendering:pixelated;border:1px solid #697666;margin-top:10px}p{line-height:1.6}</style>
 <h1>全兵种动作检查</h1><p>全部士兵卡牌，逐成员检查。上方为正式战场渲染，下方为同一渲染结果放大；独立测试，不写存档。</p>
 <label>兵种 <select id="card"></select></label><label>成员 <select id="member"></select></label>
 <label>动作 <select id="action"><option value="march">行军 · 非瞄准</option><option value="walk">警戒行进 · 低姿持枪</option><option value="backward">警戒倒退</option><option value="ready">原地警戒 · 低姿持枪</option><option value="aim">站立瞄准 / 重武器架设</option><option value="kneel">跪姿瞄准</option><option value="prone-aim">卧姿瞄准</option><option value="run">持枪跑步 · 非瞄准</option><option value="crouch">蹲行</option><option value="prone">爬行</option><option value="cover">跪姿掩护</option><option value="listen">掩护中耳机联络</option><option value="scan">低姿扇区警戒</option><option value="probe">向前探查</option><option value="observe">望远镜观察</option><option value="stance">站—跪—卧—起身</option><option value="reload">行进换弹</option><option value="throw">投弹</option><option value="medical">救治</option><option value="repair">维修</option><option value="dig">挖掘</option><option value="surrender">投降</option><option value="rappel">绳索下降</option><option value="wounded">倒地 · 四种轮播</option><option value="fall-0">前扑倒地</option><option value="fall-1">后仰倒地</option><option value="fall-2">侧身倒地</option><option value="fall-3">蜷身倒地</option></select></label>
 <button id="flip">转身</button><button id="pause">暂停</button><button id="step">前进 1/30 秒</button><button id="combat">开始真实战斗</button>
-<p id="status">加载中…</p><canvas id="view" width="1024" height="540"></canvas><canvas id="detail" width="1024" height="300"></canvas>
-<script type="module" src="./qa-soldiers.ts"></script></html>
+<p id="status">加载中…</p><canvas id="view" width="1024" height="540"></canvas><canvas id="detail" width="1024" height="300"></canvas></html>

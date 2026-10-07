@@ -15,7 +15,7 @@ export type Point = readonly [number,number];
 export type SoldierBody = Pick<Unit,'id'|'pose'> & Partial<Unit> & {fallVariant?:number};
 export type SoldierWeapon = 'rifle'|'lmg'|'hmg'|'rocket'|'manpads'|'sniper'|'grenade'|'mortar'|'flame';
 export type SoldierAction = 'ready'|'reload'|'throw'|'medical'|'repair'|'dig'|'drag'|'share'|
-  'scavenge'|'signal'|'observe'|'deploy'|'barrel'|'cycle'|'casualty'|'surrender'|'rappel'|'parachute'|'vault';
+  'scavenge'|'signal'|'observe'|'cover'|'listen'|'scan'|'deploy'|'barrel'|'cycle'|'casualty'|'surrender'|'rappel'|'parachute'|'vault';
 export const SOLDIER_BONES = {thigh:17,shin:17,torso:22,upperArm:12,forearm:13} as const;
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
 const mix=(a:number,b:number,t:number)=>a+(b-a)*t;
@@ -205,6 +205,17 @@ function actionFor(u:SoldierBody,time:number):SoldierAction {
     if(!u.fire&&!u.secondaryFire&&(u.aimUntil??0)<=time&&
       ((u.calloutUntil??0)>time||(u.pointUntil??0)>time))return 'signal';
     if((u.observingUntil??0)>time)return 'observe';
+    if(u.teamRole && (u.attentionUntil??0)>time && !u.fire && !u.secondaryFire &&
+       time-(u.lastCombatShotAt??-Infinity)>.35 && (u.stillFor??0)>.65 &&
+       stanceTransitionProgress(u,time)===null){
+      if((u.contactUntil??0)>time)return 'cover';
+      // Stagger sector checks and brief earpiece reports behind the probe.
+      // The torso and weapon retain their direction throughout.
+      const beat=(time+(u.member??0)*1.7)%12;
+      if(u.teamRole==='overwatch'&&beat<.9)return 'listen';
+      if((beat>2&&beat<3.4)||u.teamRole==='probe')return 'scan';
+      return 'cover';
+    }
   }
   return 'ready';
 }
@@ -404,6 +415,7 @@ export function soldierStride(u:SoldierBody,low=stanceHeightClass(u.pose)==='pro
   return low>=1?mix(8.5,3.5,smooth(low-1)):mix(12.5+run*.5,8.5,smooth(low));
 }
 function soldierBodyPose(u:SoldierBody,time?:number,action:SoldierAction='ready',settled=false,unplanted=false):SoldierBodyPose {
+  if(['cover','listen','scan'].includes(action))action='ready';
   const weapon=soldierWeapon(u);
   let stance=soldierStance(u,time,settled),hip=stance.hip,lean=stance.lean;
   const phase=(u.gaitPhase??u.walk??0)*Math.PI/4;
@@ -576,6 +588,13 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     const point=(u.pointUntil??0)>time,dir=(u.pointDir??u.calloutDir??u.facing??1)*(u.facing??1);
     nearHand=add(shoulder,signal==='halt'?[6,-22]:signal==='spread'?[19,-5]:signal==='advance'?[13+Math.sin(time*6)*5,-12]:point?[dir*21,-6]:[-4+Math.sin(time*7)*3,-20]);
     if(signal){nearHandShape='open';slung=true;}
+  }else if(action==='listen'){
+    const beat=((time+(u.member??0)*1.7)%12)/.9,weight=Math.sin(clamp(beat)*Math.PI);
+    nearHand=lerp(gun.trigger,add(head,[-4,-6]),smooth(weight));
+    nearHandShape=weight>.5?'open':undefined;
+  }else if(action==='scan'){
+    // A small sector scan, never a whole-body turn.
+    headAngle+=Math.sin(time*2+(u.member??0))*.07;
   }else if(action==='observe'){
     nearHand=add(head,[9,-7]);farHand=add(head,[13,-6]);prop='binoculars';slung=true;
   }else if(action==='drag'){
@@ -606,7 +625,7 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
     headAngle-=glance*.18;head=add(head,[-glance*1.5,0]);
   }
   if(u.flash&&action!=='casualty')headAngle-=Math.min(.1,u.flash*.3);
-  if(action==='ready'&&weapon!=='mortar'){
+  if(['ready','cover','scan'].includes(action)&&weapon!=='mortar'){
     // The eye follows the rear sight with eye relief. Standing tucks the
     // cheek down; prone raises the chin. The stock stays in its shoulder.
     const eyeLocal=soldierEyeOffset(u),sight=WEAPON_SIGHTS[weapon];

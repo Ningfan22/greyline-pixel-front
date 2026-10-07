@@ -193,7 +193,7 @@ export function paintSoldier(ctx:CanvasRenderingContext2D,art:SoldierArt,p:Soldi
     ctx.rotate(p.weaponAngle);equipment(gun,p.weaponCarry);ctx.restore();
     // The far forearm crosses over the fore-end. Painting it before the gun
     // hid its glove and made the supporting hand appear to float underneath.
-    if(p.action==='ready')segment(ctx,f.forearm,p.farElbow,p.farHand);
+    if(['ready','cover','listen','scan'].includes(p.action))segment(ctx,f.forearm,p.farElbow,p.farHand);
     if(p.weapon==='flame'){
       ctx.strokeStyle='#302d22';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p.neck[0]-8,p.neck[1]+16);
       ctx.quadraticCurveTo(p.hip[0]-11,p.hip[1]+9,p.nearHand[0],p.nearHand[1]);ctx.stroke();

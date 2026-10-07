@@ -23,9 +23,9 @@ test('overloaded frames back off to 20Hz and recover without catch-up render bur
 });
 for(const side of [0,1])test(`side ${side}: 30Hz and 20Hz troops still fire, kill, and consume ammunition`,()=>{
  for(const fps of [30,20]){const s=game();spawnUnit(s,side,'infantry',side?1900:1500);spawnUnit(s,1-side,'infantry',side?1500:1900);
- refreshVision(s);const original=s.units.map(u=>u.hp);for(let i=0;i<fps*12;i++)tick(s,1/fps);
+ refreshVision(s);const original=s.units.slice();for(let i=0;i<fps*12;i++)tick(s,1/fps);
  assert(s.units.some(u=>u.side===side&&u.shots>(u.member??0)));assert(s.units.some(u=>u.side!==side&&u.shots>(u.member??0)));
- assert(s.units.some((u,i)=>u.hp<original[i]));assert(s.units.some(u=>ammoRatio(u)<1));
+ assert(original.some(u=>u.hp<u.maxHp));assert(s.units.some(u=>ammoRatio(u)<1));
  }
 });
 test('allocation-free ammunition ratios match the detailed public readout for every unit profile',()=>{

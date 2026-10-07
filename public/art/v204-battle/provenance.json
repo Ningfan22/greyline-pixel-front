@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2624.0805410000003,
+  "compileMs": 3215.183791,
   "canvasesCreated": 653,
   "frames": 467,
   "compilerSources": [
@@ -37,11 +37,11 @@
     },
     {
       "path": "game/soldier-art.ts",
-      "sha256": "1f9fabf5725a5dc63683690dc5769ca931e688d9da7f49762640753de8ceabd2"
+      "sha256": "d3c08a040b929e10bf1afa2ed9063443b4dd3080b3a8aac2901598590f3ac066"
     },
     {
       "path": "game/soldier-pose.ts",
-      "sha256": "43cd52fa43ddcc5273eef412040fac81094e9949da2280639d076401d17f734d"
+      "sha256": "0f832bb808c8f7d60eb15f242a6f97e74699e97172084e36bde7c22c8b5398b6"
     },
     {
       "path": "game/vehicle-art-v223.ts",

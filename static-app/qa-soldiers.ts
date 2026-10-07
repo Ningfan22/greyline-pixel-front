@@ -42,7 +42,7 @@ function loop(now:number){const dt=Math.min(.05,(now-last)/1000);last=now;
       facing,aimUntil:0,readyAt:0,poseAnimAt:undefined,poseAnimProgress:undefined,
       motionTime:0,motionDuration:0,soldierLanding:undefined,
       crouchTravel:0,proneTravel:0,fire:0,secondaryFire:0,flash:0,tending:false,digging:false,rappelling:false,parachuting:false,
-      fragThrow:0,wounded:false,surrendered:false,ammo:30,reloadingUntil:0,rifleReady:0,observingUntil:0});
+      fragThrow:0,wounded:false,surrendered:false,ammo:30,reloadingUntil:0,rifleReady:0,observingUntil:0,teamRole:undefined,teamSignal:undefined,teamSignalUntil:0,attentionX:undefined,attentionUntil:0,contactUntil:0,lastCombatShotAt:-Infinity,stillFor:1});
     Object.assign(u,{fallVariant:undefined,soldierFall:undefined});
     s.time=20+phase;
     const mode=action.value,beat=phase%2.4;
@@ -57,6 +57,15 @@ function loop(now:number){const dt=Math.min(.05,(now-last)/1000);last=now;
     if(['walk','backward','ready','crouch'].includes(mode))u.rifleReady=.35;
     if(mode==='kneel')u.pose='crouch';
     if(mode==='prone-aim')u.pose='prone';
+    if(['cover','listen','scan','probe'].includes(mode)){
+      u.teamRole=mode==='probe'?'probe':'overwatch';u.attentionX=u.x+facing*410;
+      u.pose='crouch';u.rifleReady=.75;
+      if(mode==='cover')u.contactUntil=s.time+1;
+      if(mode==='listen')s.time=24-(u.member??0)*1.7+phase%.9;
+      if(mode==='scan')s.time=26.5-(u.member??0)*1.7;
+      u.attentionUntil=s.time+4;
+      if(mode==='probe'){u.moving=true;u.crouchTravel=1;u.x+=step*22*facing;}
+    }
     if(mode==='observe')u.observingUntil=s.time+1;
     if(mode==='reload')Object.assign(u,{ammo:0,reloadingStartAt:s.time-beat,reloadingUntil:s.time-beat+2.4});
     if(mode==='stance'){const down=Math.floor(phase/2.4)%2===0;
