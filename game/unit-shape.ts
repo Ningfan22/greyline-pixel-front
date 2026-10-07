@@ -201,6 +201,8 @@ export const UNIT_OPTIONAL_DEFAULTS={
   vehicleReverseGoal:undefined,
   vehicleReverseAssessAt:undefined,
   vehicleReverseReason:undefined,
+  vehicleReverseTargetUid:undefined,
+  vehicleReverseGap:undefined,
   vehicleReverseHeld:undefined,
   vehicleContactUntil:undefined,
   tankAim:undefined,

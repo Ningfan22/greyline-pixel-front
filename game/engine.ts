@@ -482,6 +482,8 @@ export interface Unit {
   vehicleReverseGoal?: number;
   vehicleReverseAssessAt?: number;
   vehicleReverseReason?: 'damage' | 'close';
+  vehicleReverseTargetUid?: number;
+  vehicleReverseGap?: number;
   /** v91.1: a mauled vehicle that has made its fallback bound and is holding the line. */
   vehicleReverseHeld?: boolean;
   /** Last genuinely observed contact at the fallback line; brief sight loss is not an advance order. */
@@ -4112,6 +4114,10 @@ function blockedContactGap(u: Unit, target: CoverTarget) {
   const c = CARDS[u.id];
   if (c.members) return isAntiTankOperator(u)
     ? Math.max(280, (c.minRange ?? 0) + 80) : Math.max(56, (c.minRange ?? 0) + 25);
+  const kind=ammunition(u.id,u.member);
+  if(target.id && CARDS[target.id].members && (kind==='machinegun'||kind==='autocannon') &&
+     !c.indirect && !isBattleTank(u.id))
+    return Math.max(105,muzzleOffset(u)+24,(c.minRange??0)+25);
   const weapon = target.id ? weaponCard(target as Unit) : undefined;
   // Only a confirmed harmless rifle screen permits a closer firing slot.
   // Armour/AT contacts keep their distance; the barrel still needs physical
@@ -4145,7 +4151,7 @@ function nearbyFiringPosition(s: GameState, u: Unit, target: CoverTarget) {
     .filter((offset) => Math.abs(offset) > 64 && Math.abs(offset) <= 320);
   const toward = Math.sign(target.x - u.x);
   const hillOffsets = !localPost && !CARDS[u.id].static
-    ? [96, 128, 160, 192, 256, 320].flatMap(distance =>
+    ? (vehicle ? Array.from({length:15},(_,i)=>96+i*16) : [96,128,160,192,256,320]).flatMap(distance =>
         vehicle ? [toward * distance, -toward * distance] : [toward * distance]) : [];
   for (const offset of [-64, -48, -32, -16, -8, 8, 16, 32, 48, 64, ...edges, ...hillOffsets]) {
     const x = u.x + offset,
@@ -4376,7 +4382,9 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
         (enemy.x - u.x) * dir > Math.abs(proposedX - u.x) + gap ||
         !visibleToSide(s, u.side, enemy)) continue;
     const stopGap = CARDS[u.id].members && (CARDS[enemy.id].armored || CARDS[enemy.id].vehicle)
-      ? Math.max(gap, armorHalf(enemy.id)+55) : gap;
+      ? Math.max(gap, armorHalf(enemy.id)+55)
+      : (CARDS[u.id].vehicle || CARDS[u.id].armored) && (CARDS[enemy.id].vehicle || CARDS[enemy.id].armored)
+        ? Math.max(gap, vehicleHullClearance(s,u,enemy.id)) : gap;
     const stop = enemy.x - dir * stopGap;
     if ((stop - limit) * dir < 0) limit = stop;
   }
@@ -4387,7 +4395,10 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   for (const contact of s.groundContacts?.[u.side] ?? []) {
     if (contact.clearSince !== undefined || contactIsStale(s.time, contact) || visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
         (contact.x-u.x)*dir > Math.abs(proposedX-u.x)+gap) continue;
-    const stop = contact.x-dir*gap;
+    const rememberedGap = contact.id && (CARDS[u.id].vehicle || CARDS[u.id].armored) &&
+      (CARDS[contact.id].vehicle || CARDS[contact.id].armored)
+      ? Math.max(gap,vehicleHullClearance(s,u,contact.id)) : gap;
+    const stop = contact.x-dir*rememberedGap;
     if ((stop-limit)*dir < 0) limit = stop;
   }
   // v173: don't overrun the enemy base — stop 35px short so the structure
@@ -4396,6 +4407,14 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   const baseStop = enemyBaseX - dir * 35;
   if ((baseStop - limit) * dir < 0) limit = baseStop;
   return (limit - u.x) * dir < 0 ? u.x : limit;
+}
+
+/** A soft vehicle cannot turn an unpenetrable hull into an endless pursuit. */
+function vehicleHullClearance(s:GameState,u:Unit,targetId:CardId) {
+  const weapon=weaponCard(u),physical=armorHalf(u.id)+armorHalf(targetId)+24;
+  const unsupported=(weapon.damage??0)>0 && !weapon.indirect &&
+    armorPenetrationTier(ammunition(u.id,u.member),weapon)<(CARDS[targetId].armorTier??0);
+  return unsupported ? Math.max(physical,Math.min(480,unitRange(s,u)*.75)) : physical;
 }
 
 /** A rearward march only needs covering footwork while there is local danger.
@@ -5129,7 +5148,7 @@ function planVehicleReverse(s: GameState, u: Unit) {
     u.vehicleReverseHeld = false;
     return;
   }
-  if (!c.armored || c.air || c.static || c.vehicleSupport) return;
+  if ((!c.armored && !c.vehicle) || c.air || c.static || c.vehicleSupport || !(c.damage!>0)) return;
   if (u.hp <= 0 || u.surrendered) return;
   if (isImmobilized(u)) {
     u.vehicleReverseUntil = 0;
@@ -5143,8 +5162,12 @@ function planVehicleReverse(s: GameState, u: Unit) {
   // threshold stops reversing.
   if (reversing) {
     const goal = u.vehicleReverseGoal ?? u.x;
+    const reverseTarget=u.vehicleReverseTargetUid===undefined?undefined:unitByUid(s,u.vehicleReverseTargetUid);
+    const separated=u.vehicleReverseReason==='close' && reverseTarget &&
+      visibleToSide(s,u.side,reverseTarget) &&
+      Math.abs(reverseTarget.x-u.x)>=(u.vehicleReverseGap??340);
     const arrived =
-      Math.abs(u.x - goal) < 8 ||
+      separated || Math.abs(u.x - goal) < 8 ||
       (u.side === 0 ? u.x <= goal : u.x >= goal);
     if (arrived || (u.vehicleReverseReason !== 'close' && u.hp >= u.maxHp * 0.55)) {
       u.vehicleReverseUntil = 0;
@@ -5166,12 +5189,19 @@ function planVehicleReverse(s: GameState, u: Unit) {
   const dir = u.side === 0 ? 1 : -1;
   let threatDist = Infinity;
   let closeDist = Infinity;
+  let closeTarget:Unit|undefined;
+  let unsupportedTarget:Unit|undefined;
+  let unsupportedDist=Infinity;
   let contactInRange = false;
   for (const v of s.units) {
     if (v.side === u.side || !visibleToSide(s, u.side, v)) continue;
     if (!isCombatant(v) || CARDS[v.id].air ||
         v.rappelling || v.parachuting || v.glider) continue;
     const d = Math.abs(v.x - u.x);
+    if((v.x-u.x)*dir>=-20 && (CARDS[v.id].armorTier??0)>0 &&
+       vehicleHullClearance(s,u,v.id)>armorHalf(u.id)+armorHalf(v.id)+24 && d<unsupportedDist){
+      unsupportedTarget=v;unsupportedDist=d;
+    }
     const primaryMatch = !c.airOnly && (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle);
     const reach = primaryMatch ? unitRange(s, u) : CARDS[v.id].members ? 420 : 0;
     if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0 && d <= Math.max(360, reach))
@@ -5181,8 +5211,9 @@ function planVehicleReverse(s: GameState, u: Unit) {
     // An AA truck is a contact to engage, but its aircraft-only missiles
     // cannot force a ground vehicle into a close-threat reverse.
     if (w.airOnly) continue;
-    if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0)
-      closeDist = Math.min(closeDist, d);
+    if ((v.x - u.x) * dir >= -20 && (CARDS[v.id].damage ?? 0) > 0 && d<closeDist){
+      closeDist=d;closeTarget=v;
+    }
     if (
       ((w.penetration ?? 0) > 0 ||
         (w.armorMultiplier ?? 1) >= 1.5 ||
@@ -5196,7 +5227,9 @@ function planVehicleReverse(s: GameState, u: Unit) {
   // into it, particularly when only the coax can engage an infantry target.
   const rushing = !localUnitOrder(s, u) && s.players[u.side].order === 'rush';
   const closeGap = isBattleTank(u.id) && !Number.isFinite(threatDist) ? 160 : 220;
-  const closeDanger = closeDist <= closeGap && !(rushing && u.hp >= u.maxHp * 0.55);
+  const unsupportedGap=unsupportedTarget?vehicleHullClearance(s,u,unsupportedTarget.id):0;
+  const cannotEngage=!!unsupportedTarget && unsupportedDist<unsupportedGap;
+  const closeDanger = cannotEngage || closeDist <= closeGap && !(rushing && u.hp >= u.maxHp * 0.55);
   if (contactInRange) u.vehicleContactUntil = s.time + 3;
   if (u.vehicleReverseHeld && u.vehicleReverseReason === 'close' && !closeDanger) {
     if (contactInRange || s.time < (u.vehicleContactUntil ?? 0)) return;
@@ -5204,9 +5237,12 @@ function planVehicleReverse(s: GameState, u: Unit) {
     u.vehicleReverseReason = undefined;
   }
   if (closeDanger) {
-    const distance = Math.max(150, 340 - closeDist);
+    const desiredGap=cannotEngage?unsupportedGap+20:Math.max(340,closeTarget?vehicleHullClearance(s,u,closeTarget.id):0);
+    const distance = Math.max(30, desiredGap - (cannotEngage?unsupportedDist:closeDist));
     u.vehicleReverseHeld = false;
     u.vehicleReverseReason = 'close';
+    u.vehicleReverseTargetUid=(cannotEngage?unsupportedTarget:closeTarget)?.uid;
+    u.vehicleReverseGap=desiredGap;
     u.vehicleReverseGoal = Math.max(55, Math.min(W - 55, u.x - dir * distance));
     u.vehicleReverseUntil = s.time + distance / Math.max(8, c.speed! * u.pace * 0.8 * 0.65) + 1;
     return;
@@ -9269,7 +9305,7 @@ export function tick(s: GameState, dt: number) {
     // v91: a badly mauled armoured vehicle under anti-tank threat plans a
     // reverse behind its infantry screen. The flag it sets is consumed by
     // the movement block below.
-    if (c.armored && !c.air) planVehicleReverse(s, u);
+    if ((c.armored || c.vehicle) && !c.air) planVehicleReverse(s, u);
     if (c.airlift) {
       if (!controlledNavigation) flyTransport(s, u, dt);
       rotorWash(s, u, dt);
@@ -10221,19 +10257,20 @@ export function tick(s: GameState, dt: number) {
     }
     // The known HQ is also a physical aim point. Too close to depress the
     // gun, back out to a real firing slot instead of driving into its footprint.
-    const baseAimBlocked = !target && !candidates.length && !threat && c.armored &&
+    const mobileGunVehicle=!!(c.armored||c.vehicle)&&!c.members&&!c.air&&!c.static&&(c.damage??0)>0;
+    const baseAimBlocked = !target && !candidates.length && !threat && mobileGunVehicle &&
       !c.air && !c.static && !c.indirect && !c.airOnly && (!c.armorOnly || c.canAttackBase) &&
       Math.abs(baseX - u.x) <= range && !baseInRange &&
       Math.abs(baseX - u.x) >= (c.minRange ?? 0);
     const firingContact: CoverTarget | null = baseAimBlocked
       ? { x: baseX, y: ground(s, baseX), aimY: ground(s, baseX) - 25 } : threat;
-    const completingFiringMove = c.armored && u.firingGoal != null &&
+    const completingFiringMove = mobileGunVehicle && u.firingGoal != null &&
       !!u.lastThreat && u.lastThreat.until > s.time;
     const awaitingTankReobserve = tankDoctrine && !target && u.tankAim?.key.startsWith('unit:') &&
       s.time - u.tankAim.seenAt < 2;
     const blockedContact = !!(
       !awaitingTankReobserve &&
-      (c.members || (c.armored && !c.air && !c.static && (candidates.length || completingFiringMove || baseAimBlocked) &&
+      (c.members || (mobileGunVehicle && (candidates.length || completingFiringMove || baseAimBlocked) &&
         !isImmobilized(u) && (u.vehicleReverseUntil ?? 0) <= s.time)) &&
       !airContact &&
       !c.indirect &&
@@ -10261,16 +10298,16 @@ export function tick(s: GameState, dt: number) {
       else u.firingWatchAnchorX = undefined;
       if (
         u.firingGoal != null &&
-        (((!c.armored || candidates.length > 0) && !u.firingTransit && !canFireFromCover(s, u, u.firingGoal, firingContact!) &&
+        (((!mobileGunVehicle || candidates.length > 0) && !u.firingTransit && !canFireFromCover(s, u, u.firingGoal, firingContact!) &&
           !((order !== 'hold' || c.armored) && candidates[0] && enemyCoverShot(s,
             { ...u, x: u.firingGoal, y: ground(s, u.firingGoal), moving: false }, candidates[0]))) ||
           Math.abs(u.firingGoal - u.x) <= 1)
       )
         u.firingGoal = null;
-      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!c.armored || candidates.length || baseAimBlocked)) {
+      if ((u.firingSearchAt ?? 0) <= s.time && u.firingGoal == null && (!mobileGunVehicle || candidates.length || baseAimBlocked)) {
         u.firingGoal = nearbyFiringPosition(s, u, firingContact!);
         u.firingTransit = false;
-        if (u.firingGoal === null && order !== 'hold' && c.armored && !c.static && !baseAimBlocked && !u.vehicleReverseHeld) {
+        if (u.firingGoal === null && order !== 'hold' && mobileGunVehicle && !baseAimBlocked && !u.vehicleReverseHeld) {
           // No immediate firing slot is not a permanent halt. Continue short
           // supported steps toward the observed contact, retaining the same
           // safe gap as the firing-position search and never crossing a cliff.
@@ -11801,31 +11838,24 @@ export function tick(s: GameState, dt: number) {
           Math.sign(p.tx - p.startX),
         );
       }
-      if (!connected && isCoverBullet(p.ammunition ?? 'rifle')) {
-        if (p.missed)
-          bulletImpact(
-            s,
-            p.x,
-            ground(s, p.x),
-            'soil',
-            Math.sign(p.tx - p.startX),
-          );
-        else {
-          // A missed round continues downrange and kicks up earth instead of vanishing.
-          const dir = Math.sign(p.tx - p.startX) || 1;
+      if (!connected && !p.missed && isCoverBullet(p.ammunition ?? 'rifle')) {
+          // A bullet keeps its incoming bearing after passing the aim point.
+          // Soil impacts come from a real collision, never a turn toward dirt.
+          const dx=p.tx-p.startX,dy=p.ty-p.startY,length=Math.hypot(dx,dy)||1;
+          const distance=Math.min(90,(dx>=0?W-1-p.x:p.x-1)/Math.max(1e-6,Math.abs(dx)/length));
           p.startX = p.x;
           p.startY = p.y;
-          p.tx = Math.max(1, Math.min(W - 1, p.x + dir * 90));
-          p.ty = ground(s, p.tx);
+          p.tx = p.x+dx/length*distance;
+          p.ty = p.y+dy/length*distance;
+          p.arc=0;
           p.total = p.life = Math.max(
-            0.045,
-            Math.hypot(p.tx - p.x, p.ty - p.y) / 2200,
+            0.001,
+            distance / FLIGHT[p.ammunition??'rifle'].speed,
           );
           p.targetUid = null;
           p.base = null;
           p.damage = 0;
           p.missed = true;
-        }
       }
     }
   }

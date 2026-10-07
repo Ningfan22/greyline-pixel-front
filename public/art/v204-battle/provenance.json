@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 4231.53875,
+  "compileMs": 4753.084457999999,
   "canvasesCreated": 711,
   "frames": 501,
   "compilerSources": [
@@ -57,7 +57,7 @@
     },
     {
       "path": "game/vehicle-art-v223.ts",
-      "sha256": "78a05781c3a6913b40d11d062d271a8fc6e870bd395948c11462f4c4fe66fa51"
+      "sha256": "d10352ee3103db61b9f9ac5f37e857dfb7b13a113f0e332e631c36060486de8c"
     },
     {
       "path": "game/ifv-art-v220.ts",
@@ -651,24 +651,19 @@
       "sha256": "96c71b10bbeb18bab7fec980274075461816b217eb8645c7dfa72e315699e91b"
     },
     {
-      "path": "/art/v227-installations/howitzer_105-barrel.png",
-      "bytes": 215217,
-      "sha256": "1b2e910eb4cffb6872acb948b23d146038975403ebd6b7d66eeb3c864e9f66fc"
-    },
-    {
       "path": "/art/v227-installations/mortar_120-barrel.png",
       "bytes": 281197,
       "sha256": "bfde53d4ff34c50ddf1bccfe2a785e1e2445e07fca8aecd7a38a12f65065e76a"
     },
     {
+      "path": "/art/v227-installations/howitzer_105-barrel.png",
+      "bytes": 215217,
+      "sha256": "1b2e910eb4cffb6872acb948b23d146038975403ebd6b7d66eeb3c864e9f66fc"
+    },
+    {
       "path": "/art/v227-installations/howitzer_120-barrel.png",
       "bytes": 186505,
       "sha256": "e72d904d2e4dc869a5ee809f521371b199d36f94c93d76ebd8e6918ae70c3e73"
-    },
-    {
-      "path": "/art/v227-installations/howitzer_122-barrel.png",
-      "bytes": 167867,
-      "sha256": "fa66c7d3aac52cece9b0cf8ba15467f98d859973463fdd3f054b9be8071702c2"
     },
     {
       "path": "/art/v227-installations/howitzer_152-barrel.png",
@@ -679,6 +674,11 @@
       "path": "/art/v227-installations/howitzer_155-barrel.png",
       "bytes": 191659,
       "sha256": "923e61802bba5749e37082d5f3248b51e472a5ad070e77e2dc8ce873c3f6d5f5"
+    },
+    {
+      "path": "/art/v227-installations/howitzer_122-barrel.png",
+      "bytes": 167867,
+      "sha256": "fa66c7d3aac52cece9b0cf8ba15467f98d859973463fdd3f054b9be8071702c2"
     },
     {
       "path": "/art/v227-installations/howitzer_203-barrel.png",

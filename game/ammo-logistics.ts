@@ -231,7 +231,7 @@ export function planAmmoResupply(s: GameState, u: Unit, dt: number): number | nu
   const complete = fullySupplied(u);
   if (complete) {
     u.logisticsWarning = undefined;
-    u.logisticsOrder = undefined;
+    if(u.logisticsOrder!=='hold')u.logisticsOrder = undefined;
   }
   if (!u.resupplyState) return null;
   // A later watch/escort click cannot strand a low-ammo man halfway home.
