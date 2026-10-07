@@ -21,13 +21,15 @@ export interface TankGeometry {
   barrelBand?: [number, number, number, number];
 }
 const TANKS: Record<string, TankGeometry> = {
+  sp_howitzer_122:{size:[190,84],spriteOffset:0,half:88,hullHeight:56,muzzleX:77,muzzleY:66,coaxX:36,coaxY:55},
+  sp_howitzer_155:{size:[225,104],spriteOffset:0,half:105,hullHeight:72,muzzleX:105,muzzleY:84,coaxX:40,coaxY:69},
   apc_transport:{size:[180,69],spriteOffset:0,half:85,hullHeight:48,muzzleX:36,muzzleY:62,coaxX:36,coaxY:62},
   supply_truck:{size:[188,78],spriteOffset:0,half:85,hullHeight:53,muzzleX:0,muzzleY:30,coaxX:0,coaxY:30},
   sam_vehicle: {size:[180,113],spriteOffset:0,half:87,hullHeight:50,
     muzzleX:30,muzzleY:99,coaxX:30,coaxY:99},
   scout_car: {size:[145,108],spriteOffset:0,half:67,hullHeight:57,
     muzzleX:34,muzzleY:68,coaxX:34,coaxY:68},
-  pickup:{size:[160,65],spriteOffset:0,spriteGroundInset:0,half:74,hullHeight:40,muzzleX:13,muzzleY:57.4,coaxX:13,coaxY:57.4},
+  pickup:{size:[160,84],spriteOffset:0,spriteGroundInset:0,half:74,hullHeight:40,muzzleX:13,muzzleY:76.4,coaxX:13,coaxY:76.4},
   tow_ifv: {
     // v197: compact authored TOW carrier; weapon sockets match its tube/MG mouths.
     size: [150, 82],

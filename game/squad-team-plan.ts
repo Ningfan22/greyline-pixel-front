@@ -5,7 +5,7 @@ import {visibleToSide,contactIsStale} from './world';
 import {nearUnits} from './spatial';
 import {infantryAtFirePost} from './infantry-fire-post';
 export type TeamRole='overwatch'|'bound'|'probe';
-const plans=new WeakMap<GameState,Map<number,{at:number,phase:number,contact:number,lastMove:number}>>();
+const plans=new WeakMap<GameState,Map<number,{at:number,phase:number,contact:number,lastMove:number;silentSince?:number}>>();
 const plannedAt=new WeakMap<GameState,number>();
 const neighbors:Unit[]=[];
 const alive=(u:Unit)=>u.hp>0&&!u.wounded&&!u.surrendered&&!u.parachuting&&!u.rappelling;
@@ -24,15 +24,21 @@ export function updateFireTeams(s:GameState){
   for(const u of foot)if(!eligible.includes(u)){u.teamMoveGoal=undefined;u.teamRole=undefined;}
   if(!eligible.length)continue;
   const front=eligible.reduce((a,u)=>(u.x-a.x)*dir>0?u:a),range=CARDS[front.id].range??380;
-  const threat=nearUnits(s,front.x,720,neighbors).filter(v=>v.side!==side&&alive(v)&&!CARDS[v.id].air&&visibleToSide(s,side,v)&&Math.abs(v.x-front.x)<720).sort((a,b)=>Math.abs(a.x-front.x)-Math.abs(b.x-front.x))[0];
+  const contacts=nearUnits(s,front.x,720,neighbors).filter(v=>v.side!==side&&alive(v)&&!CARDS[v.id].air&&visibleToSide(s,side,v)&&Math.abs(v.x-front.x)<720);
+  const softOnly=!CARDS[front.id].armorOnly&&!(CARDS[front.id].penetration??0)&&(CARDS[front.id].armorMultiplier??1)<=1.2;
+  // A rifle team covers exposed dismounts behind an invulnerable carrier;
+  // the carrier remains a navigation/withdrawal contact, never a firing focus.
+  const threat=contacts.sort((a,b)=>(softOnly?Number((CARDS[a.id].armorTier??0)>0)-Number((CARDS[b.id].armorTier??0)>0):0)||Math.abs(a.x-front.x)-Math.abs(b.x-front.x))[0];
   if(threat && eligible.length===1){eligible[0].teamRole=undefined;eligible[0].teamMoveGoal=undefined;rememberInfantryContact(eligible[0],threat.x,s.time+4);cache.delete(key);continue;}
   const memory=!threat?(s.groundContacts?.[side]??[]).filter(c=>!contactIsStale(s.time,c)&&c.clearSince===undefined&&(c.x-front.x)*dir>0&&Math.abs(c.x-front.x)<640).sort((a,b)=>Math.abs(a.x-front.x)-Math.abs(b.x-front.x))[0]:undefined;
   if(!threat&&!memory){for(const u of eligible){u.teamMoveGoal=undefined;u.teamRole=undefined;}cache.delete(key);continue;}
   const contact=threat?.x??memory!.x,record=cache.get(key)??{at:s.time,phase:0,contact,lastMove:-Infinity};cache.set(key,record);
   if(s.time-record.at>4.8){record.phase++;record.at=s.time;}
   const shooters=eligible.filter(u=>u.ammo!==0&&infantryAtFirePost(u,s.time)&&threat&&Math.abs(threat.x-u.x)<(CARDS[u.id].range??380)&&s.time-(u.lastCombatShotAt??-Infinity)<2.5);
+  if(shooters.length)record.silentSince=undefined;else record.silentSince??=s.time;
+  const stalledCover=!!threat && s.time-(record.silentSince??s.time)>2.5;
   const threatenedArmor=threat&&((CARDS[threat.id].armorTier??0)>0);
-  const unsupportedProbe=!!threat && !shooters.length && Math.abs(contact-front.x)>range*.95;
+  const unsupportedProbe=!!threat && !shooters.length && (Math.abs(contact-front.x)>range*.95 || stalledCover);
   const loneProbe=eligible.reduce((a,u)=>u.member<a.member?u:a);
   for(const u of eligible){
    rememberInfantryContact(u,contact,threat?s.time+4:Math.min(s.time+4,memory!.seenAt+20));
@@ -45,7 +51,7 @@ export function updateFireTeams(s:GameState){
    // Never order a rifle to assault armour, or stampede through unobserved
    // positions. A short probe remains behind the last observed enemy.
    if(mover&&!threatenedArmor&&u.suppression<35&&u.personalMorale>=45&&u.teamMoveGoal===undefined&&s.time-record.lastMove>1.6){
-    const available=(contact-u.x)*dir-(probing?150:Math.max(180,(CARDS[u.id].range??range)*.7));
+    const available=(contact-u.x)*dir-(probing?(stalledCover?85:150):Math.max(180,(CARDS[u.id].range??range)*.7));
     if(available>12){u.teamMoveGoal=u.x+dir*Math.min(memory?28:54,available);u.teamMoveUntil=s.time+3.2;record.lastMove=s.time;}
    }
    if((u.teamMoveUntil??0)<s.time)u.teamMoveGoal=undefined;

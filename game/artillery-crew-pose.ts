@@ -1,3 +1,4 @@
+import {expansionGunLayout} from './expansion-art-v227';
 import { CARDS, type CardId } from './cards';
 import type { Unit } from './engine';
 import { emplacementCrewGrip, type EmplacementName } from './emplacement-layout';
@@ -27,7 +28,8 @@ export function artilleryCrewPose(owner: CrewOwner, member: number, time: number
     x: -(42 + member * 32), y: groundY(-(42 + member * 32)),
   };
 
-  const originalGrip = emplacementCrewGrip(name, member);
+  const custom=expansionGunLayout(owner.id);
+  const originalGrip = custom?[-custom.bodyWidth*(member?.36:.2),-Math.min(25,custom.bodyHeight*.22)]:emplacementCrewGrip(name, member);
   const grip=[originalGrip[0]*Math.cos(angle)-facing*originalGrip[1]*Math.sin(angle),facing*originalGrip[0]*Math.sin(angle)+originalGrip[1]*Math.cos(angle)];
   const crewX=grip[0]-18,crewY=groundY(crewX);
   const handY = grip[1]-crewY + (name === 'aa_gun' ? 3 : 0);

@@ -1,3 +1,6 @@
+import {FORT_IDS_V227,GUN_IDS_V227,GUN_SIZES_V227} from './expansion-v227';
+import {expansionGunParts,groundedFortSprite} from './expansion-art-v227';
+import {fortificationSize} from './fortification-ground';
 import {PARACHUTE_TRANSPORT_ART,PARACHUTE_TRANSPORT_WRECK,transportFrameV224} from './parachute-art-v224';
 import {VEHICLE_SOURCES_V223,vehicleFrameV223,apcPartsV223,pickupPartsV223,towRackParts,type TowRackParts} from './vehicle-art-v223';
 import {IFV_ART_V220,ifvPartsV220,ifvPreviewV220} from './ifv-art-v220';
@@ -595,7 +598,7 @@ function loadSharedBattleArt(compact = false): Promise<SharedBattleArt> {
 export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt> {
   const loadImage = (source: string) => loadArtImage(source, compact);
   const generatedSpriteIds = [
-    'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',
+    'fort_bunker', 'fort_machinegun', 'fort_aa', 'fort_spawn', 'fort_wire',...FORT_IDS_V227,
   ] as const;
   return Promise.all([
     Promise.all([
@@ -635,7 +638,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       .then(entries => Object.fromEntries(entries) as TreeArtV17) : loadTreeArtV17(),
     compact ? loadImage('/art/v18-mines/mines.png').then(mineFramesV18) : loadMineArtV18(),
     compact ? loadImage('/art/v18-comeback/toxic-cloud.png').then(comebackFramesV18) : loadComebackArtV18(),
-    Promise.all(generatedSpriteIds.map((id) => loadImage(`/art/v190/sprites/${id}.webp`))),
+    Promise.all(generatedSpriteIds.map((id) => loadImage((FORT_IDS_V227 as readonly string[]).includes(id)?`/art/v227-installations/${id}.png`:`/art/v190/sprites/${id}.webp`))),
     loadImage('/art/v195-logistics/ammo-crate.png'),
     Promise.all(V197_VEHICLE_IDS.map(async id => {
       const [sprite, wreck] = await Promise.all([
@@ -651,6 +654,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
     loadImage(IFV_ART_V220.source).then(ifvPartsV220),
     Promise.all(Object.entries(VEHICLE_SOURCES_V223).map(async ([id,path])=>({id:id as keyof typeof VEHICLE_SOURCES_V223,image:await loadImage(path),wreck:await loadImage(path.replace('.png','-wreck.png'))}))),
+    Promise.all(GUN_IDS_V227.map(async id=>({id,body:await loadImage(`/art/v227-installations/${id}-body.png`),barrel:await loadImage(`/art/v227-installations/${id}-barrel.png`)}))),
   ]).then(
     ([
       [
@@ -694,7 +698,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       weaponSheets,
       v209Vehicles,
       missileSheets,
-      ifvParts,v223Vehicles,
+      ifvParts,v223Vehicles,expansionGuns,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
@@ -721,7 +725,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         const phases=mobileFrames[id].map(frame=>splitVehicleGun(id,frame));
         return [id,{...phases[0],bodyFrames:phases.map(parts=>parts.body)}];
       }));
-      const gunParts:Record<string,PaintedGunParts> = {...vehicleParts,...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
+      const gunParts:Record<string,PaintedGunParts> = {...Object.fromEntries(expansionGuns.map(a=>[a.id,expansionGunParts(a.id,a.body,a.barrel)])),...vehicleParts,...Object.fromEntries(v202Tanks), ...buildEmplacementParts(emplacementFrames), ...Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map((id,i)=>[id,modularGunParts(id,weaponSheets[i])]))};
       const gunPreviews=Object.fromEntries((['mlrs','field_gun','siege_gun'] as const).map(id=>{const a=WEAPON_LAYOUT[id], frame=surface(a.bodyWidth+80,a.bodyHeight+80);drawArticulatedGun(frame.getContext('2d')!,gunParts[id],{id,x:frame.width/2,y:frame.height,facing:1});return [id,[frame]];}));
       const heFrames = packedBlastFrames(heBlastSheet),
         grenadeFrames = packedBlastFrames(grenadeBlastSheet),
@@ -749,7 +753,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         helicopterParts:helicopterParts(weaponSheets[3]),
         weaponEffects:weaponEffects(weaponSheets[0], missileSheets),
         ammoCrate,
-        generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, generatedSpriteImages[index]])),
+        generatedSprites: Object.fromEntries(generatedSpriteIds.map((id, index) => [id, groundedFortSprite(generatedSpriteImages[index],...fortificationSize(id))])),
         soldiers:soldierArt(soldierPartsSheet,soldierEquipmentSheet),
         comeback,
         mines,
@@ -1024,6 +1028,7 @@ export function unitFrame(art: Art, id: CardId, frame = 0) {
   if (c.members) return infantryFrame(art, id);
   const mobile = art.mobileVehicles?.[id];
   if (mobile) return mobile[frame % mobile.length];
+  if(art.gunParts?.[id])return art.gunParts[id].body;
   if (c.emplacement) return art.emplacements[c.emplacement][frame];
   if (c.airlift) return art.aircraft.medevac[frame % 4];
   if (art.aircraft[id])
@@ -1048,12 +1053,8 @@ export function unitSize(id: CardId): [number, number] {
   if(id==='field_gun')return [156,80];
   if(id==='siege_gun')return [264,110];
   if(id==='helicopter'||id==='rocket_heli'||id==='escort_gunship')return [HELI_LAYOUT.width,HELI_LAYOUT.height+14];
-  if (c.fortification) {
-    if (c.fortification === 'wire') return [116, 34];
-    if (c.fortification === 'aa') return [112, 82];
-    if (c.fortification === 'spawn') return [118, 64];
-    return [112, 64];
-  }
+  if(GUN_SIZES_V227[id])return [...GUN_SIZES_V227[id]];
+  if(c.fortification)return fortificationSize(id);
   if(id==='parachute_transport')return [320,110];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];

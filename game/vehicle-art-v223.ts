@@ -11,7 +11,7 @@ export const VEHICLE_CROPS_V223={
 } as const;
 export const VEHICLE_WRECKS_V223={apc_transport:{crop:[16,221,1501,608],size:[180,74]},supply_truck:{crop:[32,220,1479,584],size:[188,75]},pickup:{crop:[37,231,1482,542],size:[160,59]}} as const;
 export const VEHICLE_SIZES_V223={apc_transport:[180,69],supply_truck:[188,78],pickup:[160,65]} as const;
-export function pickupMountV223(){return {pivotX:-31.7,pivotHeight:57.4,barrelLength:44.5,minElevation:-12*Math.PI/180,maxElevation:35*Math.PI/180,restElevation:0};}
+export function pickupMountV223(){return {pivotX:-31.7,pivotHeight:76.4,barrelLength:44.5,minElevation:-12*Math.PI/180,maxElevation:35*Math.PI/180,restElevation:0};}
 function canvas(w:number,h:number){const c=document.createElement('canvas');c.width=Math.ceil(w);c.height=Math.ceil(h);return c;}
 /** Texture import only: drop faint transparent matte fringes. Original AI
  * source files and opaque colour pixels are retained without repainting. */
@@ -25,7 +25,11 @@ export function vehicleWreckV223(id:keyof typeof VEHICLE_SOURCES_V223,source:HTM
 export function pickupPartsV223(source:HTMLImageElement):PaintedGunParts{
  const clean=alphaCut(source),barrel=canvas(770*.07,191*.07),ctx=barrel.getContext('2d')!;ctx.imageSmoothingEnabled=false;
  ctx.drawImage(clean,403,775,770,191,0,0,770*.07,191*.07);
- return {body:crop(clean,VEHICLE_CROPS_V223.pickup,...VEHICLE_SIZES_V223.pickup),barrel,barrelPivot:[(535-403)*.07,(832-775)*.07],sourceElevation:0};
+ const body=canvas(160,84),bodyCtx=body.getContext('2d')!;bodyCtx.imageSmoothingEnabled=false;bodyCtx.drawImage(crop(clean,VEHICLE_CROPS_V223.pickup,...VEHICLE_SIZES_V223.pickup),0,19);
+ // Reposition the existing painted steel mount, extending its own pole pixels.
+ const mount=canvas(32,38),mc=mount.getContext('2d')!;mc.imageSmoothingEnabled=false;mc.drawImage(clean,350,133,270,200,0,0,30,22);
+ mc.drawImage(clean,482,205,34,120,15,20,4,18);bodyCtx.drawImage(mount,33,0);
+ return {body,barrel,barrelPivot:[(535-403)*.07,(832-775)*.07],sourceElevation:0};
 }
 export interface TowRackParts {body:HTMLCanvasElement;tubes:HTMLCanvasElement[];}
 const TOW_RECTS:Crop[]=[[51,0,48,13],[51,14,48,13]];

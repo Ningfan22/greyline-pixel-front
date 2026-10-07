@@ -17,6 +17,7 @@ export default defineConfig({
     emptyOutDir: true,
     rolldownOptions: {
       input: {
+        expansion:fileURLToPath(new URL('./static-app/qa-expansion.html',import.meta.url)),
         index: fileURLToPath(
           new URL('./static-app/index.html', import.meta.url),
         ),

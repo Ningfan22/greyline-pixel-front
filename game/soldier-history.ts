@@ -1,0 +1,221 @@
+import {soldierPose,type SoldierBody,type SoldierPose} from './soldier-pose';
+
+/** Copy rig inputs only. A unit also contains hundreds of tactical fields;
+ * spreading that mutable army state for every footstep dominated tick time. */
+export function captureSoldierBody(u:SoldierBody,target?:SoldierBody):SoldierBody {
+  if(target){
+    target.aimUntil=u.aimUntil;
+    target.ammo=u.ammo;
+    target.ammoShareUntil=u.ammoShareUntil;
+    target.ammoSignalUntil=u.ammoSignalUntil;
+    target.attentionUntil=u.attentionUntil;
+    target.blastGlanceUntil=u.blastGlanceUntil;
+    target.calloutDir=u.calloutDir;
+    target.calloutUntil=u.calloutUntil;
+    target.climbing=u.climbing;
+    target.contactUntil=u.contactUntil;
+    target.cooldown=u.cooldown;
+    target.crawling=u.crawling;
+    target.crouchTravel=u.crouchTravel;
+    target.digElapsed=u.digElapsed;
+    target.digging=u.digging;
+    target.draggedByUid=u.draggedByUid;
+    target.draggingUid=u.draggingUid;
+    target.emplacementSetupUntil=u.emplacementSetupUntil;
+    target.facing=u.facing;
+    target.fallVariant=u.fallVariant;
+    target.fire=u.fire;
+    target.firstAidUntil=u.firstAidUntil;
+    target.flash=u.flash;
+    target.fragThrow=u.fragThrow;
+    target.fragThrowStartedAt=u.fragThrowStartedAt;
+    target.gaitPhase=u.gaitPhase;
+    target.gaitRun=u.gaitRun;
+    target.gaitWeight=u.gaitWeight;
+    target.heardContactAt=u.heardContactAt;
+    target.hp=u.hp;
+    target.id=u.id;
+    target.kills=u.kills;
+    target.lane=u.lane;
+    target.lastCombatShotAt=u.lastCombatShotAt;
+    target.launcherCycleDuration=u.launcherCycleDuration;
+    target.launcherCycleRemaining=u.launcherCycleRemaining;
+    target.member=u.member;
+    target.motion=u.motion;
+    target.motionDuration=u.motionDuration;
+    target.motionTime=u.motionTime;
+    target.moving=u.moving;
+    target.observingUntil=u.observingUntil;
+    target.overheatedUntil=u.overheatedUntil;
+    target.parachuting=u.parachuting;
+    target.pointDir=u.pointDir;
+    target.pointUntil=u.pointUntil;
+    target.pose=u.pose;
+    target.poseAnimAt=u.poseAnimAt;
+    target.poseAnimFrom=u.poseAnimFrom;
+    target.poseAnimFromTravel=u.poseAnimFromTravel;
+    target.poseAnimProgress=u.poseAnimProgress;
+    target.poseAnimSeen=u.poseAnimSeen;
+    target.poseAnimToTravel=u.poseAnimToTravel;
+    target.proneTravel=u.proneTravel;
+    target.rappelling=u.rappelling;
+    target.reloadingStartAt=u.reloadingStartAt;
+    target.reloadingUntil=u.reloadingUntil;
+    target.rifleReady=u.rifleReady;
+    target.satchelPlantStartedAt=u.satchelPlantStartedAt;
+    target.satchelPlantUntil=u.satchelPlantUntil;
+    target.satchelPlantHandX=u.satchelPlantHandX;
+    target.satchelPlantHandY=u.satchelPlantHandY;
+    target.scavengeUntil=u.scavengeUntil;
+    target.secondaryFire=u.secondaryFire;
+    target.shots=u.shots;
+    target.soldierCrawlStart=u.soldierCrawlStart;
+    target.soldierCrawled=u.soldierCrawled;
+    target.soldierFall=u.soldierFall;
+    target.soldierGround=u.soldierGround;
+    target.soldierLanding=u.soldierLanding;
+    target.soldierRise=u.soldierRise;
+    target.soldierSurrender=u.soldierSurrender;
+    target.stillFor=u.stillFor;
+    target.suppression=u.suppression;
+    target.surrenderTime=u.surrenderTime;
+    target.surrendered=u.surrendered;
+    target.tactic=u.tactic;
+    target.tacticalReload=u.tacticalReload;
+    target.teamRole=u.teamRole;
+    target.teamSignal=u.teamSignal;
+    target.teamSignalUntil=u.teamSignalUntil;
+    target.tending=u.tending;
+    target.tendingKind=u.tendingKind;
+    target.tendingTime=u.tendingTime;
+    target.traceGlanceUntil=u.traceGlanceUntil;
+    target.training=u.training;
+    target.uid=u.uid;
+    target.walk=u.walk;
+    target.wounded=u.wounded;
+    target.woundedTime=u.woundedTime;
+    target.x=u.x;
+    target.y=u.y;
+    target.soldierTurn=u.soldierTurn?{...u.soldierTurn}:undefined;
+    return target;
+  }
+  return {
+    aimUntil:u.aimUntil,
+    ammo:u.ammo,
+    ammoShareUntil:u.ammoShareUntil,
+    ammoSignalUntil:u.ammoSignalUntil,
+    attentionUntil:u.attentionUntil,
+    blastGlanceUntil:u.blastGlanceUntil,
+    calloutDir:u.calloutDir,
+    calloutUntil:u.calloutUntil,
+    climbing:u.climbing,
+    contactUntil:u.contactUntil,
+    cooldown:u.cooldown,
+    crawling:u.crawling,
+    crouchTravel:u.crouchTravel,
+    digElapsed:u.digElapsed,
+    digging:u.digging,
+    draggedByUid:u.draggedByUid,
+    draggingUid:u.draggingUid,
+    emplacementSetupUntil:u.emplacementSetupUntil,
+    facing:u.facing,
+    fallVariant:u.fallVariant,
+    fire:u.fire,
+    firstAidUntil:u.firstAidUntil,
+    flash:u.flash,
+    fragThrow:u.fragThrow,
+    fragThrowStartedAt:u.fragThrowStartedAt,
+    gaitPhase:u.gaitPhase,
+    gaitRun:u.gaitRun,
+    gaitWeight:u.gaitWeight,
+    heardContactAt:u.heardContactAt,
+    hp:u.hp,
+    id:u.id,
+    kills:u.kills,
+    lane:u.lane,
+    lastCombatShotAt:u.lastCombatShotAt,
+    launcherCycleDuration:u.launcherCycleDuration,
+    launcherCycleRemaining:u.launcherCycleRemaining,
+    member:u.member,
+    motion:u.motion,
+    motionDuration:u.motionDuration,
+    motionTime:u.motionTime,
+    moving:u.moving,
+    observingUntil:u.observingUntil,
+    overheatedUntil:u.overheatedUntil,
+    parachuting:u.parachuting,
+    pointDir:u.pointDir,
+    pointUntil:u.pointUntil,
+    pose:u.pose,
+    poseAnimAt:u.poseAnimAt,
+    poseAnimFrom:u.poseAnimFrom,
+    poseAnimFromTravel:u.poseAnimFromTravel,
+    poseAnimProgress:u.poseAnimProgress,
+    poseAnimSeen:u.poseAnimSeen,
+    poseAnimToTravel:u.poseAnimToTravel,
+    proneTravel:u.proneTravel,
+    rappelling:u.rappelling,
+    reloadingStartAt:u.reloadingStartAt,
+    reloadingUntil:u.reloadingUntil,
+    rifleReady:u.rifleReady,
+    satchelPlantStartedAt:u.satchelPlantStartedAt,
+    satchelPlantUntil:u.satchelPlantUntil,
+    satchelPlantHandX:u.satchelPlantHandX,
+    satchelPlantHandY:u.satchelPlantHandY,
+    scavengeUntil:u.scavengeUntil,
+    secondaryFire:u.secondaryFire,
+    shots:u.shots,
+    soldierCrawlStart:u.soldierCrawlStart,
+    soldierCrawled:u.soldierCrawled,
+    soldierFall:u.soldierFall,
+    soldierGround:u.soldierGround,
+    soldierLanding:u.soldierLanding,
+    soldierRise:u.soldierRise,
+    soldierSurrender:u.soldierSurrender,
+    stillFor:u.stillFor,
+    suppression:u.suppression,
+    surrenderTime:u.surrenderTime,
+    surrendered:u.surrendered,
+    tactic:u.tactic,
+    tacticalReload:u.tacticalReload,
+    teamRole:u.teamRole,
+    teamSignal:u.teamSignal,
+    teamSignalUntil:u.teamSignalUntil,
+    tending:u.tending,
+    tendingKind:u.tendingKind,
+    tendingTime:u.tendingTime,
+    traceGlanceUntil:u.traceGlanceUntil,
+    training:u.training,
+    uid:u.uid,
+    walk:u.walk,
+    wounded:u.wounded,
+    woundedTime:u.woundedTime,
+    x:u.x,
+    y:u.y,
+    soldierTurn:u.soldierTurn?{...u.soldierTurn}:undefined,
+  };
+}
+export class SoldierHistory {
+  x:number;y:number;lane:number;facing:number;
+  private solved:SoldierPose|undefined;
+  private readonly body:SoldierBody;
+  private time:number;
+  constructor(u:SoldierBody,time:number){
+    this.time=time;
+    this.x=u.x??0;this.y=u.y??0;this.lane=u.lane??0;this.facing=u.facing??1;this.body=captureSoldierBody(u);
+  }
+  capture(u:SoldierBody,time:number){
+    this.time=time;this.x=u.x??0;this.y=u.y??0;this.lane=u.lane??0;this.facing=u.facing??1;
+    captureSoldierBody(u,this.body);this.solved=undefined;return this;
+  }
+  get pose(){return this.solved??=soldierPose(this.body,this.time);}
+}
+
+// A history belongs to one actor and is consumed within this tick. Reuse the
+// fixed-shape record instead of allocating a full rig snapshot every frame.
+const histories=new WeakMap<object,SoldierHistory>();
+export function captureSoldierHistory(u:SoldierBody,time:number){
+  let history=histories.get(u);
+  if(history)return history.capture(u,time);
+  history=new SoldierHistory(u,time);histories.set(u,history);return history;
+}

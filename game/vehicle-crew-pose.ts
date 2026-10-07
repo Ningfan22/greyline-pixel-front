@@ -10,8 +10,8 @@ export function vehicleCrewPose(u:Unit,time:number){
  const facing=u.facing||1,gun=gunPose(u);
  const socketX=u.id==='pickup'?(gun!.pivot.x-u.x)*facing:0;
  const socketY=u.id==='pickup'?gun!.pivot.y-u.y:-64;
- const x=socketX-17,y=u.id==='pickup'?-28:-34;
- const base=soldierPose({id:'infantry',uid:u.uid*10+7,pose:'crouch',hp:100,member:0,
+ const x=socketX-17,y=u.id==='pickup'?-31:-34;
+ const base=soldierPose({id:'infantry',uid:u.uid*10+7,pose:u.id==='pickup'?'idle':'crouch',hp:100,member:0,
    moving:false,facing,rifleReady:0,fire:0,secondaryFire:0},time);
  const progress=reloading?Math.max(0,Math.min(1,(time-(u.reloadingStartAt??time))/Math.max(.01,(u.reloadingUntil??time)-(u.reloadingStartAt??time)))):0;
  const loading=reloading?Math.sin(progress*Math.PI*4)*4:0;

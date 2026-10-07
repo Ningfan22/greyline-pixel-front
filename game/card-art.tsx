@@ -80,6 +80,9 @@ export const CardFace = memo(function CardFace({
     value = cost ?? c.cost;
   const stats = cardStats(id, value);
   const [pictureFailed, setPictureFailed] = useState(false);
+  const [pictureOriginal,setPictureOriginal]=useState(false);
+  const [frameOriginal,setFrameOriginal]=useState(false);
+  const [frameFailed,setFrameFailed]=useState(false);
   const rarity = rarityOf(id);
   const picture = cardImageSources(cardPicturePath(id)),
     frame = cardImageSources(
@@ -96,15 +99,17 @@ export const CardFace = memo(function CardFace({
   const flavorLen = copy.flavor.length;
   return (
     <figure
-      className={`printed-card ${className}`}
+      className={`printed-card ${frameFailed?"printed-card-fallback":""} ${className}`}
       aria-label={`${c.name}，${value}指挥点。${stats.map(([k, v]) => `${k}${v}`).join('，')}。${copy.ability}：${copy.rule} ${copy.flavor}`}
     >
       <img
         width={1024}
         height={1536}
         className="printed-card-frame"
-        src={frame.src}
-        srcSet={frame.srcSet}
+        src={frameOriginal?assetUrl(rarity==='common'?'/art/cards-v10/frame.webp':`/art/cards-v10/frame-${rarity}.webp`):frame.src}
+        srcSet={frameOriginal?undefined:frame.srcSet}
+        onError={()=>frameOriginal?setFrameFailed(true):setFrameOriginal(true)}
+        style={frameFailed?{visibility:'hidden'}:undefined}
         sizes={imageSizes}
         alt=""
         aria-hidden="true"
@@ -114,9 +119,9 @@ export const CardFace = memo(function CardFace({
       <img
         width={720}
         height={720}
-        className={`printed-card-picture${id === 'apc_transport' || id === 'supply_truck' || id === 'pickup' ? ' printed-card-vehicle' : ''}`}
-        src={picture.src}
-        srcSet={picture.srcSet}
+        className="printed-card-picture"
+        src={pictureOriginal?cardPictureUrl(id):picture.src}
+        srcSet={pictureOriginal?undefined:picture.srcSet}
         sizes={imageSizes}
         fetchPriority={eager ? 'high' : 'auto'}
         alt=""
@@ -125,7 +130,7 @@ export const CardFace = memo(function CardFace({
         decoding="async"
         draggable={false}
         style={pictureFailed ? { visibility: 'hidden' } : undefined}
-        onError={() => setPictureFailed(true)}
+        onError={() => pictureOriginal?setPictureFailed(true):setPictureOriginal(true)}
       />
       <span className="printed-card-cost" aria-hidden="true">
         <span>{value}</span>

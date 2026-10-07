@@ -1,0 +1,594 @@
+{
+  "mode": "builtin image_gen",
+  "version": 227,
+  "assets": [
+    {
+      "id": "fort_radar",
+      "subject": "ground-fixed early-warning radar, large rotating dish on steel pedestal beside equipment cabin; air warning installation",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: ground-fixed early-warning radar, large rotating dish on steel pedestal beside equipment cabin; air warning installation. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_radar.",
+      "source": "art-source/v227/fort_radar.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_radar.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        787
+      ],
+      "spriteCrop": {
+        "left": 88,
+        "top": 803,
+        "width": 836,
+        "height": 661
+      }
+    },
+    {
+      "id": "fort_watchtower",
+      "subject": "tall wooden watchtower with braced legs and sandbag observation platform, ladder; forward lookout",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: tall wooden watchtower with braced legs and sandbag observation platform, ladder; forward lookout. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_watchtower.",
+      "source": "art-source/v227/fort_watchtower.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_watchtower.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        846
+      ],
+      "spriteCrop": {
+        "left": 264,
+        "top": 864,
+        "width": 473,
+        "height": 627
+      }
+    },
+    {
+      "id": "fort_at_bunker",
+      "subject": "reinforced low concrete anti-tank bunker with heavy firing embrasure and slim anti-tank barrel facing right",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: reinforced low concrete anti-tank bunker with heavy firing embrasure and slim anti-tank barrel facing right. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_at_bunker.",
+      "source": "art-source/v227/fort_at_bunker.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_at_bunker.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        823
+      ],
+      "spriteCrop": {
+        "left": 22,
+        "top": 956,
+        "width": 960,
+        "height": 437
+      }
+    },
+    {
+      "id": "fort_mortar_pit",
+      "subject": "81mm mortar in a circular sandbag pit, ammunition crates, dug-in indirect fire emplacement",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 81mm mortar in a circular sandbag pit, ammunition crates, dug-in indirect fire emplacement. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_mortar_pit.",
+      "source": "art-source/v227/fort_mortar_pit.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_mortar_pit.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        959
+      ],
+      "spriteCrop": {
+        "left": 21,
+        "top": 991,
+        "width": 984,
+        "height": 483
+      }
+    },
+    {
+      "id": "fort_supply_depot",
+      "subject": "low camouflaged ammunition depot, stacks of wooden crates and fuel drums under canvas, no truck",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: low camouflaged ammunition depot, stacks of wooden crates and fuel drums under canvas, no truck. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_supply_depot.",
+      "source": "art-source/v227/fort_supply_depot.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_supply_depot.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        920
+      ],
+      "spriteCrop": {
+        "left": 7,
+        "top": 1064,
+        "width": 1007,
+        "height": 277
+      }
+    },
+    {
+      "id": "fort_medical_post",
+      "subject": "frontline canvas medical station with small red cross canvas flag and stretcher, sandbag perimeter",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: frontline canvas medical station with small red cross canvas flag and stretcher, sandbag perimeter. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_medical_post.",
+      "source": "art-source/v227/fort_medical_post.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_medical_post.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        930
+      ],
+      "spriteCrop": {
+        "left": 34,
+        "top": 1007,
+        "width": 957,
+        "height": 398
+      }
+    },
+    {
+      "id": "fort_command_post",
+      "subject": "low protected field command dugout with two radio antennas and cables, map desk inside doorway",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: low protected field command dugout with two radio antennas and cables, map desk inside doorway. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_command_post.",
+      "source": "art-source/v227/fort_command_post.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_command_post.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        767
+      ],
+      "spriteCrop": {
+        "left": 25,
+        "top": 801,
+        "width": 975,
+        "height": 648
+      }
+    },
+    {
+      "id": "fort_flak_tower",
+      "subject": "low concrete anti-aircraft platform with twin 37mm flak guns aimed upwards, industrial reinforced tower",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: low concrete anti-aircraft platform with twin 37mm flak guns aimed upwards, industrial reinforced tower. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_flak_tower.",
+      "source": "art-source/v227/fort_flak_tower.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_flak_tower.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        850
+      ],
+      "spriteCrop": {
+        "left": 25,
+        "top": 897,
+        "width": 961,
+        "height": 528
+      }
+    },
+    {
+      "id": "fort_trench",
+      "subject": "long reinforced earth trench with wooden revetments, firing steps and sandbag parapet",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: long reinforced earth trench with wooden revetments, firing steps and sandbag parapet. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_trench.",
+      "source": "art-source/v227/fort_trench.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_trench.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        933
+      ],
+      "spriteCrop": {
+        "left": 12,
+        "top": 1058,
+        "width": 1000,
+        "height": 283
+      }
+    },
+    {
+      "id": "fort_repair_post",
+      "subject": "field repair shelter with gantry crane, track links, spare road wheels and tool crates, no complete tank",
+      "kind": "fort",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: field repair shelter with gantry crane, track links, spare road wheels and tool crates, no complete tank. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels contain ONE isolated strictly side-on game sprite of the same installation, NO people painted into it, NO scenery, NO shadows, flat pure magenta #FF00FF background; entire structure, ground footing and base are visible, generous clear margins. Sprite faces right, horizontal ground base. Solid opaque painted pixels. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for fort_repair_post.",
+      "source": "art-source/v227/fort_repair_post.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/fort_repair_post.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        906
+      ],
+      "spriteCrop": {
+        "left": 12,
+        "top": 961,
+        "width": 1000,
+        "height": 458
+      }
+    },
+    {
+      "id": "mortar_60",
+      "subject": "compact portable 60mm light mortar, short slim tube, small bipod and small baseplate",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: compact portable 60mm light mortar, short slim tube, small bipod and small baseplate. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for mortar_60.",
+      "source": "art-source/v227/mortar_60.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/mortar_60.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        844
+      ],
+      "bodyCrop": {
+        "left": 146,
+        "top": 869,
+        "width": 722,
+        "height": 386
+      },
+      "barrelCrop": {
+        "left": 113,
+        "top": 1287,
+        "width": 799,
+        "height": 186
+      }
+    },
+    {
+      "id": "mortar_81",
+      "subject": "81mm medium mortar, recognisable bipod adjustment screws, medium round baseplate",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 81mm medium mortar, recognisable bipod adjustment screws, medium round baseplate. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for mortar_81.",
+      "source": "art-source/v227/mortar_81.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/mortar_81.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        769
+      ],
+      "bodyCrop": {
+        "left": 105,
+        "top": 787,
+        "width": 722,
+        "height": 441
+      },
+      "barrelCrop": {
+        "left": 63,
+        "top": 1272,
+        "width": 910,
+        "height": 176
+      }
+    },
+    {
+      "id": "mortar_120",
+      "subject": "heavy 120mm mortar, very thick tube and wheeled deployment carriage, broad baseplate",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: heavy 120mm mortar, very thick tube and wheeled deployment carriage, broad baseplate. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for mortar_120.",
+      "source": "art-source/v227/mortar_120.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/mortar_120.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        855
+      ],
+      "bodyCrop": {
+        "left": 54,
+        "top": 873,
+        "width": 921,
+        "height": 389
+      },
+      "barrelCrop": {
+        "left": 75,
+        "top": 1314,
+        "width": 874,
+        "height": 173
+      }
+    },
+    {
+      "id": "howitzer_105",
+      "subject": "105mm light towed howitzer, short thick barrel and two medium wheels, lightweight split trail",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 105mm light towed howitzer, short thick barrel and two medium wheels, lightweight split trail. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_105.",
+      "source": "art-source/v227/howitzer_105.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_105.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        792
+      ],
+      "bodyCrop": {
+        "left": 39,
+        "top": 853,
+        "width": 937,
+        "height": 329
+      },
+      "barrelCrop": {
+        "left": 223,
+        "top": 1274,
+        "width": 675,
+        "height": 157
+      }
+    },
+    {
+      "id": "howitzer_120",
+      "subject": "120mm towed howitzer, medium-length tube, substantial breech, gun shield and split trail carriage",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 120mm towed howitzer, medium-length tube, substantial breech, gun shield and split trail carriage. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_120.",
+      "source": "art-source/v227/howitzer_120.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_120.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        876
+      ],
+      "bodyCrop": {
+        "left": 32,
+        "top": 930,
+        "width": 963,
+        "height": 306
+      },
+      "barrelCrop": {
+        "left": 97,
+        "top": 1316,
+        "width": 871,
+        "height": 126
+      }
+    },
+    {
+      "id": "howitzer_122",
+      "subject": "122mm three-trail towed howitzer, three radial stabilizer legs, compact low shield and medium barrel",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 122mm three-trail towed howitzer, three radial stabilizer legs, compact low shield and medium barrel. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_122.",
+      "source": "art-source/v227/howitzer_122.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_122.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        866
+      ],
+      "bodyCrop": {
+        "left": 13,
+        "top": 891,
+        "width": 998,
+        "height": 357
+      },
+      "barrelCrop": {
+        "left": 69,
+        "top": 1346,
+        "width": 886,
+        "height": 98
+      }
+    },
+    {
+      "id": "howitzer_152",
+      "subject": "152mm heavy towed howitzer, long substantial barrel, prominent large muzzle brake and heavy two-wheel carriage",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 152mm heavy towed howitzer, long substantial barrel, prominent large muzzle brake and heavy two-wheel carriage. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_152.",
+      "source": "art-source/v227/howitzer_152.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_152.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        810
+      ],
+      "bodyCrop": {
+        "left": 99,
+        "top": 858,
+        "width": 826,
+        "height": 326
+      },
+      "barrelCrop": {
+        "left": 55,
+        "top": 1318,
+        "width": 915,
+        "height": 95
+      }
+    },
+    {
+      "id": "howitzer_155",
+      "subject": "155mm modern towed howitzer, very long thick barrel with muzzle brake, large wheels and heavy split trail",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 155mm modern towed howitzer, very long thick barrel with muzzle brake, large wheels and heavy split trail. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_155.",
+      "source": "art-source/v227/howitzer_155.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_155.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        832
+      ],
+      "bodyCrop": {
+        "left": 18,
+        "top": 872,
+        "width": 986,
+        "height": 300
+      },
+      "barrelCrop": {
+        "left": 29,
+        "top": 1298,
+        "width": 966,
+        "height": 106
+      }
+    },
+    {
+      "id": "howitzer_203",
+      "subject": "203mm siege howitzer, enormous stout long barrel on heavy four-wheel carriage, massive breech, stabilizing feet",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 203mm siege howitzer, enormous stout long barrel on heavy four-wheel carriage, massive breech, stabilizing feet. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for howitzer_203.",
+      "source": "art-source/v227/howitzer_203.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/howitzer_203.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        809
+      ],
+      "bodyCrop": {
+        "left": 27,
+        "top": 875,
+        "width": 973,
+        "height": 304
+      },
+      "barrelCrop": {
+        "left": 32,
+        "top": 1284,
+        "width": 957,
+        "height": 131
+      }
+    },
+    {
+      "id": "field_gun_85",
+      "subject": "85mm high-velocity anti-tank field gun, long slender horizontal barrel, broad sloped shield, two wheels and split trails",
+      "kind": "gun",
+      "prompt": "Use case: stylized-concept. Generate a production military game asset plate, exactly portrait 1024 by1536 pixels. Subject: 85mm high-velocity anti-tank field gun, long slender horizontal barrel, broad sloped shield, two wheels and split trails. TOP 1024 pixels: an original finished gritty detailed PIXEL ART card illustration showing this exact subject in a believable frontline battlefield environment, three-quarter perspective, crisp visible coarse pixel clusters, muted olive/earth/charcoal palette, realistic mechanical proportions. Different original setting and composition for this unit. No text, no UI card frame, no numbers, no logos. Soldiers may operate the subject in the upper illustration. The bottom 512 pixels are two isolated modular sprites on flat PURE magenta #FF00FF: from y1024 to y1344 the side-on wheeled carriage/base and breech ONLY, WITHOUT the long gun tube, no people, all wheels and trails visible. From y1344 to y1536 ONE isolated long barrel/tube facing horizontally right, breech attachment at left, muzzle at right, unrotated, no chassis. For mortars: lower carriage is bipod/baseplate, lower tube separate upright device drawn horizontal for rig rotation. Solid opaque pixels, generous margins. NO crew baked into sprites. Strict layout divider at y1024, upper illustration must not extend into lower sprites. Lower sprite appearance matches the upper subject, crisp pixel artwork consistent with Greyline, not vector icons or toys. This is ONE asset plate for field_gun_85.",
+      "source": "art-source/v227/field_gun_85.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/field_gun_85.png",
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        835
+      ],
+      "bodyCrop": {
+        "left": 76,
+        "top": 865,
+        "width": 801,
+        "height": 349
+      },
+      "barrelCrop": {
+        "left": 85,
+        "top": 1316,
+        "width": 879,
+        "height": 103
+      }
+    },
+    {
+      "id": "supply_truck",
+      "kind": "card",
+      "source": "art-source/v227/supply_truck.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/supply_truck.png"
+    },
+    {
+      "id": "pickup",
+      "kind": "card",
+      "source": "art-source/v227/pickup.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/pickup.png"
+    },
+    {
+      "id": "apc_transport",
+      "kind": "card",
+      "source": "art-source/v227/apc_transport.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/apc_transport.png"
+    },
+    {
+      "id": "mlrs",
+      "kind": "card",
+      "source": "art-source/v227/mlrs.png",
+      "width": 1024,
+      "height": 1536,
+      "projectSource": "art-source/v227/mlrs.png"
+    },
+    {
+      "id": "sp_howitzer_122",
+      "kind": "gun",
+      "subject": "122mm tracked self-propelled howitzer, long gun in compact fully enclosed turret, low armored tracked hull with five road wheels, clearly a mobile artillery vehicle, NOT a troop carrier",
+      "prompt": "Use case: stylized-concept. Generate ONE production Greyline military pixel game asset plate, exactly portrait 1024 by1536 pixels. Subject 122mm tracked self-propelled howitzer, long gun in compact fully enclosed turret, low armored tracked hull with five road wheels, clearly a mobile artillery vehicle, NOT a troop carrier. Top 1024 pixels: new original detailed grim PIXEL ART cover illustration of this vehicle in its own believable frontline firing position, three-quarter view right, muted olive earth charcoal, realistic military proportions, crisp medium-size pixel clusters, no text, no logos, no card frame. Bottom512pixels on flat PURE magenta #FF00FF: upper320pixels (y1024..1344) contain strictly side-on complete vehicle hull tracks and turret with breech ONLY, gun tube REMOVED for separate animation, facing right, no soldiers baked in, generous margins, tracks fully visible. Lower192pixels (y1344..1536) contain ONE separately painted long horizontal barrel, breech attachment left, muzzle right, realistic dark metal, matching above vehicle. Preserve exact dividing layout. No scenery/shadows in lower asset regions. Not a copy of any IFV or tank painting.",
+      "source": "art-source/v227/sp_howitzer_122.png",
+      "projectSource": "art-source/v227/sp_howitzer_122.png",
+      "width": 1024,
+      "height": 1536,
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        844
+      ],
+      "bodyCrop": {
+        "left": 83,
+        "top": 886,
+        "width": 842,
+        "height": 388
+      },
+      "barrelCrop": {
+        "left": 92,
+        "top": 1339,
+        "width": 877,
+        "height": 94
+      }
+    },
+    {
+      "id": "sp_howitzer_155",
+      "kind": "gun",
+      "subject": "155mm modern tracked self-propelled howitzer, tall angular heavy artillery turret with extremely long gun and big muzzle brake, broad tracked chassis with seven road wheels, rear ammunition loading hatch, clearly large mobile artillery, NOT an infantry fighting vehicle",
+      "prompt": "Use case: stylized-concept. Generate ONE production Greyline military pixel game asset plate, exactly portrait 1024 by1536 pixels. Subject 155mm modern tracked self-propelled howitzer, tall angular heavy artillery turret with extremely long gun and big muzzle brake, broad tracked chassis with seven road wheels, rear ammunition loading hatch, clearly large mobile artillery, NOT an infantry fighting vehicle. Top 1024 pixels: new original detailed grim PIXEL ART cover illustration of this vehicle in its own believable frontline firing position, three-quarter view right, muted olive earth charcoal, realistic military proportions, crisp medium-size pixel clusters, no text, no logos, no card frame. Bottom512pixels on flat PURE magenta #FF00FF: upper320pixels (y1024..1344) contain strictly side-on complete vehicle hull tracks and turret with breech ONLY, gun tube REMOVED for separate animation, facing right, no soldiers baked in, generous margins, tracks fully visible. Lower192pixels (y1344..1536) contain ONE separately painted long horizontal barrel, breech attachment left, muzzle right, realistic dark metal, matching above vehicle. Preserve exact dividing layout. No scenery/shadows in lower asset regions. Not a copy of any IFV or tank painting.",
+      "source": "art-source/v227/sp_howitzer_155.png",
+      "projectSource": "art-source/v227/sp_howitzer_155.png",
+      "width": 1024,
+      "height": 1536,
+      "cardCrop": [
+        0,
+        0,
+        1024,
+        768
+      ],
+      "bodyCrop": {
+        "left": 84,
+        "top": 786,
+        "width": 837,
+        "height": 469
+      },
+      "barrelCrop": {
+        "left": 53,
+        "top": 1332,
+        "width": 918,
+        "height": 119
+      }
+    }
+  ]
+}

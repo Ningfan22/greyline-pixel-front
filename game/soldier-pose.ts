@@ -14,7 +14,7 @@ import {stanceHeightClass,stanceTransitionProgress,magazineReloadActive,
 export type Point = readonly [number,number];
 export type SoldierBody = Pick<Unit,'id'|'pose'> & Partial<Unit> & {fallVariant?:number};
 export type SoldierWeapon = 'rifle'|'lmg'|'hmg'|'rocket'|'manpads'|'sniper'|'grenade'|'mortar'|'flame';
-export type SoldierAction = 'ready'|'reload'|'throw'|'medical'|'repair'|'dig'|'drag'|'share'|
+export type SoldierAction = 'plant'|'ready'|'reload'|'throw'|'medical'|'repair'|'dig'|'drag'|'share'|
   'scavenge'|'signal'|'observe'|'cover'|'listen'|'scan'|'deploy'|'barrel'|'cycle'|'casualty'|'surrender'|'rappel'|'parachute'|'vault';
 export const SOLDIER_BONES = {thigh:17,shin:17,torso:22,upperArm:12,forearm:13} as const;
 const clamp=(v:number)=>Math.max(0,Math.min(1,v));
@@ -186,6 +186,7 @@ function actionFor(u:SoldierBody,time:number):SoldierAction {
   if(u.rappelling)return 'rappel';
   if(u.parachuting)return 'parachute';
   if((u.climbing??0)>0)return 'vault';
+  if((u.satchelPlantUntil??0)>time)return 'plant';
   if((u.fragThrow??0)>0)return 'throw';
   if(u.draggingUid!==undefined)return 'drag';
   if(magazineReloadActive(u,time))return 'reload';
@@ -558,6 +559,11 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   }else if(action==='cycle'){
     const p=clamp((time-(u.lastCombatShotAt??time))/.7);
     farHand=add(gun.feed,[-Math.sin(p*Math.PI)*4,1]);
+  }else if(action==='plant'){
+    slung=true;const p=clamp((time-(u.satchelPlantStartedAt??time))/Math.max(.01,(u.satchelPlantUntil??time+.1)-(u.satchelPlantStartedAt??time)));
+    const pouch=add(hip,[4,-3]),attach:Point=[u.satchelPlantHandX??18,u.satchelPlantHandY??-25];
+    nearHand=p<.35?lerp(pouch,attach,smooth(p/.35)):attach;
+    farHand=add(attach,[-5,3]);prop='magazine';
   }else if(action==='throw'){
     slung=true;const elapsed=grenadeElapsed(u,time),p=elapsed/GRENADE_THROW_S;
     const low=stance.low>1.5,back=add(shoulder,[-12,low?-9:-19]),release=add(shoulder,[19,-12]);

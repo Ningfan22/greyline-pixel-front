@@ -8,7 +8,7 @@ const marchPlans = new WeakMap<GameState, Map<number, { nextAt: number; goal: nu
  * Only friendly positions and currently observed contacts set this march goal.
  * Range/visibility still decide whether a real rocket can be fired. */
 export function rocketBatteryMarchGoal(s: GameState, battery: Unit, range: number): number | null {
-  if (battery.id !== 'mlrs') return null;
+  if (battery.id !== 'mlrs' && !CARDS[battery.id].selfPropelled) return null;
   // Keep a firing position through a reload or a brief loss of observation.
   if (s.time - (battery.lastCombatShotAt ?? -Infinity) < 8) return battery.x;
   let plans = marchPlans.get(s);
@@ -30,7 +30,7 @@ export function rocketBatteryMarchGoal(s: GameState, battery: Unit, range: numbe
           u.resupplyState === 'withdrawing') continue;
       if (front === undefined || u.x * dir > front * dir) front = u.x;
     } else if (visibleToSide(s, battery.side, u) && (u.x - battery.x) * dir >= 0) {
-      const line = u.x - dir * Math.max((CARDS.mlrs.minRange ?? 0) + 120, range * .7);
+      const line = u.x - dir * Math.max((CARDS[battery.id].minRange ?? 0) + 120, range * .7);
       if (safeLine === undefined || line * dir < safeLine * dir) safeLine = line;
     }
   }

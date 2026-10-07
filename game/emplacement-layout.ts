@@ -1,8 +1,8 @@
 /** The original gun paintings, gun sockets and crew contacts share one scale. */
-export type EmplacementName = 'howitzer' | 'at_gun' | 'aa_gun';
+export type EmplacementName = 'howitzer' | 'at_gun' | 'aa_gun' | 'mortar';
 export const EMPLACEMENT_SCALE = 1.2;
 export const EMPLACEMENT_BASE_SIZE = {
-  howitzer: [190, 100], at_gun: [190, 95], aa_gun: [150, 105],
+  mortar:[80,65], howitzer: [190, 100], at_gun: [190, 95], aa_gun: [150, 105],
 } as const;
 export function emplacementSize(name: EmplacementName): [number, number] {
   const [w, h] = EMPLACEMENT_BASE_SIZE[name];
@@ -10,7 +10,7 @@ export function emplacementSize(name: EmplacementName): [number, number] {
 }
 /** Painted carriage contact points, before scaling; the far operator goes first. */
 const PUSH_GRIPS = {
-  howitzer: [[70, 76], [40, 84]],
+  mortar:[[20,50],[10,53]], howitzer: [[70, 76], [40, 84]],
   at_gun: [[76, 73], [43, 80]],
   aa_gun: [[66, 81], [35, 86]],
 } as const;

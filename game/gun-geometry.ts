@@ -1,3 +1,4 @@
+import {expansionGunMount} from './expansion-art-v227';
 import {vehicleGunMount} from './vehicle-gun-layout';
 import { CARDS, type CardId } from './cards';
 import { TANK_IDS_V202, tankLayoutV202 } from './tank-layout-v202';
@@ -22,6 +23,7 @@ export interface GunMount {
   restElevation: number;
 }
 const MOUNTS: Record<string, GunMount> = {
+  mortar:{pivotX:0,pivotHeight:15,barrelLength:45,minElevation:rad(45),maxElevation:rad(82),restElevation:rad(65)},
   light_tank: {
     pivotX: 36,
     pivotHeight: 57,
@@ -99,7 +101,7 @@ for (const id of ['helicopter', 'rocket_heli', 'escort_gunship'] as const)
   };
 export function gunMount(id: CardId): GunMount | null {
   return (
-    vehicleGunMount(id) ?? MOUNTS[id] ??
+    expansionGunMount(id) ?? vehicleGunMount(id) ?? MOUNTS[id] ??
     (CARDS[id].emplacement ? MOUNTS[CARDS[id].emplacement!] : null) ??
     null
   );
@@ -197,8 +199,9 @@ export function aimedGunSolution(body: GunBody, tx: number, ty: number) {
     Math.asin(clamp(boreOffset / Math.hypot(dx, dy), -1, 1));
   const indirect = !!CARDS[body.id].indirect;
   // Low-angle howitzer fire at short ranges; longer shots visibly elevate.
-  const preferred =
-    body.id === 'mlrs'
+  const preferred = CARDS[body.id].emplacement==='mortar'
+    ? body.id==='mortar_60'?rad(56):rad(62+clamp((dx-200)/1000,0,1)*12)
+    : body.id === 'mlrs'
       ? WEAPON_LAYOUT.mlrs.sourceElevation +
         rad(16 + clamp((dx - 350) / 700, 0, 1) * 24)
       : rad(12 + clamp((dx - 200) / 1000, 0, 1) * 20);

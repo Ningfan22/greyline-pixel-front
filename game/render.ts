@@ -94,11 +94,17 @@ import {
   transportCrewSlot,
 } from './cover-animation';
 const projectileOffsets = new WeakMap<Projectile, { x: number; y: number }>();
-function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art) {
+function drawFortification(ctx: CanvasRenderingContext2D, u: Unit, time: number, art: Art, state:GameState) {
   const [w, h] = unitSize(u.id);
   const total = CARDS[u.id].buildTime ?? 1;
   const remaining = Math.max(0, (u.buildUntil ?? time) - time);
   const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+  // The footing remains level. Reuse painted soil to support its downhill
+  // edge instead of leaving a transparent gap under a flat building base.
+  ctx.save();ctx.beginPath();ctx.moveTo(u.x-w/2,u.y);
+  ctx.lineTo(u.x+w/2,u.y);
+  for(let dx=w/2;dx>=-w/2;dx-=4)ctx.lineTo(u.x+dx,ground(state,u.x+dx)+2);
+  ctx.closePath();ctx.clip();ctx.drawImage(art.terrain,0,0,art.terrain.width,art.terrain.height,u.x-w/2,u.y,w,120);ctx.restore();
   drawSprite(ctx, art.generatedSprites[u.id], u.x, u.y, w, h, u.side === 1, 0.35 + 0.65 * progress);
   if (remaining <= 0) return;
   const x = Math.round(u.x);
@@ -872,7 +878,7 @@ export function render(
     if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far',x=>ground(s,x),readbackFreeSoldiers);
     if(!isDead&&art.soldiers){const crew=vehicleCrewPose(u,s.time);if(crew){const frame=actorSoldierPoseFrame(art.soldiers,u,crew.pose,3,readbackFreeSoldiers);drawSprite(ctx,frame.image,u.x+crew.facing*crew.x,u.y+infantryDepth(u.lane)+crew.y+frame.image.height-frame.anchorY,frame.image.width,frame.image.height,crew.facing<0);}}
     if (c.fortification) {
-      drawFortification(ctx,u,s.time,art);
+      drawFortification(ctx,u,s.time,art,s);
     } else if (art.helicopterParts && (u.id==='helicopter'||u.id==='rocket_heli'||u.id==='escort_gunship')) {
       ctx.save();ctx.globalAlpha=alpha;drawHelicopter(ctx,art.helicopterParts,u,s.time,isDead);ctx.restore();
     } else if(u.id==='tow_ifv'&&art.towRack&&!isDead){

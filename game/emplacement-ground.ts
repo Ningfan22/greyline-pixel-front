@@ -1,7 +1,10 @@
+import {expansionGunSupports} from './expansion-art-v227';
 import {CARDS,type CardId} from './cards';
 /** Contacts measured on the existing final-size carriage pixels: trail/spade,
  * then the near wheel (AA uses its two ground pads). The barrel is no support. */
 export function emplacementSupports(id:CardId):readonly (readonly [number,number])[] {
+  const custom=expansionGunSupports(id);
+  if(custom)return custom;
   if(id==='field_gun')return [[-68,-3],[51,0]];
   if(id==='siege_gun')return [[-113,-1],[87,-2]];
   switch(CARDS[id].emplacement){

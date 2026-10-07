@@ -1,3 +1,4 @@
+import {EXPANSION_IDS_V227} from './expansion-v227';
 import { type CardId } from './cards';
 import { isV197Vehicle, vehicleAssetV197 } from './vehicle-art-v197';
 const identity = (path: string) => path;
@@ -9,7 +10,7 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPicturePath(id: CardId) {
-  if(id==='apc_transport'||id==='supply_truck'||id==='pickup')return `/art/v223-vehicles/${id}.png`;
+  if((EXPANSION_IDS_V227 as readonly string[]).includes(id)||['apc_transport','supply_truck','pickup','mlrs'].includes(id))return `/art/v227-cards/${id}.webp`;
   if(id==='rapid_assault')return cardPicturePath('assault');
   if(id==='rapid_at')return cardPicturePath('antiarmor');
   if(id==='rapid_recon')return cardPicturePath('scouts');

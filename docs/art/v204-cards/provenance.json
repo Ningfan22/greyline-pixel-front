@@ -4,6 +4,446 @@
   "mode": "nearest-neighbour resizing + WebP encoding of existing image-generated artwork",
   "entries": [
     {
+      "source": "/art/v227-cards/sp_howitzer_122.webp",
+      "sourceSha256": "0f0e929b859fe7ccb0ea56c3772bf23ee95a8149b8652267bafb020d6b4117dd",
+      "sourceBytes": 290466,
+      "path": "/art/v204-cards/sp_howitzer_122-384-8750429060ae.webp",
+      "width": 384,
+      "height": 316,
+      "bytes": 32348,
+      "sha256": "8750429060aeda4da4a5c05f578aa3d18b4bdd3b0eefc8db0547f0c1dd51da4c"
+    },
+    {
+      "source": "/art/v227-cards/sp_howitzer_122.webp",
+      "sourceSha256": "0f0e929b859fe7ccb0ea56c3772bf23ee95a8149b8652267bafb020d6b4117dd",
+      "sourceBytes": 290466,
+      "path": "/art/v204-cards/sp_howitzer_122-640-88038fd0186b.webp",
+      "width": 640,
+      "height": 528,
+      "bytes": 74980,
+      "sha256": "88038fd0186be965f3dc855171c414cb7147e4bc63f1f06b67b1fc3e0bc37b75"
+    },
+    {
+      "source": "/art/v227-cards/sp_howitzer_155.webp",
+      "sourceSha256": "5473983bbeba7c33658aa280dad747f672ff65c0cecc1496eeb4387a120187b9",
+      "sourceBytes": 282026,
+      "path": "/art/v204-cards/sp_howitzer_155-384-c3f5a8686ee7.webp",
+      "width": 384,
+      "height": 288,
+      "bytes": 31062,
+      "sha256": "c3f5a8686ee7021bf14bdb12075ba14aa8c98b8f12b49e9db1fb074d72efcd8d"
+    },
+    {
+      "source": "/art/v227-cards/sp_howitzer_155.webp",
+      "sourceSha256": "5473983bbeba7c33658aa280dad747f672ff65c0cecc1496eeb4387a120187b9",
+      "sourceBytes": 282026,
+      "path": "/art/v204-cards/sp_howitzer_155-640-ababb5622bc7.webp",
+      "width": 640,
+      "height": 480,
+      "bytes": 75316,
+      "sha256": "ababb5622bc75699b6794861bcdac06529ba8eff77ce9eca52669e2095d331dd"
+    },
+    {
+      "source": "/art/v227-cards/fort_radar.webp",
+      "sourceSha256": "840105d54fa68084ad73ee9889d8f3b01520a5895392fe2dbe016b53121d6f95",
+      "sourceBytes": 324476,
+      "path": "/art/v204-cards/fort_radar-384-fc4d670b6ffd.webp",
+      "width": 384,
+      "height": 295,
+      "bytes": 37608,
+      "sha256": "fc4d670b6ffd37b639795bd67ed55302c85782c4101a11a0204be853565ff2e1"
+    },
+    {
+      "source": "/art/v227-cards/fort_radar.webp",
+      "sourceSha256": "840105d54fa68084ad73ee9889d8f3b01520a5895392fe2dbe016b53121d6f95",
+      "sourceBytes": 324476,
+      "path": "/art/v204-cards/fort_radar-640-7ec12808df29.webp",
+      "width": 640,
+      "height": 492,
+      "bytes": 91138,
+      "sha256": "7ec12808df29e797cd554a7d746d6538ea97dac188e98c9a2135b32edf247db0"
+    },
+    {
+      "source": "/art/v227-cards/fort_watchtower.webp",
+      "sourceSha256": "655c8ff7c8c4322940d701335f5686c518d953ee60e14545a5714fa6c8d303f6",
+      "sourceBytes": 306462,
+      "path": "/art/v204-cards/fort_watchtower-384-47823405c5d0.webp",
+      "width": 384,
+      "height": 317,
+      "bytes": 32448,
+      "sha256": "47823405c5d06c3e2efa3779e2dd32d85e7092fee6d94d2d38b1c074f0d0ea4a"
+    },
+    {
+      "source": "/art/v227-cards/fort_watchtower.webp",
+      "sourceSha256": "655c8ff7c8c4322940d701335f5686c518d953ee60e14545a5714fa6c8d303f6",
+      "sourceBytes": 306462,
+      "path": "/art/v204-cards/fort_watchtower-640-9eb3173d135e.webp",
+      "width": 640,
+      "height": 529,
+      "bytes": 76622,
+      "sha256": "9eb3173d135e1c1a5b8dee8e6aa00e372b3e98ce28efffb8612c75565a78b69b"
+    },
+    {
+      "source": "/art/v227-cards/fort_at_bunker.webp",
+      "sourceSha256": "6ed9a188d1f3b8809604ba449261d9ef32ae2e7888fb8ec639c4e3d9ab1095ba",
+      "sourceBytes": 297952,
+      "path": "/art/v204-cards/fort_at_bunker-384-919747a70e9b.webp",
+      "width": 384,
+      "height": 309,
+      "bytes": 37280,
+      "sha256": "919747a70e9bdd0ded1c8c7f020744ee40e9dae92cbb6d125f313495422e53fe"
+    },
+    {
+      "source": "/art/v227-cards/fort_at_bunker.webp",
+      "sourceSha256": "6ed9a188d1f3b8809604ba449261d9ef32ae2e7888fb8ec639c4e3d9ab1095ba",
+      "sourceBytes": 297952,
+      "path": "/art/v204-cards/fort_at_bunker-640-f1e01aec451b.webp",
+      "width": 640,
+      "height": 514,
+      "bytes": 86880,
+      "sha256": "f1e01aec451b867d584a17378860231a275e5193afbebf40eb936b55e887f2b7"
+    },
+    {
+      "source": "/art/v227-cards/fort_mortar_pit.webp",
+      "sourceSha256": "fe83e66dfb48704742791384eea19345a5984b9edd26ece4f7c19980a4a6d023",
+      "sourceBytes": 381192,
+      "path": "/art/v204-cards/fort_mortar_pit-384-7c2edb2d8243.webp",
+      "width": 384,
+      "height": 360,
+      "bytes": 46624,
+      "sha256": "7c2edb2d824384467922ade31f6993270691a77ed23fe8a5adc4ceae64ba8be3"
+    },
+    {
+      "source": "/art/v227-cards/fort_mortar_pit.webp",
+      "sourceSha256": "fe83e66dfb48704742791384eea19345a5984b9edd26ece4f7c19980a4a6d023",
+      "sourceBytes": 381192,
+      "path": "/art/v204-cards/fort_mortar_pit-640-5e1323f9d710.webp",
+      "width": 640,
+      "height": 599,
+      "bytes": 112018,
+      "sha256": "5e1323f9d7100ef6cfd6a9d490a7cddadc52fe2aaa44d263fb9388325a1ef44e"
+    },
+    {
+      "source": "/art/v227-cards/fort_supply_depot.webp",
+      "sourceSha256": "206b85f7925498ba8b90b878105d28f578984aed55f42a2e2968f8e3007267d6",
+      "sourceBytes": 393960,
+      "path": "/art/v204-cards/fort_supply_depot-384-e761e6ab5e30.webp",
+      "width": 384,
+      "height": 345,
+      "bytes": 48410,
+      "sha256": "e761e6ab5e3071ca979c6787dd8ac8604efaa551cd6cde3ca6779f19e6e37302"
+    },
+    {
+      "source": "/art/v227-cards/fort_supply_depot.webp",
+      "sourceSha256": "206b85f7925498ba8b90b878105d28f578984aed55f42a2e2968f8e3007267d6",
+      "sourceBytes": 393960,
+      "path": "/art/v204-cards/fort_supply_depot-640-21d835d461cf.webp",
+      "width": 640,
+      "height": 575,
+      "bytes": 116592,
+      "sha256": "21d835d461cfd7e6e8fa6eb95983e8ac1e1dc2a68a32df1e6362057779586396"
+    },
+    {
+      "source": "/art/v227-cards/fort_medical_post.webp",
+      "sourceSha256": "1fef38ae388982f4667ae461ef866f36ec5558307025f28ca6154674400de7e6",
+      "sourceBytes": 370552,
+      "path": "/art/v204-cards/fort_medical_post-384-75664b80f12d.webp",
+      "width": 384,
+      "height": 349,
+      "bytes": 45314,
+      "sha256": "75664b80f12d827f2571206eb92ecdc8cb60ab4780518ee9bf137df07d66331b"
+    },
+    {
+      "source": "/art/v227-cards/fort_medical_post.webp",
+      "sourceSha256": "1fef38ae388982f4667ae461ef866f36ec5558307025f28ca6154674400de7e6",
+      "sourceBytes": 370552,
+      "path": "/art/v204-cards/fort_medical_post-640-864ac46c82ba.webp",
+      "width": 640,
+      "height": 581,
+      "bytes": 106470,
+      "sha256": "864ac46c82bad7c55212ade7210de7f9bcdd0907df17ec0bedbcfdccf416f784"
+    },
+    {
+      "source": "/art/v227-cards/fort_command_post.webp",
+      "sourceSha256": "b2b96088b7f69c9f9f97695f709288e59d10ce42419b1034aa6e48660ca69b15",
+      "sourceBytes": 293920,
+      "path": "/art/v204-cards/fort_command_post-384-8bbaae4df402.webp",
+      "width": 384,
+      "height": 288,
+      "bytes": 36560,
+      "sha256": "8bbaae4df40275ebea06a7458d53e469fbadf41c37174997a43949e04d6c2ce6"
+    },
+    {
+      "source": "/art/v227-cards/fort_command_post.webp",
+      "sourceSha256": "b2b96088b7f69c9f9f97695f709288e59d10ce42419b1034aa6e48660ca69b15",
+      "sourceBytes": 293920,
+      "path": "/art/v204-cards/fort_command_post-640-b05e75869fbf.webp",
+      "width": 640,
+      "height": 479,
+      "bytes": 86040,
+      "sha256": "b05e75869fbf66d9fc08a9276ba564cabddfbffb1b4fce466ec6b415c41769d3"
+    },
+    {
+      "source": "/art/v227-cards/fort_flak_tower.webp",
+      "sourceSha256": "76669e68fbe7d2caf0f4cdc1fa0ae89f2f0bef9d61f4b06603a2f1d5491b5f12",
+      "sourceBytes": 307856,
+      "path": "/art/v204-cards/fort_flak_tower-384-62a4bd6192f2.webp",
+      "width": 384,
+      "height": 319,
+      "bytes": 35982,
+      "sha256": "62a4bd6192f2970ef332f09df4fb9392c9897c046b503b097f588827207097e7"
+    },
+    {
+      "source": "/art/v227-cards/fort_flak_tower.webp",
+      "sourceSha256": "76669e68fbe7d2caf0f4cdc1fa0ae89f2f0bef9d61f4b06603a2f1d5491b5f12",
+      "sourceBytes": 307856,
+      "path": "/art/v204-cards/fort_flak_tower-640-7b20df73d088.webp",
+      "width": 640,
+      "height": 531,
+      "bytes": 85752,
+      "sha256": "7b20df73d088ddfed34a209fe53a766fa4b10ac3a2a6d13c1c1379662a9118d4"
+    },
+    {
+      "source": "/art/v227-cards/fort_trench.webp",
+      "sourceSha256": "68562e4564a1a83ccd06944c82dc249eaf891d5be612236e635b6fc782919e5f",
+      "sourceBytes": 330358,
+      "path": "/art/v204-cards/fort_trench-384-065c09e9bcdc.webp",
+      "width": 384,
+      "height": 350,
+      "bytes": 43312,
+      "sha256": "065c09e9bcdc589d0fbb9d73de8e7636c1a442911058e9021d17a6d9a84aadf3"
+    },
+    {
+      "source": "/art/v227-cards/fort_trench.webp",
+      "sourceSha256": "68562e4564a1a83ccd06944c82dc249eaf891d5be612236e635b6fc782919e5f",
+      "sourceBytes": 330358,
+      "path": "/art/v204-cards/fort_trench-640-8bae16a36d6d.webp",
+      "width": 640,
+      "height": 583,
+      "bytes": 99540,
+      "sha256": "8bae16a36d6df3ca7c77622700601f86552231b4d2b6fa2a9e976e06d7f1ffa3"
+    },
+    {
+      "source": "/art/v227-cards/fort_repair_post.webp",
+      "sourceSha256": "81c2f275da82c29bf3c7c821ee87669c1a932cb753a25248955c26c6c105f207",
+      "sourceBytes": 390684,
+      "path": "/art/v204-cards/fort_repair_post-384-264c44e53304.webp",
+      "width": 384,
+      "height": 340,
+      "bytes": 48076,
+      "sha256": "264c44e533045a2461ec8109b9c995803fa60b788b1a082061e877c07eb468d2"
+    },
+    {
+      "source": "/art/v227-cards/fort_repair_post.webp",
+      "sourceSha256": "81c2f275da82c29bf3c7c821ee87669c1a932cb753a25248955c26c6c105f207",
+      "sourceBytes": 390684,
+      "path": "/art/v204-cards/fort_repair_post-640-5e980d86eb0d.webp",
+      "width": 640,
+      "height": 566,
+      "bytes": 117372,
+      "sha256": "5e980d86eb0d3bc2d5ac2651c22c01d6542c7a88cc5f70b6ad1ab40df914902b"
+    },
+    {
+      "source": "/art/v227-cards/mortar_60.webp",
+      "sourceSha256": "32ec714fc0a1bc6ecbb336962c9935b5a587cd2498ddc7d96d82e8057916a769",
+      "sourceBytes": 285432,
+      "path": "/art/v204-cards/mortar_60-384-d4121f041623.webp",
+      "width": 384,
+      "height": 316,
+      "bytes": 39936,
+      "sha256": "d4121f0416239a6c3f7bbef696422a7e4bc41e022b7cbc911230f7a0abd37644"
+    },
+    {
+      "source": "/art/v227-cards/mortar_60.webp",
+      "sourceSha256": "32ec714fc0a1bc6ecbb336962c9935b5a587cd2498ddc7d96d82e8057916a769",
+      "sourceBytes": 285432,
+      "path": "/art/v204-cards/mortar_60-640-9e02306c8028.webp",
+      "width": 640,
+      "height": 528,
+      "bytes": 89636,
+      "sha256": "9e02306c8028d7d7f87420866fcfa7059f5d8e89419ffa5bc3815522f4c1faaa"
+    },
+    {
+      "source": "/art/v227-cards/mortar_81.webp",
+      "sourceSha256": "80fa4397e2b5bc4ae413a7c67df0b6d41371c33b1ed81accf179a101c446c7ae",
+      "sourceBytes": 258562,
+      "path": "/art/v204-cards/mortar_81-384-4e880d2efe0f.webp",
+      "width": 384,
+      "height": 288,
+      "bytes": 33884,
+      "sha256": "4e880d2efe0f5a1ca91d894d2e160501d595e8a928228f31a5c23ff92acc6867"
+    },
+    {
+      "source": "/art/v227-cards/mortar_81.webp",
+      "sourceSha256": "80fa4397e2b5bc4ae413a7c67df0b6d41371c33b1ed81accf179a101c446c7ae",
+      "sourceBytes": 258562,
+      "path": "/art/v204-cards/mortar_81-640-534da34e6798.webp",
+      "width": 640,
+      "height": 481,
+      "bytes": 76596,
+      "sha256": "534da34e679890d598989c15af3b3b02f2862b682e880feac22161c1ad00dac2"
+    },
+    {
+      "source": "/art/v227-cards/mortar_120.webp",
+      "sourceSha256": "ffbecba0dfa2a16789139dd66dd785a46200f36f4a685af5e3837df05a2ff78d",
+      "sourceBytes": 329826,
+      "path": "/art/v204-cards/mortar_120-384-504bc33d9a8c.webp",
+      "width": 384,
+      "height": 321,
+      "bytes": 41364,
+      "sha256": "504bc33d9a8cd00fc8905c1fa11de4ff14d1348a7271188622c012d75b89e957"
+    },
+    {
+      "source": "/art/v227-cards/mortar_120.webp",
+      "sourceSha256": "ffbecba0dfa2a16789139dd66dd785a46200f36f4a685af5e3837df05a2ff78d",
+      "sourceBytes": 329826,
+      "path": "/art/v204-cards/mortar_120-640-3cabdbfafb40.webp",
+      "width": 640,
+      "height": 534,
+      "bytes": 95760,
+      "sha256": "3cabdbfafb40bf9bd59b144200eb62ab9f9cd7465ffc8bcad6f67732d9f5c96a"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_105.webp",
+      "sourceSha256": "721f67bdb280cf2bc63bfdf59bf89cebec7de2a04431868f32218aafd99476f7",
+      "sourceBytes": 299508,
+      "path": "/art/v204-cards/howitzer_105-384-4b02fa36ccf0.webp",
+      "width": 384,
+      "height": 297,
+      "bytes": 39352,
+      "sha256": "4b02fa36ccf0f8981df753e5e3d46f59c9b7ebf5004d44b3c88a111bfe07cc20"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_105.webp",
+      "sourceSha256": "721f67bdb280cf2bc63bfdf59bf89cebec7de2a04431868f32218aafd99476f7",
+      "sourceBytes": 299508,
+      "path": "/art/v204-cards/howitzer_105-640-cb4b1f628161.webp",
+      "width": 640,
+      "height": 495,
+      "bytes": 88136,
+      "sha256": "cb4b1f62816101fc6cda9c64927811b3071dece4528ecc9bb1e59d8020d74744"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_120.webp",
+      "sourceSha256": "eb71bb5f70e71f6a8c4d21a11d90564ecbab35ddaa1337d32fbe2335319c4646",
+      "sourceBytes": 310086,
+      "path": "/art/v204-cards/howitzer_120-384-3d0aa3fe9375.webp",
+      "width": 384,
+      "height": 328,
+      "bytes": 41560,
+      "sha256": "3d0aa3fe9375435aaf3ea7614b94693f086edb0946439277de0afce8397fe865"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_120.webp",
+      "sourceSha256": "eb71bb5f70e71f6a8c4d21a11d90564ecbab35ddaa1337d32fbe2335319c4646",
+      "sourceBytes": 310086,
+      "path": "/art/v204-cards/howitzer_120-640-2c5f97313404.webp",
+      "width": 640,
+      "height": 548,
+      "bytes": 94546,
+      "sha256": "2c5f973134046cbd60ed55fd3697fc4bf2b449dfafa7e56dae3c20372b19b925"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_122.webp",
+      "sourceSha256": "7068e6d829d17f59b94a1c7cd2ab99f920654621750bc0db3f645a71e9b3c53b",
+      "sourceBytes": 342458,
+      "path": "/art/v204-cards/howitzer_122-384-1668f02d6524.webp",
+      "width": 384,
+      "height": 325,
+      "bytes": 43842,
+      "sha256": "1668f02d652438073ffe57c343a06c772caf011075d0c809c5b4e9ba6fe429de"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_122.webp",
+      "sourceSha256": "7068e6d829d17f59b94a1c7cd2ab99f920654621750bc0db3f645a71e9b3c53b",
+      "sourceBytes": 342458,
+      "path": "/art/v204-cards/howitzer_122-640-bda0647ea7a0.webp",
+      "width": 640,
+      "height": 541,
+      "bytes": 103060,
+      "sha256": "bda0647ea7a05e19fcc9cada02dddf9e97e36ffdd671030a3694a39cfb851a23"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_152.webp",
+      "sourceSha256": "c3fbb1663dac87ccb0ef8c7943d23707341eeeeda7639c9570ac6611429a9cf3",
+      "sourceBytes": 266836,
+      "path": "/art/v204-cards/howitzer_152-384-262d3d73ea7f.webp",
+      "width": 384,
+      "height": 304,
+      "bytes": 34718,
+      "sha256": "262d3d73ea7f69198ca2ac5850864403dda893156fcb4d99a741b11961571bb8"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_152.webp",
+      "sourceSha256": "c3fbb1663dac87ccb0ef8c7943d23707341eeeeda7639c9570ac6611429a9cf3",
+      "sourceBytes": 266836,
+      "path": "/art/v204-cards/howitzer_152-640-a0fbf1d72057.webp",
+      "width": 640,
+      "height": 506,
+      "bytes": 78094,
+      "sha256": "a0fbf1d72057bbd1781a4b4f5d41ff4bb553907f1c8ab5e9dc08105e32cf5af5"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_155.webp",
+      "sourceSha256": "a41e63a86077747b5ae8c4c1643bd2be0d5d3cb42d39180ad756cdd8062154e5",
+      "sourceBytes": 278548,
+      "path": "/art/v204-cards/howitzer_155-384-922476221990.webp",
+      "width": 384,
+      "height": 312,
+      "bytes": 36488,
+      "sha256": "922476221990e675f4e9ec512319a21eef224ba79a2ff5357a7683f474bcaa62"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_155.webp",
+      "sourceSha256": "a41e63a86077747b5ae8c4c1643bd2be0d5d3cb42d39180ad756cdd8062154e5",
+      "sourceBytes": 278548,
+      "path": "/art/v204-cards/howitzer_155-640-55a9571a1de7.webp",
+      "width": 640,
+      "height": 520,
+      "bytes": 82008,
+      "sha256": "55a9571a1de70706d5a0068d74d08a9c8952ffa3ffb0ee3208e5ae519ea456fc"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_203.webp",
+      "sourceSha256": "2834675a3e36cccd5c41c61e65b8097c746625949dba46901cb51cf63d9127de",
+      "sourceBytes": 308956,
+      "path": "/art/v204-cards/howitzer_203-384-d8f71011c1ca.webp",
+      "width": 384,
+      "height": 303,
+      "bytes": 37648,
+      "sha256": "d8f71011c1caed3c1db21620a25cbf13e7c2143b0075a4b00e25b5ea86955a25"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_203.webp",
+      "sourceSha256": "2834675a3e36cccd5c41c61e65b8097c746625949dba46901cb51cf63d9127de",
+      "sourceBytes": 308956,
+      "path": "/art/v204-cards/howitzer_203-640-45ed5d18c70a.webp",
+      "width": 640,
+      "height": 506,
+      "bytes": 88386,
+      "sha256": "45ed5d18c70af8aa5cc6a1f3d5832ba28b9c623feaf9863749fde52e4815be9a"
+    },
+    {
+      "source": "/art/v227-cards/field_gun_85.webp",
+      "sourceSha256": "b364564024c77dd56a848a2c212009fbf8760716ad12acff4fb94da1fc5d14ba",
+      "sourceBytes": 285730,
+      "path": "/art/v204-cards/field_gun_85-384-31ffe0a72e55.webp",
+      "width": 384,
+      "height": 313,
+      "bytes": 34848,
+      "sha256": "31ffe0a72e5562e4b4b6c3309b2707d62e216c7e9b81cc4425e1f3fb4256de39"
+    },
+    {
+      "source": "/art/v227-cards/field_gun_85.webp",
+      "sourceSha256": "b364564024c77dd56a848a2c212009fbf8760716ad12acff4fb94da1fc5d14ba",
+      "sourceBytes": 285730,
+      "path": "/art/v204-cards/field_gun_85-640-7c90d1ff4546.webp",
+      "width": 640,
+      "height": 522,
+      "bytes": 80946,
+      "sha256": "7c90d1ff45461edddb9556d4b37033dbfc180563847e91c004751e80bf1db343"
+    },
+    {
       "source": "/art/v212-counterarmor/antitank_cluster.webp",
       "sourceSha256": "8deb64c23316b9c6cc892d93b19d498c5187ff04faac3349522618243e862b12",
       "sourceBytes": 118724,
@@ -684,36 +1124,24 @@
       "sha256": "bc546da946da169c131ead6240ddbd5bb321c624749c63ac95cc9417efd11cb9"
     },
     {
-      "source": "/art/v223-vehicles/pickup.png",
-      "sourceSha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c",
-      "sourceBytes": 1749694,
-      "sourceCrop": [
-        49,
-        105,
-        1460,
-        589
-      ],
-      "path": "/art/v204-cards/pickup-384-596ae3262b3e.webp",
+      "source": "/art/v227-cards/pickup.webp",
+      "sourceSha256": "4cb3e74560c41086751a185013eb84a699229c20eb32a9ad9e21e2f4afc7c503",
+      "sourceBytes": 461610,
+      "path": "/art/v204-cards/pickup-384-b7199914593a.webp",
       "width": 384,
-      "height": 155,
-      "bytes": 19068,
-      "sha256": "596ae3262b3ef0e8beef6cca43c5c4940f6bb7246d535b61dbf808201edc5839"
+      "height": 576,
+      "bytes": 63298,
+      "sha256": "b7199914593a1244d8413cdbd15c2218181846730bfed6d49e854f6bbe4ac0b6"
     },
     {
-      "source": "/art/v223-vehicles/pickup.png",
-      "sourceSha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c",
-      "sourceBytes": 1749694,
-      "sourceCrop": [
-        49,
-        105,
-        1460,
-        589
-      ],
-      "path": "/art/v204-cards/pickup-640-919207d9f324.webp",
+      "source": "/art/v227-cards/pickup.webp",
+      "sourceSha256": "4cb3e74560c41086751a185013eb84a699229c20eb32a9ad9e21e2f4afc7c503",
+      "sourceBytes": 461610,
+      "path": "/art/v204-cards/pickup-640-b40d93782ce3.webp",
       "width": 640,
-      "height": 258,
-      "bytes": 41384,
-      "sha256": "919207d9f324eb5ae90cd858a3568a55d772521c9ad0b6e0661ad6b59e57bbff"
+      "height": 960,
+      "bytes": 139128,
+      "sha256": "b40d93782ce366690f603cde4e8ba04bf5ec009143ba8faf2ee6ac62e4770c6d"
     },
     {
       "source": "/art/v197-armor/tow-card.webp",
@@ -2416,24 +2844,24 @@
       "sha256": "d94371fe4fa6e4a4290d7ea1ebeef30d4b36377427630f1dc8d71fd032093ec7"
     },
     {
-      "source": "/art/v204-weapons/mlrs-card.webp",
-      "sourceSha256": "056d7a8285f66e11d56f416eda840df25f361e4953b6cff73599a0af43dbcbf3",
-      "sourceBytes": 1675760,
-      "path": "/art/v204-cards/mlrs-card-384-8401e1346cb4.webp",
+      "source": "/art/v227-cards/mlrs.webp",
+      "sourceSha256": "d706e32110b66276a8d5419a1aec4e945d8dfa17ca6145617c24765ac71b5813",
+      "sourceBytes": 480156,
+      "path": "/art/v204-cards/mlrs-384-bb2a6ec52d0a.webp",
       "width": 384,
-      "height": 384,
-      "bytes": 38352,
-      "sha256": "8401e1346cb4721a4d18722338b49bfe04fdf2d6047b96c8637e54b9f9ca53f9"
+      "height": 576,
+      "bytes": 58104,
+      "sha256": "bb2a6ec52d0ad5f0285e6abd64d34ff97188e9c1ecb4a51b241af55c21d2d888"
     },
     {
-      "source": "/art/v204-weapons/mlrs-card.webp",
-      "sourceSha256": "056d7a8285f66e11d56f416eda840df25f361e4953b6cff73599a0af43dbcbf3",
-      "sourceBytes": 1675760,
-      "path": "/art/v204-cards/mlrs-card-640-1774ea92cd63.webp",
+      "source": "/art/v227-cards/mlrs.webp",
+      "sourceSha256": "d706e32110b66276a8d5419a1aec4e945d8dfa17ca6145617c24765ac71b5813",
+      "sourceBytes": 480156,
+      "path": "/art/v204-cards/mlrs-640-c0b19e7be376.webp",
       "width": 640,
-      "height": 640,
-      "bytes": 85240,
-      "sha256": "1774ea92cd63bf1d975c0dafa066cde3382a121f1d8fe7b6905946c58b32859b"
+      "height": 960,
+      "bytes": 135114,
+      "sha256": "c0b19e7be37698f476253e5411b91c0578e8ba2221115014bad29a4d49991b5c"
     },
     {
       "source": "/art/cards-v10/scout_car.webp",
@@ -2516,68 +2944,44 @@
       "sha256": "707f3ee93241722898d8a09c826ac605746816450d082a4545415fd51e2a7032"
     },
     {
-      "source": "/art/v223-vehicles/apc_transport.png",
-      "sourceSha256": "1f572c1108d051e26421f8af52cb0fa46775616bd8723d2fc32ee4aad21bb280",
-      "sourceBytes": 1753550,
-      "sourceCrop": [
-        20,
-        237,
-        1504,
-        569
-      ],
-      "path": "/art/v204-cards/apc_transport-384-ace1b45b68e3.webp",
+      "source": "/art/v227-cards/apc_transport.webp",
+      "sourceSha256": "ec794f43a5a684aa5ff281647cdd55a7e2a0276c78056ce9fdd68e4abdeb6928",
+      "sourceBytes": 536156,
+      "path": "/art/v204-cards/apc_transport-384-67bd7af3c213.webp",
       "width": 384,
-      "height": 145,
-      "bytes": 22312,
-      "sha256": "ace1b45b68e3508e21ceea70f74eb2472cd2b9d825df75d36008efe42850e63a"
+      "height": 576,
+      "bytes": 66976,
+      "sha256": "67bd7af3c213160c4dd192627182744ca5f424eb0ea0a1fcfd89347dea965fbe"
     },
     {
-      "source": "/art/v223-vehicles/apc_transport.png",
-      "sourceSha256": "1f572c1108d051e26421f8af52cb0fa46775616bd8723d2fc32ee4aad21bb280",
-      "sourceBytes": 1753550,
-      "sourceCrop": [
-        20,
-        237,
-        1504,
-        569
-      ],
-      "path": "/art/v204-cards/apc_transport-640-31af6f3bc186.webp",
+      "source": "/art/v227-cards/apc_transport.webp",
+      "sourceSha256": "ec794f43a5a684aa5ff281647cdd55a7e2a0276c78056ce9fdd68e4abdeb6928",
+      "sourceBytes": 536156,
+      "path": "/art/v204-cards/apc_transport-640-326de3300c4c.webp",
       "width": 640,
-      "height": 242,
-      "bytes": 48290,
-      "sha256": "31af6f3bc1867680e16a846d82de7680f5b012ce38c37af245d97ca1c726a1f8"
+      "height": 960,
+      "bytes": 154132,
+      "sha256": "326de3300c4cd3e89719e73c63d4b2042483f9809fc51951662126c6f4b3bade"
     },
     {
-      "source": "/art/v223-vehicles/supply_truck.png",
-      "sourceSha256": "16d3fb48497d6730a6bb5fdd1fe1bf980459469d6d5c56285b4b7762855faed0",
-      "sourceBytes": 1764783,
-      "sourceCrop": [
-        39,
-        216,
-        1464,
-        594
-      ],
-      "path": "/art/v204-cards/supply_truck-384-17e53b335c9b.webp",
+      "source": "/art/v227-cards/supply_truck.webp",
+      "sourceSha256": "19245c054ae756dc22457ba9da179399f06ca6c3b0d03b11323be2851642cbf1",
+      "sourceBytes": 486240,
+      "path": "/art/v204-cards/supply_truck-384-69361ee329f6.webp",
       "width": 384,
-      "height": 156,
-      "bytes": 23182,
-      "sha256": "17e53b335c9be4c12320edd34566c13e28a9e0ab44bb9d2884207365cf20ab0d"
+      "height": 576,
+      "bytes": 65844,
+      "sha256": "69361ee329f65b5ad8c54cab970243740f7ec822fc6b463ec4da9c33b9cd6613"
     },
     {
-      "source": "/art/v223-vehicles/supply_truck.png",
-      "sourceSha256": "16d3fb48497d6730a6bb5fdd1fe1bf980459469d6d5c56285b4b7762855faed0",
-      "sourceBytes": 1764783,
-      "sourceCrop": [
-        39,
-        216,
-        1464,
-        594
-      ],
-      "path": "/art/v204-cards/supply_truck-640-239c128468a3.webp",
+      "source": "/art/v227-cards/supply_truck.webp",
+      "sourceSha256": "19245c054ae756dc22457ba9da179399f06ca6c3b0d03b11323be2851642cbf1",
+      "sourceBytes": 486240,
+      "path": "/art/v204-cards/supply_truck-640-cd1b3e7eb0ed.webp",
       "width": 640,
-      "height": 260,
-      "bytes": 49974,
-      "sha256": "239c128468a39d473885ab6627ee234517961ced05716b03432c37f7d5a529c7"
+      "height": 960,
+      "bytes": 143664,
+      "sha256": "cd1b3e7eb0ed64b8198170768ec570bfe99c336045795fe059e9b5c43d3a25ed"
     },
     {
       "source": "/art/v190/cards/escort_gunship.webp",

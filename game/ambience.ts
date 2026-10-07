@@ -241,6 +241,10 @@ function drawScorch(ctx: CanvasRenderingContext2D, sc: Scorch, gy: number) {
   ctx.restore();
 }
 
+// Ground marks never animate their speckles. Keep their existing pixels in
+// small stamps, so a dense battle does not redraw thousands of tiny rectangles.
+const scorchStamps=new WeakMap<Scorch,{image:HTMLCanvasElement;x:number;dy:number;radius:number}>();
+const treadStamps=new WeakMap<TreadMark,{image:HTMLCanvasElement;x:number;y:number}>();
 /** Persistent blast scorches drawn on the ground, under units and props. */
 export function drawScorches(
   ctx: CanvasRenderingContext2D,
@@ -250,7 +254,15 @@ export function drawScorches(
 ) {
   for (const sc of s.scorches) {
     if (sc.x < camera - 80 || sc.x > camera + viewportWidth + 80) continue;
-    drawScorch(ctx, sc, ground(s, sc.x));
+    const gy=ground(s,sc.x);
+    let stamp=scorchStamps.get(sc);
+    if(!stamp||stamp.radius!==sc.radius){
+      const half=Math.ceil(sc.radius*1.2)+5,x=Math.floor(sc.x-half),y=Math.floor(gy)-40;
+      const image=document.createElement('canvas');image.width=half*2+4;image.height=80;
+      const c=image.getContext('2d')!;c.translate(-x,-y);drawScorch(c,sc,gy);
+      stamp={image,x,dy:y-Math.floor(gy),radius:sc.radius};scorchStamps.set(sc,stamp);
+    }
+    ctx.drawImage(stamp.image,stamp.x,Math.floor(gy)+stamp.dy);
   }
 }
 
@@ -323,7 +335,15 @@ export function drawTreads(
     if (t.x < camera - 80 || t.x > camera + viewportWidth + 80) continue;
     const age = now - t.born;
     if (age >= TREAD_LIFETIME) continue;
-    drawTread(ctx, t, t.y, age);
+    let stamp=treadStamps.get(t);
+    if(!stamp){
+      const half=Math.ceil(t.half*.88)+12,x=Math.floor(t.x-half),y=Math.floor(t.y)-7;
+      const image=document.createElement('canvas');image.width=half*2+2;image.height=16;
+      const c=image.getContext('2d')!;c.translate(-x,-y);drawTread(c,t,t.y,0);
+      stamp={image,x,y};treadStamps.set(t,stamp);
+    }
+    ctx.save();ctx.globalAlpha=Math.max(0,1-age/TREAD_LIFETIME);
+    ctx.drawImage(stamp.image,stamp.x,stamp.y);ctx.restore();
   }
 }
 

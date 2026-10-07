@@ -1,3 +1,4 @@
+import {EXPANSION_CARDS_V227} from './expansion-v227';
 import { DECK_PRESETS, AI_DECKS } from './deck-presets';
 import type { EconomyEffect } from './economy';
 export type BaseCardId =
@@ -140,6 +141,9 @@ export type CardId =
   | 'fort_aa'
   | 'fort_spawn'
   | 'fort_wire'
+  | 'fort_radar' | 'fort_watchtower' | 'fort_at_bunker' | 'fort_mortar_pit' | 'fort_supply_depot' | 'fort_medical_post' | 'fort_command_post' | 'fort_flak_tower' | 'fort_trench' | 'fort_repair_post'
+  | 'sp_howitzer_122' | 'sp_howitzer_155'
+  | 'mortar_60' | 'mortar_81' | 'mortar_120' | 'howitzer_105' | 'howitzer_120' | 'howitzer_122' | 'howitzer_152' | 'howitzer_155' | 'howitzer_203' | 'field_gun_85'
   | 'apc_transport' | 'supply_truck' | 'rapid_assault' | 'rapid_at' | 'rapid_recon';
 export type Doctrine =
   | 'balanced'
@@ -199,7 +203,9 @@ export interface Card {
   penetrationTier?: 0 | 1 | 2 | 3;
   guided?: boolean;
   static?: boolean;
-  emplacement?: 'howitzer' | 'at_gun' | 'aa_gun';
+  emplacement?: 'howitzer' | 'at_gun' | 'aa_gun' | 'mortar';
+  ammoCapacity?: number;
+  selfPropelled?: boolean;
   penetration?: number;
   infantryMultiplier?: number;
   baseMultiplier?: number;
@@ -639,6 +645,7 @@ function fortCard(
   };
 }
 export const CARDS: Record<CardId, Card> = {
+  ...EXPANSION_CARDS_V227,
   antitank_cluster: variant('artillery','antitank_cluster','反坦克子母弹',5,
     '顶攻子弹药覆盖装甲群，步兵与基地伤害很低', {
       artilleryKind:'antitank_cluster', tag:'支援 · 集群猎甲',
@@ -2549,15 +2556,15 @@ export const CARDS: Record<CardId, Card> = {
       tag: '炮兵 · 远程重击',
     }),
   fort_bunker: fortCard('fort_bunker', '钢筋碉堡', 4, 'bunker', 420, 8, 4,
-    '可见地面建造8秒，最多4名友军自动进驻，掩护射击。'),
+    '可见地面建造8秒，建成自带4名守军，掩护射击。'),
   fort_machinegun: fortCard('fort_machinegun', '机枪堡垒', 4, 'machinegun', 320, 7, 2,
-    '可见地面建造7秒，自动压制前方敌军，最多2名友军进驻。',
+    '可见地面建造7秒，自动压制前方敌军，建成自带2名固定守军。',
     {damage: 7, range: 540, rate: 0.18, antiAir: true}),
   fort_aa: fortCard('fort_aa', '防空阵地', 4, 'aa', 300, 7, 2,
-    '可见地面建造7秒，拦截敌方飞机，最多2名友军进驻。',
+    '可见地面建造7秒，拦截敌方飞机，建成自带2名固定守军。',
     {damage: 28, range: 800, rate: 1.2, antiAir: true, airOnly: true}),
   fort_spawn: fortCard('fort_spawn', '前线复活点', 5, 'spawn', 360, 10, 3,
-    '可见地面建造10秒，最多3名友军进驻；后续地面步兵可从此增援。'),
+    '可见地面建造10秒，建成自带3名固定守军；后续地面步兵可从此增援。'),
   fort_wire: fortCard('fort_wire', '铁丝网', 1, 'wire', 175, 4, 0,
     '可见地面建造4秒，不能进驻，阻滞敌军步兵推进。'),
 };

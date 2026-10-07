@@ -413,7 +413,7 @@ for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
 export function wreckKind(id: CardId): WreckKind {
   const c = CARDS[id];
   if (c.airlift) return 'medevac';
-  if (c.emplacement) return c.emplacement;
+  if (c.emplacement) return c.emplacement==='mortar'?'howitzer':c.emplacement;
   if (Object.hasOwn(WRECKS, id)) return id as WreckKind;
   return modelOf(id) === 'tank' ? 'tank' : c.air ? 'helicopter' : 'ifv';
 }

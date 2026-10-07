@@ -6430,3 +6430,7 @@ body:has(.game-shell.touch-battle) {
 .map-contact{position:absolute;top:12px;width:16px;height:11px;transform:translateX(-50%);color:#edb984;z-index:3;pointer-events:none;transition:none}
 .map-contact svg{width:100%;height:100%;filter:drop-shadow(1px 1px 0 #263127)}
 .map-contact.remembered{color:#c3a57f;opacity:.72}
+
+/* Keep card values readable even if the image frame cannot be fetched. */
+.printed-card-fallback {border:3px solid #94886b;background:#3c4436;}
+.printed-card-fallback::after {content:'';position:absolute;left:2%;right:2%;top:69%;bottom:2%;background:#d9ceb0;z-index:-1;}

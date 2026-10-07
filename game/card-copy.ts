@@ -1,3 +1,4 @@
+import {EXPANSION_CARDS_V227} from './expansion-v227';
 import type { CardId } from './cards';
 
 export interface CardCopy {
@@ -11,6 +12,19 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+  ...Object.fromEntries(Object.values(EXPANSION_CARDS_V227).map(c=>[c.id,{en:c.en,typeLabel:c.type==='fortification'?'阵地工事':'口径火炮',ability:c.name,rule:c.type==='fortification'?'建成自带人员，独立驻守。':`${c.rate}秒装填，${c.ammoCapacity}发携弹。`,flavor:c.type==='fortification'?'阵地有人，队列不散。':'口径不同，任务不同。'}])) as Record<keyof typeof EXPANSION_CARDS_V227,CardCopy>,
+  fort_radar:{en:'EARLY WARNING RADAR',typeLabel:'空情预警',ability:'远程空情',rule:'建成九秒，雷达覆盖2600。',flavor:'先听见，再看见。'},
+  fort_watchtower:{en:'FORWARD WATCHTOWER',typeLabel:'观察工事',ability:'高处观察',rule:'建成六秒，视野1050。',flavor:'看远一步，少走弯路。'},
+  fort_at_bunker:{en:'ANTI-TANK BUNKER',typeLabel:'反甲工事',ability:'穿甲阻击',rule:'建设十秒，穿甲炮守路。',flavor:'钢甲也会遇到硬墙。'},
+  fort_mortar_pit:{en:'MORTAR PIT',typeLabel:'曲射阵地',ability:'隐蔽曲射',rule:'建设八秒，携弹二十四发。',flavor:'低墙后面，炮声照旧。'},
+  fort_supply_depot:{en:'AMMUNITION DEPOT',typeLabel:'后勤工事',ability:'有限补给',rule:'建设九秒，储备三千物资。',flavor:'箱子有数，补给有底。'},
+  fort_medical_post:{en:'FIELD AID STATION',typeLabel:'医疗工事',ability:'就地救护',rule:'建设八秒，救护附近伤兵。',flavor:'担架停在这里。'},
+  fort_command_post:{en:'TACTICAL SIGNAL POST',typeLabel:'指挥工事',ability:'通讯协同',rule:'建设八秒，鼓舞邻近部队。',flavor:'电台比喊声传得远。'},
+  fort_flak_tower:{en:'TWIN FLAK EMPLACEMENT',typeLabel:'防空工事',ability:'双联防空',rule:'建设十秒，防空射程1200。',flavor:'天上的路也有人守。'},
+  fort_trench:{en:'RIFLE TRENCH',typeLabel:'步兵工事',ability:'四人坚守',rule:'建设六秒，自带四名守军。',flavor:'蹲低一点，守久一点。'},
+  fort_repair_post:{en:'TRACK REPAIR POST',typeLabel:'维修工事',ability:'前线抢修',rule:'建设九秒，维修附近装甲。',flavor:'断掉的履带还有路。'},
+  sp_howitzer_122:{en:'122 MM SELF-PROPELLED HOWITZER',typeLabel:'自行炮兵',ability:'轻型机动曲射',rule:'履带机动，携弹二十发。',flavor:'炮位跟着前线走。'},
+  sp_howitzer_155:{en:'155 MM SELF-PROPELLED HOWITZER',typeLabel:'重型自行炮',ability:'远程重炮',rule:'机动支援，携弹十六发。',flavor:'重炮也能换阵地。'},
   rapid_assault:{en:'QUICK RESPONSE ASSAULT',typeLabel:'快反突击',ability:'跑步到位',rule:'冲刺到位，交替掩护。',flavor:'跑得快，也要躲得好。'},
   rapid_at:{en:'QUICK RESPONSE AT',typeLabel:'快反反甲',ability:'跑步展开',rule:'跑步入场，低姿猎甲。',flavor:'赶得快，也要架得稳。'},
   rapid_recon:{en:'QUICK RESPONSE RECON',typeLabel:'快反侦察',ability:'先遣观察',rule:'跑步先遣，观察敌情。',flavor:'先看清，后队才敢走。'},

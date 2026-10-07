@@ -17,7 +17,7 @@ for(const side of [0,1]){
   assert(clearGliderLanding(s,at(side,1180),side),'debris is not an invisible landing wall either');
  });
  for(const id of ['infantry','antiarmor','tank','ifv'])for(const kind of ['wreck','partial'])test(`side ${side}, ${id}: engages and damages live bunker across ${kind}`,()=>{
-  const s=arena(),u=one(s,side,id,1000);debris(s,side,1180,kind);const fort=one(s,1-side,'fort_bunker',W-1360,{cooldown:1e9,buildUntil:0,hp:10000,maxHp:10000});watch(fort);refreshVision(s);assert(visibleToSide(s,side,fort));let projectile=false;
+  const s=arena(),u=one(s,side,id,1000);debris(s,side,1180,kind);const fort=one(s,1-side,'fort_bunker',W-1360,{cooldown:1e9,buildUntil:0,fortCrewSpawned:true,hp:10000,maxHp:10000});watch(fort);refreshVision(s);assert(visibleToSide(s,side,fort));let projectile=false;
   run(s,16,()=>{if(s.projectiles.some(p=>p.sourceUid===u.uid&&p.targetUid===fort.uid))projectile=true;});assert(u.shots>0&&projectile,'real targeted rounds');assert(fort.hp<fort.maxHp,'bunker takes resolved damage');assert.equal(u.wreckEgressX,undefined);
  });
  for(const id of ['infantry','tank','ifv'])test(`side ${side}, ${id}: crosses dense wrecks without one backward step when no enemy exists`,()=>{
@@ -31,7 +31,7 @@ for(const side of [0,1]){
   const s=arena(),u=one(s,side,id,W-180);for(const x of [W-250,W-180,W-120])debris(s,side,x);let previous=u.x,dir=0,turns=0;run(s,28,()=>{const d=Math.sign(u.x-previous);if(d&&dir&&d!==dir)turns++;if(d)dir=d;previous=u.x;});assert(u.shots>0&&s.players[1-side].hp<1000);assert(turns<=1,`${turns} motion direction changes`);
  });
  test(`side ${side}: tank fires at active MG fort behind destroyed hull`,()=>{
-  const s=arena(),u=one(s,side,'tank',1000),fort=one(s,1-side,'fort_machinegun',W-1360,{buildUntil:0});watch(fort);debris(s,side,1180);refreshVision(s);run(s,10);assert(u.shots>0&&fort.hp<fort.maxHp);assert(u.hp>0);
+  const s=arena(),u=one(s,side,'tank',1000),fort=one(s,1-side,'fort_machinegun',W-1360,{buildUntil:0,fortCrewSpawned:true});watch(fort);debris(s,side,1180);refreshVision(s);run(s,10);assert(u.shots>0&&fort.hp<fort.maxHp);assert(u.hp>0);
  });
 }
 test('solid soil, live walls and intact houses still block; ruin artwork retains damage stages',()=>{

@@ -1,3 +1,4 @@
+import {EXPANSION_IDS_V227} from './expansion-v227';
 /* 卡牌收藏、金币与卡包。新玩家只有初始牌库，其余卡牌靠开卡包解锁。 */
 import { CARDS, copyLimit, validDeck, type CardId } from './cards';
 
@@ -42,6 +43,7 @@ export interface CollectionState {
   /** v195: front-line resupply is available without opening another card pack. */
   ammoReleaseGranted?: boolean;
   squadLogisticsReleaseGranted?: boolean;
+  expansion227Granted?: boolean;
 }
 export const SQUAD_LOGISTICS_CARDS: CardId[]=['apc_transport','supply_truck','rapid_assault','rapid_at','rapid_recon'];
 export const NEW_RELEASE_CARDS: CardId[] = [
@@ -51,6 +53,7 @@ export const NEW_RELEASE_CARDS: CardId[] = [
 
 /** 初始牌库：30 种、共 45 张，覆盖默认「机步协同」编队。 */
 export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
+  ...Object.fromEntries(EXPANSION_IDS_V227.map(id=>[id,1])),
   apc_transport:1,supply_truck:1,rapid_assault:1,rapid_at:1,rapid_recon:1,
   infantry: 4,
   fire_team: 2,
@@ -205,6 +208,7 @@ export function starterState(): CollectionState {
     fortificationReleaseGranted: true,
     ammoReleaseGranted: true,
     squadLogisticsReleaseGranted:true,
+    expansion227Granted:true,
   };
 }
 
@@ -228,6 +232,7 @@ export function loadCollection(): CollectionState {
           fortificationReleaseGranted: parsed.fortificationReleaseGranted ?? false,
           ammoReleaseGranted: parsed.ammoReleaseGranted ?? false,
           squadLogisticsReleaseGranted:parsed.squadLogisticsReleaseGranted??false,
+          expansion227Granted:parsed.expansion227Granted??false,
         };
       }
     }
@@ -272,6 +277,7 @@ export function loadCollection(): CollectionState {
     state.ammoReleaseGranted = true;
     saveCollection(state);
   }
+  if(!state.expansion227Granted){for(const id of EXPANSION_IDS_V227)state.owned[id]=Math.max(1,state.owned[id]??0);state.expansion227Granted=true;saveCollection(state);}
   // v192 removes the duplicate stationary jet. Preserve cards already earned
   // before the removal by converting ownership to the original strike jet.
   const owned = state.owned as Partial<Record<string, number>>;

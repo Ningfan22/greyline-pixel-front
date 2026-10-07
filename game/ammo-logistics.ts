@@ -38,12 +38,12 @@ export function ammoProfile(u: Pick<Unit, 'id' | 'member'>) {
   else if(u.id==='tow_ifv')primary={mag:2,reserve:6,reload:5.5};
   else if(u.id==='mlrs')primary={mag:16,reserve:16,reload:CARDS.mlrs.burstPause ?? 12};
   else if (!primary) {
-    const count = kind === 'cannon' && modelOf(u.id) === 'tank'
+    const count = c.ammoCapacity ?? (kind === 'cannon' && modelOf(u.id) === 'tank'
         ? u.id === 'light_tank' ? 14 : u.id === 'heavy_tank' ? 10 : 12
       : kind === 'cannon' || kind === 'ap' ? 36
       : kind === 'mortar' ? 30 : kind === 'rocket' ? (c.members ? 6 : 12)
       : kind === 'grenade' ? 24 : kind === 'autocannon' ? 240
-      : kind === 'flame' ? 48 : kind === 'machinegun' ? 600 : 180;
+      : kind === 'flame' ? 48 : kind === 'machinegun' ? 600 : 180);
     primary = { mag: count, reserve: 0, reload: 0 };
   }
   const secondary = !c.air && u.id !== 'airborne_at' &&
@@ -139,7 +139,7 @@ function sources(s: GameState, u: Unit): Source[] {
   const base = { x: u.side === 0 ? 110 : s.terrain.length - 110, radius: 140, base: true };
   return [base,
     ...(s.ammoCrates ?? []).filter((c) => c.side === u.side && c.landAt <= s.time && c.expiresAt > s.time && c.stock >= minimumCost).map((crate) => ({ x: crate.x, radius: AMMO_CRATE_RADIUS, stock: crate.stock, crate })),
-    ...suppliers(s).filter((v) => v !== u && v.side === u.side && living(v) && (v.supplyStock ?? supplyCapacity(v)) >= minimumCost && !v.resupplyState).map((unit) => ({ x: unit.x, radius: unit.id==='supply_truck'?180:120, stock: unit.supplyStock ?? supplyCapacity(unit), unit }))];
+    ...suppliers(s).filter((v) => v !== u && v.side === u.side && living(v) && (v.buildUntil ?? 0)<=s.time && (v.supplyStock ?? supplyCapacity(v)) >= minimumCost && !v.resupplyState).map((unit) => ({ x: unit.x, radius: unit.id==='supply_truck'?180:120, stock: unit.supplyStock ?? supplyCapacity(unit), unit }))];
 }
 function roundCost(u: Unit, secondary: boolean) {
   if (secondary) return 1;

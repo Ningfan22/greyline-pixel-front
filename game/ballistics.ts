@@ -26,7 +26,8 @@ export function indirectBlastKind(id: CardId): 'he' | 'artillery' {
 }
 export function ammunition(id: CardId, member = 0): Ammunition {
   if (id === 'fort_machinegun') return 'machinegun';
-  if (id === 'fort_aa') return 'autocannon';
+  if (id === 'fort_at_bunker') return 'ap';
+  if (id === 'fort_aa' || id==='fort_flak_tower') return 'autocannon';
   if (id === 'escort_gunship') return 'machinegun';
   if (id === 'flame_tank' || id === 'flame_team' && member === 0) return 'flame';
   if ((id === 'flame_team' || id === 'light_mortar') && member > 0) return 'rifle';

@@ -2,6 +2,7 @@
  * Add a new compiler dependency here when extending the battle artwork. */
 export const BATTLE_ART_COMPILER_INPUTS = [
   'scripts/bake-battle-art.mjs', 'scripts/battle-art-bake-inputs.mjs',
+  'game/expansion-v227.ts','game/expansion-art-v227.ts','game/fortification-ground.ts',
   'game/art.ts', 'game/art-v16.ts', 'game/battle-art-loader.ts', 'game/battle-art-assets.ts',
   'game/sprite-atlas.ts', 'game/soldier-art.ts', 'game/soldier-pose.ts',
   'game/vehicle-art-v223.ts', 'game/ifv-art-v220.ts', 'game/tank-art-v202.ts', 'game/tank-layout-v202.ts', 'game/gun-art.ts', 'game/gun-geometry.ts',

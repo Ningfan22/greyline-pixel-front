@@ -269,7 +269,12 @@ export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPo
   const rasterSlot=slot*2+(readbackFree?1:0);
   // Include phase and full precision: ankle rotation also depends on phase.
   // This is an exact unchanged-pose check, not an animation frame-rate cap.
-  const key=JSON.stringify(pose);
+  const key=readbackFree ? JSON.stringify(pose,(k,v)=>{
+    if(k==='phase')return Math.round(v*4)/4;
+    if(typeof v!=='number')return v;
+    const grid=k.endsWith('Angle')||k==='travel'||k==='low'?256:2;
+    return Math.round(v*grid)/grid;
+  }):JSON.stringify(pose);
   let actors=actorRasters.get(art);
   if(!actors){actors=new WeakMap();actorRasters.set(art,actors);}
   let slots=actors.get(owner);
@@ -287,7 +292,23 @@ export function actorSoldierPoseFrame(art:SoldierArt,owner:object,pose:SoldierPo
 
 /** Draw only cached costume/atlas pieces. Physics owns their transforms;
  * rendering creates no per-frame surface and never changes the simulation. */
+const sleepingBodies=new WeakMap<SoldierRagdoll,{art:SoldierArt;pose:SoldierPose;image:HTMLCanvasElement;x:number;y:number}>();
 export function drawSoldierRagdoll(ctx:CanvasRenderingContext2D,art:SoldierArt,pose:SoldierPose,rag:SoldierRagdoll) {
+  if(rag.settled){
+    let cached=sleepingBodies.get(rag);
+    if(!cached||cached.art!==art||cached.pose!==pose){
+      let left=Infinity,top=Infinity,right=-Infinity,bottom=-Infinity;
+      for(const p of rag.parts){const r=Math.hypot(p.width,p.height)/2;left=Math.min(left,p.x-r);right=Math.max(right,p.x+r);top=Math.min(top,p.y-r);bottom=Math.max(bottom,p.y+r);}
+      const x=Math.floor(left)-1,y=Math.floor(top)-1;
+      const image=make(Math.ceil(right)-x+2,Math.ceil(bottom)-y+2),c=image.getContext('2d')!;
+      c.translate(-x,-y);drawRagdollParts(c,art,pose,rag);
+      cached={art,pose,image,x,y};sleepingBodies.set(rag,cached);
+    }
+    ctx.drawImage(cached.image,cached.x,cached.y);return;
+  }
+  drawRagdollParts(ctx,art,pose,rag);
+}
+function drawRagdollParts(ctx:CanvasRenderingContext2D,art:SoldierArt,pose:SoldierPose,rag:SoldierRagdoll){
   ctx.save();ctx.imageSmoothingEnabled=false;
   if(rag.age===0){
     ctx.translate(rag.originX,rag.originY);ctx.scale(rag.facing,1);

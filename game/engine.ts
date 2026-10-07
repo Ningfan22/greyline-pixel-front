@@ -1,3 +1,7 @@
+import {UNIT_OPTIONAL_DEFAULTS} from './unit-shape';
+import {fortificationContact,fortCrewElevation} from './fortification-ground';
+import {captureSoldierHistory} from './soldier-history';
+import {warnFriendlyLane,refreshFriendlyLanes,friendlyLineBlocked,friendlyCrossing,friendlyBodyHeight} from './friendly-fire-lanes';
 import {rememberInfantryContact,infantryAttentionDirection,faceInfantryContact} from './infantry-attention';
 import {airDefensePosition} from './air-defense-position';
 import {prepareParachuteTransport,stepParachuteTransport,type ParachuteFlight} from './parachute-transport';
@@ -190,6 +194,8 @@ export interface HandCard {
 export interface Unit {
   buildUntil?: number;
   garrisonUid?: number;
+  fortCrewUid?: number;
+  fortCrewSpawned?: boolean;
   garrisonSlot?: number;
   /** Ignore the just-left host until the soldier clears its entry area. */
   garrisonDepartUid?: number;
@@ -412,6 +418,8 @@ export interface Unit {
   rapidUntil?: number;
   attentionX?: number;
   attentionUntil?: number;
+  friendlyLaneLowUntil?: number;
+  friendlyLanePose?: 'crouch'|'prone';
   teamRole?: TeamRole;
   teamMoveGoal?: number;
   teamMoveUntil?: number;
@@ -424,6 +432,17 @@ export interface Unit {
   assaultBurstUntil?: number;
   assaultSurgeUntil?: number;
   buddyRallied?: boolean;
+  /** Finite close-hull demolition charges; never replenished by rifle ammo. */
+  satchelEscapeUntil?: number;
+  satchelScanAt?: number;
+  satchelLeft?: number;
+  satchelPlantStartedAt?: number;
+  satchelPlantUntil?: number;
+  satchelTargetUid?: number;
+  satchelPlantHandX?: number;
+  satchelPlantHandY?: number;
+  armorStandGoal?: number;
+  armorStandUntil?: number;
   fragLeft?: number;
   fragThrow?: number;
   fragThrowStartedAt?: number;
@@ -883,6 +902,7 @@ export interface Player extends EconomyPlayer {
   fallbackUntil?: number;
 }
 export interface GameState {
+  attachedCharges?: {targetUid:number;sourceUid:number;side:Side;at:number;x:number;y:number}[];
   ammoCrates?: AmmoCrate[];
   campaign?: CampaignState;
   comeback?: ComebackState;
@@ -1192,6 +1212,7 @@ export function spawnUnit(
     const px = cargo || c.fortification ? x : positions[i],
       hp = c.hp! / count;
     s.units.push({
+      ...UNIT_OPTIONAL_DEFAULTS,
       uid: ++s.uid,
       id,
       buildUntil: c.fortification ? s.time + (c.buildTime ?? 0) : undefined,
@@ -1268,6 +1289,7 @@ export function spawnUnit(
       coverSearch: 0,
       supportCooldown: 0,
       healing: 0,
+      satchelLeft: c.members && !c.indirect && !c.airOnly && (c.damage??0)>0 ? 1 : 0,
       fragLeft: c.frags,
       repairTime: 0,
       patrolDir: side === 0 ? 1 : -1,
@@ -1292,7 +1314,7 @@ export function setOrder(s: GameState, side: Side, order: Order) {
   if (order !== 'hold') for (const u of s.units) {
     // Army movement releases automatically docked troops; explicit local
     // watch/hold orders still keep their own defended post.
-    if (u.side !== side || u.garrisonUid === undefined || localUnitOrder(s, u)) continue;
+    if (u.side !== side || u.garrisonUid === undefined || u.fortCrewUid !== undefined || localUnitOrder(s, u)) continue;
     u.garrisonDepartUid = u.garrisonUid;
     u.garrisonDepartDir = side === 0 ? 1 : -1;
     u.garrisonUid = undefined;
@@ -2787,6 +2809,7 @@ function finishDeath(
     for (const occupant of s.units)
       if (occupant.garrisonUid === u.uid) {
         occupant.garrisonUid = undefined;
+        occupant.fortCrewUid = undefined;
         occupant.garrisonSlot = undefined;
       }
     burst(s,u.x,u.y-18,c.fortification === 'wire' ? 24 : 45,'wreck');
@@ -3263,14 +3286,7 @@ function friendlyProjectileHit(
       !CARDS[u.id].members
     )
       continue;
-    const height =
-      u.wounded || u.pose === 'prone'
-        ? 14
-        : u.pose === 'crouch'
-          ? 32
-          : u.pose === 'hunker'
-            ? 26
-            : 56;
+    const height = u.wounded ? 14 : friendlyBodyHeight(u);
     let near = 0,
       far = 1;
     for (const [start, delta, min, max] of [
@@ -3923,6 +3939,70 @@ function setStance(
   return desired;
 }
 
+const satchelNearScratch:Unit[]=[];
+function closeSatchelTarget(s:GameState,u:Unit){
+  return nearUnits(s,u.x,145,satchelNearScratch).find(v=>v.side!==u.side&&isCombatant(v)&&
+    (CARDS[v.id].armored||CARDS[v.id].vehicle)&&!CARDS[v.id].air&&visibleToSide(s,u.side,v)&&
+    Math.max(0,Math.abs(v.x-u.x)-armorHalf(v.id))<=24&&Math.abs(v.y-u.y)<45&&
+    Math.abs(v.lane-u.lane)<=16&&!s.attachedCharges?.some(c=>c.targetUid===v.uid)&&
+    !satchelNearScratch.some(m=>m!==u&&m.satchelTargetUid===v.uid&&(m.satchelPlantUntil??0)>s.time));
+}
+/** Already face-to-face is an emergency opportunity, not a suicide charge
+ * from rifle range. An incapacitated/withdrawn soldier cannot finish planting. */
+function beginCloseSatchel(s:GameState,u:Unit){
+  if(!CARDS[u.id].members||(u.satchelLeft??0)<=0||u.garrisonUid!==undefined||!isCombatant(u)||u.climbing>0||
+     u.motion!=='ground'||u.tending||u.fragThrow||orderedWithdrawal(s,u)||
+     u.tactic==='retreat'||u.logisticsOrder==='hold'||(u.reloadingUntil??0)>s.time)return false;
+  if((u.satchelScanAt??0)>s.time)return false;
+  u.satchelScanAt=s.time+.18;
+  const host=closeSatchelTarget(s,u);if(!host)return false;
+  u.satchelPlantStartedAt=s.time;u.satchelPlantUntil=s.time+1.15*tacticalActionScale(u);
+  u.satchelTargetUid=host.uid;
+  u.facing=Math.sign(host.x-u.x)||u.facing;
+  u.satchelPlantHandX=Math.min(22,Math.max(8,Math.abs(host.x-u.x)-armorHalf(host.id)+4));
+  u.satchelPlantHandY=-25;
+  u.pose=setStance(u,s.time,'crouch',{danger:true});
+  return stepSatchel(s,u);
+}
+function stepSatchel(s:GameState,u:Unit){
+  if(u.satchelPlantUntil===undefined)return false;
+  const host=unitByUid(s,u.satchelTargetUid);
+  if(!host||!isCombatant(host)||!isCombatant(u)||orderedWithdrawal(s,u)||
+     u.tactic==='retreat'||Math.max(0,Math.abs(host.x-u.x)-armorHalf(host.id))>30||
+     Math.abs(host.y-u.y)>45){
+    u.satchelPlantUntil=undefined;u.satchelPlantStartedAt=undefined;u.satchelTargetUid=undefined;return false;
+  }
+  u.moving=false;u.fire=u.secondaryFire=0;u.y=ground(s,u.x);u.facing=Math.sign(host.x-u.x)||u.facing;
+  if(s.time>=u.satchelPlantUntil){
+    u.satchelLeft=Math.max(0,(u.satchelLeft??0)-1);
+    (s.attachedCharges??=[]).push({targetUid:host.uid,sourceUid:u.uid,side:u.side,at:s.time+1.2,x:host.x,y:host.y-armorHeight(host.id)*.45});
+    u.satchelPlantUntil=undefined;u.satchelPlantStartedAt=undefined;u.satchelTargetUid=undefined;
+    const away=Math.sign(u.x-host.x)||(u.side===0?-1:1);
+    u.withdrawGoal=Math.max(70,Math.min(W-70,u.x+away*110));u.withdrawUntil=s.time+3;
+    u.withdrawStartedAt=s.time;u.withdrawGroup=u.member%2;
+    u.satchelEscapeUntil=s.time+1.7;
+    u.combatRunUntil=s.time+4;u.pose=setStance(u,s.time,'run',{escape:true,travel:true});
+  }
+  return true;
+}
+/** Maintain a hull-edge gap without letting that hull steal soft-target fire.
+ * A small committed rear adjustment is useful even while the gunner reloads. */
+function infantryArmorStandoff(s:GameState,u:Unit):number|null{
+  if((u.armorStandUntil??0)>s.time){
+    if(u.armorStandGoal!==undefined&&Math.abs(u.x-u.armorStandGoal)>2)return u.armorStandGoal;
+    return null;
+  }
+  u.armorStandGoal=undefined;u.armorStandUntil=s.time+.3;
+  const weapon=weaponCard(u),penetration=armorPenetrationTier(ammunition(u.id,u.member),weapon);
+  const host=nearUnits(s,u.x,260,satchelNearScratch).find(v=>v.side!==u.side&&isCombatant(v)&&
+    !CARDS[v.id].air&&(CARDS[v.id].armorTier??0)>penetration&&visibleToSide(s,u.side,v)&&
+    Math.abs(v.x-u.x)<armorHalf(v.id)+65);
+  if(!host)return null;
+  const away=Math.sign(u.x-host.x)||(u.side===0?-1:1);
+  u.armorStandGoal=Math.max(70,Math.min(W-70,host.x+away*(armorHalf(host.id)+85)));
+  u.armorStandUntil=s.time+1.6;return u.armorStandGoal;
+}
+
 /** A throw owns the hands and movement until the follow-through is complete.
  * The target is committed at wind-up, not magically tracked after release. */
 function stepHandGrenade(s: GameState, u: Unit): boolean {
@@ -4295,7 +4375,9 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
         enemy.rappelling || enemy.parachuting || (enemy.x - u.x) * dir < 0 ||
         (enemy.x - u.x) * dir > Math.abs(proposedX - u.x) + gap ||
         !visibleToSide(s, u.side, enemy)) continue;
-    const stop = enemy.x - dir * gap;
+    const stopGap = CARDS[u.id].members && (CARDS[enemy.id].armored || CARDS[enemy.id].vehicle)
+      ? Math.max(gap, armorHalf(enemy.id)+55) : gap;
+    const stop = enemy.x - dir * stopGap;
     if ((stop - limit) * dir < 0) limit = stop;
   }
   // Only last OBSERVED coordinates may constrain travel through lost contact.
@@ -4303,7 +4385,7 @@ export function contactSafeX(s: GameState, u: Unit, proposedX: number) {
   // A snapshot older than CONTACT_STALE_S is too stale to be a hard barrier:
   // the unit probes forward and either reacquires the threat or clears ground.
   for (const contact of s.groundContacts?.[u.side] ?? []) {
-    if (contactIsStale(s.time, contact) || visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
+    if (contact.clearSince !== undefined || contactIsStale(s.time, contact) || visibleToSide(s, u.side, contact) || (contact.x-u.x)*dir < 0 ||
         (contact.x-u.x)*dir > Math.abs(proposedX-u.x)+gap) continue;
     const stop = contact.x-dir*gap;
     if ((stop-limit)*dir < 0) limit = stop;
@@ -4364,6 +4446,14 @@ function moveSoldier(
   if (nearUnits(s, u.x, 42, contactNearScratch).some(f => f.hp > 0 && f.side !== u.side && CARDS[f.id].fortification === 'wire' &&
       (f.buildUntil ?? 0) <= s.time && Math.abs(f.x - u.x) < 42)) speed *= 0.22;
   const safeStep = contactSafeX(s, u, u.x + dir * speed * dt);
+  const crossing=friendlyCrossing(s,u,safeStep+dir*8);
+  if(crossing?.blocked){
+    if(crossing.lane!==undefined){
+      const dl=crossing.lane-u.lane;u.lane+=Math.max(-18*dt,Math.min(18*dt,dl));
+      u.moving=Math.abs(dl)>1e-3;
+    }
+    return;
+  }
   speed = Math.abs(safeStep - u.x) / Math.max(dt, 0.001);
   if (speed <= 0) return;
   if (!requestCrouchStep(u,s.time) || !requestProneStep(u,s.time)) return;
@@ -4665,6 +4755,13 @@ export function canTakeDamage(u: Unit) {
 }
 export function vehicleContact(s: GameState, x: number, id: CardId) {
   const half = armorHalf(id);
+  if (id === 'pickup' || id === 'apc_transport' || id === 'supply_truck' || id === 'scout_car' || id === 'sam_vehicle') {
+    // Only tyre contact patches support wheeled vehicles. A roof/bumper-sized
+    // span could keep a truck floating after its rear axle cleared a ledge.
+    const wheelBase=half*.72,left=ground(s,x-wheelBase),right=ground(s,x+wheelBase);
+    const slope=Math.max(-.65,Math.min(.65,(right-left)/(wheelBase*2)));
+    return {y:(left+right)/2,angle:Math.atan(slope)};
+  }
   const left = ground(s, x - half),
     right = ground(s, x + half);
   const slope = Math.max(-0.18, Math.min(0.18, (right - left) / (half * 2)));
@@ -4822,7 +4919,8 @@ function antiTankGuardPost(s: GameState, u: Unit) {
 /** A committed escape from unsupported heavy fire turns into a forward run
  * toward safety. Small-arms covering withdrawals keep their existing drill. */
 function heavyEscape(u: Unit, time: number): boolean {
-  return !!(CARDS[u.id].members && u.withdrawHeavyUid !== undefined &&
+  return !!(CARDS[u.id].members && (u.satchelEscapeUntil??0)>time) ||
+    !!(CARDS[u.id].members && u.withdrawHeavyUid !== undefined &&
     !u.withdrawSmallArms && (u.withdrawUntil ?? 0) > time &&
     u.withdrawGoal !== undefined && !u.withdrawStandby);
 }
@@ -5157,12 +5255,20 @@ function planVehicleReverse(s: GameState, u: Unit) {
  * Radar/AA damage belongs to aircraft, never a hypothetical tank cannon. */
 function armedGroundArmor(source: Unit) {
   const card=CARDS[source.id],weapon=weaponCard(source);
+  const ammo=ammunition(source.id,source.member);
   return !!(card.armored && !card.air &&
-    (((weapon.damage??0)>0 && !weapon.airOnly && !weapon.armorOnly) ||
+    (((weapon.damage??0)>0 && !weapon.airOnly && !weapon.armorOnly &&
+      (ammo==='cannon'||ammo==='autocannon'||(weapon.radius??0)>0)) ||
       ((isBattleTank(source.id)||source.id==='tow_ifv') && source.secondaryAmmo!==0)));
 }
 function planWithdrawal(s: GameState, u: Unit, threat: Unit) {
   const order = infantryOrder(s, u);
+  // A lightly armed carrier is not a tank HE kill zone. Healthy, unpinned
+  // riflemen hold low outside its hull and engage dismounts. Real hits/high
+  // suppression still trigger the ordinary survival withdrawal below.
+  if((CARDS[threat.id].armored||CARDS[threat.id].vehicle)&&!armedGroundArmor(threat)&&
+     !CARDS[threat.id].air&&u.suppression<45&&u.hp>u.maxHp*.55&&
+     Math.abs(threat.x-u.x)>armorHalf(threat.id)+35)return;
   if (
     order === 'hold' ||
     order === 'rush' ||
@@ -5884,6 +5990,9 @@ function fireCoax(s: GameState, u: Unit) {
     .find((v) => coaxAim(v) !== null);
   if (!target) return;
   const targetY = coaxAim(target)!;
+  const safeMuzzle=muzzlePoint(u,target.x,selfHeight,true);
+  warnFriendlyLane(s,u,safeMuzzle.x,safeMuzzle.y,target.x,targetY,target.lane,true);
+  if(friendlyLineBlocked(s,u,safeMuzzle.x,safeMuzzle.y,target.x,targetY,target.lane))return;
   if (ammoProfile(u).secondary) u.secondaryAmmo = Math.max(0, u.secondaryAmmo! - 1);
   const point = muzzlePoint(u, target.x, selfHeight, true),
     sx = point.x,
@@ -8380,34 +8489,28 @@ function maintainFortifications(s: GameState) {
         Math.abs(u.x - host.x) > 95) {
       u.garrisonUid = undefined;
       u.garrisonSlot = undefined;
+      u.fortCrewUid = undefined;
       continue;
     }
     const cap = CARDS[host.id].garrisonCapacity ?? 0;
     u.x = host.x + ((u.garrisonSlot ?? 0) - (cap-1)/2) * 15;
-    u.y = ground(s,u.x);
+    u.y = fortCrewElevation(host.id)?host.y-fortCrewElevation(host.id):ground(s,u.x);
     u.cover = Math.max(u.cover,0.72);
     u.moving = false;
     u.motion = 'ground';
   }
   for (const host of forts) {
+    host.y=fortificationContact(x=>ground(s,x),host.x,host.id);
     const cap = CARDS[host.id].garrisonCapacity ?? 0;
-    if (cap > 0) {
-      const used = new Set(s.units.filter(u => u.garrisonUid === host.uid).map(u => u.garrisonSlot));
-      for (const u of s.units) {
-        if (used.size >= cap) break;
-        if (u.side !== host.side || u.garrisonUid !== undefined || u.garrisonDepartUid === host.uid || u.resupplyState || !CARDS[u.id].members ||
-            !isCombatant(u) || u.parachuting || u.rappelling || Math.abs(u.x-host.x) > 36)
-          continue;
-        const slot = Array.from({length:cap},(_,i)=>i).find(i=>!used.has(i));
-        if (slot === undefined) break;
-        used.add(slot);
-        u.garrisonUid = host.uid;
-        u.garrisonSlot = slot;
-        u.x = host.x + (slot-(cap-1)/2)*15;
-        u.y = ground(s,u.x);
-        u.cover = Math.max(u.cover,0.72);
-        u.moving = false;
-        u.motion = 'ground';
+    if(cap>0 && !host.fortCrewSpawned){
+      host.fortCrewSpawned=true;
+      const squad=++s.uid;
+      for(let slot=0;slot<cap;slot++){
+        spawnUnit(s,host.side,'infantry',host.x,{member:0,squad});
+        const crew=s.units[s.units.length-1];
+        crew.member=slot;crew.shots=slot;crew.garrisonUid=host.uid;crew.garrisonSlot=slot;crew.fortCrewUid=host.uid;
+        crew.x=host.x+(slot-(cap-1)/2)*15;crew.y=fortCrewElevation(host.id)?host.y-fortCrewElevation(host.id):ground(s,crew.x);
+        crew.cover=.72;crew.pose='crouch';
       }
     }
     if (CARDS[host.id].fortification === 'spawn' && (host.respawnCharges ?? 0) > 0 &&
@@ -8438,15 +8541,13 @@ export function tick(s: GameState, dt: number) {
     u.gaitPhase??=u.walk;
     // Most soldiers keep their facing. Capture the old state, but solve its
     // complete historical skeleton only when a turn actually needs it.
-    const body={...u,soldierTurn:u.soldierTurn?{...u.soldierTurn}:undefined},at=s.time;
-    let pose:SoldierPose|undefined;
-    soldierPositions.set(u.uid,{x:u.x,y:u.y,lane:u.lane,facing:u.facing,
-      get pose(){return pose??=soldierPose(body,at);}});
+    soldierPositions.set(u.uid,captureSoldierHistory(u,s.time));
   }
   for (const u of s.units)
     if (CARDS[u.id].air)
       (airPositions ??= new Map()).set(u.uid, { x: u.x, y: u.y });
   s.time = Math.min(s.campaign?.duration ?? DURATION, s.time + dt);
+  refreshFriendlyLanes(s);
   s.ammoCrates = (s.ammoCrates ?? []).filter(box => box.expiresAt > s.time);
   maintainFortifications(s);
   updateComeback(s, { damage: hitUnit, spawn: spawnUnit, draw });
@@ -8567,6 +8668,9 @@ export function tick(s: GameState, dt: number) {
     if (!isCombatant(u) || u.rappelling || u.parachuting) {
       // Incapacitation before release cancels preparation; no delayed throw
       // can emerge from a casualty or resume after a medic revives them.
+      u.satchelPlantUntil = undefined;
+      u.satchelPlantStartedAt = undefined;
+      u.satchelTargetUid = undefined;
       u.fragThrow = 0;
       u.fragAim = undefined;
       u.fragThrowStartedAt = undefined;
@@ -9103,10 +9207,25 @@ export function tick(s: GameState, dt: number) {
           (c.infantryAbility === 'swarm' ? 1.8 : 1) *
           vacuumSuppressionFactor(s, u),
     );
+    if (stepSatchel(s,u)) continue;
+    if (beginCloseSatchel(s,u)) continue;
     if (stepHandGrenade(s, u)) continue;
     if (c.members) {
       prepareInfantry(s, u, dt);
       decideTactic(s, u, dt);
+      const crossing=friendlyCrossing(s,u,u.x+u.facing*8);
+      if(crossing){
+        u.friendlyLaneLowUntil=s.time+.7;u.friendlyLanePose=crossing.pose;
+        u.duckUntil=Math.max(u.duckUntil??0,s.time+.7);
+        if(crossing.pose==='prone')u.duckProneUntil=Math.max(u.duckProneUntil??0,s.time+.7);
+        // A stationary firing team must also clear a low friendly burst. If
+        // nobody can crawl under it, keeping both sides waiting is a deadlock.
+        if(crossing.blocked&&crossing.lane!==undefined&&u.garrisonUid===undefined&&
+            !isHeavyGunner(u)&&!stanceTransitionActive(u,s.time)&&u.pose==='prone'){
+          const shift=Math.max(-18*dt,Math.min(18*dt,crossing.lane-u.lane));
+          u.lane+=shift;u.walk+=Math.abs(shift)/8;
+        }
+      }
     }
     if (u.surrendered) continue;
     u.supportCooldown -= dt;
@@ -9133,7 +9252,7 @@ export function tick(s: GameState, dt: number) {
       flyLoiterMunition(s, u, dt);
       continue;
     }
-    const resupplyGoal = planAmmoResupply(s, u, dt);
+    const resupplyGoal = u.fortCrewUid!==undefined ? (u.logisticsOrder='hold',planAmmoResupply(s,u,dt),null) : planAmmoResupply(s, u, dt);
     const controlledNavigation = resupplyGoal === null && u.garrisonUid === undefined && stepUnitControl(s, u, dt);
     if (u.id === 'mortar_carrier' && controlledNavigation) {
       u.displaceGoal = null;
@@ -9177,6 +9296,7 @@ export function tick(s: GameState, dt: number) {
               ? 'crouch'
               : 'idle'
       : 'idle';
+    if(u.fortCrewUid!==undefined)desiredPose='crouch';
     // An ongoing service task requests the same height before the generic
     // combat stance commits. Otherwise every expired ten-second lock could
     // make a treating medic stand up and immediately ask to kneel again.
@@ -9203,7 +9323,7 @@ export function tick(s: GameState, dt: number) {
     // Choose a usable firing height BEFORE committing for ten seconds. The
     // old order first locked a crouch, then immediately asked the peek layer
     // to stand up again; honoring the lock consequently left that man silent.
-    if (c.members && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
+    if (c.members && u.fortCrewUid===undefined && !c.indirect && !isHeavyGunner(u) && u.suppression < 65 &&
         order !== 'prone' && order !== 'crouch' &&
         !previousWork.tending && (desiredPose !== 'idle' || (recoverFiringStance && stanceClass(u.pose) !== 'stand')) &&
         (s.time >= (u.stanceLockUntil ?? 0) || recoverFiringStance)) {
@@ -9304,7 +9424,7 @@ export function tick(s: GameState, dt: number) {
       }
     }
     if (
-      c.members &&
+      c.members && u.garrisonUid===undefined &&
       u.motion === 'ground' &&
       ground(s, u.x) - u.y > DROP_HEIGHT
     )
@@ -9315,7 +9435,8 @@ export function tick(s: GameState, dt: number) {
     // deformed crater is corrected every frame so the sprite can't strike a
     // climb pose in mid-air.
     if (c.members && u.motion === 'ground' && u.climbing <= 0) {
-      const gy = ground(s, u.x);
+      const deck=u.fortCrewUid===undefined?undefined:unitByUid(s,u.fortCrewUid);
+      const gy = deck&&fortCrewElevation(deck.id)?deck.y-fortCrewElevation(deck.id):ground(s,u.x);
       if (Math.abs(u.y - gy) > 1) u.y = gy;
     }
     if (c.members && !c.air && evadeArtillery(s, u, dt)) continue;
@@ -9946,7 +10067,7 @@ export function tick(s: GameState, dt: number) {
     if (
       withdrawing &&
       !orderedWithdrawal(s, u) &&
-      u.withdrawHeavyUid === undefined
+      u.withdrawHeavyUid === undefined && (u.satchelEscapeUntil??0)<=s.time
     ) {
       if (withdrawalThreat) u.withdrawSafeSince = undefined;
       else {
@@ -10397,6 +10518,8 @@ export function tick(s: GameState, dt: number) {
     // during the reload. An aircraft never pulls the vehicle into ground pursuit.
     const airDefenseGoal = airDefensePlan!==null && target && airborneTarget(target) &&
       u.cooldown<=0 && !closeThreat ? u.x : airDefensePlan;
+    const armorStandGoal = c.members && !withdrawing && order !== 'hold' && order !== 'rush'
+      ? infantryArmorStandoff(s,u) : null;
     const antiTankGuardGoal = !target && !baseInRange &&
       !candidates.some(enemy => !CARDS[enemy.id].armored && !CARDS[enemy.id].vehicle)
       ? antiTankGuardPost(s, u) : null;
@@ -10415,6 +10538,7 @@ export function tick(s: GameState, dt: number) {
             : (u.escortAdvanceGoal ?? (observerTravel ? observerDestination : precisionObserver ? null :
               ammoGoalX ??
               scavengeGoalX ??
+              armorStandGoal ??
               antiTankGuardGoal ??
               rescuedGoalX ??
               u.teamMoveGoal ??
@@ -10496,7 +10620,8 @@ export function tick(s: GameState, dt: number) {
     }
     if(c.members && u.teamRole==='overwatch' && !seeking && !withdrawing &&
       !treating && !u.withdrawStandby && u.motion==='ground' && order==='advance' &&
-      (u.observingHoldUntil??0)<=s.time && infantryAttentionDirection(s,u)){
+      (u.observingHoldUntil??0)<=s.time && (u.exposedUntil??0)<=s.time &&
+      (u.friendlyLaneLowUntil??0)<=s.time && infantryAttentionDirection(s,u)){
       u.pose=setStance(u,s.time,u.suppression>55||u.member%3===2?'prone':'crouch');
       u.aimUntil=Math.max(u.aimUntil??0,s.time+.6);
     }
@@ -10800,12 +10925,14 @@ export function tick(s: GameState, dt: number) {
           sx = point.x,
           sy = point.y;
         if (ammunition(u.id, u.member) === 'flame') ty = sy;
+        const bullet=isCoverBullet(ammunition(u.id,u.member))&&!c.radius&&!c.air;
+        if(bullet && ['machinegun','autocannon'].includes(ammunition(u.id,u.member)))warnFriendlyLane(s,u,sx,sy,tx,ty,target?.lane??u.lane);
         if (
-          coverShot ||
+          (!bullet||!friendlyLineBlocked(s,u,sx,sy,tx,ty,target?.lane??u.lane)) && (coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
           !(c.guided ? guidedShotIntercept(s, sx, sy, tx, ty) :
-            directShotIntercept(s, ammunition(u.id, u.member), sx, sy, tx, ty))
+            directShotIntercept(s, ammunition(u.id, u.member), sx, sy, tx, ty)))
         ) {
           const closeBurst =
             (u.assaultBurstUntil ?? 0) > s.time &&
@@ -11107,13 +11234,13 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
-          !(c.members && u.teamRole!=='probe' && order!=='rush' && (s.groundContacts?.[u.side]??[]).some(contact=>
+          !(c.members && u.teamRole==='overwatch' && order!=='rush' && (s.groundContacts?.[u.side]??[]).some(contact=>
             !contactIsStale(s.time,contact) && !visibleToSide(s,u.side,contact) &&
             contact.clearSince===undefined && (contact.x-u.x)*dir>0 &&
             Math.abs(contact.x-u.x)<=Math.max(360,contact.range??0)+100)) &&
           antiTankGuardGoal === null &&
           // Rocket artillery advances only to the screened rear firing line.
-          u.id !== 'mlrs' && airDefenseGoal===null &&
+          u.id !== 'mlrs' && !c.selfPropelled && airDefenseGoal===null &&
           // A battery that lost sight while backing out waits out its reload
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
@@ -11135,6 +11262,8 @@ export function tick(s: GameState, dt: number) {
         let moveWant: Unit['pose'];
         if (heavyEscape(u,s.time)) {
           moveWant = 'run';
+        } else if ((u.friendlyLaneLowUntil??0)>s.time) {
+          moveWant=u.friendlyLanePose??'prone';
         } else if (
           (u.assaultSurgeUntil ?? 0) > s.time &&
           !withdrawing &&
@@ -11177,7 +11306,7 @@ export function tick(s: GameState, dt: number) {
           closeThreat?Math.sign(u.x-closeThreat.x):seeking?Math.sign(moveGoal!-u.x):
           displacing?Math.sign(u.displaceGoal!-u.x):dir;
         if(attention && travelDirection===-attention && !heavyEscape(u,s.time) && moveWant==='run')moveWant='walk';
-        u.pose = setStance(u, s.time, moveWant, { travel: true, escape:heavyEscape(u,s.time)||(moveWant==='run'&&(u.combatRunUntil??0)>s.time) });
+        u.pose = setStance(u, s.time, moveWant, { travel: true, danger:(u.friendlyLaneLowUntil??0)>s.time, escape:heavyEscape(u,s.time)||(moveWant==='run'&&(u.combatRunUntil??0)>s.time) });
       }
       if (c.members && !heavyEscape(u,s.time) && (s.players[u.side].entrenchUntil ?? 0) > s.time)
         u.pose = setStance(u, s.time, 'prone', { force: true });
@@ -11379,7 +11508,8 @@ export function tick(s: GameState, dt: number) {
       u.y += (contact.y - u.y) * blend;
       u.hullAngle += (contact.angle - u.hullAngle) * blend;
     } else if (!c.emplacement && (!c.members || u.motion === 'ground'))
-      u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : ground(s, u.x);
+      u.y = c.air ? (c.altitude ?? AIR_ALTITUDE) : c.fortification ? fortificationContact(x=>ground(s,x),u.x,u.id) : ground(s, u.x);
+    if(u.fortCrewUid!==undefined){const host=unitByUid(s,u.fortCrewUid);if(host&&fortCrewElevation(host.id))u.y=host.y-fortCrewElevation(host.id);}
     // A tank's main-gun facing owns its painted body. Select its secondary
     // target only after this tick's main-gun aim, so an opposite contact cannot
     // make a muzzle flash jump to an unpainted mirrored gun port.
@@ -11393,6 +11523,8 @@ export function tick(s: GameState, dt: number) {
   }
   for(const u of s.units) if(CARDS[u.id].emplacement && u.hp>0){const contact=emplacementContact(x=>ground(s,x),u.x,u.id,u.gunFacing??(u.side===0?1:-1));u.y=contact.y;u.hullAngle=contact.angle;}
   for (const u of s.units) if (CARDS[u.id].members) {
+    const crewHost=u.fortCrewUid===undefined?undefined:unitByUid(s,u.fortCrewUid);
+    if(crewHost&&fortCrewElevation(crewHost.id)&&u.hp>0&&!u.wounded){u.y=crewHost.y-fortCrewElevation(crewHost.id);u.motion='ground';}
     if(u.soldierRise&&s.time-u.soldierRise.at>=(u.soldierRise.duration??.35))u.soldierRise=undefined;
     if(u.soldierLanding&&s.time-u.soldierLanding.at>=u.soldierLanding.duration)u.soldierLanding=undefined;
     stepCrouchLocomotion(u,s.time,dt);
@@ -11400,7 +11532,7 @@ export function tick(s: GameState, dt: number) {
     const previous=soldierPositions.get(u.uid);
     faceInfantryContact(s,u);
     if(previous)updateSoldierGait(u,previous,dt,s.time);
-    updateSoldierGround(u,x=>ground(s,x),s.time,dt);
+    updateSoldierGround(u,crewHost&&fortCrewElevation(crewHost.id)?()=>u.y:x=>ground(s,x),s.time,dt);
     updateSoldierTurn(u,s.time);
     if(previous&&previous.facing!==u.facing&&u.hp>0&&!u.wounded&&!u.surrendered)
       beginSoldierTurn(u,previous,s.time);
@@ -11414,6 +11546,17 @@ export function tick(s: GameState, dt: number) {
         u.vy = (u.y - previous.y) / dt;
       }
     }
+  if(s.attachedCharges?.length){
+    let retained=0;
+    for(const charge of s.attachedCharges){
+      const host=unitByUid(s,charge.targetUid);
+      if(host && canTakeDamage(host)){charge.x=host.x;charge.y=host.y-armorHeight(host.id)*.45;}
+      if(s.time>=charge.at){
+        explode(s,charge.x,charge.y,42,180,charge.side,0,3.6,'grenade',.65,charge.sourceUid);
+      }else s.attachedCharges[retained++]=charge;
+    }
+    s.attachedCharges.length=retained;
+  }
   for (const p of s.projectiles) {
     const oldX = p.x,
       oldY = p.y;
