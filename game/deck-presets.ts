@@ -33,6 +33,7 @@ export const DECK_PRESETS: {
       'smoke_withdrawal',
     ],
   },
+  {id:'mobile_logistics',name:'快反机动补给',plan:'快反部队跑步增援，运兵车送兵展开，补给车在战线后方补充有限物资。',cards:['rapid_assault','rapid_at','rapid_recon','apc_transport','supply_truck','supply_team','tank','ifv','tow_ifv','scouts','medic','infantry','infantry','infantry','fire_team','manpads','sam_vehicle','smoke','morale','ammo']},
   {
     id: 'assault',
     name: '烟幕突击',
@@ -364,3 +365,6 @@ export const AI_DECKS: CardId[][] = [
     'freq_hop',
   ],
 ];
+
+// Preserve campaign deck indices; the new logistics force is an additional opponent.
+AI_DECKS.push([...DECK_PRESETS.find(deck=>deck.id==='mobile_logistics')!.cards]);

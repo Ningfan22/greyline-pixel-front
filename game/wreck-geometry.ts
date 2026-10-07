@@ -1,3 +1,4 @@
+import {VEHICLE_WRECKS_V223} from './vehicle-art-v223';
 import { CARDS, modelOf, type CardId } from './cards';
 import { FPV_WRECK_PROFILE } from './art-v16';
 import { VEHICLE_SCALE } from './vehicle-geometry';
@@ -7,6 +8,7 @@ import { VEHICLE_ART_V197, isV197Vehicle } from './vehicle-art-v197';
 
 type Rect = [number, number, number, number];
 export type WreckKind =
+  | 'apc_transport' | 'supply_truck'
   | 'glider_transport'
   | 'light_tank'
   | 'tank'
@@ -35,7 +37,7 @@ export type WreckKind =
   | 'command_vehicle'
   | 'mine_clearer';
 export interface WreckGeometry {
-  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197' | 'v204' | 'v209';
+  atlas: 'ground' | 'air' | 'mobile' | 'support' | 'fpv' | 'glider' | 'v197' | 'v204' | 'v209' | 'v223';
   source: Rect;
   width: number;
   height: number;
@@ -63,6 +65,8 @@ function shape(
 }
 /** Authored silhouettes measured from the generated atlases; no live-sprite scaling ratios. */
 export const WRECKS: Record<WreckKind, WreckGeometry> = {
+ apc_transport:shape('v223',[16,221,1501,608],180,[[.05,.4,.9,.5]],[.1,.95,.9]),
+ supply_truck:shape('v223',[32,220,1479,584],188,[[.05,.4,.9,.5]],[.1,.95,.9]),
   glider_transport: { atlas:'glider',source:[0,0,256,100],width:256,height:100,
     parts:[[.08,.45,.3,.19],[.38,.62,.52,.27],[.48,.4,.22,.24]],
     support:[.51,.86,.92],spriteOffset:0 },
@@ -395,9 +399,10 @@ export const WRECKS: Record<WreckKind, WreckGeometry> = {
     [0.233, 0.932, 0.944],
   ),
 };
+for(const [id,a] of Object.entries(VEHICLE_WRECKS_V223)){WRECKS[id as WreckKind]={atlas:'v223',source:[...a.crop],width:a.size[0],height:a.size[1],parts:[[.03,.25,.94,.48],[.07,.7,.88,.28]],support:[.1,.94,.88],spriteOffset:0};}
 for (const [id, scale] of Object.entries(VEHICLE_SCALE)) {
   // Dedicated paintings already declare their final world dimensions.
-  if (isV197Vehicle(id)) continue;
+  if (isV197Vehicle(id)||Object.hasOwn(VEHICLE_WRECKS_V223,id)) continue;
   const g = WRECKS[id as WreckKind];
   g.width = Math.round(g.width * scale);
   g.height = Math.round(g.height * scale);

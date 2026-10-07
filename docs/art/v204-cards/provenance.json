@@ -684,24 +684,36 @@
       "sha256": "bc546da946da169c131ead6240ddbd5bb321c624749c63ac95cc9417efd11cb9"
     },
     {
-      "source": "/art/cards-v15/pickup.webp",
-      "sourceSha256": "e7543165c5377c73c497095f13a6eb732001c3d06941b0f1dec6e9d0e6eaf371",
-      "sourceBytes": 117338,
-      "path": "/art/v204-cards/pickup-384-e93a0c8f5946.webp",
+      "source": "/art/v223-vehicles/pickup.png",
+      "sourceSha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c",
+      "sourceBytes": 1749694,
+      "sourceCrop": [
+        49,
+        105,
+        1460,
+        589
+      ],
+      "path": "/art/v204-cards/pickup-384-596ae3262b3e.webp",
       "width": 384,
-      "height": 384,
-      "bytes": 38516,
-      "sha256": "e93a0c8f5946c8ed035220125ef3526faee7865dc692b4565a1e68677b31c9df"
+      "height": 155,
+      "bytes": 19068,
+      "sha256": "596ae3262b3ef0e8beef6cca43c5c4940f6bb7246d535b61dbf808201edc5839"
     },
     {
-      "source": "/art/cards-v15/pickup.webp",
-      "sourceSha256": "e7543165c5377c73c497095f13a6eb732001c3d06941b0f1dec6e9d0e6eaf371",
-      "sourceBytes": 117338,
-      "path": "/art/v204-cards/pickup-640-91fe24b02a31.webp",
-      "width": 480,
-      "height": 480,
-      "bytes": 67754,
-      "sha256": "91fe24b02a318117889a29f030a5a85f356a975578d1c7ed688dadd4961def46"
+      "source": "/art/v223-vehicles/pickup.png",
+      "sourceSha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c",
+      "sourceBytes": 1749694,
+      "sourceCrop": [
+        49,
+        105,
+        1460,
+        589
+      ],
+      "path": "/art/v204-cards/pickup-640-919207d9f324.webp",
+      "width": 640,
+      "height": 258,
+      "bytes": 41384,
+      "sha256": "919207d9f324eb5ae90cd858a3568a55d772521c9ad0b6e0661ad6b59e57bbff"
     },
     {
       "source": "/art/v197-armor/tow-card.webp",
@@ -2502,6 +2514,70 @@
       "height": 640,
       "bytes": 124374,
       "sha256": "707f3ee93241722898d8a09c826ac605746816450d082a4545415fd51e2a7032"
+    },
+    {
+      "source": "/art/v223-vehicles/apc_transport.png",
+      "sourceSha256": "1f572c1108d051e26421f8af52cb0fa46775616bd8723d2fc32ee4aad21bb280",
+      "sourceBytes": 1753550,
+      "sourceCrop": [
+        20,
+        237,
+        1504,
+        569
+      ],
+      "path": "/art/v204-cards/apc_transport-384-ace1b45b68e3.webp",
+      "width": 384,
+      "height": 145,
+      "bytes": 22312,
+      "sha256": "ace1b45b68e3508e21ceea70f74eb2472cd2b9d825df75d36008efe42850e63a"
+    },
+    {
+      "source": "/art/v223-vehicles/apc_transport.png",
+      "sourceSha256": "1f572c1108d051e26421f8af52cb0fa46775616bd8723d2fc32ee4aad21bb280",
+      "sourceBytes": 1753550,
+      "sourceCrop": [
+        20,
+        237,
+        1504,
+        569
+      ],
+      "path": "/art/v204-cards/apc_transport-640-31af6f3bc186.webp",
+      "width": 640,
+      "height": 242,
+      "bytes": 48290,
+      "sha256": "31af6f3bc1867680e16a846d82de7680f5b012ce38c37af245d97ca1c726a1f8"
+    },
+    {
+      "source": "/art/v223-vehicles/supply_truck.png",
+      "sourceSha256": "16d3fb48497d6730a6bb5fdd1fe1bf980459469d6d5c56285b4b7762855faed0",
+      "sourceBytes": 1764783,
+      "sourceCrop": [
+        39,
+        216,
+        1464,
+        594
+      ],
+      "path": "/art/v204-cards/supply_truck-384-17e53b335c9b.webp",
+      "width": 384,
+      "height": 156,
+      "bytes": 23182,
+      "sha256": "17e53b335c9be4c12320edd34566c13e28a9e0ab44bb9d2884207365cf20ab0d"
+    },
+    {
+      "source": "/art/v223-vehicles/supply_truck.png",
+      "sourceSha256": "16d3fb48497d6730a6bb5fdd1fe1bf980459469d6d5c56285b4b7762855faed0",
+      "sourceBytes": 1764783,
+      "sourceCrop": [
+        39,
+        216,
+        1464,
+        594
+      ],
+      "path": "/art/v204-cards/supply_truck-640-239c128468a3.webp",
+      "width": 640,
+      "height": 260,
+      "bytes": 49974,
+      "sha256": "239c128468a39d473885ab6627ee234517961ced05716b03432c37f7d5a529c7"
     },
     {
       "source": "/art/v190/cards/escort_gunship.webp",

@@ -9,6 +9,10 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPicturePath(id: CardId) {
+  if(id==='apc_transport'||id==='supply_truck'||id==='pickup')return `/art/v223-vehicles/${id}.png`;
+  if(id==='rapid_assault')return cardPicturePath('assault');
+  if(id==='rapid_at')return cardPicturePath('antiarmor');
+  if(id==='rapid_recon')return cardPicturePath('scouts');
   if (['antitank_cluster','hunter_swarm','antitank_barrier'].includes(id)) return `/art/v212-counterarmor/${id}.webp`;
   if (id === 'mlrs') return '/art/v204-weapons/mlrs-card.webp';
   if (isV197Vehicle(id)) return identity(vehicleAssetV197(id, 'card'));

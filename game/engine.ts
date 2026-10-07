@@ -1,3 +1,5 @@
+import {shouldUnloadTransport,supplyTruckGoal} from './ground-transport';
+import {updateFireTeams,type TeamRole} from './squad-team-plan';
 import {emplacementContact} from './emplacement-ground';
 import {hasVehicleGun} from './vehicle-gun-layout';
 import { tankAimReady, type TankAim } from './tank-fire-control';
@@ -404,6 +406,14 @@ export interface Unit {
   antiTankRevealedUntil?: number;
   camouflageRevealedUntil?: number;
   rapidUntil?: number;
+  teamRole?: TeamRole;
+  teamMoveGoal?: number;
+  teamMoveUntil?: number;
+  teamSignal?: 'halt'|'spread'|'advance';
+  teamSignalUntil?: number;
+  transportReleased?: boolean;
+  towFired?: number;
+  towShotAt?: number;
   smokeAssaultSpent?: boolean;
   assaultBurstUntil?: number;
   assaultSurgeUntil?: number;
@@ -3355,6 +3365,7 @@ export function muzzlePoint(
   height: number | undefined = undefined,
   coax = false,
 ) {
+  if(!coax&&height===undefined&&u.id==='tow_ifv')return muzzleTransform(u,tx,24,((u as Partial<Unit>).ammo??2)>=2?75:61);
   if(!coax&&height===undefined&&u.id==='mlrs')return mlrsTubePose(u as Unit).muzzle;
   const gun = !coax && height === undefined ? gunPose(u, u.gunElevation, Math.sign(tx - u.x) || 1) : null;
   if (gun) return gun.muzzle;
@@ -5447,8 +5458,8 @@ export function squadRoleOffset(
 ): number {
   if (!s.squadManeuver) s.squadManeuver = {};
   const rec =
-    s.squadManeuver[u.squad] ??
-    (s.squadManeuver[u.squad] = {
+    s.squadManeuver[u.side*1048576+u.squad] ??
+    (s.squadManeuver[u.side*1048576+u.squad] = {
       offset: 0,
       lastRotate: s.time,
       lastContact: s.time,
@@ -6789,6 +6800,7 @@ function updateAI(s: GameState) {
               ? 19
               : 7
             : -100;
+        if(c.vehicleSupport==='supply'){const need=own.filter(v=>!CARDS[v.id].air&&!CARDS[v.id].vehicleSupport&&logisticsRatio(v)<.65);const truck=own.some(v=>v.id==='supply_truck'&&(v.supplyStock??2000)>600);score=!truck&&need.length>=3?28:-100;}
         if (c.vehicleSupport === 'command')
           score = screens >= requiredScreens ? 15 : screens >= 2 ? 5 : 1;
         if (c.vehicleSupport === 'mine_clear')
@@ -8530,6 +8542,7 @@ export function tick(s: GameState, dt: number) {
   }
   s.frontX = [front0, front1];
   updateSquadCommand(s);
+  updateFireTeams(s);
   for (const u of s.units) {
     if(CARDS[u.id].emplacement && u.hp>0){const contact=emplacementContact(x=>ground(s,x),u.x,u.id,u.gunFacing??(u.side===0?1:-1));u.y=contact.y;u.hullAngle=contact.angle;}
     if (CARDS[u.id].members) pauseMagazineDrill(u,s.time,dt);
@@ -9368,6 +9381,16 @@ export function tick(s: GameState, dt: number) {
       continue;
     }
 
+    if(shouldUnloadTransport(s,u)){
+      u.transportReleased=true;const passengerSquad=++s.uid;
+      for(let member=0;member<(c.cargoMembers??4);member++){const x=Math.max(55,Math.min(W-55,u.x-dir*(armorHalf(u.id)+20+member*16)));spawnUnit(s,u.side,c.groundCargo!,x,{member,squad:passengerSquad});}
+    }
+    if(c.vehicleSupport==='supply'&&!controlledNavigation&&(!u.squadOrder||u.squadOrder==='attack'&&u.squadOrderX===undefined)){
+      const goal=supplyTruckGoal(s,u),before=u.x,sign=Math.sign(goal-u.x);
+      if(sign&&!isImmobilized(u)){u.x=vehicleTravelX(u,contactSafeX(s,u,u.x+sign*Math.min(Math.abs(goal-u.x),(c.speed??40)*dt)));}
+      u.moving=Math.abs(u.x-before)>.001;u.facing=dir;u.fire=0;u.walk+=Math.abs(u.x-before)*.04;
+      const contact=vehicleContact(s,u.x,u.id);u.y=contact.y;u.hullAngle=contact.angle;continue;
+    }
     if (c.emplacement && u.resupplyState !== 'waiting' && !controlledNavigation && towEmplacement(s, u, dt))
       continue;
 
@@ -10374,6 +10397,7 @@ export function tick(s: GameState, dt: number) {
               scavengeGoalX ??
               antiTankGuardGoal ??
               rescuedGoalX ??
+              u.teamMoveGoal ??
               u.coverGoal ??
               u.dispersionGoal ??
               u.firingGoal ??
@@ -10408,6 +10432,7 @@ export function tick(s: GameState, dt: number) {
       !(Math.max(u.crouchStepCommittedUntil ?? 0,u.proneStepCommittedUntil ?? 0) > s.time &&
         (seeking || displacing || withdrawing || u.tactic === 'bound')) &&
       !dispersionStep &&
+      !(u.teamMoveGoal!==undefined && Math.abs(u.teamMoveGoal-u.x)>2 && (u.teamMoveUntil??0)>s.time) &&
       !(escortAhead && s.time - (u.lastCombatShotAt ?? -100) < 0.8) &&
       (u.cooldown <= 0 ||
         s.time - (u.lastCombatShotAt ?? -Infinity) <
@@ -10817,6 +10842,7 @@ export function tick(s: GameState, dt: number) {
               : dir
             : Math.sign(tx - u.x) || dir;
           u.shots++;
+          if(u.id==='tow_ifv'){u.towFired=(u.ammo??2)>=2?0:1;u.towShotAt=s.time;}
           // Small arms burn a round per shot; a dry magazine locks the
           // weapon into a visible reload (slower while pinned) that the
           // enemy can exploit.
@@ -11053,7 +11079,7 @@ export function tick(s: GameState, dt: number) {
           !observing &&
           !escorting &&
           !u.withdrawStandby &&
-          !(c.members && order!=='rush' && (s.groundContacts?.[u.side]??[]).some(contact=>
+          !(c.members && u.teamRole!=='probe' && order!=='rush' && (s.groundContacts?.[u.side]??[]).some(contact=>
             !contactIsStale(s.time,contact) && !visibleToSide(s,u.side,contact) &&
             contact.clearSince===undefined && (contact.x-u.x)*dir>0 &&
             Math.abs(contact.x-u.x)<=Math.max(360,contact.range??0)+100)) &&
@@ -11089,6 +11115,8 @@ export function tick(s: GameState, dt: number) {
           moveWant = 'run';
         } else if (
           order === 'rush' ||
+          (u.rapidUntil??0)>s.time ||
+          (u.teamRole==='bound'&&u.teamMoveGoal!==undefined) ||
           bounding ||
           breachRun
         ) {
@@ -11134,7 +11162,7 @@ export function tick(s: GameState, dt: number) {
         !retreating &&
         !closeThreat &&
         (u.rapidUntil ?? 0) > s.time
-          ? 1.8
+          ? 1.05
           : 1) *
         (morale ? 1.2 : 1) *
         (u.slowedUntil > s.time ? 0.5 : 1) *

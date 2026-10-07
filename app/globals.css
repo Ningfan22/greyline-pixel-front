@@ -4711,6 +4711,10 @@ footer button {
     18% 1.8%
   );
 }
+.printed-card > .printed-card-vehicle {
+  object-fit: contain;
+  object-position: center;
+}
 .printed-card > span {
   position: absolute;
   display: block;

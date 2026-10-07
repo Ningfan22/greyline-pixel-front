@@ -138,7 +138,8 @@ export type CardId =
   | 'fort_machinegun'
   | 'fort_aa'
   | 'fort_spawn'
-  | 'fort_wire';
+  | 'fort_wire'
+  | 'apc_transport' | 'supply_truck' | 'rapid_assault' | 'rapid_at' | 'rapid_recon';
 export type Doctrine =
   | 'balanced'
   | 'assault'
@@ -207,6 +208,9 @@ export interface Card {
   observer?: boolean;
   oneWay?: boolean;
   airlift?: CardId;
+  groundCargo?: CardId;
+  cargoMembers?: number;
+  supplyCapacity?: number;
   /** Parachute insertion: spawns at the selected ground point and descends under canopy. */
   airdrop?: boolean;
   antiAir?: boolean;
@@ -229,7 +233,7 @@ export interface Card {
   garrisonCapacity?: number;
   /** A ground vehicle body; armor damage resistance still requires armored. */
   vehicle?: boolean;
-  vehicleSupport?: 'repair' | 'command' | 'mine_clear';
+  vehicleSupport?: 'repair' | 'command' | 'mine_clear' | 'supply';
   /** Crew members who bail out on foot when the vehicle is destroyed. */
   crew?: number;
   targetGround?: boolean;
@@ -1111,6 +1115,7 @@ export const CARDS: Record<CardId, Card> = {
     4,
     '部署抽一张牌，补充附近友军弹药与车辆油料。',
     {
+      supplyCapacity:400,
       members: 3,
       hp: 150,
       damage: 15,
@@ -2510,11 +2515,16 @@ export const CARDS: Record<CardId, Card> = {
     },
   ),
   rapid_reinforcements: variant('infantry', 'rapid_reinforcements', '机动增援班', 3,
-    '从己方基地快速入场，八秒急行军，开火后恢复常速。', {
-      members: 5, hp: 220, damage: 28, range: 400, speed: 82,
+    '从己方基地跑步增援，接敌后停下展开，随后按常速战斗。', {
+      members: 5, hp: 220, damage: 28, range: 400, speed: 54,
       infantryAbility: 'rapid', doctrine: 'assault', uniform: 'marine',
       tag: '快援 · 地面急行军',
     }),
+  rapid_assault: variant('infantry','rapid_assault','快反突击组',3,'跑步增援，以短促交替掩护接敌。',{members:4,hp:160,damage:28,speed:54,infantryAbility:'rapid',doctrine:'assault',tag:'快援 · 突击',detail:'4人160生命，前8秒以独立跑步动作入场；开火后结束冲刺，按正常步速交替掩护。'}),
+  rapid_at: variant('rocket','rapid_at','快反反坦克组',4,'反坦克组跑步到位，展开后低姿猎甲。',{members:3,hp:180,speed:50,infantryAbility:'rapid',tag:'快援 · 反甲',detail:'3人180生命，前8秒跑步进场，接敌后停止冲刺，展开反坦克武器与交替掩护，无法穿甲时不会盲目冲向坦克。'}),
+  rapid_recon: variant('infantry','rapid_recon','快速侦察组',2,'两名侦察兵跑步到位，为后续部队标记敌军。',{members:2,hp:70,speed:56,sight:760,infantryAbility:'rapid',tag:'快援 · 侦察',detail:'2人70生命，前8秒跑步进场；760观察距离，共享真实观测位置，接敌后利用掩护。'}),
+  apc_transport: variant('ifv','apc_transport','轮式装甲运兵车',5,'装甲运输四名步兵，接敌前下车展开。',{vehicle:true,antiAir:false,armored:true,armorTier:1,hp:360,damage:6,rate:.18,range:420,speed:48,sight:530,groundCargo:'infantry',cargoMembers:4,model:'machinegun',armorMultiplier:.15,tag:'装甲 · 载员运输',detail:'1辆360生命、基础防护1，搭载4名步兵。发现地面敌军后在接敌前卸载一次，车载机枪掩护下车。载员独立作为士兵行动；车辆仍消耗燃油和机枪弹药。'}),
+  supply_truck: variant('ifv','supply_truck','物资补给车',4,'携行2000物资，在己方战线后方补弹补油。',{vehicle:true,antiAir:false,armored:false,armorTier:0,hp:180,damage:0,range:0,speed:40,sight:360,supplyCapacity:2000,vehicleSupport:'supply',tag:'后勤 · 有限物资',detail:'1辆180生命，无装甲、无武器，携行2000单位物资，为180内友军补充弹药、燃油及联络组补给包。随己方战线保持后方距离，库存不足时回基地补货；耗尽后停止供应，无法凭空补给。'}),
   escort_gunship: variant('helicopter', 'escort_gunship', '护航武装直升机', 5,
     '持续巡航，机炮兼顾低空目标，防护低于专用武装直升机。', {
       air: true, airframe: 'rocket_heli', hp: 170, damage: 14, rate: 0.42,
@@ -3090,7 +3100,7 @@ for (const id of ['artillery', 'barrage', 'precision', 'field_gun', 'siege_gun',
 /** The bullet's base damage stays unchanged against armour, aircraft and HQs. */
 export const MACHINEGUN_INFANTRY_MULTIPLIER = 1.5;
 for (const id of ['machinegun', 'lmg_team', 'heavy_mg', 'fort_machinegun',
-  'pickup', 'command_vehicle', 'mine_clearer', 'scout_car', 'helicopter', 'escort_gunship'] as const) {
+  'pickup', 'apc_transport', 'command_vehicle', 'mine_clearer', 'scout_car', 'helicopter', 'escort_gunship'] as const) {
   CARDS[id].infantryMultiplier = MACHINEGUN_INFANTRY_MULTIPLIER;
   CARDS[id].detail += ' 机枪弹命中步兵造成1.5倍伤害。';
 }
@@ -3219,3 +3229,5 @@ CARDS.antiarmor.penetrationTier=3;
 CARDS.antiarmor.detail=CARDS.antiarmor.detail!.replace('60伤','100伤').replace('每8.25秒','每5.5秒').replace('观察680','观察780').replace('对甲乘1.8','对甲乘2.4')+' 命中坦克造成240点反甲基础伤害，装甲与命中位置仍影响实伤。';
 for(const card of Object.values(CARDS)) if(card.members && !card.air && !card.internal && !card.airOnly && (card.range??0)>0)
   card.sight=Math.max(card.sight??0,(card.range??0)+100);
+
+CARDS.tow_ifv.detail += ' 双联架待发2枚、备弹6枚；打空后5.5秒更换弹筒，空筒逐一离架，装填期间停止主武器射击。';

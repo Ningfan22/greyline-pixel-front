@@ -1,0 +1,21 @@
+{
+  "version": 223,
+  "tool": "image_gen.imagegen",
+  "mode": "generate then reference edits",
+  "prompts": {
+    "apc": "Use case: stylized-concept. Asset type: production sprite for Greyline, gritty military pixel-art side-scrolling strategy game. True transparent background. Strict horizontal orthographic side view facing RIGHT, entire vehicle visible with generous empty margins, wheels resting on one common baseline. Muted olive drab and dusty steel, sharp visible pixel clusters, dark outlines, realistic mechanical proportions. No perspective, no text, no shadows outside silhouette, no humans, no soldiers painted into vehicle. Match existing detailed but readable battlefield vehicles, avoid cartoon toy style. Image canvas about 1536 by 1024. Subject: a distinctive 8-wheeled armoured personnel carrier, BTR-style transport, tall spacious troop hull, four visible rugged wheels, small low roof machine-gun ring with NO gun barrel attached, no tank cannon, rear troop doors, external baggage. One single isolated vehicle. This is transport, not a tank or BMP.",
+    "supply": "Use case: stylized-concept. Asset type: production sprite for Greyline, gritty military pixel-art side-scrolling strategy game. True transparent background. Strict horizontal orthographic side view facing RIGHT, entire vehicle visible with generous empty margins, wheels resting on one common baseline. Muted olive drab and dusty steel, sharp visible pixel clusters, dark outlines, realistic mechanical proportions. No perspective, no text, no shadows outside silhouette, no humans, no soldiers painted into vehicle. Match existing detailed but readable battlefield vehicles, avoid cartoon toy style. Image canvas about 1536 by 1024. Subject: a realistic 6-wheeled unarmoured military logistics truck, three visible tyres, driver cab at right, cargo bed to left packed with wooden ammo crates, olive jerry cans and rolled tarp, service hose reel, no weapons. One isolated vehicle, visibly logistical cargo shape, not an armoured fighting vehicle.",
+    "pickup": "Use case: stylized-concept. Asset type: production sprite for Greyline, gritty military pixel-art side-scrolling strategy game. True transparent background. Strict horizontal orthographic side view facing RIGHT, entire vehicle visible with generous empty margins, wheels resting on one common baseline. Muted olive drab and dusty steel, sharp visible pixel clusters, dark outlines, realistic mechanical proportions. No perspective, no text, no shadows outside silhouette, no humans, no soldiers painted into vehicle. Match existing detailed but readable battlefield vehicles, avoid cartoon toy style. Image canvas about 1536 by 1024. Subject: unarmoured military technical pickup truck, cab at right, open flat cargo bed at left, three-quarter height cab windows but strict side orthographic. Roof/ring mount in cargo bed with empty machine-gun pivot post; no crew, no weapon barrel. Below the truck in a separate row draw one isolated heavy machine gun facing right, receiver and barrel horizontal, black steel. Large clear transparent separation between truck and gun, no duplication. Draw gun at same texture density as truck."
+  },
+  "sources": {
+    "apc": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-ed2f2cd1-e540-46ba-879e-d2f17d65be73.png",
+    "supply": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-15096bfa-39c9-4773-b867-0bb758e5ca48.png",
+    "pickup": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-2a496229-4938-4ecc-aee4-4c8ba63b7e2b.png"
+  },
+  "note": "Crew uses existing articulated soldier parts; vehicles are independently AI-generated. The build extracts original gun/canister pixels and removes low-alpha import fringes.",
+  "wreckSources": {
+    "apc_transport": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-e3cedb04-a996-4f6d-8a43-ad87997f7e85.png",
+    "supply_truck": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-1846625f-8481-4b30-9ba1-22c091ed04f4.png",
+    "pickup": "/Users/bytedance/.codex/generated_images/01a0d78e-88ce-7910-ac1c-ebdc5552ce6f/exec-21a68692-01ae-48a0-aa46-5062e17a155e.png"
+  }
+}

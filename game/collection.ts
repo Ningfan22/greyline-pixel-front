@@ -41,7 +41,9 @@ export interface CollectionState {
   fortificationReleaseGranted?: boolean;
   /** v195: front-line resupply is available without opening another card pack. */
   ammoReleaseGranted?: boolean;
+  squadLogisticsReleaseGranted?: boolean;
 }
+export const SQUAD_LOGISTICS_CARDS: CardId[]=['apc_transport','supply_truck','rapid_assault','rapid_at','rapid_recon'];
 export const NEW_RELEASE_CARDS: CardId[] = [
   'fort_bunker','fort_machinegun','fort_aa','fort_spawn','fort_wire',
   'rapid_reinforcements','escort_gunship','field_gun','siege_gun',
@@ -49,6 +51,7 @@ export const NEW_RELEASE_CARDS: CardId[] = [
 
 /** 初始牌库：30 种、共 45 张，覆盖默认「机步协同」编队。 */
 export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
+  apc_transport:1,supply_truck:1,rapid_assault:1,rapid_at:1,rapid_recon:1,
   infantry: 4,
   fire_team: 2,
   antiarmor: 2,
@@ -201,6 +204,7 @@ export function starterState(): CollectionState {
     testGoldGranted: false,
     fortificationReleaseGranted: true,
     ammoReleaseGranted: true,
+    squadLogisticsReleaseGranted:true,
   };
 }
 
@@ -223,6 +227,7 @@ export function loadCollection(): CollectionState {
           testGoldGranted: parsed.testGoldGranted ?? false,
           fortificationReleaseGranted: parsed.fortificationReleaseGranted ?? false,
           ammoReleaseGranted: parsed.ammoReleaseGranted ?? false,
+          squadLogisticsReleaseGranted:parsed.squadLogisticsReleaseGranted??false,
         };
       }
     }
@@ -261,6 +266,7 @@ export function loadCollection(): CollectionState {
     state.fortificationReleaseGranted = true;
     saveCollection(state);
   }
+  if(!state.squadLogisticsReleaseGranted){for(const id of SQUAD_LOGISTICS_CARDS)state.owned[id]=Math.max(1,state.owned[id]??0);state.squadLogisticsReleaseGranted=true;saveCollection(state);}
   if (!state.ammoReleaseGranted) {
     state.owned.ammo = Math.max(1, state.owned.ammo ?? 0);
     state.ammoReleaseGranted = true;

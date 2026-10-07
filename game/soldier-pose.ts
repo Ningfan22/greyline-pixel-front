@@ -201,7 +201,7 @@ function actionFor(u:SoldierBody,time:number):SoldierAction {
     if((u.emplacementSetupUntil??0)>time)return 'deploy';
     if((u.scavengeUntil??0)>time)return 'scavenge';
     if((u.ammoShareUntil??0)>time)return 'share';
-    if((u.ammoSignalUntil??0)>time)return 'signal';
+    if((u.ammoSignalUntil??0)>time||(u.teamSignalUntil??0)>time&&!u.fire&&!u.secondaryFire&&(u.aimUntil??0)<=time)return 'signal';
     if(!u.fire&&!u.secondaryFire&&(u.aimUntil??0)<=time&&
       ((u.calloutUntil??0)>time||(u.pointUntil??0)>time))return 'signal';
     if((u.observingUntil??0)>time)return 'observe';
@@ -571,8 +571,10 @@ export function soldierPose(u:SoldierBody,time:number):SoldierPose {
   }else if(action==='share'){
     nearHand=add(shoulder,[22,4]);prop='magazine';
   }else if(action==='signal'){
+    const signal=(u.teamSignalUntil??0)>time?u.teamSignal:undefined;
     const point=(u.pointUntil??0)>time,dir=(u.pointDir??u.calloutDir??u.facing??1)*(u.facing??1);
-    nearHand=add(shoulder,point?[dir*21,-6]:[-4+Math.sin(time*7)*3,-20]);
+    nearHand=add(shoulder,signal==='halt'?[6,-22]:signal==='spread'?[19,-5]:signal==='advance'?[13+Math.sin(time*6)*5,-12]:point?[dir*21,-6]:[-4+Math.sin(time*7)*3,-20]);
+    if(signal){nearHandShape='open';slung=true;}
   }else if(action==='observe'){
     nearHand=add(head,[9,-7]);farHand=add(head,[13,-6]);prop='binoculars';slung=true;
   }else if(action==='drag'){

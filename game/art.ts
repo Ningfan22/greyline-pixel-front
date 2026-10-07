@@ -1,3 +1,4 @@
+import {VEHICLE_SOURCES_V223,vehicleFrameV223,apcPartsV223,pickupPartsV223,towRackParts,type TowRackParts} from './vehicle-art-v223';
 import {IFV_ART_V220,ifvPartsV220,ifvPreviewV220} from './ifv-art-v220';
 import {splitVehicleGun} from './vehicle-gun-art';
 import {VEHICLE_GUNS,type VehicleGunId} from './vehicle-gun-layout';
@@ -50,6 +51,7 @@ import { loadComebackArtV18, comebackFramesV18, type ComebackArtV18 } from './co
 import type { MapId } from './maps';
 import type { WreckKind } from './wreck-geometry';
 export interface Art {
+  towRack?:TowRackParts;
   weaponEffects?: WeaponEffects;
   helicopterParts?: HelicopterParts;
   gunParts?: Record<string, PaintedGunParts>;
@@ -644,6 +646,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(VEHICLE_IDS_V209.map(async id=>({id,sprite:await loadImage(vehicleSourceV209(id)),wreck:await loadImage(vehicleSourceV209(id,true))}))),
     Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
     loadImage(IFV_ART_V220.source).then(ifvPartsV220),
+    Promise.all(Object.entries(VEHICLE_SOURCES_V223).map(async ([id,path])=>({id:id as keyof typeof VEHICLE_SOURCES_V223,image:await loadImage(path),wreck:await loadImage(path.replace('.png','-wreck.png'))}))),
   ]).then(
     ([
       [
@@ -686,7 +689,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       weaponSheets,
       v209Vehicles,
       missileSheets,
-      ifvParts,
+      ifvParts,v223Vehicles,
     ]) => {
       const vehicleArt = frames(vehicles, 4, 3, 64, 32);
       vehicleArt[1] = stableHelicopters(vehicles);
@@ -708,6 +711,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       const mobileFrames={...mobileVehicleFrames(mobileVehicles,supportVehicles),...Object.fromEntries(v209Vehicles.map(({id,sprite})=>[id,[vehicleFrameV209(id,sprite)]]))};
       const vehicleParts=Object.fromEntries((Object.keys(VEHICLE_GUNS) as VehicleGunId[]).map(id=>{
         if(id==='ifv')return [id,ifvParts];
+        if(id==='apc_transport')return [id,apcPartsV223(v223Vehicles.find(v=>v.id==='apc_transport')!.image,v223Vehicles.find(v=>v.id==='pickup')!.image)];
+        if(id==='pickup')return [id,pickupPartsV223(v223Vehicles.find(v=>v.id==='pickup')!.image)];
         const phases=mobileFrames[id].map(frame=>splitVehicleGun(id,frame));
         return [id,{...phases[0],bodyFrames:phases.map(parts=>parts.body)}];
       }));
@@ -730,8 +735,10 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         Object.fromEntries(v197Vehicles.map(({ id, wreck }) => [id, wreck])) as
           Record<(typeof V197_VEHICLE_IDS)[number], HTMLImageElement>,
         Object.fromEntries(v209Vehicles.map(({id,wreck})=>[id,wreck])) as Record<(typeof VEHICLE_IDS_V209)[number],HTMLImageElement>,
+        Object.fromEntries(v223Vehicles.map(({id,wreck})=>[id,wreck])) as Record<keyof typeof VEHICLE_SOURCES_V223,HTMLImageElement>,
       );
       return {
+        towRack:towRackParts(vehicleFrameV197('tow_ifv',v197Vehicles.find(v=>v.id==='tow_ifv')!.sprite!)),
         gunParts,
         helicopterParts:helicopterParts(weaponSheets[3]),
         weaponEffects:weaponEffects(weaponSheets[0], missileSheets),
@@ -756,6 +763,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
           ...gunPreviews,
           ...Object.fromEntries(v209Vehicles.map(({id,sprite})=>[id,[vehicleFrameV209(id,sprite)]])),
           ...Object.fromEntries(v197Vehicles.filter(v => v.sprite).map(({ id, sprite }) => [id, [vehicleFrameV197(id, sprite!)]])),
+          ...Object.fromEntries(v223Vehicles.map(({id,image})=>[id,[vehicleFrameV223(id,image)]])),
         },
         terrain,
         vehicles: vehicleArt,

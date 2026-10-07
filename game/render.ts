@@ -1,3 +1,5 @@
+import {vehicleCrewPose} from './vehicle-crew-pose';
+import {drawTowRack} from './vehicle-art-v223';
 import { mapDefinition, type MapId } from './maps';
 import {actorSoldierFrame,actorSoldierPoseFrame,drawSoldierRagdoll} from './soldier-art';
 import { artilleryCrewPose } from './artillery-crew-pose';
@@ -867,10 +869,13 @@ export function render(
       tankOffset * Math.sin(u.hullAngle) +
       groundInset * Math.cos(u.hullAngle);
     if (c.emplacement && !isDead) drawArtilleryCrew(ctx, u, s.time, art, 'far',x=>ground(s,x));
+    if(!isDead&&art.soldiers){const crew=vehicleCrewPose(u,s.time);if(crew){const frame=actorSoldierPoseFrame(art.soldiers,u,crew.pose,3);drawSprite(ctx,frame.image,u.x+crew.facing*crew.x,u.y+infantryDepth(u.lane)+crew.y+frame.image.height-frame.anchorY,frame.image.width,frame.image.height,crew.facing<0);}}
     if (c.fortification) {
       drawFortification(ctx,u,s.time,art);
     } else if (art.helicopterParts && (u.id==='helicopter'||u.id==='rocket_heli'||u.id==='escort_gunship')) {
       ctx.save();ctx.globalAlpha=alpha;drawHelicopter(ctx,art.helicopterParts,u,s.time,isDead);ctx.restore();
+    } else if(u.id==='tow_ifv'&&art.towRack&&!isDead){
+      drawTowRack(ctx,art.towRack,u,s.time,infantryDepth(u.lane));
     } else if (art.gunParts?.[u.id] || (c.emplacement && art.gunParts?.[c.emplacement])) {
       const parts = art.gunParts[u.id] ?? art.gunParts[c.emplacement!];
       drawArticulatedGun(ctx, parts, u, alpha, infantryDepth(u.lane), frame);

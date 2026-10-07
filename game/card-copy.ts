@@ -11,6 +11,11 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+  rapid_assault:{en:'QUICK RESPONSE ASSAULT',typeLabel:'快反突击',ability:'跑步到位',rule:'冲刺到位，交替掩护。',flavor:'跑得快，也要躲得好。'},
+  rapid_at:{en:'QUICK RESPONSE AT',typeLabel:'快反反甲',ability:'跑步展开',rule:'跑步入场，低姿猎甲。',flavor:'赶得快，也要架得稳。'},
+  rapid_recon:{en:'QUICK RESPONSE RECON',typeLabel:'快反侦察',ability:'先遣观察',rule:'跑步先遣，观察敌情。',flavor:'先看清，后队才敢走。'},
+  apc_transport:{en:'ARMOURED PERSONNEL CARRIER',typeLabel:'装甲运兵',ability:'四人载员',rule:'接敌卸载四人，机枪掩护。',flavor:'装甲送到阵前，步兵展开。'},
+  supply_truck:{en:'SUPPLY TRUCK',typeLabel:'物资运输',ability:'有限库存',rule:'两千物资，耗尽回补。',flavor:'每一只箱子，都有底。'},
   antitank_cluster: {en:'ANTI-ARMOUR SUBMUNITIONS',typeLabel:'顶攻支援',ability:'集群猎甲',rule:'观察引导，子弹药顶攻。',flavor:'靠得越近，损失越重。'},
   hunter_swarm: {en:'HUNTER SWARM',typeLabel:'巡飞支援',ability:'四机猎甲',rule:'前线放飞，分散锁敌。',flavor:'让装甲也学会找掩体。'},
   antitank_barrier: {en:'ANTI-TANK MINE BELT',typeLabel:'装甲拒止',ability:'六雷封路',rule:'提前布雷，阻断装甲。',flavor:'履带前面，还有雷。'},

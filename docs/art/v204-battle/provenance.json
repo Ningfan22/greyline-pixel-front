@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2435.641833,
-  "canvasesCreated": 633,
-  "frames": 459,
+  "compileMs": 2788.394,
+  "canvasesCreated": 648,
+  "frames": 462,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -13,11 +13,11 @@
     },
     {
       "path": "scripts/battle-art-bake-inputs.mjs",
-      "sha256": "28177cd9d1c1071317b148dc0956cb74b88c7cec2c04e53b7779782212104e11"
+      "sha256": "e53f373d74133045bbc1fc73be784845f6f7d5eaaf9fba763e193ca09fced3ea"
     },
     {
       "path": "game/art.ts",
-      "sha256": "932b2cd1c28e3371f33df6c2fd7735eb470d65879bfc1a9ece5b13991109ebf4"
+      "sha256": "2a93f21bf71e092241a591635cacaf866a7d9b5fdac7f70629cdbc4feacfda4c"
     },
     {
       "path": "game/art-v16.ts",
@@ -41,7 +41,11 @@
     },
     {
       "path": "game/soldier-pose.ts",
-      "sha256": "20220fee7b87e71b967f2b57f63d0315437a8bc3d214cc7250c56e34e295f1bd"
+      "sha256": "77515c8a8ef5a4010f859b5db69ce2346c0420d2a2c4c9162edeb848aa9ae025"
+    },
+    {
+      "path": "game/vehicle-art-v223.ts",
+      "sha256": "aeb949e680149f82117708fbff7d0cd04251bfcb03ecd2210b3ce5ab1f5d996c"
     },
     {
       "path": "game/ifv-art-v220.ts",
@@ -69,7 +73,7 @@
     },
     {
       "path": "game/vehicle-gun-layout.ts",
-      "sha256": "f4d7e79f42521c73ce4a7370adf4f95d44067a4452cf74c0179395ab2f012907"
+      "sha256": "c0ce344fa78c92a57fb0944f2f294c18b220cba411b515e66dc3413159103c5d"
     },
     {
       "path": "game/vehicle-missile-art-v209.ts",
@@ -97,7 +101,7 @@
     },
     {
       "path": "game/vehicle-geometry.ts",
-      "sha256": "6c69f723dc92a8715480b0d6f0066279df4edfe740d01146f0a094ea8a6cda46"
+      "sha256": "d5d65814332607fd8e3289e5219e9f2863ffaac726addbbaf4c5a60fd90e0dcd"
     },
     {
       "path": "game/mobile-vehicle-art.ts",
@@ -105,7 +109,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "1edf86eff8eb84fd649c567e711a337bd2cedf5888e8ad6f4d7eceff0e203a3c"
+      "sha256": "f1adaa3a0da01fd9c07cc301177075cf028b1208817cbe1fff37321707b2a9b7"
     },
     {
       "path": "game/maps.ts",
@@ -129,11 +133,11 @@
     },
     {
       "path": "game/wreck-art.ts",
-      "sha256": "810f1ae7260343df01de6d923848708931b682f55b40ff77288933af732d9200"
+      "sha256": "0de40a4ea8d89c42e896a9582460fbc63cfc1f19b2ac15eec557bbc774994c61"
     },
     {
       "path": "game/wreck-geometry.ts",
-      "sha256": "3ee0a2019acc9cf56d1b5de101f4e2326a2311ce0c56009ab7dea0bc14bb319c"
+      "sha256": "d5fa7bd7ac6463c636f2c3ca3ef145e0edae50c7338c0573da3c88c30582b258"
     },
     {
       "path": "game/wreck-variants.ts",
@@ -445,14 +449,44 @@
       "sha256": "2df041e48da655033a3cd6996df0d9b96bb579b275250cb8cce700d96b505173"
     },
     {
-      "path": "/art/v209-vehicles-missiles/sam-wreck.png",
-      "bytes": 1639328,
-      "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
+      "path": "/art/v223-vehicles/apc_transport.png",
+      "bytes": 1753550,
+      "sha256": "1f572c1108d051e26421f8af52cb0fa46775616bd8723d2fc32ee4aad21bb280"
+    },
+    {
+      "path": "/art/v223-vehicles/supply_truck.png",
+      "bytes": 1764783,
+      "sha256": "16d3fb48497d6730a6bb5fdd1fe1bf980459469d6d5c56285b4b7762855faed0"
+    },
+    {
+      "path": "/art/v223-vehicles/pickup.png",
+      "bytes": 1749694,
+      "sha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c"
     },
     {
       "path": "/art/v209-vehicles-missiles/scout-wreck.png",
       "bytes": 1241246,
       "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
+    },
+    {
+      "path": "/art/v209-vehicles-missiles/sam-wreck.png",
+      "bytes": 1639328,
+      "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
+    },
+    {
+      "path": "/art/v223-vehicles/apc_transport-wreck.png",
+      "bytes": 2025341,
+      "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
+    },
+    {
+      "path": "/art/v223-vehicles/supply_truck-wreck.png",
+      "bytes": 1993174,
+      "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
+    },
+    {
+      "path": "/art/v223-vehicles/pickup-wreck.png",
+      "bytes": 1737984,
+      "sha256": "96c71b10bbeb18bab7fec980274075461816b217eb8645c7dfa72e315699e91b"
     },
     {
       "path": "/art/battlefield-v3.png",
@@ -607,7 +641,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "4a99b328c654f0d9ac647d72496771500dacd364a752dce26273081d12f65f53"
+    "sha256": "19534d841d075f07d357d06af7fc99b713e215fa6a174577f906fff4b5a8d3f7"
   },
   "atlasFiles": [
     {
@@ -619,12 +653,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-365a0a028420.png",
-      "bytes": 3001211,
+      "path": "/art/v204-battle/frames-1-57c38e4faba4.png",
+      "bytes": 3090349,
       "width": 2048,
-      "height": 1541,
-      "sha256": "365a0a0284202f6e54ff1d3f172027c4b591f13c96db899825876c19ad5f55c4",
-      "rgbaSha256": "2f27827ac3ca506d5893f47caf0881d01d4329d07848ecaa80389730ed3a5e54"
+      "height": 1531,
+      "sha256": "57c38e4faba4d8d9f5c7a1a4b3cea5b80a4cd0f0482da0077a648e5283b62b33",
+      "rgbaSha256": "d7a4302df4860eb03f7673fdbf9d7a6de99cbb5f55eb818d3e6f2442b860c17f"
     }
   ],
   "external": [],
@@ -662,5 +696,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5353669
+  "sharedBytes": 5442807
 }

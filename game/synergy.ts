@@ -38,7 +38,7 @@
 
 import { CARDS, modelOf, type CardId } from './cards';
 import { isPrecisionObserver, precisionObserverReady } from './precision-team';
-import { nearUnits } from './spatial';
+import { nearUnits, unitByUid } from './spatial';
 import type { GameState, Unit } from './engine';
 
 export type SynergyKind =
@@ -269,7 +269,9 @@ function compute(s: GameState, u: Unit, now: number): Entry {
       if (
         v.side === side &&
         providerAlive(v) &&
-        v.id === 'supply_team' &&
+        (v.id === 'supply_team'||v.id==='supply_truck') &&
+        (v.supplyStock??CARDS[v.id].supplyCapacity??400)>0 &&
+        !v.resupplyState &&
         Math.abs(v.x - u.x) <= SUPPLY_RUN_RANGE
       ) {
         state.supply_run = true;
@@ -348,6 +350,7 @@ function entryFor(s: GameState, u: Unit, now: number): Entry {
     entry = compute(s, u, now);
     map.set(u.uid, entry);
   }
+  if(entry.state.supply_run){const provider=unitByUid(s,entry.providers.supply_run);if(!provider||!providerAlive(provider)||provider.resupplyState||(provider.supplyStock??CARDS[provider.id].supplyCapacity??400)<=0){entry.state.supply_run=false;delete entry.providers.supply_run;}}
   return entry;
 }
 

@@ -114,7 +114,7 @@ export const CardFace = memo(function CardFace({
       <img
         width={720}
         height={720}
-        className="printed-card-picture"
+        className={`printed-card-picture${id === 'apc_transport' || id === 'supply_truck' || id === 'pickup' ? ' printed-card-vehicle' : ''}`}
         src={picture.src}
         srcSet={picture.srcSet}
         sizes={imageSizes}

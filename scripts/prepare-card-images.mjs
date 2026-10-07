@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { CARDS } from '../game/cards.ts';
 import { cardPicturePath } from '../game/card-picture-path.ts';
+import { VEHICLE_CROPS_V223 } from '../game/vehicle-art-v223.ts';
 const sharp = createRequire(import.meta.url)('sharp'),
   root = fileURLToPath(new URL('..', import.meta.url));
 const folder = resolve(root, 'public/art/v204-cards');
@@ -25,11 +26,14 @@ const variants = {},
   entries = [];
 for (const path of paths) {
   const original = readFileSync(resolve(root, 'public' + path)),
-    meta = await sharp(original).metadata(),
-    stem = path.split('/').at(-1).replace('.webp', '');
+    stem = path.split('/').at(-1).replace(/\.(webp|png)$/, '');
   variants[path] = [];
+  const vehicleId = path.startsWith('/art/v223-vehicles/') ? stem : null,
+    crop = vehicleId ? VEHICLE_CROPS_V223[vehicleId] : null;
   for (const width of [384, 640]) {
-    const encoded = await sharp(original)
+    let picture = sharp(original);
+    if (crop) picture = picture.extract({ left: crop[0], top: crop[1], width: crop[2], height: crop[3] });
+    const encoded = await picture
       .resize({ width, withoutEnlargement: true, kernel: 'nearest' })
       .webp({ quality: 85, alphaQuality: 100, effort: 6 })
       .toBuffer();
@@ -44,6 +48,7 @@ for (const path of paths) {
       source: path,
       sourceSha256: hash(original),
       sourceBytes: original.length,
+      ...(crop ? { sourceCrop: crop } : {}),
       path: '/art/v204-cards/' + file,
       width: actual.width,
       height: actual.height,
