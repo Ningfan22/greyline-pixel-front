@@ -1,3 +1,4 @@
+import {tacticalActionScale} from '../game/infantry-training.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {tick,setOrder,spawnUnit,refreshVision,ground} from '../game/engine.ts';
@@ -11,7 +12,7 @@ const step=(s,n)=>{for(let i=0;i<n;i++)tick(s,1/60);};
 test('both armies prepare all five low authored cels before moving their feet or lane',()=>{
   for(const side of [0,1])for(const id of ['infantry','marines','militia']){
     const {s,u,x,dir}=proneStartStop(side,id),cels=new Set();
-    for(let i=0;i<Math.floor(PRONE_STEP_S*60)-1;i++){
+    for(let i=0;i<Math.floor(PRONE_STEP_S*tacticalActionScale(u)*60)-1;i++){
       tick(s,1/60);assert.equal(u.x,x);assert.equal(u.lane,0);assert.equal(u.pose,'prone');
       const f=adultFrameChoice(u,s.time);assert.equal(f.group,'stance16');assert(f.index>=11);cels.add(f.index);
     }

@@ -815,7 +815,7 @@ export function render(
         ctx.stroke();
       }
     }
-    if (u.parachuting && art.parachute.length) {
+    if (u.parachuting && s.time-(u.parachutingStartAt??-1)>=.18 && art.parachute.length) {
       const sway = Math.sin(s.time * 1.7 + u.uid * 1.3) * 3;
       const chute =
         art.parachute[

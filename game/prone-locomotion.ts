@@ -1,3 +1,4 @@
+import {tacticalActionScale} from './infantry-training';
 import type {Unit} from './engine';
 import {weaponModel} from './cards';
 import {isPrecisionObserver} from './precision-team';
@@ -18,7 +19,7 @@ export function proneMotionActive(u: LowBody) {
   const p=proneTravelAmount(u);return p>0&&p<1;
 }
 export function proneStartDelay(u: Unit) {
-  return u.pose==='prone'&&proneTravelApplies(u) ? (1-proneTravelAmount(u))*PRONE_STEP_S : 0;
+  return u.pose==='prone'&&proneTravelApplies(u) ? (1-proneTravelAmount(u))*PRONE_STEP_S*tacticalActionScale(u) : 0;
 }
 /** Record intent before moving feet or changing formation lane. */
 export function requestProneStep(u: Unit,time: number) {
@@ -43,6 +44,6 @@ export function stepProneLocomotion(u: Unit,time: number,dt: number) {
   // Do not restart a whole-body action during every short traffic stop.
   // A cancelled initial step returns smoothly, never freezes halfway up.
   const target=moving?1:work||p<1||u.proneStoppedFor>PRONE_STOP_GRACE_S+1e-8?0:p;
-  const next=p+Math.max(-dt/PRONE_STEP_S,Math.min(dt/PRONE_STEP_S,target-p));
+  const next=p+Math.max(-dt/(PRONE_STEP_S*tacticalActionScale(u)),Math.min(dt/(PRONE_STEP_S*tacticalActionScale(u)),target-p));
   u.proneTravel=next<1e-6?0:next>1-1e-6?1:next;
 }

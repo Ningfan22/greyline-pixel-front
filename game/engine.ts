@@ -1,3 +1,6 @@
+import {airDefensePosition} from './air-defense-position';
+import {prepareParachuteTransport,stepParachuteTransport,type ParachuteFlight} from './parachute-transport';
+import {tacticalActionScale,soldierHitChance,type InfantryTraining} from './infantry-training';
 import {shouldUnloadTransport,supplyTruckGoal} from './ground-transport';
 import {updateFireTeams,type TeamRole} from './squad-team-plan';
 import {emplacementContact} from './emplacement-ground';
@@ -634,6 +637,9 @@ export interface Unit {
     squad?: number;
   };
   glider?: GliderFlight;
+  parachuteFlight?: ParachuteFlight;
+  training?: InfantryTraining;
+  combatRunUntil?: number;
   rappelling?: boolean;
   /** Timestamp when rappel descent started — safety net forces a landing. */
   rappellingStartAt?: number;
@@ -1618,7 +1624,7 @@ export function playCard(
       ? safeLanding(s, x ?? defaultLanding(s, side))
       : undefined;
   if(c.insertion==='glider'&&landingX===null)
-    return {ok:false,message:'滑翔机需要平缓空地，请避开房屋、树干和残骸'};
+    return {ok:false,message:'附近没有可降落空地，请避开完整房屋和树干；废墟与残骸不影响落地'};
   // Airdrop units descend onto the selected point; airlift transports still enter at HQ.
   if (c.airdrop) x = landingX ?? undefined;
   else if (c.type === 'fortification') {
@@ -1662,12 +1668,11 @@ export function playCard(
   if (c.economy) {
     applyEconomy(p, c.economy, s.time);
   } else if (c.type === 'unit' || c.type === 'fortification') {
-    const spawnedAt = s.units.length;
     const forward = c.type === 'unit' && !c.air && !!c.members && !c.airdrop
       ? s.units.filter(u => u.side === side && u.hp > 0 && CARDS[u.id].fortification === 'spawn' &&
           (u.buildUntil ?? 0) <= s.time).sort((a,b) => side === 0 ? b.x-a.x : a.x-b.x)[0]
       : undefined;
-    spawnUnit(s, side, c.insertion==='glider' ? 'glider_transport' : c.id,
+    spawnUnit(s, side, c.insertion==='glider' ? 'glider_transport' : c.airdrop ? 'parachute_transport' : c.id,
       c.type === 'fortification' ? x! : forward ? forward.x + (side === 0 ? 70 : -70) : x!);
     if(c.insertion==='glider')prepareGlider(s,s.units.at(-1)!,landingX!);
     if (c.airlift)
@@ -1678,12 +1683,7 @@ export function playCard(
         nextAt: s.time,
       };
     if (c.airdrop && !c.insertion)
-      for (let i = spawnedAt; i < s.units.length; i++) {
-        const u = s.units[i];
-        u.parachuting = true;
-        u.parachutingStartAt = s.time;
-        u.y = ground(s, u.x) - 340;
-      }
+      prepareParachuteTransport(s,s.units.at(-1)!,c.id,landingX!);
     if (c.sortie) s.units.at(-1)!.sortieCard = token;
     if (c.deployDraw) draw(s, side, c.deployDraw);
     refreshVision(s);
@@ -2500,7 +2500,7 @@ export function veteranScatter(u: Unit): number {
   return VETERAN_SCATTER[veteranTier(u)];
 }
 export function veteranReadiness(u: Unit): number {
-  return VETERAN_READINESS[veteranTier(u)];
+  return VETERAN_READINESS[veteranTier(u)] * tacticalActionScale(u);
 }
 
 function creditKill(s: GameState, a: Unit) {
@@ -4352,7 +4352,7 @@ function moveSoldier(
   // Cover a nearby observed threat while withdrawing. Once clear, turn and
   // march at the same walking pace as an advance instead of shuffling home.
   const baseward = dir === (u.side === 0 ? -1 : 1);
-  const escape = heavyEscape(u,s.time);
+  const escape = heavyEscape(u,s.time)||(u.pose==='run'&&(u.combatRunUntil??0)>s.time);
   const threat = !escape && baseward && (u.tactic !== 'retreat' || orderedWithdrawal(s, u))
     ? withdrawalFacingThreat(s, u) : undefined;
   const coverFacing = threat ? Math.sign(threat.x - u.x) : 0;
@@ -4763,7 +4763,7 @@ function tacticalPressure(s: GameState, source: Unit, target: Unit, potential = 
     (rifleRotorTarget(source, target) ? 0.018 : 1) *
     multiplier *
     smallArmsHitMultiplier(ammunition(source.id, source.member), !!t.members, modelOf(source.id) === 'sniper') *
-    smallArmsAccuracyScale(ammunition(source.id, source.member), modelOf(source.id) === 'sniper') *
+    (c.members ? soldierHitChance(source,modelOf(source.id)==='sniper') : smallArmsAccuracyScale(ammunition(source.id, source.member), false)) *
     splash *
     heatFactor *
     Math.sqrt(40 / Math.max(25, target.maxHp)) *
@@ -5573,7 +5573,7 @@ function decideTactic(s: GameState, u: Unit, dt: number) {
   }
   const reactNow = newContact && u.tactic === 'advance';
   if (!reactNow && u.decisionIn > 0) return;
-  u.decisionIn = 1.1 + (u.member % 4) * 0.18;
+  u.decisionIn = (1.1 + (u.member % 4) * 0.18)*tacticalActionScale(u);
   if (
     inContact &&
     (u.dispersionNextAt ?? 0) <= s.time &&
@@ -8089,13 +8089,14 @@ function flyTransport(s: GameState, u: Unit, dt: number) {
   const soldier = s.units[next];
   flight.squad = soldier.squad;
   soldier.y = u.y + 58;
+  soldier.training = u.id==='air_assault'?'elite':undefined;
   soldier.rappelling = true;
   soldier.rappellingStartAt = s.time;
   soldier.pose = 'climb';
   soldier.cooldown = 0.7;
   soldier.rapidUntil = 0;
   flight.dropped++;
-  flight.nextAt = s.time + 0.85;
+  flight.nextAt = s.time + (u.id==='air_assault'?.58:.85);
 }
 function detonateMunition(s: GameState, u: Unit, x: number, y: number) {
   const c = CARDS[u.id];
@@ -8754,7 +8755,7 @@ export function tick(s: GameState, dt: number) {
       // A live ground guide shortens exposure under the canopy. Recheck
       // every tick: a dead, moving or jammed guide cannot finish the job.
       const guide = landingGuide(s, u.side, u.x);
-      u.y = Math.min(ground(s, u.x), u.y + 135 * (guide ? 1.35 : 1) * dt);
+      u.y = Math.min(ground(s, u.x), u.y + (s.time-(u.parachutingStartAt??-1)<.18?220:135) * (guide ? 1.35 : 1) * dt);
       // v133: safety net — if the descent somehow never reaches ground
       // (terrain reshaped under the canopy, knockback over a pit), force
       // the landing after 12s so the flag can never stick for the battle.
@@ -9118,6 +9119,7 @@ export function tick(s: GameState, dt: number) {
       stepGlider(s,u,dt,{spawn:spawnUnit,crash:v=>finishDeath(s,v,v.side,'bullet')});
       continue;
     }
+    if(u.parachuteFlight){stepParachuteTransport(s,u,dt,{spawn:spawnUnit,landing:safeLanding});continue;}
     if (u.id === 'loiter_drone') {
       flyLoiterMunition(s, u, dt);
       continue;
@@ -9219,6 +9221,7 @@ export function tick(s: GameState, dt: number) {
         u.stanceLockUntil = s.time + STANCE_COOLDOWN_S;
       }
     }
+    if(c.members && ((u.contactUntil??0)>s.time || (u.heardContactAt??-100)>s.time-6))u.combatRunUntil=Math.max(u.combatRunUntil??0,s.time+1);
     if (heavyEscape(u,s.time)) desiredPose = 'run';
     // v127: basic stance changes are rate-limited so a squad doesn't hop
     // between stand/crouch/prone every time the tactic context twitches.
@@ -9695,6 +9698,7 @@ export function tick(s: GameState, dt: number) {
       candidates[0] ??
       airContact ??
       (u.lastThreat && u.lastThreat.until > s.time ? u.lastThreat : null);
+    if(c.members && (threat || u.withdrawHeavyUid!==undefined))u.combatRunUntil=s.time+6;
     // Selection does not change the shooter's body or the scene. Targets on
     // one side share its muzzle transform; their sight/impact rays stay distinct.
     // Keep this cache local: a later smoke, stance or movement invalidates it.
@@ -10377,6 +10381,12 @@ export function tick(s: GameState, dt: number) {
     ) {
       rescuedGoalX = target.x + dir * 320;
     }
+    const airDefensePlan = !controlledNavigation && resupplyGoal===null && order!=='hold'
+      ? airDefensePosition(s,u) : null;
+    // Take a ready interception shot from this safe stop, then keep relocating
+    // during the reload. An aircraft never pulls the vehicle into ground pursuit.
+    const airDefenseGoal = airDefensePlan!==null && target && airborneTarget(target) &&
+      u.cooldown<=0 && !closeThreat ? u.x : airDefensePlan;
     const antiTankGuardGoal = !target && !baseInRange &&
       !candidates.some(enemy => !CARDS[enemy.id].armored && !CARDS[enemy.id].vehicle)
       ? antiTankGuardPost(s, u) : null;
@@ -10401,6 +10411,7 @@ export function tick(s: GameState, dt: number) {
               u.coverGoal ??
               u.dispersionGoal ??
               u.firingGoal ??
+              airDefenseGoal ??
               batteryMarchGoal ??
               null));
     const seeking =
@@ -11085,7 +11096,7 @@ export function tick(s: GameState, dt: number) {
             Math.abs(contact.x-u.x)<=Math.max(360,contact.range??0)+100)) &&
           antiTankGuardGoal === null &&
           // Rocket artillery advances only to the screened rear firing line.
-          u.id !== 'mlrs' &&
+          u.id !== 'mlrs' && airDefenseGoal===null &&
           // A battery that lost sight while backing out waits out its reload
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
@@ -11122,8 +11133,7 @@ export function tick(s: GameState, dt: number) {
         ) {
           moveWant = 'run';
         } else if (
-          order === 'crouch' ||
-          (withdrawing && withdrawalThreat && order !== 'prone')
+          order === 'crouch'
         ) {
           // Hysteresis: once pinned prone, stay prone until suppression
           // eases well below the threshold.
@@ -11132,6 +11142,8 @@ export function tick(s: GameState, dt: number) {
           moveWant = pinned ? 'prone' : 'crouch';
         } else if (order === 'prone') {
           moveWant = 'prone';
+        } else if ((u.combatRunUntil??0)>s.time && u.suppression<65) {
+          moveWant = 'run';
         } else if (withdrawing || escortAhead || retreating || closeThreat) {
           moveWant = 'walk';
         } else if (u.tactic === 'prone') {
@@ -11141,7 +11153,7 @@ export function tick(s: GameState, dt: number) {
         } else {
           moveWant = 'walk';
         }
-        u.pose = setStance(u, s.time, moveWant, { travel: true, escape:heavyEscape(u,s.time) });
+        u.pose = setStance(u, s.time, moveWant, { travel: true, escape:heavyEscape(u,s.time)||(moveWant==='run'&&(u.combatRunUntil??0)>s.time) });
       }
       if (c.members && !heavyEscape(u,s.time) && (s.players[u.side].entrenchUntil ?? 0) > s.time)
         u.pose = setStance(u, s.time, 'prone', { force: true });
@@ -11230,7 +11242,7 @@ export function tick(s: GameState, dt: number) {
         );
         if (laneChange) u.moving = true;
         if (
-          !heavyEscape(u,s.time) &&
+          !heavyEscape(u,s.time) && u.pose!=='run' &&
           ((withdrawing && withdrawalThreat) || (escortAhead && target)) &&
           withdrawalFacingThreat(s, u) &&
           (u.x - beforeMove) * moveDir > 0.001 &&

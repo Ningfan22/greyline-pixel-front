@@ -1,3 +1,4 @@
+import {stanceTransitionDuration} from '../game/infantry-action-timing.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
@@ -174,7 +175,7 @@ test('every mobile member plants its feet during the real prone-to-kneel carrier
     let last=soldierPose(u,s.time);
     for(let i=0;i<96;i++){
       tick(s,1/60);const p=soldierPose(u,s.time);
-      if(s.time-start<1.2-1e-8){assert.equal(u.x,900);assert.equal(patient.x,916);assert.equal(u.moving,false);}
+      if(s.time-start<stanceTransitionDuration(u)-1e-8){assert.equal(u.x,900);assert.equal(patient.x,916);assert.equal(u.moving,false);}
       for(const key of ['hip','nearKnee','farKnee','nearFoot','farFoot'])assert(dist(last[key],p[key])<6,`${role.id}/${i}/${key} carrier jump`);
       last=p;
     }

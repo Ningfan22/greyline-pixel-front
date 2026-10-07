@@ -10,6 +10,7 @@ type Rect = [number, number, number, number];
 export type WreckKind =
   | 'apc_transport' | 'supply_truck'
   | 'glider_transport'
+  | 'parachute_transport'
   | 'light_tank'
   | 'tank'
   | 'heavy_tank'
@@ -65,6 +66,7 @@ function shape(
 }
 /** Authored silhouettes measured from the generated atlases; no live-sprite scaling ratios. */
 export const WRECKS: Record<WreckKind, WreckGeometry> = {
+  parachute_transport:{atlas:'air',source:[0,0,320,110],width:320,height:110,parts:[[.04,.42,.92,.5]],support:[.1,.9,.92],spriteOffset:0},
  apc_transport:shape('v223',[16,221,1501,608],180,[[.05,.4,.9,.5]],[.1,.95,.9]),
  supply_truck:shape('v223',[32,220,1479,584],188,[[.05,.4,.9,.5]],[.1,.95,.9]),
   glider_transport: { atlas:'glider',source:[0,0,256,100],width:256,height:100,

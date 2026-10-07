@@ -588,7 +588,7 @@ export function observationPenalty(
 export function sightRange(u: Unit) {
   const c = CARDS[u.id];
   return (
-    ((isPrecisionObserver(u) ? (precisionObserverReady(u) ? 920 : 440) : c.sight) ??
+    ((isPrecisionObserver(u) ? (precisionObserverReady(u) ? 1650 : 900) : c.sight) ??
       (c.observer
         ? 820
         : c.air
@@ -620,6 +620,7 @@ export function observerUnits(s: GameState, side: Side) {
 export function airGroundSight(u: Pick<Unit, 'id'>): number | null {
   const c = CARDS[u.id];
   if (!c.air) return null;
+  if(c.airframe==='parachute_transport'||c.airframe==='glider')return 0;
   if (c.observer) return c.sight ?? 980;
   return u.id === 'helicopter' || c.airframe === 'rocket_heli' || c.airframe === 'transport_heli'
     ? 320 : 180;

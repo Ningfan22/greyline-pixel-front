@@ -18,7 +18,7 @@ const floor = (s: GameState,x: number) => s.terrain[Math.max(0,Math.min(s.terrai
 const dirOf = (side: Side) => side===0?1:-1;
 function flightBlocked(s:GameState,sx:number,sy:number,tx:number,ty:number) {
   for(const dx of [-85,0,85]) {
-    if(sceneryIntercept(s,sx+dx,sy-26,tx+dx,ty-26,false,true))return true;
+    if(sceneryIntercept(s,sx+dx,sy-26,tx+dx,ty-26,false,true,false,true))return true;
     if(s.walls.some(w=>w.hp>0&&segmentBox(sx+dx,sy-26,tx+dx,ty-26,
       {x:w.x-w.width/2,y:floor(s,w.x)-w.height,w:w.width,h:w.height})!==null))return true;
   }
@@ -32,9 +32,11 @@ export function airborneTarget(u: Unit) {
 export function clearGliderLanding(s: GameState,x: number,side: Side) {
   const dir=dirOf(side),left=x-(dir>0?200:110),right=x+(dir>0?110:200);
   if(left<480||right>s.terrain.length-480)return false;
-  let lo=Infinity,hi=-Infinity;
-  for(let px=left;px<=right;px+=10){const y=floor(s,px);lo=Math.min(lo,y);hi=Math.max(hi,y);}
-  if(hi-lo>20)return false;
+  const grade=(floor(s,right)-floor(s,left))/(right-left);
+  if(Math.abs(grade)>.16)return false;
+  // A gentle graded strip is landable. Local steps and deep shell holes are not.
+  for(let px=left;px<=right;px+=5)
+    if(Math.abs(floor(s,px)-(floor(s,left)+grade*(px-left)))>12)return false;
   for(const prop of s.scenery){
     if(Math.abs(prop.x-x)>420)continue;
     if(prop.kind==='house'&&buildingStage(prop)>=2)continue;
@@ -47,24 +49,33 @@ export function clearGliderLanding(s: GameState,x: number,side: Side) {
 }
 export function gliderLanding(s: GameState,request: number,side: Side): number | null {
   const desired=Math.max(650,Math.min(s.terrain.length-650,request));
-  for(let d=0;d<=320;d+=16)for(const sign of d?[1,-1]:[1]){
+  for(let d=0;d<=640;d+=16)for(const sign of d?[1,-1]:[1]){
     const x=desired+d*sign;
     if(!clearGliderLanding(s,x,side))continue;
     // Reject an already blocked descent, instead of charging for a guaranteed
     // crash into a building beside an otherwise valid runway.
     const dir=dirOf(side),touch=x-dir*90,height=floor(s,touch);
-    let px=touch-dir*450,py=70,blocked=false;
+    const cruise=gliderCruiseHeight(s,touch,side);
+    let px=touch-dir*450,py=cruise,blocked=false;
     for(let i=1;i<=30;i++){
-      const t=i/30,nx=touch-dir*450*(1-t),ny=70+(height-70)*(t*t*(3-2*t));
-      if(flightBlocked(s,px,py,nx,ny)){blocked=true;break;}
+      const t=i/30,nx=touch-dir*450*(1-t),ny=cruise+(height-cruise)*(t*t*(3-2*t));
+      if(flightBlocked(s,px,py,nx,ny)||ny>floor(s,nx)+2){blocked=true;break;}
       px=nx;py=ny;
     }
     if(!blocked)return x;
   }
   return null;
 }
+function gliderCruiseHeight(s:GameState,touch:number,side:Side){
+  let altitude=150;
+  const left=side===0?0:touch,right=side===0?touch:s.terrain.length-1;
+  for(let x=left;x<=right;x+=16)altitude=Math.min(altitude,floor(s,x)-90);
+  for(const p of s.scenery)if(p.x>=left&&p.x<=right && !(p.kind==='house'&&buildingStage(p)>=2))
+    for(const part of p.parts)if(part.hp>0)altitude=Math.min(altitude,part.y-70);
+  return altitude;
+}
 export function prepareGlider(s: GameState,u: Unit,landingX: number) {
-  u.x=u.side===0?-140:s.terrain.length+140;u.y=70;u.facing=dirOf(u.side);
+  u.x=u.side===0?-140:s.terrain.length+140;u.y=gliderCruiseHeight(s,landingX-dirOf(u.side)*90,u.side);u.facing=dirOf(u.side);
   u.glider={landingX,fromX:u.x,fromY:u.y,startedAt:s.time,phase:'approach',phaseAt:s.time,dropped:0,nextAt:s.time};
 }
 

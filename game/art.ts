@@ -1,3 +1,4 @@
+import {PARACHUTE_TRANSPORT_ART,PARACHUTE_TRANSPORT_WRECK,transportFrameV224} from './parachute-art-v224';
 import {VEHICLE_SOURCES_V223,vehicleFrameV223,apcPartsV223,pickupPartsV223,towRackParts,type TowRackParts} from './vehicle-art-v223';
 import {IFV_ART_V220,ifvPartsV220,ifvPreviewV220} from './ifv-art-v220';
 import {splitVehicleGun} from './vehicle-gun-art';
@@ -70,6 +71,7 @@ export interface Art {
   heavyMG?: SpecialistSprite[];
   grenadeLauncher?: SpecialistSprite[];
   glider: HTMLCanvasElement[];
+  parachuteTransport: HTMLCanvasElement;
   background: HTMLCanvasElement;
   mapBackgrounds: Partial<Record<MapId, HTMLCanvasElement>>;
   terrain: HTMLImageElement | HTMLCanvasElement;
@@ -616,6 +618,8 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       loadImage('/art/support-vehicles-v14.png'),
       loadImage('/art/parachute-v1.png'),
       loadImage('/art/glider-v141.png'),
+      loadImage(PARACHUTE_TRANSPORT_ART),
+      loadImage(PARACHUTE_TRANSPORT_WRECK),
       loadImage('/art/blast-fuel-frames-v165.png'),
       loadImage('/art/blast-earth-frames-v165.png'),
       loadImage('/art/building-footings-v145.png'),
@@ -669,6 +673,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         supportVehicles,
         parachuteSheet,
         gliderSheet,
+        parachuteTransportSheet,parachuteTransportWreckSheet,
         fuelBlastSheet,
         earthBlastSheet,
         footingSheet,
@@ -736,6 +741,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
           Record<(typeof V197_VEHICLE_IDS)[number], HTMLImageElement>,
         Object.fromEntries(v209Vehicles.map(({id,wreck})=>[id,wreck])) as Record<(typeof VEHICLE_IDS_V209)[number],HTMLImageElement>,
         Object.fromEntries(v223Vehicles.map(({id,wreck})=>[id,wreck])) as Record<keyof typeof VEHICLE_SOURCES_V223,HTMLImageElement>,
+        parachuteTransportWreckSheet,
       );
       return {
         towRack:towRackParts(vehicleFrameV197('tow_ifv',v197Vehicles.find(v=>v.id==='tow_ifv')!.sprite!)),
@@ -750,6 +756,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         trees,
         parachute,
         glider,
+        parachuteTransport:transportFrameV224(parachuteTransportSheet),
         wrecks: wreckFramesMap,
         wreckVariants: {...wreckVariants(wreckFramesMap,{
           ...paintedTankWrecks(tankWreckSheet),
@@ -757,6 +764,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
             bullet: [wreckFramesMap[id]], blast: [wreckFramesMap[id]], burn: [wreckFramesMap[id]],
           }])),
         }),
+          parachute_transport:{bullet:[transportFrameV224(parachuteTransportWreckSheet)],blast:[transportFrameV224(parachuteTransportWreckSheet)],burn:[transportFrameV224(parachuteTransportWreckSheet)]},
           glider_transport:{bullet:[glider[6]],blast:[glider[7]],burn:[glider[7]]}},
         mobileVehicles: {
           ...mobileVehicleFrames(mobileVehicles, supportVehicles),
@@ -1011,6 +1019,7 @@ export function cardFrame(art: Art, index: number) {
 export function unitFrame(art: Art, id: CardId, frame = 0) {
   const c = CARDS[id];
   if (art.generatedSprites[id]) return art.generatedSprites[id];
+  if(id==='parachute_transport')return art.parachuteTransport;
   if(id==='glider_transport')return art.glider[frame%art.glider.length];
   if (c.members) return infantryFrame(art, id);
   const mobile = art.mobileVehicles?.[id];
@@ -1045,6 +1054,7 @@ export function unitSize(id: CardId): [number, number] {
     if (c.fortification === 'spawn') return [118, 64];
     return [112, 64];
   }
+  if(id==='parachute_transport')return [320,110];
   if(id==='glider_transport')return [256,100];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];

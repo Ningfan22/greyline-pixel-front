@@ -1,10 +1,11 @@
+import {tacticalActionScale} from './infantry-training';
 import type { Unit } from './engine';
 import { magazineReloadActive, stanceTransitionActive } from './infantry-action-timing';
 import {proneTravelAmount,PRONE_STEP_S} from './prone-locomotion';
 
 export const CROUCH_STEP_S = .9;
 export const CROUCH_STOP_GRACE_S = 1.25;
-type LowBody = Pick<Unit, 'pose'> & Partial<Pick<Unit, 'moving' | 'crouchTravel'>>;
+type LowBody = Pick<Unit, 'pose'> & Partial<Pick<Unit, 'moving' | 'crouchTravel' | 'id' | 'training'>>;
 export function crouchTravelAmount(u: LowBody) {
   return u.pose === 'crouch' || u.pose === 'hunker'
     ? Math.max(0, Math.min(1, u.crouchTravel ?? (u.moving ? 1 : 0))) : 0;
@@ -13,7 +14,7 @@ export function crouchMotionActive(u: LowBody) {
   const p = crouchTravelAmount(u); return p > 0 && p < 1;
 }
 export function crouchStartDelay(u: LowBody) {
-  return u.pose === 'crouch' || u.pose === 'hunker' ? (1-crouchTravelAmount(u))*CROUCH_STEP_S : 0;
+  return u.pose === 'crouch' || u.pose === 'hunker' ? (1-crouchTravelAmount(u))*CROUCH_STEP_S*tacticalActionScale(u) : 0;
 }
 /** Intent is recorded even while the boots must wait for the knee to rise. */
 export function requestCrouchStep(u: Unit, time?: number) {
@@ -21,7 +22,7 @@ export function requestCrouchStep(u: Unit, time?: number) {
   u.crouchMoveRequested = true;
   if (time !== undefined && crouchTravelAmount(u) < 1 &&
       (u.crouchStepCommittedUntil ?? 0) <= time)
-    u.crouchStepCommittedUntil = time+(1-crouchTravelAmount(u))*CROUCH_STEP_S+.35;
+    u.crouchStepCommittedUntil = time+(1-crouchTravelAmount(u))*CROUCH_STEP_S*tacticalActionScale(u)+.35;
   return crouchTravelAmount(u) >= 1;
 }
 /** Called once after all navigation branches, including early-return work. */
@@ -47,7 +48,7 @@ export function stepCrouchLocomotion(u: Unit, time: number, dt: number) {
   let target = p;
   if (moving) target = 1;
   else if (work || p < 1 || (!firingHold && u.crouchStoppedFor > CROUCH_STOP_GRACE_S+1e-8)) target = 0;
-  const delta = Math.max(-dt/CROUCH_STEP_S, Math.min(dt/CROUCH_STEP_S,target-p));
+  const delta = Math.max(-dt/(CROUCH_STEP_S*tacticalActionScale(u)), Math.min(dt/(CROUCH_STEP_S*tacticalActionScale(u)),target-p));
   const next = p+delta;
   // Explicit endpoints prevent floating-point tails from pinning the feet.
   u.crouchTravel = next < 1e-6 ? 0 : next > 1-1e-6 ? 1 : next;
@@ -55,6 +56,6 @@ export function stepCrouchLocomotion(u: Unit, time: number, dt: number) {
 /** Finish lowering before the first magazine cel; preserve all eight beats. */
 export function startMagazineDrill(u: Unit, time: number, duration: number) {
   const settle = !u.moving ? crouchTravelAmount(u) * CROUCH_STEP_S + proneTravelAmount(u)*PRONE_STEP_S : 0;
-  u.reloadingStartAt = time + settle;
-  u.reloadingUntil = u.reloadingStartAt + duration;
+  u.reloadingStartAt = time + settle*tacticalActionScale(u);
+  u.reloadingUntil = u.reloadingStartAt + duration*tacticalActionScale(u);
 }

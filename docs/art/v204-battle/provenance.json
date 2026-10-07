@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 2788.394,
-  "canvasesCreated": 648,
-  "frames": 462,
+  "compileMs": 4560.220708,
+  "canvasesCreated": 653,
+  "frames": 467,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -13,11 +13,11 @@
     },
     {
       "path": "scripts/battle-art-bake-inputs.mjs",
-      "sha256": "e53f373d74133045bbc1fc73be784845f6f7d5eaaf9fba763e193ca09fced3ea"
+      "sha256": "babe1a36f893ca43df1f650831b458f28c35a9aa06334efc2bed92ce018b2f9d"
     },
     {
       "path": "game/art.ts",
-      "sha256": "2a93f21bf71e092241a591635cacaf866a7d9b5fdac7f70629cdbc4feacfda4c"
+      "sha256": "141632e6c717995571249b06d1dab19d368b58b26c38d4bfc573bee30e883204"
     },
     {
       "path": "game/art-v16.ts",
@@ -109,7 +109,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "f1adaa3a0da01fd9c07cc301177075cf028b1208817cbe1fff37321707b2a9b7"
+      "sha256": "b312f39013aa02fc25215196b0b0928c1cd9335d2282bf6bed95167ad446990d"
     },
     {
       "path": "game/maps.ts",
@@ -125,7 +125,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "eb0aff199a2495bfc50ae9bbcca0a5e337727f34d5eea05d209b23bfdc345e08"
+      "sha256": "0b6923bae51457415a0fd7157cf6a891d835a0d1e3d1d00fd6350ba3bec3c6b0"
     },
     {
       "path": "game/battlefield-effects-art.ts",
@@ -133,11 +133,11 @@
     },
     {
       "path": "game/wreck-art.ts",
-      "sha256": "0de40a4ea8d89c42e896a9582460fbc63cfc1f19b2ac15eec557bbc774994c61"
+      "sha256": "139cf8e8389f156df7ddcf3b446b441ed1569e283341c259373ef18db0376ea5"
     },
     {
       "path": "game/wreck-geometry.ts",
-      "sha256": "d5fa7bd7ac6463c636f2c3ca3ef145e0edae50c7338c0573da3c88c30582b258"
+      "sha256": "96fe7ca12a34dbdf52355a32e8449c4ba37b4ccdd1c77bb0c55f670eeaf69d6a"
     },
     {
       "path": "game/wreck-variants.ts",
@@ -158,6 +158,26 @@
     {
       "path": "game/glider-art.ts",
       "sha256": "2d99524c50d9bdb3423a639a7d8a42815a67b2d42dada4d7b1a6029e29eda1c1"
+    },
+    {
+      "path": "game/parachute-art-v224.ts",
+      "sha256": "e2e80ad75820ab6114dfe6ec4e1ac347afc49fd513d9793cba3147be9c5b89f1"
+    },
+    {
+      "path": "game/infantry-training.ts",
+      "sha256": "2805a40a19f1a3529a10d3fc25c307fe16a2019d9d48878e4ba38e2052aa59b8"
+    },
+    {
+      "path": "game/infantry-action-timing.ts",
+      "sha256": "3776283eb73522b0a0734fd6bb64d22ee6c0e72b3ad04731dd519c2a5d083491"
+    },
+    {
+      "path": "game/crouch-locomotion.ts",
+      "sha256": "1c3ccab5529017de9ac0ed579d41fdeaf917c150e2e9f3dc1af2142b239c6bf7"
+    },
+    {
+      "path": "game/prone-locomotion.ts",
+      "sha256": "00c3ef8c18d1d024ecd2ee8054d5dab47afda373949b61a7c9ce5304b8ee1483"
     },
     {
       "path": "game/tree-art-v17.ts",
@@ -267,6 +287,16 @@
       "path": "/art/v201-lossless/glider-v141.webp",
       "bytes": 930192,
       "sha256": "d98a49f70b49acf26df95771c803e4a305f3042d3c569f7b1ac3d04dbe3c3c13"
+    },
+    {
+      "path": "/art/v224-airborne/parachute-transport.png",
+      "bytes": 897322,
+      "sha256": "59deffbd7fc27c5f0c7c47798d6097939e483612f338397080ab7e4d9d8b9a6c"
+    },
+    {
+      "path": "/art/v224-airborne/parachute-transport-wreck.png",
+      "bytes": 1184083,
+      "sha256": "603ad9c9ad04cefea28d2ae1303c5f32af549896966b94963f168fb85da0bfb0"
     },
     {
       "path": "/art/v201-lossless/blast-fuel-frames-v165.webp",
@@ -464,14 +494,14 @@
       "sha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c"
     },
     {
-      "path": "/art/v209-vehicles-missiles/scout-wreck.png",
-      "bytes": 1241246,
-      "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
-    },
-    {
       "path": "/art/v209-vehicles-missiles/sam-wreck.png",
       "bytes": 1639328,
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
+    },
+    {
+      "path": "/art/v209-vehicles-missiles/scout-wreck.png",
+      "bytes": 1241246,
+      "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
     },
     {
       "path": "/art/v223-vehicles/apc_transport-wreck.png",
@@ -641,7 +671,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "19534d841d075f07d357d06af7fc99b713e215fa6a174577f906fff4b5a8d3f7"
+    "sha256": "b3f53ddcd29d9a01f319a6c49c19f5bccfbf000a7e76372e86cd60158ac2c50a"
   },
   "atlasFiles": [
     {
@@ -653,12 +683,12 @@
       "rgbaSha256": "039e85fe66a79cc58b9c58f83e0b0fb4bc7fd94943c4d4dc13a5135e65f944e9"
     },
     {
-      "path": "/art/v204-battle/frames-1-57c38e4faba4.png",
-      "bytes": 3090349,
+      "path": "/art/v204-battle/frames-1-7c2e1aefab70.png",
+      "bytes": 3184244,
       "width": 2048,
-      "height": 1531,
-      "sha256": "57c38e4faba4d8d9f5c7a1a4b3cea5b80a4cd0f0482da0077a648e5283b62b33",
-      "rgbaSha256": "d7a4302df4860eb03f7673fdbf9d7a6de99cbb5f55eb818d3e6f2442b860c17f"
+      "height": 1604,
+      "sha256": "7c2e1aefab70cc39deccd85f88ce1d4e76df7c85a75334b6c70a18180ac66b00",
+      "rgbaSha256": "397bc0c6157ff3bf6243bd3d969e3c0538ad599dcc4d705ee20e391832bbb510"
     }
   ],
   "external": [],
@@ -696,5 +726,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5442807
+  "sharedBytes": 5536702
 }

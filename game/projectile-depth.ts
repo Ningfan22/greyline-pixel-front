@@ -1,3 +1,4 @@
+import {soldierHitChance,tacticalActionScale} from './infantry-training';
 import { smallArmsAccuracyScale } from './infantry-survival';
 import type { GameState, Projectile, Unit } from './engine';
 import { CARDS, modelOf } from './cards';
@@ -33,13 +34,13 @@ export function aimProjectileDepth(s: GameState, p: Projectile) {
     (p.smallArmsAir ? 70 + distance / 6 : 3 + distance / 65) *
     (1 + shooter.suppression / 90) *
     (shooter.moving ? 1.35 : 1) *
-    (modelOf(shooter.id) === 'sniper' ? 0.4 : 1);
+    (modelOf(shooter.id) === 'sniper' ? .1 : CARDS[shooter.id].members ? tacticalActionScale(shooter) : 1);
   p.startLane = shooter.lane;
   // A separate seeded draw rejects two thirds of ordinary small-arms hits.
   // Failed aim still has a real downrange ray; it may suppress or hit a crossing ally.
   const chanceHash = Math.imul(hash ^ 0x6c8e9cf5, 0x27d4eb2d) >>> 0;
   const inaccurate = chanceHash / 0x100000000 >=
-    smallArmsAccuracyScale(p.ammunition, modelOf(shooter.id) === 'sniper');
+    (CARDS[shooter.id].members ? soldierHitChance(shooter,modelOf(shooter.id)==='sniper') : smallArmsAccuracyScale(p.ammunition,false));
   p.targetLane = target.lane + (inaccurate
     ? (error < 0 ? -1 : 1) * (20 + spread * (1 + Math.abs(error)))
     : error * spread);

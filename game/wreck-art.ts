@@ -1,3 +1,4 @@
+import {transportFrameV224} from './parachute-art-v224';
 import {VEHICLE_SOURCES_V223,vehicleWreckV223} from './vehicle-art-v223';
 import {isVehicleV209,vehicleFrameV209,type VehicleIdV209} from './vehicle-missile-art-v209';
 import { transparentSheet } from './sprite-atlas';
@@ -16,6 +17,7 @@ export function wreckFrames(
   authoredVehicles: Record<V197VehicleId, HTMLImageElement>,
   v209Wrecks: Record<VehicleIdV209,HTMLImageElement>,
   v223Wrecks:Record<keyof typeof VEHICLE_SOURCES_V223,HTMLImageElement>,
+  parachuteWreck:HTMLImageElement,
 ) {
   const sheets = {
     ground: transparentSheet(ground),
@@ -27,6 +29,7 @@ export function wreckFrames(
   };
   return Object.fromEntries(
     Object.entries(WRECKS).map(([id, shape]) => {
+      if(id==='parachute_transport')return [id,transportFrameV224(parachuteWreck)];
       if(Object.hasOwn(VEHICLE_SOURCES_V223,id)){const name=id as keyof typeof VEHICLE_SOURCES_V223;return [id,vehicleWreckV223(name,v223Wrecks[name])];}
       if(isVehicleV209(id))return [id,vehicleFrameV209(id,v209Wrecks[id],true)];
       if(id==='mlrs')return [id,mlrsWreckFrame(authoredVehicles[id])];

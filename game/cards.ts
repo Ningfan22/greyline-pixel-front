@@ -124,6 +124,7 @@ export type CardId =
   | 'assault_grenadiers'
   | 'lmg_team'
   | 'glider_transport'
+  | 'parachute_transport'
   // ── v176 特异化扩充 ─────────────────────────────────────────
   | 'flame_team'
   | 'mlrs'
@@ -177,6 +178,7 @@ export interface Card {
     | 'fpv_drone'
     | 'transport_heli'
     | 'glider'
+    | 'parachute_transport'
     | 'interceptor';
   sortie?: boolean;
   patrolTime?: number;
@@ -1805,6 +1807,7 @@ export const CARDS: Record<CardId, Card> = {
         '无武装滑翔机（180生命）从己方边缘进场，寻找指定位置附近的平缓空地，滑跑停稳后逐一卸下4名精英，共220生命。飞行途中可被防空拦截，击毁时尚未离舱者损失；不能在房屋和树干上着陆，不接受伞降引导加速。机体停留作掩体，不返航。步兵停稳1秒后首枪对步兵伤害乘1.5；200内交战伤害×1.2，攻击压制超过45的目标再×1.3。没有隐身或不可见落点加成。',
     },
   ),
+  parachute_transport: variant('helicopter','parachute_transport','空降运输机',0,'从基地快速飞入，在目标区连续投送伞兵', {internal:true,en:'PARACHUTE TRANSPORT',airframe:'parachute_transport',hp:180,damage:0,range:0,rate:1,speed:940,sight:0,altitude:160,antiAir:false,vehicle:true,crew:0}),
   glider_transport: variant('helicopter', 'glider_transport', '滑翔运输机', 0,
     '运输机体，不可单独入组或抽取', {
       internal: true, en: 'ASSAULT GLIDER', airframe: 'glider',
@@ -3231,3 +3234,9 @@ for(const card of Object.values(CARDS)) if(card.members && !card.air && !card.in
   card.sight=Math.max(card.sight??0,(card.range??0)+100);
 
 CARDS.tow_ifv.detail += ' 双联架待发2枚、备弹6枚；打空后5.5秒更换弹筒，空筒逐一离架，装填期间停止主武器射击。';
+
+// v224: training improves skill, not health; long-range observation remains occluded.
+Object.assign(CARDS.sniper,{sight:1450,description:'超远观察、精确狙击，扩展地面视野',detail:CARDS.sniper.detail+' 观察距离1450；清晰射界下98%基础命中率，不采用普通步枪的低命中规则。'});
+Object.assign(CARDS.sniper_team,{sight:1450,detail:CARDS.sniper_team.detail+' 观察手展开后视野1650；精确射击98%基础命中率。'});
+Object.assign(CARDS.air_assault,{speed:340,description:'快速直升机索降5名精锐步兵，射击更准、战术动作更快',detail:'4费派遣快速运输直升机（300生命）。从己方基地飞抵拖牌落点，逐一索降5名精锐步兵：总生命仍为220，基础命中率82%，卧倒、起身、撤退准备和换弹动作更快。运输机被击落时未下机者损失，已下机者继续作战。'});
+for(const c of Object.values(CARDS))if(c.airdrop&&!c.insertion)c.detail+=' 由运输机从己方基地快速飞入目标区，连续跳伞后飞机飞离；运输机被击落会损失尚未离机的兵员。';

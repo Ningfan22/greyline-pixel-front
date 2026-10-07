@@ -12,5 +12,8 @@ export const BATTLE_ART_COMPILER_INPUTS = [
   'game/building-art.ts', 'game/world.ts', 'game/battlefield-effects-art.ts',
   'game/wreck-art.ts', 'game/wreck-geometry.ts', 'game/wreck-variants.ts', 'game/tank-wreck-art.ts',
   'game/effect-atlas.ts', 'game/smoke-art.ts', 'game/glider-art.ts',
+  'game/parachute-art-v224.ts',
+  'game/infantry-training.ts', 'game/infantry-action-timing.ts',
+  'game/crouch-locomotion.ts', 'game/prone-locomotion.ts',
   'game/tree-art-v17.ts', 'game/mine-art-v18.ts', 'game/comeback-art-v18.ts',
 ];

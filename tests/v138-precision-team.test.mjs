@@ -67,7 +67,8 @@ test('observer enables a real 800px shot, but smoke and blindness still deny vis
     if(mode==='smoke')s.smokes.push({x:1400,life:10,side:1});
     if(mode==='blind')s.players[0].sensorBlindUntil=10;
     if(mode==='lost') b.hp=0;
-    refreshVision(s); assert.equal(visibleToSide(s,0,e),mode==='clear',mode);
+    // v224: the rifle itself observes far away; its paired weapon range still needs the observer.
+    refreshVision(s); assert.equal(visibleToSide(s,0,e),mode==='clear'||mode==='lost',mode);
     // The new stand→prone drill owns the hands for 2.4s before the first shot.
     advance(s,4);
     assert.equal(a.shots>0,mode==='clear',mode);

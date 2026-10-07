@@ -42,7 +42,7 @@ let mode = 'vehicles',
   last = performance.now(),
   facing = 1,
   camera = 400, contactPaintAt=-1;
-let state = createGame(223),
+let state = createGame(224),
   actors: Unit[] = [],
   initial = new Map<number, number>(),
   ports = new Set<number>(),
@@ -65,7 +65,7 @@ function scene(next: string) {
   mode = next;
   commandRoot.render(null);
   paused = false;
-  state = createGame(223, undefined, undefined, undefined, { weather: false });
+  state = createGame(224, undefined, undefined, undefined, { weather: false });
   startGame(state);
   Object.assign(state, {
     units: [],
@@ -85,7 +85,25 @@ function scene(next: string) {
   ports = new Set();
   for (const p of state.players)
     Object.assign(p, { hand: [], deck: [], discard: [], energy: 0 });
-  if(['newvehicles','rapidentry','fireteams','probecontact','apcunload','supplystock','towreload'].includes(next)){
+  if(['samrear','combatentry','paraflight','gliderflight','eliteairlift','sniperaccuracy'].includes(next)){
+    camera=next==='paraflight'?800:650;paused=true;capture=false;state.players.forEach(p=>p.order='advance');
+    if(['paraflight','gliderflight','eliteairlift'].includes(next)){
+      const id=next==='paraflight'?'paratroopers':next==='gliderflight'?'glider_assault':'air_assault';
+      state.players[0].hand=[{id,uid:++state.uid}];state.players[0].energy=10;
+      const result=playCard(state,0,state.players[0].hand[0].uid,1420);
+      if(!result.ok)throw new Error(result.message);actors=[state.units.at(-1)!];
+    }else if(next==='samrear'){
+      const screen=spawn(0,'infantry',1520);state.units.splice(1);watch(screen);
+      const sam=spawn(0,'sam_vehicle',1500),air=spawn(1,'helicopter',2150);watch(air);air.cooldown=1e9;
+      actors=[screen,sam,air];
+    }else if(next==='combatentry'){
+      spawn(0,'infantry',1060);actors=[...state.units];spawn(1,'infantry',1510);actors.push(...state.units.filter(u=>u.side===1));
+      actors.forEach(u=>{u.pace=1;u.personalMorale=100;u.fragCooldown=1e9;});
+    }else{
+      const n=state.units.length;spawn(0,'sniper',950);state.units.splice(n+1);const sniper=state.units[0];watch(sniper);sniper.cooldown=0;sniper.readyAt=-10;
+      const target=spawn(1,'infantry',1680);state.units.splice(state.units.indexOf(target)+1);watch(target);Object.assign(target,{hp:1000,maxHp:1000,personalMorale:100});actors=[sniper,target];
+    }
+  }else  if(['newvehicles','rapidentry','fireteams','probecontact','apcunload','supplystock','towreload'].includes(next)){
     camera=650;paused=true;capture=false;state.players.forEach(p=>p.order='advance');
     if(next==='newvehicles'){
       for(const [id,x] of ([['pickup',790],['apc_transport',1040],['supply_truck',1300]] as const)){const u=spawn(0,id,x);Object.assign(u,{cooldown:1e9,squadOrder:'watch',squadOrderX:x,squadOrderUntil:Infinity});actors.push(u);}
@@ -426,7 +444,7 @@ document.querySelector<HTMLButtonElement>('#depart')!.onclick = () => {
   if (mode !== 'garrison') return;
   for (const squad of new Set(actors.map(u => u.squad))) setSquadOrder(state, 0, squad, 'attack');
 };
-for (const id of ['newvehicles','rapidentry','fireteams','probecontact','apcunload','supplystock','towreload','flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','contactmemory','gunfollow','densewreck','ifvbase','videowreck','wreckduel','guncontact','gunpush','ifvcompare','footvssam','atvssam','tankvssam','debrisroute','debrisfort','ruinfort','embeddedduel'])
+for (const id of ['samrear','combatentry','paraflight','gliderflight','eliteairlift','sniperaccuracy','newvehicles','rapidentry','fireteams','probecontact','apcunload','supplystock','towreload','flame', 'salvo', 'heli', 'fog', 'wreck', 'garrison', 'tow', 'sam', 'javelin','lethality','withdraw','shelter','vision','reconvision','friendly','duel','coax','gunorders','shortage','blocked','breach','striketank','samlong','armorcluster','armorswarm','armormines','tankescape','ifvburst','scoutgun','commandgun','towhouse','javelinhouse','fuelstall','tankaim','rpgheavy','contactmemory','gunfollow','densewreck','ifvbase','videowreck','wreckduel','guncontact','gunpush','ifvcompare','footvssam','atvssam','tankvssam','debrisroute','debrisfort','ruinfort','embeddedduel'])
   document.querySelector<HTMLButtonElement>('#' + id)!.onclick = () =>
     scene(id);
 document.querySelector<HTMLButtonElement>('#selectgun')!.onclick=()=>{
@@ -573,7 +591,17 @@ function loop(now: number) {
           ? ' · 地面未观察区域为灰色，存活飞机保持原色'
           : ['tow','sam','javelin'].includes(mode) ? ` · 飞行中导弹 ${state.projectiles.filter(p=>p.ammunition==='rocket').length} · ${paused?'已暂停，可检查弹体与发射口':'交战中'}` : '');
   }
-  if(mode==='fireteams'||mode==='probecontact'){
+  if(['paraflight','gliderflight','eliteairlift'].includes(mode)){
+    const transport=actors[0],flight=transport.parachuteFlight??transport.glider??transport.airlift;
+    const people=state.units.filter(u=>CARDS[u.id].members);
+    status.textContent=`${state.time.toFixed(1)}秒 · 运输机 @ ${Math.round(transport.x)} · 已投送 ${flight?.dropped??0}人 · 空中 ${people.filter(u=>u.parachuting||u.rappelling).length}人 · 落地 ${people.filter(u=>!u.parachuting&&!u.rappelling).length}人${mode==='eliteairlift'?' · 精锐命中率82%，生命值不增加':''}`;
+  }else if(mode==='samrear'){
+    status.textContent=`${state.time.toFixed(1)}秒 · 防空车距己方战线 ${Math.round(actors[0].x-actors[1].x)}px · 发射 ${actors[1].shots}枚 · 飞机 HP ${Math.max(0,actors[2].hp).toFixed(0)}`;
+  }else if(mode==='combatentry'){
+    status.textContent=`${state.time.toFixed(1)}秒 · 移动时跑步 ${actors.filter(u=>u.moving&&u.pose==='run').length}人 · 停稳射击 ${actors.reduce((n,u)=>n+u.shots-(initial.get(u.uid)??0),0)}发 · 有接敌时跑步，射击和卧倒保持独立`;
+  }else if(mode==='sniperaccuracy'){
+    status.textContent=`${state.time.toFixed(1)}秒 · 狙击手发射 ${actors[0].shots}发 · 靶损血 ${(1000-actors[1].hp).toFixed(0)} · 观察距离1450，观察手展开1650 · 清晰射界基础命中98%`;
+  }else  if(mode==='fireteams'||mode==='probecontact'){
     const own=actors.filter(u=>u.side===0),foe=actors.filter(u=>u.side===1),sum=(list:Unit[])=>list.reduce((n,u)=>n+u.shots-(initial.get(u.uid)??0),0);
     status.textContent=`${state.time.toFixed(1)}秒 · 我方射击 ${sum(own)} 发 · 敌方射击 ${sum(foe)} 发 · 掩护 ${own.filter(u=>u.teamRole==='overwatch').length}人 · 前出 ${own.filter(u=>u.teamRole==='bound'||u.teamRole==='probe').length}人 · 最远推进 ${Math.max(0,...own.map(u=>Math.round(u.x-(starts.get(u.uid)??u.x))))}px`;
   }else if(mode==='apcunload'){

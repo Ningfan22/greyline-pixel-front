@@ -1,3 +1,4 @@
+import {tacticalActionScale} from './infantry-training';
 import type { Unit } from './engine';
 // Shared by simulation and authored cels: a release cannot lead its animation.
 export const POSE_TRANSITION_S = 1.2;
@@ -5,13 +6,14 @@ export type StanceClass = 'stand' | 'crouch' | 'prone';
 export function stanceHeightClass(pose: Unit['pose']): StanceClass {
   return pose === 'prone' ? 'prone' : pose === 'crouch' || pose === 'hunker' ? 'crouch' : 'stand';
 }
-type PoseClock = Partial<Pick<Unit, 'poseAnimFrom' | 'poseAnimSeen' | 'poseAnimAt' | 'poseAnimUrgent'>>;
+type PoseClock = Partial<Pick<Unit, 'poseAnimFrom' | 'poseAnimSeen' | 'poseAnimAt' | 'poseAnimUrgent' | 'id' | 'training'>>;
 export function stanceTransitionDuration(u: PoseClock): number {
-  if (u.poseAnimUrgent) return u.poseAnimSeen === 'stand'
+  const skill=tacticalActionScale(u);
+  if (u.poseAnimUrgent) return skill*(u.poseAnimSeen === 'stand'
     ? u.poseAnimFrom === 'prone' ? 0.65 : 0.3
-    : u.poseAnimSeen === 'prone' ? 0.45 : 0.25;
+    : u.poseAnimSeen === 'prone' ? 0.45 : 0.25);
   // Going all the way to/from the ground traverses BOTH authored segments.
-  return POSE_TRANSITION_S * ((u.poseAnimFrom === 'stand' && u.poseAnimSeen === 'prone') ||
+  return skill * POSE_TRANSITION_S * ((u.poseAnimFrom === 'stand' && u.poseAnimSeen === 'prone') ||
     (u.poseAnimFrom === 'prone' && u.poseAnimSeen === 'stand') ? 2 : 1);
 }
 /** Pure read: drawing (or not drawing) a soldier must never change his clock. */

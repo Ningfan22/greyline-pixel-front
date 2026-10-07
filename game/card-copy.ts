@@ -71,8 +71,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   air_assault: {
     en: 'AIR ASSAULT TEAM',
     typeLabel: '机降步兵',
-    ability: '纵深投送',
-    rule: '飞赴落点，索降五人后撤。',
+    ability: '精锐索降',
+    rule: '快速索降五人，精准突击。',
     flavor: '说好的门到门呢。',
   },
   pickup: {
@@ -155,8 +155,8 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   sniper: {
     en: 'SNIPER TEAM',
     typeLabel: '狙击小组',
-    ability: '远距点射',
-    rule: '点射步兵，对装甲伤害减半。',
+    ability: '远眺精狙',
+    rule: '超远观察，精确点射步兵。',
     flavor: '枪声是给别人听的。',
   },
   medic: {
@@ -635,6 +635,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     rule: '着陆卸下四精英，途中可被拦截。',
     flavor: '没有引擎声的来客。',
   },
+  parachute_transport:{en:'PARACHUTE TRANSPORT',typeLabel:'空降运输',ability:'连续投送',rule:'基地起飞，到点跳伞。',flavor:'先听见引擎，再看见伞。'},
   glider_transport: {
     en: 'ASSAULT GLIDER', typeLabel: '无武装运输', ability: '着陆卸载',
     rule: '停稳后逐一卸下四名步兵。', flavor: '',
