@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.4",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 4575.938584,
-  "canvasesCreated": 711,
-  "frames": 501,
+  "compileMs": 4366.214,
+  "canvasesCreated": 714,
+  "frames": 504,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -21,7 +21,7 @@
     },
     {
       "path": "game/expansion-art-v227.ts",
-      "sha256": "80281806dd5646abab4a54afc1a1cec5b3df5bdb52a1719e94994aa88190577d"
+      "sha256": "ba57d307acb3efce800f026889cea985f292886cfbf6f146e97ac27f05528778"
     },
     {
       "path": "game/fortification-ground.ts",
@@ -29,7 +29,7 @@
     },
     {
       "path": "game/art.ts",
-      "sha256": "23852a0ec8e51491471f8db6f12c1b033ba824ce06e568bdfae1ff6153912032"
+      "sha256": "da865e8b1692b23020d0b1e58f11b81a57526391a1d0bfa21e64c2fd30a97eb2"
     },
     {
       "path": "game/art-v16.ts",
@@ -73,11 +73,11 @@
     },
     {
       "path": "game/gun-art.ts",
-      "sha256": "c5d14926bc63d89eb004596c281650f2014021366136bd514f32ca11ec71ac72"
+      "sha256": "5560dd46197923ec553f9070239dcaff363df8d3235236aa81ae426263a4f196"
     },
     {
       "path": "game/gun-geometry.ts",
-      "sha256": "3ff6e807f776c756c189a6ac0ecfa9f9f48640d9ff060ca8f6e687e0e4099711"
+      "sha256": "8d36b6743669a8c7d5b835d4c8fe000f350aacce5aa00ea4a31158389fefe2a1"
     },
     {
       "path": "game/vehicle-gun-art.ts",
@@ -556,64 +556,64 @@
       "sha256": "93445892a8fdfd5ab42b3c8b4b9a7278d19fa3176f904091915b21147565005c"
     },
     {
-      "path": "/art/v227-installations/mortar_60-body.png",
-      "bytes": 413757,
-      "sha256": "8368a0a0b7b2d477326c9bc04e8553a54d24f67642e23c242434bd3c8a08928a"
+      "path": "/art/v230-guns/mortar_60-body.png",
+      "bytes": 509866,
+      "sha256": "92fc6025b8957b8307cedb604dc3ca3047bea03d81ddeaca3080b95bf80562ef"
     },
     {
-      "path": "/art/v227-installations/mortar_81-body.png",
-      "bytes": 495082,
-      "sha256": "4722a21eacfb749cdddcb13db420cdb6a6f138bbb66c85015d02cf42bda60ec6"
+      "path": "/art/v230-guns/mortar_81-body.png",
+      "bytes": 513625,
+      "sha256": "48d2cac98667f141324a62419cb59a7c71ffb6006d689bf8a28931c96b2567de"
     },
     {
-      "path": "/art/v227-installations/mortar_120-body.png",
-      "bytes": 621558,
-      "sha256": "fffdee7ac4bb4bd9ea4461cb02a907ebf37382b0623b222cbcf5532e80aee171"
+      "path": "/art/v230-guns/mortar_120-body.png",
+      "bytes": 507767,
+      "sha256": "0cce3f3b5fceca569647f9b237bad75ddec12f1377d3926c37dcdbb76e0debe3"
     },
     {
-      "path": "/art/v227-installations/howitzer_105-body.png",
-      "bytes": 494001,
-      "sha256": "676f4581f5bd270e8651ef27efde45b3a30dd077c9d553a2da5972f9c6281441"
+      "path": "/art/v230-guns/howitzer_105-body.png",
+      "bytes": 529723,
+      "sha256": "72e1ad88bb4869610a33cc0fcc34bcd5e3b37813fdf0b86f72a1e692d485c8f7"
     },
     {
-      "path": "/art/v227-installations/howitzer_120-body.png",
-      "bytes": 481886,
-      "sha256": "7d1f5340a6ec81125fd0929f9c138c578dd7d87e08dbe53d0e8180b786ded510"
+      "path": "/art/v230-guns/howitzer_120-body.png",
+      "bytes": 526500,
+      "sha256": "78c8b6462176428f2b81383001b5f4c0df50bd55218f586a302253592cd552a6"
     },
     {
-      "path": "/art/v227-installations/howitzer_122-body.png",
-      "bytes": 549612,
-      "sha256": "599fa05238125b221cc1a0474831d8a8128571bb42b6d44dce03fa886e7b25ca"
+      "path": "/art/v230-guns/howitzer_122-body.png",
+      "bytes": 374565,
+      "sha256": "a9ed11ca233864504032cd1cd69e0e561b4915cd2fdcb6132ef37ddbde7752aa"
     },
     {
-      "path": "/art/v227-installations/howitzer_152-body.png",
-      "bytes": 493603,
-      "sha256": "aedd988ee4d8357bb62df8fe613752fd61ed8196e181b763671faddd829254c0"
+      "path": "/art/v230-guns/howitzer_152-body.png",
+      "bytes": 587408,
+      "sha256": "b782b2c21b35a67b6eb2ddf194d3d60c745a8d429b3b6c81cd261c424c1bcd34"
     },
     {
-      "path": "/art/v227-installations/howitzer_155-body.png",
-      "bytes": 494804,
-      "sha256": "6f4ed5e62f718b5fddf7f9bcd8d341eb09c41c843ceaacf195355250a015fc8d"
+      "path": "/art/v230-guns/howitzer_155-body.png",
+      "bytes": 494807,
+      "sha256": "eea55339d459ef2c6d0a88b1118d91647bd4e664e636e30049c76227cd09b177"
     },
     {
-      "path": "/art/v227-installations/howitzer_203-body.png",
-      "bytes": 562093,
-      "sha256": "13bdf5fb7ca60af58d20fbccfaeb89becaf29ed9a52cf766244212900cb5ea9c"
+      "path": "/art/v230-guns/howitzer_203-body.png",
+      "bytes": 527779,
+      "sha256": "6dc004ab61177753b2a1b6007fe99ab13a760002cf0480720d426fc760a5df3d"
     },
     {
-      "path": "/art/v227-installations/field_gun_85-body.png",
-      "bytes": 493183,
-      "sha256": "1662b44b054429102f3af5830ae7bef505846c0115fbaeb184b2584e34e04314"
+      "path": "/art/v230-guns/field_gun_85-body.png",
+      "bytes": 527511,
+      "sha256": "f07215e6ca5433522e45dd76d40f22ef98df08e849454da431c7d2b5aa470e7d"
     },
     {
-      "path": "/art/v227-installations/sp_howitzer_122-body.png",
-      "bytes": 652441,
-      "sha256": "085088c3a082159ee1fd36fb6b8c4ba9e7ebd1d6c2cfd9576423c691673e9ecf"
+      "path": "/art/v230-guns/sp_howitzer_122-body.png",
+      "bytes": 916312,
+      "sha256": "33555d71d8057b0dc330c0ea47cb82228025d69169e9e4aef4e4c5449695d89c"
     },
     {
-      "path": "/art/v227-installations/sp_howitzer_155-body.png",
-      "bytes": 769229,
-      "sha256": "cc1f86fa646ef9a845ffd89933c9abc84a62fe217f697b01bb9b5285bda3cf32"
+      "path": "/art/v230-guns/sp_howitzer_155-body.png",
+      "bytes": 1092882,
+      "sha256": "e8a9ef21edb509f9901eb2f33004e94c670eb2c172c37276e950bfbba141129b"
     },
     {
       "path": "/art/v209-vehicles-missiles/scout-wreck.png",
@@ -626,9 +626,9 @@
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
     },
     {
-      "path": "/art/v227-installations/mortar_60-barrel.png",
-      "bytes": 240119,
-      "sha256": "ea1349160f71b47c636f8bdf8d5fd6b15d9b0cf10f71149868f67b21346a2ab3"
+      "path": "/art/v230-guns/mortar_60-barrel.png",
+      "bytes": 277221,
+      "sha256": "5e192eb244e12891c0624a662a758236670ee2bd41bf001f4b5fc651f6585ab5"
     },
     {
       "path": "/art/v223-vehicles/apc_transport-wreck.png",
@@ -636,14 +636,19 @@
       "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
     },
     {
-      "path": "/art/v227-installations/mortar_81-barrel.png",
-      "bytes": 254891,
-      "sha256": "7b954339340ccb82408b3f1be0b1f4d130778e14e6c4fc37079e341168198832"
-    },
-    {
       "path": "/art/v223-vehicles/supply_truck-wreck.png",
       "bytes": 1993174,
       "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
+    },
+    {
+      "path": "/art/v230-guns/mortar_81-barrel.png",
+      "bytes": 330697,
+      "sha256": "67a289a2991d6aeedfc33fdf4c5814dda8270fa5f8d02d5e39f848fe5859fce6"
+    },
+    {
+      "path": "/art/v230-guns/mortar_120-barrel.png",
+      "bytes": 342584,
+      "sha256": "63d88a8ba8b2c25c1a305073e0b0643d89d016681312d5a197de83fef0b97c30"
     },
     {
       "path": "/art/v223-vehicles/pickup-wreck.png",
@@ -651,54 +656,49 @@
       "sha256": "96c71b10bbeb18bab7fec980274075461816b217eb8645c7dfa72e315699e91b"
     },
     {
-      "path": "/art/v227-installations/mortar_120-barrel.png",
-      "bytes": 281197,
-      "sha256": "bfde53d4ff34c50ddf1bccfe2a785e1e2445e07fca8aecd7a38a12f65065e76a"
+      "path": "/art/v230-guns/howitzer_105-barrel.png",
+      "bytes": 303577,
+      "sha256": "eae2bf40a5995aabbf042ed26cdec33cec6cb86a765331596478da08158f157d"
     },
     {
-      "path": "/art/v227-installations/howitzer_105-barrel.png",
-      "bytes": 215217,
-      "sha256": "1b2e910eb4cffb6872acb948b23d146038975403ebd6b7d66eeb3c864e9f66fc"
+      "path": "/art/v230-guns/howitzer_120-barrel.png",
+      "bytes": 275160,
+      "sha256": "325273518f440caff6564ed496cb4b71dc376f81bb9d953ee084d5fe52fb3172"
     },
     {
-      "path": "/art/v227-installations/howitzer_120-barrel.png",
-      "bytes": 186505,
-      "sha256": "e72d904d2e4dc869a5ee809f521371b199d36f94c93d76ebd8e6918ae70c3e73"
+      "path": "/art/v230-guns/howitzer_122-barrel.png",
+      "bytes": 255005,
+      "sha256": "a80da16d9c46570fa143ead9b74d5b58f1f7c05dfc90fcb0a399fd3473bb13ec"
     },
     {
-      "path": "/art/v227-installations/howitzer_122-barrel.png",
-      "bytes": 167867,
-      "sha256": "fa66c7d3aac52cece9b0cf8ba15467f98d859973463fdd3f054b9be8071702c2"
+      "path": "/art/v230-guns/howitzer_155-barrel.png",
+      "bytes": 269543,
+      "sha256": "c9d89cc206d21e14943ab0bb6d5d93dfed355b762dc9a70897a0486bd42675b4"
     },
     {
-      "path": "/art/v227-installations/howitzer_152-barrel.png",
-      "bytes": 165267,
-      "sha256": "6836db68e79d982f7ae8b69c3e0aa366a786099957a53c69085e87b5095f2cca"
+      "path": "/art/v230-guns/howitzer_152-barrel.png",
+      "bytes": 297144,
+      "sha256": "49c92ee072d62eb0dcd0b1a4523ca2fc5b5746341cd70f14097cac11af48e48b"
     },
     {
-      "path": "/art/v227-installations/howitzer_155-barrel.png",
-      "bytes": 191659,
-      "sha256": "923e61802bba5749e37082d5f3248b51e472a5ad070e77e2dc8ce873c3f6d5f5"
+      "path": "/art/v230-guns/howitzer_203-barrel.png",
+      "bytes": 337469,
+      "sha256": "2a1dcbff46b5adec79fec8db2e394eb472c0c48d810c7ccd8a0a4ea55cadaddb"
     },
     {
-      "path": "/art/v227-installations/howitzer_203-barrel.png",
-      "bytes": 228976,
-      "sha256": "6f77831dfb0229d903bcb7cd553f61b7f46d516bd508101d07109114567fabb4"
+      "path": "/art/v230-guns/field_gun_85-barrel.png",
+      "bytes": 280567,
+      "sha256": "05ea10a38e30aa65469db2208a0ef1a92fc90057fd934fad77aef60d1fa116ec"
     },
     {
-      "path": "/art/v227-installations/field_gun_85-barrel.png",
-      "bytes": 147579,
-      "sha256": "ffd1746f5477934aef2e4eabb8fa8ccddcf5dcb7202c0c9463b82b43735177f0"
+      "path": "/art/v230-guns/sp_howitzer_122-barrel.png",
+      "bytes": 257559,
+      "sha256": "e5e9926a6fe6936d9b5950fb89cbc66b509e34d64ff3a2ee54dd8877d162a0c2"
     },
     {
-      "path": "/art/v227-installations/sp_howitzer_122-barrel.png",
-      "bytes": 133253,
-      "sha256": "6d7de0c650f00bca96436084d008f294bb27ec886290244533398334c1bc3a9f"
-    },
-    {
-      "path": "/art/v227-installations/sp_howitzer_155-barrel.png",
-      "bytes": 168177,
-      "sha256": "aba9ffdca72fe62f980f8c6f7c180d7bf318b1f1e9e8d69111546a465dd08e13"
+      "path": "/art/v230-guns/sp_howitzer_155-barrel.png",
+      "bytes": 323962,
+      "sha256": "b39bb1f02428c746711f43df781b0684cfa586a76f053748648ff855484ef424"
     },
     {
       "path": "/art/battlefield-v3.png",
@@ -853,7 +853,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "9a3ac5786e5a7c25cd91457a76594db03fb307f9e5bd3f524f2f3608becdd45f"
+    "sha256": "d0a1ff24314ec121c79bc3ada3b8ca2ebba90fee9a6c94297a1658a0c1747af5"
   },
   "atlasFiles": [
     {
@@ -865,12 +865,12 @@
       "rgbaSha256": "1df023bcebf608b8e873c0a94df7b8012f0989f44fab2a8b0f3ec48fe1a63a20"
     },
     {
-      "path": "/art/v204-battle/frames-1-ea28f0ff7c47.png",
-      "bytes": 3599122,
+      "path": "/art/v204-battle/frames-1-da0d816860dc.png",
+      "bytes": 3641818,
       "width": 2048,
-      "height": 1726,
-      "sha256": "ea28f0ff7c473dc3e4efdf2d43cb089331666b60574795cf6af5630591bcd336",
-      "rgbaSha256": "4b8ec4ca8c8fdca7c390dbd5da6201130c2fb27a905f11ed9757c587b43d70c9"
+      "height": 1754,
+      "sha256": "da0d816860dc158bb3294181a5adc89530337a50a97c1903074d84d067d80dbb",
+      "rgbaSha256": "3099d2bbd18ba43660d167331c4fddcf4845db45cea307f198a53ed83a279a80"
     }
   ],
   "external": [],
@@ -908,5 +908,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 5972793
+  "sharedBytes": 6015489
 }

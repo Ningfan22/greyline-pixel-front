@@ -200,7 +200,7 @@ export function aimedGunSolution(body: GunBody, tx: number, ty: number) {
   const indirect = !!CARDS[body.id].indirect;
   // Low-angle howitzer fire at short ranges; longer shots visibly elevate.
   const preferred = CARDS[body.id].emplacement==='mortar'
-    ? body.id==='mortar_60'?rad(56):rad(62+clamp((dx-200)/1000,0,1)*12)
+    ? rad(62+clamp((dx-200)/1000,0,1)*12)
     : body.id === 'mlrs'
       ? WEAPON_LAYOUT.mlrs.sourceElevation +
         rad(16 + clamp((dx - 350) / 700, 0, 1) * 24)

@@ -1,0 +1,222 @@
+{
+  "version": 230,
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "id": "howitzer_105",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 105mm LIGHT TOWED HOWITZER ONLY, mechanically believable M101-style small twin-wheel gun with long rear split towing trails, shield on carriage, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1024x1024, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y30..490 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y580..900 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_105.png",
+      "bodyCrop": {
+        "left": 66,
+        "top": 210,
+        "width": 1109,
+        "height": 464
+      },
+      "barrelCrop": {
+        "left": 66,
+        "top": 828,
+        "width": 1130,
+        "height": 236
+      },
+      "sha256": "c4cd1677608f2afa563785406f4115ddecf3aaff5b644bc5ac15dceee0c7087b"
+    },
+    {
+      "id": "howitzer_120",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 120mm medium towed howitzer, sturdy two-wheel carriage with medium shield and long rear split trails ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_120.png",
+      "bodyCrop": {
+        "left": 62,
+        "top": 231,
+        "width": 1108,
+        "height": 464
+      },
+      "barrelCrop": {
+        "left": 89,
+        "top": 855,
+        "width": 1119,
+        "height": 181
+      },
+      "sha256": "46a59fd66483d4aaaa52bfbc51d5d0cfadb35bdd836aa84c10b08ab07396b77b"
+    },
+    {
+      "id": "howitzer_122",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 122mm D-30 style howitzer with central two-wheel hub and three folding stabilization legs spread laterally, compact small shield ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_122.png",
+      "bodyCrop": {
+        "left": 39,
+        "top": 310,
+        "width": 1176,
+        "height": 351
+      },
+      "barrelCrop": {
+        "left": 82,
+        "top": 864,
+        "width": 1116,
+        "height": 165
+      },
+      "sha256": "23a80dccd5f339c00c010aba3d31d103f4d6a6243ef010df48a2ece9eeb8a636"
+    },
+    {
+      "id": "howitzer_152",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 152mm D-20 style heavy towed howitzer with large single axle wheels, substantial curved shield, long split trails ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_152.png",
+      "bodyCrop": {
+        "left": 69,
+        "top": 240,
+        "width": 1114,
+        "height": 491
+      },
+      "barrelCrop": {
+        "left": 64,
+        "top": 907,
+        "width": 1149,
+        "height": 194
+      },
+      "sha256": "feebc786d800d18b4bd594015f397fe41962692b93076b9b6b73170f0313c95f"
+    },
+    {
+      "id": "howitzer_155",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 155mm modern FH70-style towed howitzer, low two-wheel carriage, no large shield, small hydraulic rear handling module, long trails ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_155.png",
+      "bodyCrop": {
+        "left": 61,
+        "top": 409,
+        "width": 1123,
+        "height": 330
+      },
+      "barrelCrop": {
+        "left": 81,
+        "top": 917,
+        "width": 1112,
+        "height": 173
+      },
+      "sha256": "6e7358185f5712b7de7ea191c1d3bc801d0f87602c6024e10c63d60ab7cb26b1"
+    },
+    {
+      "id": "howitzer_203",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 203mm heavy siege towed howitzer, long substantial heavy carriage with tandem wheels, low central trunnion platform, absolutely no large square shield ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/howitzer_203.png",
+      "bodyCrop": {
+        "left": 25,
+        "top": 314,
+        "width": 1204,
+        "height": 362
+      },
+      "barrelCrop": {
+        "left": 33,
+        "top": 839,
+        "width": 1196,
+        "height": 194
+      },
+      "sha256": "aa4ff7fdc01e8fbfffed6cf49a2988855c34a23d65f0f9a0bd6d593a5695c7c7"
+    },
+    {
+      "id": "field_gun_85",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 85mm anti-tank field gun, small low two-wheel carriage, thin flat sloping shield, long split trails ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/field_gun_85.png",
+      "bodyCrop": {
+        "left": 77,
+        "top": 191,
+        "width": 1095,
+        "height": 503
+      },
+      "barrelCrop": {
+        "left": 55,
+        "top": 872,
+        "width": 1166,
+        "height": 202
+      },
+      "sha256": "4a01cf4574fd60bc2a78581b3b8bc58b0a81afbf9b2e6269010f316f17e847be"
+    },
+    {
+      "id": "sp_howitzer_122",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 122mm 2S1 style tracked self-propelled howitzer, low tracked hull with six road wheels, compact fully enclosed rear turret, empty gun trunnion socket at the turret front, NO permanent gun stump ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/sp_howitzer_122.png",
+      "bodyCrop": {
+        "left": 15,
+        "top": 308,
+        "width": 1223,
+        "height": 493
+      },
+      "barrelCrop": {
+        "left": 112,
+        "top": 910,
+        "width": 1075,
+        "height": 180
+      },
+      "sha256": "83c3093d29a8acfca3e67e63eee0d8ac391c1ebe817e1d926ef5cc69fcbcd519"
+    },
+    {
+      "id": "sp_howitzer_155",
+      "prompt": "Use case: stylized-concept. Production sprite sheet for Greyline side-view tactical war game. ONE 155mm M109 style tracked self-propelled howitzer, seven road wheels, taller fully enclosed artillery turret, rear stowage, empty gun trunnion socket at turret front, NO permanent gun stump ONLY, facing RIGHT in perfectly orthographic side elevation, no perspective. Canvas square 1280x1280, transparent background. TWO separate isolated painted components with generous empty gap: TOP HALF y80..650 contains ONLY fixed lower carriage, wheels, spades, shield and an empty round trunnion socket at front upper shield; absolutely NO barrel, NO breech, NO recoil cylinders on this fixed component. BOTTOM HALF y820..1150 contains one complete MOBILE GUN ASSEMBLY oriented perfectly HORIZONTAL: breech at left, short recoil cylinders above the long gun tube, muzzle at right, no wheels/shield. Assembly rotates together about breech/trunnion when animated. Both components use same side profile and matching physical scale. Detailed grim military PIXEL ART, clearly visible 3-4 pixel clusters, restrained weathered olive steel, dark outline, readable military shape at 170px width, coherent proportions, no toy proportions, no haze, no reflections, no labels, no scenery, no humans, no cast ground shadow. Not a card illustration. The lower gun assembly must be perfectly level, NOT angled upward.",
+      "source": "art-source/v230/sp_howitzer_155.png",
+      "bodyCrop": {
+        "left": 41,
+        "top": 172,
+        "width": 1167,
+        "height": 633
+      },
+      "barrelCrop": {
+        "left": 48,
+        "top": 937,
+        "width": 1166,
+        "height": 199
+      },
+      "sha256": "901bec052c5b98be44eef7ea755e9a98ff816ddd7c64764432e106f12dfb492b"
+    },
+    {
+      "id": "mortar_60",
+      "prompt": "Use case stylized-concept. One production modular sprite sheet, 1280x1280 transparent. Subject: small 60mm light mortar: small circular baseplate, slender simple two-leg bipod and narrow long smooth tube. This is an INFANTRY MORTAR, absolutely NOT a howitzer, cannon or wheel carriage. Two components separated vertically: TOP y80..650 only baseplate and bipod legs, no gun tube, no shield, no tyres, no recoil mechanism. Flat baseplate sits at left rear, small bipod at right front. BOTTOM y820..1150 one complete long plain HORIZONTAL mortar tube, closed base/socket at LEFT, open muzzle at RIGHT, no cannon muzzle brake, no recuperator. A mortar rotates from its baseplate socket and aims upward right. Perfectly orthographic side view, facing right. Detailed military PIXEL ART muted olive, weathered steel, crisp medium clusters, simple believable conventional mortar silhouette, no text, no people, no ground shadow. Generous margins. Keep tube perfectly horizontal for separate rotation.",
+      "source": "art-source/v230/mortar_60.png",
+      "bodyCrop": {
+        "left": 66,
+        "top": 206,
+        "width": 1151,
+        "height": 644
+      },
+      "barrelCrop": {
+        "left": 57,
+        "top": 938,
+        "width": 1141,
+        "height": 184
+      },
+      "sha256": "af3b43a0b849db1fac74b409459f12ca192b7811dc3aa5d124d3d199091bfe0b"
+    },
+    {
+      "id": "mortar_81",
+      "prompt": "Use case stylized-concept. One production modular sprite sheet, 1280x1280 transparent. Subject: 81mm medium infantry mortar: round broad ribbed baseplate, adjustable medium bipod and thicker long smooth tube. This is an INFANTRY MORTAR, absolutely NOT a howitzer, cannon or wheel carriage. Two components separated vertically: TOP y80..650 only baseplate and bipod legs, no gun tube, no shield, no tyres, no recoil mechanism. Flat baseplate sits at left rear, small bipod at right front. BOTTOM y820..1150 one complete long plain HORIZONTAL mortar tube, closed base/socket at LEFT, open muzzle at RIGHT, no cannon muzzle brake, no recuperator. A mortar rotates from its baseplate socket and aims upward right. Perfectly orthographic side view, facing right. Detailed military PIXEL ART muted olive, weathered steel, crisp medium clusters, simple believable conventional mortar silhouette, no text, no people, no ground shadow. Generous margins. Keep tube perfectly horizontal for separate rotation.",
+      "source": "art-source/v230/mortar_81.png",
+      "bodyCrop": {
+        "left": 64,
+        "top": 219,
+        "width": 1141,
+        "height": 578
+      },
+      "barrelCrop": {
+        "left": 63,
+        "top": 909,
+        "width": 1134,
+        "height": 197
+      },
+      "sha256": "3b9185bd5ad0a155f40f2b033342d61afb94ee96262b5d73d9d652d15ace5858"
+    },
+    {
+      "id": "mortar_120",
+      "prompt": "Use case stylized-concept. One production modular sprite sheet, 1280x1280 transparent. Subject: 120mm heavy infantry mortar: wide square baseplate, massive adjustable bipod, thick heavy long tube. This is an INFANTRY MORTAR, absolutely NOT a howitzer, cannon or wheel carriage. Two components separated vertically: TOP y80..650 only baseplate and bipod legs, no gun tube, no shield, no tyres, no recoil mechanism. Flat baseplate sits at left rear, small bipod at right front. BOTTOM y820..1150 one complete long plain HORIZONTAL mortar tube, closed base/socket at LEFT, open muzzle at RIGHT, no cannon muzzle brake, no recuperator. A mortar rotates from its baseplate socket and aims upward right. Perfectly orthographic side view, facing right. Detailed military PIXEL ART muted olive, weathered steel, crisp medium clusters, simple believable conventional mortar silhouette, no text, no people, no ground shadow. Generous margins. Keep tube perfectly horizontal for separate rotation.",
+      "source": "art-source/v230/mortar_120.png",
+      "bodyCrop": {
+        "left": 65,
+        "top": 238,
+        "width": 1128,
+        "height": 516
+      },
+      "barrelCrop": {
+        "left": 68,
+        "top": 918,
+        "width": 1124,
+        "height": 189
+      },
+      "sha256": "bb3f7946fff629af7ba0c080eeebf918c7088a475301e2e3916c828c1d73fefa"
+    }
+  ]
+}

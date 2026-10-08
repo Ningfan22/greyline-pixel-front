@@ -11,6 +11,7 @@ export interface PaintedGunParts {
   sourceElevation: number;
   barrelBehindBody?: boolean;
   bodyGroundOffset?: number;
+  mortarBipod?: {sprite:HTMLCanvasElement;joint:[number,number]};
 }
 export function drawArticulatedGun(
   ctx: CanvasRenderingContext2D, parts: PaintedGunParts,
@@ -27,6 +28,14 @@ export function drawArticulatedGun(
     ctx.scale((CARDS[body.id].emplacement ? (body.gunFacing ?? pose.facing) : (body.facing ?? pose.facing)) < 0 ? -1 : 1, 1);
     const chassis = parts.bodyFrames?.[motionFrame % parts.bodyFrames.length] ?? parts.body;
     ctx.drawImage(chassis, -chassis.width / 2, -chassis.height);
+    if(parts.mortarBipod){
+      const {sprite,joint}=parts.mortarBipod;
+      // A mortar crew slides the bipod feet to retain the tube clamp while
+      // elevating. Keep the authored support upright with its feet planted.
+      const dy=-sprite.height+joint[1]+pose.mount.pivotHeight;
+      const x=pose.mount.pivotX-dy/Math.tan(pose.elevation);
+      ctx.drawImage(sprite,x-joint[0],-sprite.height);
+    }
     ctx.restore();
   };
   const drawBarrel = () => {

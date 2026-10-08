@@ -654,7 +654,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     Promise.all(Object.values(MISSILE_LAYOUT_V209).map(a=>loadImage(`${VEHICLE_MISSILE_ROOT}/${a.stem}.png`))),
     loadImage(IFV_ART_V220.source).then(ifvPartsV220),
     Promise.all(Object.entries(VEHICLE_SOURCES_V223).map(async ([id,path])=>({id:id as keyof typeof VEHICLE_SOURCES_V223,image:await loadImage(path),wreck:await loadImage(path.replace('.png','-wreck.png'))}))),
-    Promise.all(GUN_IDS_V227.map(async id=>({id,body:await loadImage(`/art/v227-installations/${id}-body.png`),barrel:await loadImage(`/art/v227-installations/${id}-barrel.png`)}))),
+    Promise.all(GUN_IDS_V227.map(async id=>({id,body:await loadImage(`/art/v230-guns/${id}-body.png`),barrel:await loadImage(`/art/v230-guns/${id}-barrel.png`)}))),
   ]).then(
     ([
       [

@@ -1,3 +1,4 @@
+import {expansionGunMount} from './expansion-art-v227';
 import {UNIT_OPTIONAL_DEFAULTS} from './unit-shape';
 import {fortificationContact,fortCrewElevation} from './fortification-ground';
 import {captureSoldierHistory} from './soldier-history';
@@ -10913,15 +10914,16 @@ export function tick(s: GameState, dt: number) {
         u.pose = setStance(u, s.time, 'crouch');
       const aimedGun = aimedGunSolution(u, tx, ty);
       if (aimedGun) {
-        const oldElevation=u.gunElevation??0;
-        u.gunElevation=isBattleTank(u.id) ? oldElevation+Math.max(-.9*dt,Math.min(.9*dt,aimedGun.elevation-oldElevation)) : aimedGun.elevation;
+        const oldElevation=u.gunElevation??expansionGunMount(u.id)?.restElevation??0;
+        const elevationRate=isBattleTank(u.id) ? .9 : expansionGunMount(u.id) ? .42 : Infinity;
+        u.gunElevation=elevationRate===Infinity ? aimedGun.elevation : oldElevation+Math.max(-elevationRate*dt,Math.min(elevationRate*dt,aimedGun.elevation-oldElevation));
         u.gunFacing = aimedGun.facing;
       }
       const tankReady = tankAimReady(u,s.time,target ? `unit:${target.uid}` :
         coverShot ? `cover:${coverShot.propId}:${coverShot.partId}` : `base:${enemySide}`,tx,ty);
       if (
         u.cooldown <= 0 &&
-        tankReady && (!isBattleTank(u.id)||!aimedGun||Math.abs((u.gunElevation??0)-aimedGun.elevation)<.015) &&
+        tankReady && (!(isBattleTank(u.id)||expansionGunMount(u.id))||!aimedGun||Math.abs((u.gunElevation??0)-aimedGun.elevation)<.015) &&
         (!aimedGun || aimedGun.canFire) &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
         (!c.members || (!soldierBusyMoving(u) && !stanceTransitionActive(u, s.time) && !crouchMotionActive(u) && !proneMotionActive(u))) &&
@@ -10937,7 +10939,7 @@ export function tick(s: GameState, dt: number) {
         // A deliberate breach round is meant to collide with this surface.
         (coverShot || firingHeight(s, u, tx, ty) !== null)
       ) {
-        if (isBattleTank(u.id) && aimedGun) u.gunElevation=aimedGun.elevation;
+        if ((isBattleTank(u.id)||expansionGunMount(u.id)) && aimedGun) u.gunElevation=aimedGun.elevation;
         if (c.members && !c.indirect && firingHeight(s, u, tx, ty) === standingMuzzleHeight(u)) {
           // v128: never snap the pose per shot — the peek/cover block owns
           // stance. Keep the exposure window alive across the whole burst and
