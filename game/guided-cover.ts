@@ -4,15 +4,17 @@ import { heightfieldIntercept } from './terrain-ray';
 
 export interface GuidancePoint { x: number; y: number }
 
-/** Houses are depth scenery. Guided ordnance clears their roof silhouette;
- * ordinary rockets and shells retain their existing wall collision rules. */
+/** Guided ordnance clears intervening roof and tree silhouettes. The same
+ * waypoints govern launch eligibility and the actual missile's flight.
+ * Unguided weapons retain their own collision rules. */
 export function guidedCoverRoute(s: GameState, sx: number, sy: number, tx: number, ty: number): GuidancePoint[] {
-  const boxes = nearbyObstacles(s, sx, tx).filter(b => b.prop?.kind === 'house');
+  const boxes = nearbyObstacles(s, sx, tx).filter(b =>
+    b.prop?.kind === 'house' || (b.prop?.kind === 'tree' && !b.foliage));
   const obstructing = boxes.filter(b => segmentBox(sx, sy, tx, ty, b) !== null);
   if (!obstructing.length || Math.abs(tx - sx) < 2) return [];
   const dir = Math.sign(tx - sx), left = Math.min(sx, tx), right = Math.max(sx, tx);
-  // Include every intervening roof, so clearing a low first house cannot put
-  // the missile inside the taller neighbouring house on the same leg.
+  // Include every intervening silhouette, so a second tree or taller house
+  // cannot intercept the horizontal leg planned above the first obstacle.
   const roofs = boxes.filter(b => b.x + b.w > left && b.x < right);
   const roofY = Math.min(sy, ty, ...roofs.map(b => b.y)) - 24;
   const first = Math.max(left + 1, Math.min(...roofs.map(b => b.x)) - 24);
@@ -21,7 +23,8 @@ export function guidedCoverRoute(s: GameState, sx: number, sy: number, tx: numbe
     : [{ x: last, y: roofY }, { x: first, y: roofY }];
 }
 
-/** Only house cover is waived. Soil, trees and metal wrecks remain solid. */
+/** Houses are depth scenery; soil and live trunks remain solid. Ruins and
+ * decorative wrecks are already excluded by the shared obstacle index. */
 export function guidedSegmentIntercept(s: GameState, sx: number, sy: number, tx: number, ty: number) {
   let hit = heightfieldIntercept(s, sx, sy, tx, ty);
   for (const box of nearbyObstacles(s, sx, tx)) {

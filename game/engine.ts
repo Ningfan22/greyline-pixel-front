@@ -118,6 +118,7 @@ import {
 } from './ricochet';
 import {
   obstacleBoxes,
+  nearbyObstacles,
   segmentBox,
   debrisCover,
   createScenery,
@@ -3571,19 +3572,24 @@ function firingHeight(
   if (c.indirect) return height;
   if (smokeBlocks(s, u.side, u.x, tx)) return null;
   const softCover = isCoverBullet(ammunition(u.id, u.member));
+  // Background house footprints use the same probabilistic protection as
+  // the committed bullet; they cannot make an otherwise legal muzzle silent.
+  // Soil, live trunks and explosive rounds keep their physical checks.
+  const solidMuzzle = (box: ReturnType<typeof obstacleBoxes>[number]) =>
+    !box.foliage && !(softCover && box.prop?.kind === 'house');
   const clear = (shooter: MuzzleBody, h: number, point: { x: number; y: number }) => {
-    if (!c.members && !c.air && obstacleBoxes(s).some(box => !box.foliage &&
+    if (!c.members && !c.air && obstacleBoxes(s).some(box => solidMuzzle(box) &&
         point.x > box.x && point.x < box.x + box.w &&
         point.y > box.y && point.y < box.y + box.h)) return false;
-    // A barrel wholly inside a surviving wall or rubble cannot shoot out by
-    // using the projectile's near-cover exemption. Rise or leave that pocket.
-    if (c.members && obstacleBoxes(s).some(box => !box.foliage &&
+    // A barrel inside hard geometry still has to rise or leave the pocket.
+    // The depth-cover exemption must never turn soil or trunks transparent.
+    if (c.members && obstacleBoxes(s).some(box => solidMuzzle(box) &&
         ((point.x > box.x && point.x < box.x + box.w &&
           point.y > box.y && point.y < box.y + box.h) ||
          (shooter.x > box.x && shooter.x < box.x + box.w &&
           shooter.y - h > box.y && shooter.y - h < box.y + box.h)))) return false;
-    if (c.members && sceneryIntercept(s, shooter.x, shooter.y - h,
-        point.x, point.y, false, true)) return false;
+    if (c.members && nearbyObstacles(s, shooter.x, point.x).some(box => solidMuzzle(box) &&
+        segmentBox(shooter.x, shooter.y - h, point.x, point.y, box) !== null)) return false;
     // A long prone barrel cannot start a projectile through solid soil.
     // Small arms may clear nearby scenery; heavy ordnance still checks it.
     if (
@@ -3637,9 +3643,11 @@ function firingSolution(
         (standing && height === standing.height ? standing.point : forecast.point);
     if (!sceneryIntercept(s, origin.x, origin.y, target.x, targetY, false, true))
       return { height, targetY };
-    // Longstanding probability protection still applies to intervening depth
-    // scenery, but a body actually buried in the obstruction has no shot point.
-    if (!obstacleBoxes(s).some(box => !box.foliage && target.x >= box.x &&
+    // Small arms retain probabilistic depth cover even when the observed
+    // target stands in its painted footprint. A surviving prop still blocks
+    // heavy ordnance, which must reposition or breach the real obstruction.
+    if (!obstacleBoxes(s).some(box => !box.foliage &&
+        !(box.prop && isCoverBullet(ammunition(u.id, u.member))) && target.x >= box.x &&
         target.x <= box.x + box.w && targetY >= box.y && targetY <= box.y + box.h))
       covered ??= { height, targetY };
   }
@@ -5991,18 +5999,18 @@ function fireCoax(s: GameState, u: Unit) {
   const selfHeight = personal ? (CARDS[u.id].members ? muzzleHeight(u) : 30) : 42;
   const coaxAim = (v: Unit): number | null => {
     const p = muzzlePoint(u, v.x, selfHeight, true);
-    if (smokeBlocks(s, u.side, u.x, v.x) || obstacleBoxes(s).some(box => !box.foliage &&
+    if (smokeBlocks(s, u.side, u.x, v.x) || obstacleBoxes(s).some(box => !box.foliage && box.prop?.kind !== 'house' &&
         ((p.x > box.x && p.x < box.x + box.w && p.y > box.y && p.y < box.y + box.h) ||
          (CARDS[u.id].members && u.x > box.x && u.x < box.x + box.w &&
           u.y - selfHeight > box.y && u.y - selfHeight < box.y + box.h)))) return null;
-    if (CARDS[u.id].members && sceneryIntercept(s, u.x, u.y - selfHeight,
-        p.x, p.y, false, true)) return null;
+    if (CARDS[u.id].members && nearbyObstacles(s, u.x, p.x).some(box => !box.foliage && box.prop?.kind !== 'house' &&
+        segmentBox(u.x, u.y - selfHeight, p.x, p.y, box) !== null)) return null;
     const centre = bodyHeight(v);
     let covered: number | null = null;
     for (const y of [v.y - centre, v.y - centre * 1.35]) {
       if (terrainIntercept(s, p.x, p.y, v.x, y, true)) continue;
       if (!sceneryIntercept(s, p.x, p.y, v.x, y, false, true)) return y;
-      if (!obstacleBoxes(s).some(box => !box.foliage && v.x >= box.x &&
+      if (!obstacleBoxes(s).some(box => !box.foliage && !box.prop && v.x >= box.x &&
           v.x <= box.x + box.w && y >= box.y && y <= box.y + box.h)) covered ??= y;
     }
     return covered;
