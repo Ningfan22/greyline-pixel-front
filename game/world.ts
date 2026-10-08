@@ -446,7 +446,7 @@ export function sceneryCoverHits(
 ) {
   const hits = new Map<
     number,
-    { id: number; x: number; y: number; t: number }
+    { id: number; tree: boolean; x: number; y: number; t: number }
   >();
   for (const box of nearbyObstacles(s, sx, tx)) {
     if (!box.prop) continue;
@@ -454,6 +454,7 @@ export function sceneryCoverHits(
     if (t !== null && t < (hits.get(box.prop.id)?.t ?? Infinity))
       hits.set(box.prop.id, {
         id: box.prop.id,
+        tree: box.prop.kind === 'tree',
         x: sx + (tx - sx) * t,
         y: sy + (ty - sy) * t,
         t,

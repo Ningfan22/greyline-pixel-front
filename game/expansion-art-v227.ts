@@ -1,7 +1,7 @@
 import type {CardId} from './cards';
 import type {GunMount} from './gun-geometry';
 import type {PaintedGunParts} from './gun-art';
-/** Authored plate coordinates. One uniform scale preserves tube/carriage proportions. */
+/** Authored plate coordinates. Each component uses a uniform scale; the gun fits its carriage. */
 type Rig={size:[number,number];width:number;pivot:[number,number];tube:[number,number];gunPivot:[number,number];muzzle:[number,number];feet?:[[number,number],[number,number]];mortar?:boolean};
 const RIGS:Record<string,Rig>={
  howitzer_105:{size:[1109,464],width:125,pivot:[989,90],tube:[1130,236],gunPivot:[118,144],muzzle:[1124,144],feet:[[110,450],[914,461]]},
@@ -20,12 +20,13 @@ const RIGS:Record<string,Rig>={
 export function expansionGunLayout(id:CardId){
  const r=RIGS[id];if(!r)return null;
  const scale=r.mortar?({mortar_60:48,mortar_81:60,mortar_120:75}[id as 'mortar_60'])/(r.muzzle[0]-r.gunPivot[0]):r.width/r.size[0];
+ const gunScale=scale*(id==='sp_howitzer_155'?.70:id==='sp_howitzer_122'?.78:1);
  const bodyWidth=r.width,bodyHeight=r.mortar?Math.round(r.width*.66):Math.round(r.size[1]*scale);
  const pivotX=r.mortar?r.pivot[0]-bodyWidth/2:r.pivot[0]*scale-bodyWidth/2;
  const pivotHeight=bodyHeight-r.pivot[1]*(r.mortar?1:scale);
- return {bodyWidth,bodyHeight,pivotX,pivotHeight,barrelLength:(r.muzzle[0]-r.gunPivot[0])*scale,mortar:!!r.mortar,scale,
- barrelWidth:Math.round(r.tube[0]*scale),barrelHeight:Math.round(r.tube[1]*scale),barrelPivot:[r.gunPivot[0]*scale,r.gunPivot[1]*scale] as [number,number],
- muzzleOffset:[(r.muzzle[0]-r.gunPivot[0])*scale,(r.muzzle[1]-r.gunPivot[1])*scale] as [number,number]};
+ return {bodyWidth,bodyHeight,pivotX,pivotHeight,barrelLength:(r.muzzle[0]-r.gunPivot[0])*gunScale,mortar:!!r.mortar,scale,
+ barrelWidth:Math.round(r.tube[0]*gunScale),barrelHeight:Math.round(r.tube[1]*gunScale),barrelPivot:[r.gunPivot[0]*gunScale,r.gunPivot[1]*gunScale] as [number,number],
+ muzzleOffset:[(r.muzzle[0]-r.gunPivot[0])*gunScale,(r.muzzle[1]-r.gunPivot[1])*gunScale] as [number,number]};
 }
 export function expansionGunMount(id:CardId):GunMount|null{
  const a=expansionGunLayout(id);if(!a)return null;

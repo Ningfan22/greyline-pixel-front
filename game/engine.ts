@@ -2,11 +2,11 @@ import {expansionGunMount} from './expansion-art-v227';
 import {UNIT_OPTIONAL_DEFAULTS} from './unit-shape';
 import {fortificationContact,fortCrewElevation} from './fortification-ground';
 import {captureSoldierHistory} from './soldier-history';
-import {warnFriendlyLane,refreshFriendlyLanes,friendlyLineBlocked,friendlyCrossing,friendlyBodyHeight} from './friendly-fire-lanes';
+import {warnFriendlyLane,refreshFriendlyLanes,friendlyCrossing,friendlyBodyHeight} from './friendly-fire-lanes';
 import {rememberInfantryContact,infantryAttentionDirection,faceInfantryContact} from './infantry-attention';
 import {airDefensePosition} from './air-defense-position';
 import {prepareParachuteTransport,stepParachuteTransport,type ParachuteFlight} from './parachute-transport';
-import {tacticalActionScale,soldierHitChance,type InfantryTraining} from './infantry-training';
+import {tacticalActionScale,soldierHitChance,treeCoverBlockChance,type InfantryTraining} from './infantry-training';
 import {shouldUnloadTransport,supplyTruckGoal} from './ground-transport';
 import {updateFireTeams,type TeamRole} from './squad-team-plan';
 import {emplacementContact} from './emplacement-ground';
@@ -688,6 +688,8 @@ export interface Projectile {
   suppressedUids?: number[];
   suppressionMultiplier?: number;
   passedCover?: number[];
+  passedFriendlies?: number[];
+  treeCoverBlockChance?: number;
   uid?: number;
   guided?: boolean;
   guidanceRoute?: GuidancePoint[];
@@ -3245,7 +3247,7 @@ export function projectileIntercept(
     }
     (p.passedCover ??= []).push(hit.id);
     // A projectile rolls once per whole prop, independent of frame rate and wall pieces.
-    if (rnd(s) < 0.5) return { x: hit.x, y: hit.y };
+    if (rnd(s) < (hit.tree ? (p.treeCoverBlockChance ?? .5) : .5)) return { x: hit.x, y: hit.y };
   }
   return hardHit;
 }
@@ -3270,6 +3272,7 @@ export function directShotIntercept(
     ? smallArmsRayIntercept(s, sx, sy, tx, ty)
     : terrainIntercept(s, sx, sy, tx, ty);
 }
+export const FRIENDLY_BULLET_HIT_CHANCE = 1 / 60;
 const friendlyRayScratch: Unit[] = [];
 function friendlyProjectileHit(
   s: GameState,
@@ -3279,12 +3282,13 @@ function friendlyProjectileHit(
   tx: number,
   ty: number,
 ) {
-  if (p.radius || p.missed || p.damage <= 0 || p.sourceUid === undefined)
+  if (p.radius || (p.missed && !isCoverBullet(p.ammunition ?? 'rifle')) || p.damage <= 0 || p.sourceUid === undefined)
     return null;
-  let nearest: { u: Unit; t: number; x: number; y: number } | null = null;
+  const hits: { u: Unit; t: number; x: number; y: number }[] = [];
   for (const u of nearUnits(s, (sx + tx) / 2, Math.abs(tx - sx) / 2 + 8, friendlyRayScratch)) {
     if (
       u.uid === p.sourceUid ||
+      p.passedFriendlies?.includes(u.uid) ||
       u.side !== p.side ||
       !canTakeDamage(u) ||
       !CARDS[u.id].members
@@ -3313,17 +3317,22 @@ function friendlyProjectileHit(
       near <= far &&
       near >= 0 &&
       near <= 1 &&
-      depthHit(p, u, sx + (tx - sx) * near) &&
-      (!nearest || near < nearest.t)
+      depthHit(p, u, sx + (tx - sx) * near)
     )
-      nearest = {
+      hits.push({
         u,
         t: near,
         x: sx + (tx - sx) * near,
         y: sy + (ty - sy) * near,
-      };
+      });
   }
-  return nearest;
+  for (const hit of hits.sort((a,b)=>a.t-b.t)) {
+    (p.passedFriendlies ??= []).push(hit.u.uid);
+    // One roll per physical body crossing, even across many simulation ticks.
+    // A rejected hit continues along its original flight to terrain or enemies.
+    if (!isCoverBullet(p.ammunition ?? 'rifle') || rnd(s) < FRIENDLY_BULLET_HIT_CHANCE) return hit;
+  }
+  return null;
 }
 type MuzzleBody = Pick<
   Unit,
@@ -6037,7 +6046,6 @@ function fireCoax(s: GameState, u: Unit) {
   const targetY = coaxAim(target)!;
   const safeMuzzle=muzzlePoint(u,target.x,selfHeight,true);
   warnFriendlyLane(s,u,safeMuzzle.x,safeMuzzle.y,target.x,targetY,target.lane,true);
-  if(friendlyLineBlocked(s,u,safeMuzzle.x,safeMuzzle.y,target.x,targetY,target.lane))return;
   if (ammoProfile(u).secondary) u.secondaryAmmo = Math.max(0, u.secondaryAmmo! - 1);
   const point = muzzlePoint(u, target.x, selfHeight, true),
     sx = point.x,
@@ -10975,7 +10983,7 @@ export function tick(s: GameState, dt: number) {
         const bullet=isCoverBullet(ammunition(u.id,u.member))&&!c.radius&&!c.air;
         if(bullet && ['machinegun','autocannon'].includes(ammunition(u.id,u.member)))warnFriendlyLane(s,u,sx,sy,tx,ty,target?.lane??u.lane);
         if (
-          (!bullet||!friendlyLineBlocked(s,u,sx,sy,tx,ty,target?.lane??u.lane)) && (coverShot ||
+          (coverShot ||
           c.indirect ||
           u.id === 'javelin' ||
           !(c.guided ? guidedShotIntercept(s, sx, sy, tx, ty) :
@@ -11152,6 +11160,7 @@ export function tick(s: GameState, dt: number) {
           s.projectiles.push({
             uid: ++s.uid,
             sourceCardId:u.id,
+            treeCoverBlockChance:treeCoverBlockChance(u),
             launcherTube:u.id==='mlrs'?(u.shots-1)%16:undefined,
             guided: c.guided && !c.indirect,
             topAttack: u.id === 'javelin',
@@ -11292,8 +11301,8 @@ export function tick(s: GameState, dt: number) {
           // at the new position instead of instantly driving back into the
           // muzzle-flash location. It still needs genuine vision to fire.
           !(u.id === 'mortar_carrier' && u.shots > 0 && u.cooldown > 0) &&
-         ((!target && (u.secondaryCombatUntil ?? 0) <= s.time) || breachRun) &&
-         !baseInRange &&
+         (((!target || (c.members && dryAmmo)) && (u.secondaryCombatUntil ?? 0) <= s.time) || breachRun) &&
+         (!baseInRange || (c.members && dryAmmo)) &&
           !awaitingTankReobserve &&
           !blockedContact &&
          (s.time >= (u.atHoldUntil ?? 0) || breachRun) &&
@@ -11672,7 +11681,7 @@ export function tick(s: GameState, dt: number) {
     const impact = projectileIntercept(s, p, oldX, oldY, p.x, p.y);
     aimProjectileDepth(s, p);
     suppressNearMiss(s, p, oldX, oldY, impact?.x ?? p.x, impact?.y ?? p.y);
-    const friendly = friendlyProjectileHit(s, p, oldX, oldY, p.x, p.y);
+    const friendly = friendlyProjectileHit(s, p, oldX, oldY, impact?.x ?? p.x, impact?.y ?? p.y);
     if (p.tracer) {
       const end =
         friendly &&

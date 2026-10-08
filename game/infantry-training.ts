@@ -19,3 +19,9 @@ export function soldierHitChance(u:Soldier,precision=false){
   const base={regular:1/3,trained:.58,elite:.82}[infantryTraining(u)];
   return Math.min(.94,base+Math.min(3,Math.floor((u.kills??0)/3))*.035);
 }
+
+/** Precision fire chooses gaps in tree cover; buildings keep their own cover rule. */
+export function treeCoverBlockChance(u:Soldier){
+  if(u.id && modelOf(u.id)==='sniper')return .05;
+  return {regular:.5,trained:.3,elite:.15}[infantryTraining(u)];
+}
