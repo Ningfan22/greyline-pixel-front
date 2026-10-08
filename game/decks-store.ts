@@ -1,5 +1,5 @@
 /* 多卡组存储：最多 6 套编队，本地持久化。 */
-import { DECK, DECK_SIZE, type CardId } from './cards';
+import { DECK, DECK_SIZE, completeDeck, type CardId } from './cards';
 import {
   clampToCollection,
   type CollectionState,
@@ -46,10 +46,11 @@ function sanitizeDeck(
   const migrated = rawCards.filter(
     (id): id is string => typeof id === 'string',
   ).map(id => id === 'ground_attack_jet' ? 'strike_jet' : id) as CardId[];
-  const cards = clampToCollection(
+  let cards = clampToCollection(
     migrated,
     collection,
   ).slice(0, DECK_SIZE);
+  if(rawCards.length===20)cards=completeDeck(cards,DECK_SIZE,collection.owned);
   return {
     id: typeof candidate.id === 'string' && candidate.id ? candidate.id : newDeckId(),
     name:

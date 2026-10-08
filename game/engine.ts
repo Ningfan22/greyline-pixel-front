@@ -126,7 +126,7 @@ import {
   refreshVision,
   visibleToSide,
   pointVisible,
-  clearSight,
+  clearSight, renderUnitVisible,
   sightRange,
   observerUnits,
   sceneryIntercept,
@@ -153,6 +153,7 @@ import {
   validDeck,
   chooseAiDeck,
   modelOf,
+  completeDeck, opponentDeckSize,
   weaponCard,
   doctrineOf,
   type CardId,
@@ -162,7 +163,7 @@ import {
 export {
   CARDS,
   DECK,
-  DECK_SIZE,
+  DECK_SIZE, completeDeck, opponentDeckSize,
   validDeck,
   chooseAiDeck,
   modelOf,
@@ -643,6 +644,8 @@ export interface Unit {
   evadeUntil: number;
   evadeMarker: number | null;
   friendlyWarnAt: number;
+  radarOff?: boolean;
+  apsReadyAt?: number;
   sortieCard: HandCard | null;
   bombsLeft?: number;
   flightUntil?: number;
@@ -661,6 +664,7 @@ export interface Unit {
     dropped: number;
     nextAt: number;
     squad?: number;
+    aborted?: boolean;
   };
   glider?: GliderFlight;
   parachuteFlight?: ParachuteFlight;
@@ -866,6 +870,7 @@ export interface Wall {
   hp: number;
 }
 export interface Player extends EconomyPlayer {
+  fogJammedUntil?: number;
   loadout: CardId[];
   drawSeed: number;
   fortify: number;
@@ -1023,12 +1028,15 @@ export function ground(s: GameState, x: number) {
 export function createGame(
   seed = Date.now(),
   playerDeck: CardId[] = DECK,
-  aiDeck: CardId[] = chooseAiDeck(seed),
+  aiDeck?: CardId[],
   mapId: MapId = DEFAULT_MAP,
   options: MatchOptions = {},
 ): GameState {
-  if (!validDeck(playerDeck) || !validDeck(aiDeck))
-    throw new Error('双方卡组必须各有20张有效卡牌，且不超过各卡数量上限');
+  const enemySize=opponentDeckSize(options.difficulty??'veteran');
+  if (!validDeck(playerDeck) || (aiDeck && !validDeck(aiDeck,aiDeck.length)))
+    throw new Error('我方编组需25张有效卡牌，且不超过各卡数量上限');
+  aiDeck=aiDeck?completeDeck(aiDeck,enemySize):chooseAiDeck(seed,options.difficulty??'veteran');
+  if(!validDeck(aiDeck,enemySize))throw new Error('对手编组数量错误');
   // v113: the game seed drives map generation, so every match with a
   // unique seed gets a unique battlefield. Fixed seeds (tests, replays)
   // still produce the same layout every time.
@@ -1342,6 +1350,13 @@ export function draw(s: GameState, side: Side, count = 1) {
   }
   return drawn;
 }
+export function activeRadarTarget(s:GameState,side:Side) {
+ return s.units.filter(u=>u.side!==side&&isCombatant(u)&&CARDS[u.id].vehicle&&CARDS[u.id].airRadarRange&&!u.radarOff).sort((a,b)=>b.maxHp-a.maxHp||a.uid-b.uid)[0];
+}
+export function toggleRadar(s:GameState,uid:number) {
+ const u=s.units.find(v=>v.uid===uid&&v.hp>0);if(!u||!CARDS[u.id].airRadarRange)return false;
+ u.radarOff=!u.radarOff;refreshVision(s);return true;
+}
 export function cardCost(card: HandCard) {
   const c = CARDS[card.id];
   return card.returnedOnce && c.sortie ? (c.returnCost ?? c.cost) : c.cost;
@@ -1418,11 +1433,12 @@ export const ARTILLERY: Record<'artillery'|'barrage'|'precision'|'naval'|'cluste
     delay: 3.4,
     count: 1,
     interval: 0,
-    damage: 120,
-    radius: 72,
+    damage: 300,
+    radius: 80,
     spacing: 0,
     scatter: 18,
-    baseScale: 0.28,
+    baseScale: 0.6,
+    armorMultiplier: 2,
   },
   cluster: {
     delay: 3.0,
@@ -1691,6 +1707,8 @@ export function playCard(
     return {ok:false,message:'请提前布雷，整个雷场需离可见敌方载具至少80距离'};
   if (c.effect === 'ammo' && !pointVisible(s, side, x!, ground(s, x!) - 24))
     return { ok: false, message: '弹药箱只能空投到己方当前视线可见的地面' };
+  const radiationTarget=c.id==='anti_radiation_shell'?activeRadarTarget(s,side):undefined;
+  if(c.id==='anti_radiation_shell'&&!radiationTarget)return {ok:false,message:'没有开机的敌方雷达防空车'};
   p.energy = Math.max(0, p.energy - cost);
   if ((p.taxCards ?? 0) > 0) p.taxCards = (p.taxCards ?? 0) - 1;
   p.hand.splice(index, 1);
@@ -1802,7 +1820,10 @@ export function playCard(
       // v132: 点穴打击——截获的 2 点指挥点归己方所有
       p.energy = Math.min(energyLimit(p), p.energy + 2);
     }
-    if (c.effect === 'forage') draw(s, side, 1);
+    if (c.effect === 'forage') {
+      const pool=p.discard.filter(t=>t.uid!==token.uid);
+      for(let i=0;i<2&&pool.length;i++){const at=Math.floor(rnd(s)*pool.length),[t]=pool.splice(at,1);p.discard.splice(p.discard.indexOf(t),1);p.deck.splice(Math.floor(rnd(s)*(p.deck.length+1)),0,t);}
+    }
     if (c.effect === 'blitz') p.blitzUntil = s.time + 10;
     if (c.effect === 'blackout' && !hopImmune) foe.blackoutUntil = s.time + 8;
     if (c.effect === 'interdict' && !hopImmune)
@@ -1827,7 +1848,7 @@ export function playCard(
     if (c.effect === 'salvage') {
       const pool = p.discard.filter((t) => {
         const cd = CARDS[t.id];
-        return cd.type === 'unit' && cardCost(t) <= 3;
+        return cd.type === 'unit';
       });
       if (pool.length) {
         const t = pool[Math.floor(rnd(s) * pool.length)];
@@ -1885,6 +1906,9 @@ export function playCard(
         if (!isImmobilized(u)) u.x = Math.max(40, Math.min(W - 40, u.x + dir));
       p.fallbackUntil = s.time + 2;
     }
+  } else if(c.id==='anti_radiation_shell' && radiationTarget) {
+    radiationTarget.hp=0;finishDeath(s,radiationTarget,side,'blast',radiationTarget.x,radiationTarget.y-25);
+    burst(s,radiationTarget.x,radiationTarget.y-25,56,'he');refreshVision(s);
   } else if (c.id === 'artillery') {
     callArtillery(s, side, x!, 'artillery');
   } else if (c.id === 'precision') {
@@ -1926,8 +1950,8 @@ export function playCard(
     draw(s, side, 2);
   } else if (c.id === 'jam') {
     const foe = s.players[side === 0 ? 1 : 0];
-    if ((foe.freqHopUntil ?? 0) <= s.time)
-      foe.lockoutUntil = Math.max(foe.lockoutUntil ?? 0, s.time + 15);
+    foe.fogJammedUntil = Math.max(foe.fogJammedUntil ?? 0, s.time + 8);
+    refreshVision(s);
   }
   const message =
     side === 0
@@ -2936,7 +2960,8 @@ function settleSortie(s: GameState, u: Unit, success: boolean) {
   token.returnedOnce = success;
   token.readyAt = s.time + (CARDS[u.id].sortieCooldown ?? 18);
   const p = s.players[u.side];
-  if (success && p.hand.length < MAX_HAND) p.hand.push(token);
+  // An aborted insertion must return its original card even if the hand filled in flight.
+  if (success && (u.airlift?.aborted || p.hand.length < MAX_HAND)) p.hand.push(token);
   else p.discard.push(token);
   if (success)
     notify(
@@ -6455,7 +6480,7 @@ function commandAiSquads(
   }
 }
 
-// The AI's 20-card deck is always the union of deck + discard + hand (plus
+// The AI's difficulty-sized deck is always the union of deck + discard + hand (plus
 // sortie tokens currently airborne), so the archetype is stable at any moment.
 function inferArchetype(s: GameState): string {
   const p = s.players[1];
@@ -6606,7 +6631,7 @@ function updateAI(s: GameState) {
       (c.static && u.emplaced)
     )
       return 0;
-    const speed = c.emplacement ? 28 * 0.8 : (c.speed ?? 0) *
+    const speed = c.emplacement ? 20 * 0.8 : (c.speed ?? 0) *
       (c.members ? 0.55 : c.vehicle ? 0.8 : 1);
     // Six seconds of travel is only a partial commitment, never complete cover.
     return speed > 0 && distance - unitRange(s, u) <= speed * 6 ? 0.25 : 0;
@@ -7280,8 +7305,10 @@ function updateAI(s: GameState) {
       } else if (c.effect === 'emp') {
         if (battle && foes.some((u) => CARDS[u.id].air || weaponCard(u).guided))
           score = 25;
+      } else if(c.id==='anti_radiation_shell') {
+        if(activeRadarTarget(s,1))score=22;
       } else if (c.id === 'jam') {
-        if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) <= s.time) score = 14;
+        if (battle && cohorts >= 2 && (s.players[0].fogJammedUntil ?? 0) <= s.time) score = 14;
       } else if (c.effect === 'signal_jam') {
         if (battle && cohorts >= 2 && (s.players[0].lockoutUntil ?? 0) <= s.time) score = 17;
       } else if (c.effect === 'forced_march') {
@@ -7295,7 +7322,7 @@ function updateAI(s: GameState) {
       // pattern and checks the matching state field so the same buff is not
       // re-cast while still active.
       else if (c.effect === 'forage') {
-        if (p.hand.length <= MAX_HAND - 1) score = 25;
+        if (p.discard.some(t=>t.uid!==h.uid)) score = p.discard.length>=2?15:8;
       } else if (c.effect === 'blitz') {
         if (
           (p.blitzUntil ?? 0) < s.time &&
@@ -7371,7 +7398,7 @@ function updateAI(s: GameState) {
         if (
           p.hand.length <= MAX_HAND - 1 &&
           p.discard.some(
-            (t) => CARDS[t.id].type === 'unit' && CARDS[t.id].cost <= 3,
+            (t) => CARDS[t.id].type === 'unit',
           )
         )
           score = 22;
@@ -8191,6 +8218,9 @@ function moveAirTo(u: Unit, x: number, y: number, speed: number, dt: number) {
   u.moving = step > 0.01;
   return distance <= speed * dt + 1;
 }
+export function hostileLanding(s:GameState,u:Unit,x:number) {
+  return s.units.some(v=>v.side!==u.side && isCombatant(v) && !CARDS[v.id].air && !v.parachuting && !v.rappelling && Math.abs(v.x-x)<=140 && visibleToSide(s,u.side,v));
+}
 function flyTransport(s: GameState, u: Unit, dt: number) {
   const c = CARDS[u.id],
     dir = u.side === 0 ? 1 : -1;
@@ -8210,6 +8240,7 @@ function flyTransport(s: GameState, u: Unit, dt: number) {
       dt,
     );
     if (u.x < -150 || u.x > W + 150) {
+      settleSortie(s,u,!!flight.aborted);
       u.hp = 0;
       u.destroyed = true;
       u.deadFor = 0;
@@ -8235,6 +8266,12 @@ function flyTransport(s: GameState, u: Unit, dt: number) {
       flight.phase = 'unload';
       flight.nextAt = s.time + 0.65;
     }
+    return;
+  }
+  // Look again immediately before the first rope: contacts can arrive during the approach.
+  if(flight.dropped===0 && hostileLanding(s,u,flight.x)) {
+    flight.aborted=true;flight.phase='exit';
+    notify(s,'落点被敌军占据，取消索降并返航','warn',[u.side]);
     return;
   }
   const settled = moveAirTo(u, ropeX, ground(s, ropeX) - 130, 85, dt);
@@ -9542,7 +9579,7 @@ export function tick(s: GameState, dt: number) {
         }
       } else if ((!c.static || c.emplacement) && !isImmobilized(u) && Math.abs(delta) > 1) {
         const before = u.x;
-        const speed = (c.emplacement ? 28 : c.speed!) * 0.8 * (moveDir !== dir ? 0.65 : 1);
+        const speed = (c.emplacement ? 20 : c.speed!) * 0.8 * (moveDir !== dir ? 0.65 : 1);
         u.x = vehicleTravelX(u, contactSafeX(s, u, Math.max(55, Math.min(W - 55, u.x + moveDir * Math.min(Math.abs(delta), speed * dt)))));
         u.moving = Math.abs(u.x - before) > 0.001;
         u.facing = dir;
@@ -10939,6 +10976,7 @@ export function tick(s: GameState, dt: number) {
         coverShot ? `cover:${coverShot.propId}:${coverShot.partId}` : `base:${enemySide}`,tx,ty);
       if (
         u.cooldown <= 0 &&
+        !(c.airRadarRange && u.radarOff) &&
         tankReady && (!(isBattleTank(u.id)||expansionGunMount(u.id))||!aimedGun||Math.abs((u.gunElevation??0)-aimedGun.elevation)<.015) &&
         (!aimedGun || aimedGun.canFire) &&
         (u.id !== 'grenadiers' || (u.launcherCycleRemaining ?? 0) <= 0) &&
@@ -11052,6 +11090,7 @@ export function tick(s: GameState, dt: number) {
               : dir
             : Math.sign(tx - u.x) || dir;
           u.shots++;
+          if(c.stealthDetectionRange)u.exposedUntil=s.time+4;
           if(u.id==='tow_ifv'){u.towFired=(u.ammo??2)>=2?0:1;u.towShotAt=s.time;}
           // Small arms burn a round per shot; a dry magazine locks the
           // weapon into a visible reload (slower while pinned) that the
@@ -11617,6 +11656,12 @@ export function tick(s: GameState, dt: number) {
     const oldX = p.x,
       oldY = p.y;
     p.life -= dt;
+    const aps=s.units.find(u=>u.side!==p.side&&u.id==='heavy_tank'&&isCombatant(u)&&Math.hypot(u.x-p.x,u.y-32-p.y)<95&&(u.apsReadyAt??0)<=s.time);
+    const tow=p.guided&&p.sourceUid!==undefined&&unitByUid(s,p.sourceUid)?.id==='tow_ifv';
+    if(aps && p.ammunition==='rocket' && (!p.guided||tow)) {
+      aps.apsReadyAt=s.time+2;
+      if(rnd(s)<(tow?.5:.9)){p.life=0;burst(s,p.x,p.y,12,'grenade');continue;}
+    }
     if (p.guided) {
       const tracked = s.units.find(
         (u) => u.uid === p.targetUid && canTakeDamage(u),
@@ -11920,7 +11965,7 @@ export function tick(s: GameState, dt: number) {
   s.mines = s.mines.filter((m) => m.armAt !== Infinity);
   for (const u of s.units)
     if (u.hp > 0 && CARDS[u.id].sortie && (u.x < -160 || u.x > W + 160)) {
-      settleSortie(s, u, true);
+      settleSortie(s, u, u.airlift ? !!u.airlift.aborted : true);
       u.hp = 0;
       u.deadFor = 0;
       u.destroyed = true;
@@ -12112,7 +12157,7 @@ export function tick(s: GameState, dt: number) {
 }
 export function snapshot(s: GameState, viewer: Side = 0) {
   return {
-    contacts:(s.groundContacts?.[viewer]??[]).map(c=>({...c})),
+    contacts:((s.players[viewer].fogJammedUntil??0)>s.time?[]:s.groundContacts?.[viewer]??[]).map(c=>({...c})),
     ammoCrates: (s.ammoCrates ?? []).filter(c => c.side === viewer || pointVisible(s, viewer, c.x, ground(s, c.x) - 24)).map(c => ({ ...c })),
     campaign: s.campaign ? { ...s.campaign } : null,
     gas: s.comeback?.gas ? { ...s.comeback.gas } : null,
@@ -12139,6 +12184,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       logisticsLevel: i === viewer ? p.logisticsLevel : 0,
       bondUses: i === viewer ? p.bondUses : 0,
       bondDueAt: i === viewer ? p.bondDueAt : null,
+      fogJammedUntil: i===viewer?p.fogJammedUntil:undefined,
       overdraftUntil: i === viewer ? p.overdraftUntil : null,
       suppressedUntil: i === viewer ? p.suppressedUntil : null,
       hand:
@@ -12164,7 +12210,7 @@ export function snapshot(s: GameState, viewer: Side = 0) {
       played: p.played,
     })),
     units: s.units
-      .filter((u) => visibleToSide(s, viewer, u))
+      .filter((u) => renderUnitVisible(s, viewer, u))
       .map((u) => ({ ...u, sortieCard: null })),
     walls: Object.values(s.knownWalls[viewer]).map((w) => ({ ...w })),
     smokes: s.smokes.map((f) => ({ ...f })),

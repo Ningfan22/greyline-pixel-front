@@ -56,7 +56,7 @@ import { drawBirds, drawDistantFlashes, drawWreckSmoke, drawWreckFire, drawScorc
 import { drawWeather } from './weather';
 import { WhipStreakLayer } from './whip-streak';
 import { drawRicochets } from './ricochet';
-import { pointVisible, visibleToSide } from './world';
+import { pointVisible, visibleToSide, renderUnitVisible } from './world';
 import {
   ammunition,
   drawMuzzle,
@@ -673,7 +673,7 @@ export function render(
   const sorted = s.units
     .filter(
       (u) =>
-        visibleToSide(s, 0, u) &&
+        renderUnitVisible(s, 0, u) &&
         u.x >= camera - 180 &&
         u.x <= camera + viewportWidth + 180,
     )
@@ -1122,7 +1122,7 @@ export function render(
       occluded: !!CARDS[u.id].members && selectionOccluded(u, foregroundBounds),
     });
   for (const u of sorted) drawLogisticsIndicator(ctx,u);
-  for(const mark of contactMarkers(s.groundContacts?.[0]??[])) {
+  for(const mark of contactMarkers((s.players[0].fogJammedUntil??0)>s.time?[]:s.groundContacts?.[0]??[])) {
     if(mark.uids.some(uid=>visibleToSide(s,0,{uid,side:mark.side}))||mark.x<camera-20||mark.x>camera+viewportWidth+20)continue;
     const y=mark.y-42;ctx.save();ctx.globalAlpha=.7;ctx.fillStyle='#292e25';ctx.fillRect(Math.round(mark.x-12),Math.round(y-2),24,18);
     ctx.fillStyle='#d0ac79';drawContactIcon(ctx,mark.kind,mark.x,y,2);ctx.restore();
@@ -1281,6 +1281,7 @@ export function render(
     }
   }
   for (const p of s.projectiles) {
+    if((s.players[0].fogJammedUntil??0)>s.time&&!pointVisible(s,0,p.x,p.y))continue;
     if (!pointVisible(s, 0, p.x, p.y)) continue;
     let offset = projectileOffsets.get(p);
     if (!offset) {
@@ -1306,6 +1307,11 @@ export function render(
   for (const p of s.particles)
     if (pointVisible(s, 0, p.x, p.y)) drawParticle(ctx, p, art.impacts, art.smoke);
   ctx.globalAlpha = 1;
+  if((s.players[0].fogJammedUntil??0)>s.time) {
+    ctx.save();ctx.fillStyle='rgba(18,23,22,.92)';
+    for(let x=Math.floor(left/64)*64;x<right;x+=64)if(!s.sight[0][Math.floor(x/64)])ctx.fillRect(x,-H,64,H*3);
+    ctx.restore();
+  }
   if (gas) {
     ctx.font = '12px monospace';
     ctx.textAlign = 'center';

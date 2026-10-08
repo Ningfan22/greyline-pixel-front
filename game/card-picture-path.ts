@@ -10,6 +10,7 @@ const ADDITIONAL_CARD_ART = new Set([
   'mine_clearer',
 ]);
 export function cardPicturePath(id: CardId) {
+  if(id==='stealth_bomber'||id==='anti_radiation_shell')return `/art/v233/${id}.webp`;
   if((EXPANSION_IDS_V227 as readonly string[]).includes(id)||['apc_transport','supply_truck','pickup','mlrs'].includes(id))return `/art/v227-cards/${id}.webp`;
   if(id==='rapid_assault')return cardPicturePath('assault');
   if(id==='rapid_at')return cardPicturePath('antiarmor');

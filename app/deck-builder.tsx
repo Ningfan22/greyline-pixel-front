@@ -134,17 +134,17 @@ export default function DeckBuilder({
   const isValidDeck = (value: CardId[]) =>
     collection
       ? validDeckWithCollection(value, collection)
-      : value.length === 20;
+      : value.length === 25;
   const ordered = [...new Set(draft)].sort(
     (a, b) =>
       CARDS[a].cost - CARDS[b].cost ||
       CARDS[a].name.localeCompare(CARDS[b].name, 'zh-CN'),
   );
   const costs = Array.from(
-    { length: 6 },
+    { length: 7 },
     (_, i) =>
       draft.filter((id) =>
-        i === 5 ? CARDS[id].cost >= 6 : CARDS[id].cost === i + 1,
+        i === 6 ? CARDS[id].cost >= 6 : CARDS[id].cost === i,
       ).length,
   );
   const apply = (next: CardId[], text: string) => {
@@ -160,7 +160,7 @@ export default function DeckBuilder({
       );
       return;
     }
-    if (draft.length < 20) {
+    if (draft.length < 25) {
       apply([...draft, id], `已增加一张${CARDS[id].name}`);
       return;
     }
@@ -218,7 +218,7 @@ export default function DeckBuilder({
       return;
     }
     if (!isValidDeck(draft)) {
-      setMessage('编队满 20 张才能另存为新卡组');
+      setMessage('编队满 25 张才能另存为新卡组');
       return;
     }
     if (onSaveAs([...draft])) setMessage('已另存为新卡组');
@@ -278,7 +278,7 @@ export default function DeckBuilder({
         </div>
         <strong>
           {draft.length}
-          <small>/ 20</small>
+          <small>/ 25</small>
         </strong>
       </div>
       <div className="armory-deck-meta">
@@ -299,7 +299,7 @@ export default function DeckBuilder({
                 height: `${Math.max(2, (n / Math.max(1, ...costs)) * 30)}px`,
               }}
             />
-            <small>{i === 5 ? '6+' : i + 1}</small>
+            <small>{i === 6 ? '6+' : i}</small>
           </div>
         ))}
       </div>
@@ -346,9 +346,9 @@ export default function DeckBuilder({
             {pending ? <ArrowLeft size={14} /> : <X size={13} />}
           </button>
         ))}
-        {draft.length < 20 && (
+        {draft.length < 25 && (
           <div className="armory-empty">
-            <Plus size={17} /> 还可编入 {20 - draft.length} 张
+            <Plus size={17} /> 还可编入 {25 - draft.length} 张
           </div>
         )}
       </div>
@@ -434,7 +434,7 @@ export default function DeckBuilder({
         <p>
           卡面加减调整数量，长按查看详情
           <br />
-          <b>满 20 张后，点新卡再选旧卡替换</b>
+          <b>满 25 张后，点新卡再选旧卡替换</b>
         </p>
       </div>
       {deckStore && collection && (
@@ -446,7 +446,7 @@ export default function DeckBuilder({
           >
             {deckStore.decks.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name} · {d.cards.length}/20
+                {d.name} · {d.cards.length}/25
               </option>
             ))}
           </select>
@@ -555,7 +555,7 @@ export default function DeckBuilder({
               className="cost-filter"
               aria-label="指挥点费用"
             >
-              {['all', '1', '2', '3', '4', '5', '6'].map((v) => (
+              {['all', '0', '1', '2', '3', '4', '5', '6'].map((v) => (
                 <label key={v} className={cost === v ? 'active' : ''}>
                   <RadioGroupItem value={v} />
                   {v === 'all' ? '任意' : v === '6' ? '6+' : v}
@@ -677,14 +677,14 @@ export default function DeckBuilder({
                     <button
                       type="button"
                       disabled={
-                        draft.length >= 20 ||
+                        draft.length >= 25 ||
                         countOf(c.id) >= limitOf(c.id) ||
                         ownedOf(c.id) === 0
                       }
                       onPointerDown={controlPress}
                       onClick={(event) => {
                         event.stopPropagation();
-                        if (draft.length < 20) pick(c.id);
+                        if (draft.length < 25) pick(c.id);
                       }}
                       aria-label={`增加一张${c.name}`}
                     >
@@ -730,7 +730,7 @@ export default function DeckBuilder({
           <Layers3 size={16} />
           <span>
             <span className="mobile-deck-label">我的编队</span>{' '}
-            <b>{draft.length}/20</b>
+            <b>{draft.length}/25</b>
           </span>
         </button>
         <output className="mobile-deck-status" aria-live="polite">
@@ -821,7 +821,7 @@ export default function DeckBuilder({
                   ? '未拥有 · 去商店开包'
                   : countOf(selectedCard.id) >= limitOf(selectedCard.id)
                   ? '数量已满'
-                  : draft.length === 20
+                  : draft.length === 25
                     ? '选择旧卡替换'
                     : '增加一张'}
                 <ArrowRight size={16} />

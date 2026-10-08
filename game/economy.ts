@@ -36,7 +36,7 @@ export const ECONOMY_RULES = {
   bondDelay: 6,
   bondPayout: 3,
   maxBonds: 2,
-  overdraftDuration: 25,
+  overdraftDuration: 40,
   overdraftPenalty: 1.6,
   overdraftPayout: 7,
   suppressPenalty: 2,
@@ -108,8 +108,7 @@ export function energyInterval(s: EconomyMatch, side: 0 | 1): number {
     ECONOMY_RULES.baseInterval - level * ECONOMY_RULES.logisticsStep,
   );
   let interval = base / Math.max(1, Math.min(1.3, p.economyRate ?? 1));
-  if (p.overdraftUntil != null && p.overdraftUntil > s.time)
-    interval *= ECONOMY_RULES.overdraftPenalty;
+
   if (p.suppressedUntil != null && p.suppressedUntil > s.time)
     interval *= ECONOMY_RULES.suppressPenalty;
   if (p.productionUntil != null && p.productionUntil > s.time)
@@ -188,9 +187,10 @@ export function updateEconomy(s: EconomyMatch, side: 0 | 1, dt: number): void {
   const p = s.players[side];
   // Borrowed command points above the normal cap remain spendable. Natural
   // recharge pauses until the balance drops below that cap.
-  if (p.energy < energyLimit(p))
-    p.energy = Math.min(energyLimit(p), p.energy + dt / energyInterval(s, side));
-  if (p.bondDueAt != null && s.time + 1e-8 >= p.bondDueAt) {
+  const eligibleDt=Math.min(dt,Math.max(0,s.time-(p.overdraftUntil??-Infinity)));
+  if (p.energy < energyLimit(p) && eligibleDt>0)
+    p.energy = Math.min(energyLimit(p), p.energy + eligibleDt / energyInterval(s, side));
+  if (p.bondDueAt != null && s.time + 1e-8 >= p.bondDueAt && (p.overdraftUntil??0)<=s.time) {
     p.energy = Math.max(p.energy,
       Math.min(energyLimit(p), p.energy + ECONOMY_RULES.bondPayout));
     p.bondDueAt = null;

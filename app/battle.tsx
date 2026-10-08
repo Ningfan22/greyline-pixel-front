@@ -41,7 +41,7 @@ import {
   CARDS,
   chooseAiDeck,
   needsTarget,
-  createGame,
+  createGame, toggleRadar,
   DURATION,
   MAX_HP,
   playCard,
@@ -945,9 +945,10 @@ export default function Battle({
             <Zap size={14} />
             <strong>{Math.floor(p.energy)}</strong>
             <span>/ {p.energyCap} 指挥点</span>
+            {(p.fogJammedUntil??0)>view.time&&<small>迷雾干扰 {Math.ceil(p.fogJammedUntil!-view.time)}秒</small>}
           </div>
           <small className="mobile-economy-readout">
-            +1 / {p.energyInterval.toFixed(1)}秒
+            {(p.overdraftUntil??0)>view.time?'回点暂停':`+1 / ${p.energyInterval.toFixed(1)}秒`}
             {p.bondDueAt !== null
               ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
               : ''}
@@ -1247,6 +1248,7 @@ export default function Battle({
           decisionAnchor.x>=cameraView&&decisionAnchor.x<=cameraView+viewportWidth&&(
           <UnitLogisticsFan x={(decisionAnchor.x-cameraView)/viewportWidth*100}
             y={decisionAnchor.y/H*100} unit={logisticsUnit} reason={logisticsStatus.reason}
+            radar={CARDS[logisticsUnit.id].airRadarRange?{on:!logisticsUnit.radarOff,onToggle:()=>{toggleRadar(game.current,logisticsUnit.uid);refresh();}}:undefined}
             onClose={()=>{setLogisticsUid(null);selectSquad(null);}} onOrder={order=>{
               if(issueLogisticsOrder(game.current,logisticsUnit.uid,order)){
                 const immobile=(CARDS[logisticsUnit.id].static&&!CARDS[logisticsUnit.id].emplacement)||vehicleOutOfFuel(logisticsUnit)||isImmobilized(logisticsUnit);
@@ -1276,6 +1278,7 @@ export default function Battle({
                       ? '门'
                       : '辆'
               }
+              radar={CARDS[selectedMembers[0].id].airRadarRange?{on:!selectedMembers[0].radarOff,onToggle:()=>{toggleRadar(game.current,selectedMembers[0].uid);refresh();}}:undefined}
               orders={ordersForUnit(selectedMembers[0].id)}
               order={
                 selectedMembers[0].squadOrder ??
@@ -1705,9 +1708,10 @@ export default function Battle({
             <small>COMMAND</small>
           </div>
           <div className="energy-number">
+            {(p.fogJammedUntil??0)>view.time&&<small>迷雾干扰 {Math.ceil(p.fogJammedUntil!-view.time)}秒</small>}
             <strong>{Math.floor(p.energy)}</strong>
             <span>/ {p.energyCap}</span>
-            <small>+1 / {p.energyInterval.toFixed(1)}s</small>
+            <small>{(p.overdraftUntil??0)>view.time?`回点暂停 ${Math.ceil(p.overdraftUntil!-view.time)}s`:`+1 / ${p.energyInterval.toFixed(1)}s`}</small>
           </div>
           <div
             className="energy-segments"
@@ -1816,7 +1820,7 @@ export default function Battle({
                   <Radio size={13} />
                   禁止抽牌 · {Math.ceil(p.jam)}s
                 </>
-              ) : p.hand.length === 6 ? (
+              ) : p.hand.length >= 6 ? (
                 '手牌已满 · 打出卡牌腾出空位'
               ) : p.drawIn > 0 ? (
                 `抽牌冷却 ${Math.ceil(p.drawIn)}s`
@@ -2067,7 +2071,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v232
+          GREYLINE <i /> 林间前线 · v233
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -2168,7 +2172,7 @@ export default function Battle({
               <div className="guide-note">
                 <Radio size={18} />
                 <p>
-                  AI 从独立组建的 20 张牌库抽牌。当前难度：
+                  AI 从独立组建的25／30／35张牌库抽牌。当前难度：
                   {DIFFICULTY_LABEL[difficulty]}，{DIFFICULTY_BONUS[difficulty]}
                   。双方开局均为0点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。
                 </p>

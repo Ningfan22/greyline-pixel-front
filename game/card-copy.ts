@@ -12,6 +12,8 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
+ stealth_bomber:{en:'STEALTH BOMBER',typeLabel:'隐身航空',ability:'隐身突防',rule:'三弹突防，投弹暴露四秒。',flavor:'黑影掠过，重弹落下。'},
+ anti_radiation_shell:{en:'ANTI-RADIATION SHELL',typeLabel:'反雷达打击',ability:'追踪辐射',rule:'无视迷雾，摧毁开机防空车。',flavor:'雷达亮起，炮弹循迹。'},
   ...Object.fromEntries(Object.values(EXPANSION_CARDS_V227).map(c=>[c.id,{en:c.en,typeLabel:c.type==='fortification'?'阵地工事':'口径火炮',ability:c.name,rule:c.type==='fortification'?'建成自带人员，独立驻守。':`${c.rate}秒装填，${c.ammoCapacity}发携弹。`,flavor:c.type==='fortification'?'阵地有人，队列不散。':'口径不同，任务不同。'}])) as Record<keyof typeof EXPANSION_CARDS_V227,CardCopy>,
   fort_radar:{en:'EARLY WARNING RADAR',typeLabel:'空情预警',ability:'远程空情',rule:'建成九秒，雷达覆盖2600。',flavor:'先听见，再看见。'},
   fort_watchtower:{en:'FORWARD WATCHTOWER',typeLabel:'观察工事',ability:'高处观察',rule:'建成六秒，视野1050。',flavor:'看远一步，少走弯路。'},
@@ -541,7 +543,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'EMERGENCY RALLY',
     typeLabel: '动员指令',
     ability: '稳住阵脚',
-    rule: '一费回士气，清除大幅压制。',
+    rule: '零费回士气，清除大幅压制。',
     flavor: '收拢的人里，总有几个不该在的。',
   },
   ammo: {
@@ -896,3 +898,10 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
   fort_spawn: {en:'FORWARD POST',typeLabel:'工事',ability:'前线增援',rule:'建设十秒，步兵前出。',flavor:'援军从这里再出发。'},
   fort_wire: {en:'BARBED WIRE',typeLabel:'工事',ability:'阻滞推进',rule:'建设四秒，不可驻守。',flavor:'它只需拖住三秒。'},
 };
+
+Object.assign(CARD_COPY.foraged_supplies,{ability:'弃牌回库',rule:'随机两张弃牌洗回牌堆。'});
+Object.assign(CARD_COPY.jam,{ability:'全域迷雾',rule:'敌方全域迷雾持续八秒。'});
+Object.assign(CARD_COPY.overdraft,{rule:'获得七点，回点暂停四十秒。'});
+Object.assign(CARD_COPY.battlefield_salvage,{rule:'随机回收部队，费用不限。'});
+Object.assign(CARD_COPY.heavy_tank,{rule:'主动拦截，抵御RPG与陶式。'});
+Object.assign(CARD_COPY.air_assault,{rule:'敌占落点返航，回手一费。'});

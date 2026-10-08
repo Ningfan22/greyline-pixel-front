@@ -33,7 +33,7 @@ for(const side of [0,1]) {
   assert(!isCombatant(plane),JSON.stringify({hp:plane.hp,x:plane.x,shots:shotMax}));assert(shotMax<=maxShots);assert((plane.x-at(side,1100))*(side?-1:1)>0,'intercept occurs before protected units');
  });
  test(`side ${side}: anti-tank submunitions damage an armour cluster while sparing dispersed infantry and HQ`,()=>{
-  const s=arena();one(s,side,'scouts',at(side,1500));const tanks=[1250,1390,1530].map(x=>one(s,1-side,'tank',at(side,x),{hp:3000,maxHp:3000}));const soldier=one(s,1-side,'infantry',at(side,1390));refreshVision(s);
+  const s=arena();one(s,side,'scouts',at(side,1500));const tanks=[1250,1390,1530].map(x=>one(s,1-side,'tank',at(side,x),{hp:3000,maxHp:3000,logisticsOrder:'hold'}));const soldier=one(s,1-side,'infantry',at(side,1700));refreshVision(s);
   assert(use(s,side,'antitank_cluster',at(side,1390)).ok);assert.equal(s.markers[0].kind,'antitank_cluster');const hp=soldier.hp,baseHp=s.players[1-side].hp;run(s,6);
   assert(tanks.every(u=>u.hp<2850),JSON.stringify(tanks.map(u=>u.hp)));assert(hp-soldier.hp<30);assert.equal(s.players[1-side].hp,baseHp);
  });
@@ -52,5 +52,5 @@ test('short chin gun has a restrained sweep and never manufactures a ray outside
  const body={id,x:800,y:200,facing,hullAngle:0},m=gunMount(id);assert(m.barrelLength<26);assert(Math.abs(m.minElevation*180/Math.PI+32)<1e-8);const pose=gunPose(body,-2);assert.equal(pose.elevation,m.minElevation);assert(!aimedGunSolution(body,800+facing*50,374).canFire);assert(aimedGunSolution(body,800+facing*450,350).canFire);
  }});
 test('new counter-armour cards are collectible in a complete preset and appear in enemy decks',()=>{
- const preset=DECK_PRESETS.find(d=>d.id==='armor_hunters');assert.equal(preset.cards.length,20);for(const id of ['antitank_cluster','hunter_swarm','antitank_barrier'])assert(preset.cards.includes(id)&&AI_DECKS.some(d=>d.includes(id)));assert.equal(CARDS.sam_vehicle.range,W*2/3);
+ const preset=DECK_PRESETS.find(d=>d.id==='armor_hunters');assert.equal(preset.cards.length,25);for(const id of ['antitank_cluster','hunter_swarm','antitank_barrier'])assert(preset.cards.includes(id)&&AI_DECKS.some(d=>d.includes(id)));assert.equal(CARDS.sam_vehicle.range,W*2/3);
 });

@@ -1,5 +1,5 @@
 /**
- * Deck builder screen: draft a 20-card deck with filters, search, undo,
+ * Deck builder screen: draft a 25-card deck with filters, search, undo,
  * replace mode, cost curve, presets, and deck-slot management.
  * Replaces app/deck-builder.tsx.
  */
@@ -55,6 +55,7 @@ const TYPE_FILTERS = [
 
 const COST_FILTERS = [
   { key: 'all', label: '费用' },
+  { key: '0', label: '0 费' },
   { key: '1', label: '1 费' },
   { key: '2', label: '2 费' },
   { key: '3', label: '3 费' },
@@ -455,7 +456,7 @@ export class DeckBuilderScreen extends Screen {
       return;
     }
     if (!this.isValid()) {
-      this.toast('编队满 20 张才能另存为新卡组');
+      this.toast('编队满 25 张才能另存为新卡组');
       return;
     }
     const ok = lobbyState.saveDeckAs([...this.draft]);
@@ -757,17 +758,17 @@ export class DeckBuilderScreen extends Screen {
     );
 
     // Cost curve
-    const costs = Array.from({ length: 6 }, (_, i) =>
+    const costs = Array.from({ length: 7 }, (_, i) =>
       this.draft.filter((id) =>
-        i === 5 ? CARDS[id].cost >= 6 : CARDS[id].cost === i + 1,
+        i === 6 ? CARDS[id].cost >= 6 : CARDS[id].cost === i,
       ).length,
     );
     const maxCost = Math.max(1, ...costs);
     const curveX = 300;
     const curveW = 160;
-    const barW = (curveW - 30) / 6;
+    const barW = (curveW - 36) / 7;
     drawTextLeft(ctx, '费用曲线', curveX, sy + 12, 10, COLORS.textDim);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       const n = costs[i];
       const barH = Math.max(2, (n / maxCost) * 26);
       const bx = curveX + i * (barW + 6);
@@ -777,7 +778,7 @@ export class DeckBuilderScreen extends Screen {
       if (n > 0) {
         drawTextCentered(ctx, String(n), bx + barW / 2, by2 - 10, 9, COLORS.text);
       }
-      drawTextCentered(ctx, i === 5 ? '6+' : String(i + 1), bx + barW / 2, sy + STAT_H - 12, 9, COLORS.textDim);
+      drawTextCentered(ctx, i === 6 ? '6+' : String(i), bx + barW / 2, sy + STAT_H - 12, 9, COLORS.textDim);
     }
 
     // Toast

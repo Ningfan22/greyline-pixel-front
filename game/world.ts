@@ -621,7 +621,7 @@ export function observerUnits(s: GameState, side: Side) {
 export function airGroundSight(u: Pick<Unit, 'id'>): number | null {
   const c = CARDS[u.id];
   if (!c.air) return null;
-  if(c.airframe==='parachute_transport'||c.airframe==='glider')return 0;
+  if(c.airframe==='parachute_transport'||c.airframe==='glider'||c.stealthDetectionRange)return 0;
   if (c.observer) return c.sight ?? 980;
   return u.id === 'helicopter' || c.airframe === 'rocket_heli' || c.airframe === 'transport_heli'
     ? 320 : 180;
@@ -648,6 +648,7 @@ export function pointVisibleWith(
 ) {
   if (Math.abs(x - (side === 0 ? 70 : 3770)) < 360 && y > floorAt(s, x) - 170)
     return true;
+  if((s.players[side].fogJammedUntil??0)>s.time)return false;
   if (
     s.flares.some(
       (f) =>
@@ -660,7 +661,7 @@ export function pointVisibleWith(
     if (u.side !== side || u.hp <= 0 || u.wounded || u.surrendered ||
         (CARDS[u.id].fortification && (u.buildUntil ?? 0) > s.time))
       return false;
-    const radar=layer==='air' ? CARDS[u.id].airRadarRange : undefined;
+    const radar=layer==='air' && !u.radarOff ? CARDS[u.id].airRadarRange : undefined;
     if(radar !== undefined) {
       const reach=radar*((s.players[side].sensorBlindUntil ?? 0)>s.time?.45:1)*
         ((s.players[side].radarJamUntil ?? 0)>s.time?.55:1);
@@ -751,13 +752,20 @@ function detectConcealedInfantry(s: GameState, side: Side, u: Unit) {
   }
   return detected;
 }
+function detectStealth(s:GameState,side:Side,u:Unit) {
+ const range=CARDS[u.id].stealthDetectionRange;
+ return !range || (u.exposedUntil??0)>s.time || s.units.some(v=>v.side===side&&v.hp>0&&!v.wounded&&!v.surrendered&&Math.hypot(v.x-u.x,(v.y-u.y)*.25)<=range);
+}
+export function renderUnitVisible(s:GameState,side:Side,u:Unit) {
+ return visibleToSide(s,side,u) && ((s.players[side].fogJammedUntil??0)<=s.time || pointVisible(s,side,u.x,u.y-20,CARDS[u.id].air?'air':'ground'));
+}
 export function refreshVision(s: GameState) {
   for (const side of [0, 1] as Side[]) {
     s.visible[side] = s.units
       .filter(
         (u) =>
           u.side === side ||
-          (pointVisible(
+          (detectStealth(s,side,u) && pointVisible(
             s,
             side,
             u.x,
@@ -765,7 +773,7 @@ export function refreshVision(s: GameState) {
             CARDS[u.id].air || u.parachuting || u.rappelling ? 'air' : 'ground',
           ) && detectConcealedInfantry(s, side, u)) ||
           // Night: a muzzle flash betrays the shooter to anyone nearby.
-          (s.night &&
+          ((s.players[side].fogJammedUntil??0)<=s.time && detectStealth(s,side,u) && s.night &&
             (u.flashUntil ?? 0) > s.time &&
             s.units.some(
               (v) =>

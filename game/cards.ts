@@ -50,6 +50,8 @@ export type CardId =
   | 'loiter_drone'
   | 'fpv_drone'
   | 'air_assault'
+  | 'anti_radiation_shell'
+  | 'stealth_bomber'
   | 'interceptor'
   | 'javelin'
   | 'anti_tank_gun'
@@ -199,6 +201,7 @@ export interface Card {
   sight?: number;
   /** Radar detection applies only to airborne targets, never ground reconnaissance. */
   airRadarRange?: number;
+  stealthDetectionRange?: number;
   /** Specialised ammunition penetration; ordinary autocannons remain tier 1. */
   penetrationTier?: 0 | 1 | 2 | 3;
   guided?: boolean;
@@ -646,6 +649,8 @@ function fortCard(
 }
 export const CARDS: Record<CardId, Card> = {
   ...EXPANSION_CARDS_V227,
+  anti_radiation_shell:variant('precision','anti_radiation_shell','反辐射炮弹',3,'追踪开机防空车',{}),
+  stealth_bomber:variant('helicopter','stealth_bomber','隐身轰炸机',10,'隐身突防',{}),
   antitank_cluster: variant('artillery','antitank_cluster','反坦克子母弹',5,
     '顶攻子弹药覆盖装甲群，步兵与基地伤害很低', {
       artilleryKind:'antitank_cluster', tag:'支援 · 集群猎甲',
@@ -2781,13 +2786,13 @@ Object.assign(CARDS.antiarmor, {
     '2费4人200生命。1名RPG手每5.5秒60伤害、射程680、观察680、对甲乘1.8；3名护卫各每1.1秒3伤害、射程340。火箭直飞不制导，无法替代标枪。',
 });
 
-export const DECK_SIZE = 20;
+export const DECK_SIZE = 25;
 export const DECK: CardId[] = [...DECK_PRESETS[0].cards];
 
-export function validDeck(value: unknown): value is CardId[] {
+export function validDeck(value: unknown, size = DECK_SIZE): value is CardId[] {
   return (
     Array.isArray(value) &&
-    value.length === DECK_SIZE &&
+    value.length === size &&
     value.every(
       (id) =>
         typeof id === 'string' &&
@@ -2797,12 +2802,12 @@ export function validDeck(value: unknown): value is CardId[] {
   );
 }
 
-export function chooseAiDeck(seed: number): CardId[] {
-  return [
+export function chooseAiDeck(seed: number, difficulty: 'standard'|'veteran'|'elite' = 'veteran'): CardId[] {
+  return completeDeck([
     ...AI_DECKS[
       ((Math.imul(seed, 1103515245) + 12345) >>> 0) % AI_DECKS.length
     ],
-  ];
+  ], opponentDeckSize(difficulty));
 }
 
 for (const id of ['tank', 'light_tank', 'heavy_tank'] as const)
@@ -2817,6 +2822,7 @@ export function copyLimit(id: CardId) {
   if (
     [
       'heavy_tank',
+      'stealth_bomber',
       'rocket_heli',
       'barrage',
       'bomber',
@@ -3247,3 +3253,41 @@ Object.assign(CARDS.sniper,{sight:1450,description:'超远观察、精确狙击�
 Object.assign(CARDS.sniper_team,{sight:1450,detail:CARDS.sniper_team.detail+' 观察手展开后视野1650；精确射击98%基础命中率。'});
 Object.assign(CARDS.air_assault,{speed:340,description:'快速直升机索降5名精锐步兵，射击更准、战术动作更快',detail:'4费派遣快速运输直升机（300生命）。从己方基地飞抵拖牌落点，逐一索降5名精锐步兵：总生命仍为220，基础命中率82%，卧倒、起身、撤退准备和换弹动作更快。运输机被击落时未下机者损失，已下机者继续作战。'});
 for(const c of Object.values(CARDS))if(c.airdrop&&!c.insertion)c.detail+=' 由运输机从己方基地快速飞入目标区，连续跳伞后飞机飞离；运输机被击落会损失尚未离机的兵员。';
+
+// v233: combined-arms counterplay and a larger, finite battle group.
+CARDS.anti_radiation_shell = {...CARDS.precision,id:'anti_radiation_shell',type:'skill',model:undefined,hp:undefined,damage:undefined,rate:undefined,range:undefined,minRange:undefined,speed:undefined,static:false,indirect:false,emplacement:undefined,name:'反辐射炮弹',en:'ANTI-RADIATION SHELL',cost:3,targetGround:false,artilleryKind:undefined,description:'锁定一辆开机雷达防空车，无视迷雾直接摧毁。',detail:'3费。自动追踪一辆开机的敌方雷达防空车，无需地面视野，直接命中并摧毁。雷达关闭的防空车不会被锁定；没有开机目标时不会消耗卡牌。',tag:'反雷达 · 精确打击'};
+CARDS.stealth_bomber = {...CARDS.bomber,id:'stealth_bomber',name:'隐身轰炸机',en:'STEALTH BOMBER',cost:10,hp:280,damage:160,speed:460,sight:400,range:410,radius:58,sortieAmmo:3,rate:.8,returnCost:6,sortieCooldown:30,stealthDetectionRange:360,description:'隐身突防，投下三枚重磅炸弹。',detail:'10费280生命。独立隐身机体，三枚160伤害炸弹；不提供地面视野，需要友军观察引导。未投弹时仅360范围能发现，投弹后暴露4秒，可被防空攻击。返航回手后6费，整备30秒。',tag:'航空 · 隐身突防'};
+for(const [id,cost] of Object.entries({heavy_tank:12,command_vehicle:3,ifv:4,tow_ifv:4,tank:8,foraged_supplies:2,rally:0})) {
+ const card=CARDS[id as CardId];card.cost=cost;card.detail=card.detail.replace(/^\d+费/,`${cost}费`);
+}
+for(const c of Object.values(CARDS)) if(c.type==='skill' && (c.artilleryKind || c.effect==='barrage' || ['artillery','precision'].includes(c.id))) {
+ if(c.id==='anti_radiation_shell')continue;
+ c.cost=Math.max(1,c.cost-1);c.detail=c.detail.replace(/^\d+费/,`${c.cost}费`);
+}
+Object.assign(CARDS.rally,{description:'零费稳住溃退班组'});
+Object.assign(CARDS.naval_gunfire,{description:'单轮重型舰炮，300伤害、80爆炸范围。',detail:`${CARDS.naval_gunfire.cost}费。3.4秒后单轮舰炮打击，300伤害、80爆炸范围，对装甲乘2，对基地乘0.6。需要观察目标区域。`});
+Object.assign(CARDS.heavy_tank,{description:'突击重坦，主动拦截RPG与陶式导弹。',detail:CARDS.heavy_tank.detail+' 主动防护：来袭RPG拦截率90%，陶式导弹50%；每次拦截尝试后冷却2秒，不拦截炮弹或顶攻炸弹。'});
+Object.assign(CARDS.foraged_supplies,{description:'弃牌堆随机两张回到牌堆。',detail:'2费。将弃牌堆中随机两张卡洗回剩余牌堆，不直接加入手牌；不回收本次使用的这张就地补给。少于两张时回收现有卡牌。'});
+Object.assign(CARDS.jam,{tag:'干扰 · 战争迷雾',description:'敌方除基地外全屏迷雾8秒，仍能出牌。',detail:'1费。敌方全屏战争迷雾持续8秒，基地附近保留视野，己方部队所在地也不揭开迷雾；仍可正常出牌。'});
+Object.assign(CARDS.overdraft,{description:'立即获得7点，随后40秒停止回点。',detail:'1费。立即获得7点指挥点，可超出当前上限；随后40秒自然回点停止，到期正常恢复。'});
+Object.assign(CARDS.battlefield_salvage,{description:'随机回收一张部队，不限费用。',detail:'1费。从弃牌堆随机抽回一张部队卡，费用不限；不能回收指令卡。'});
+Object.assign(CARDS.air_assault,{sortie:true,returnCost:1,sortieCooldown:0,detail:CARDS.air_assault.detail+' 首次索降前检查落点，发现敌军占据就取消投放并返航；成功返航后原卡回手变为1费，返航途中被击落则损失卡牌。完成正常投放后卡牌消耗。'});
+CARDS.mine_clearer.internal=true;
+for(const c of Object.values(CARDS)) {
+ if(c.type!=='unit'||c.air||c.members||c.static)continue;
+ const wheel=['pickup','scout_car','apc_transport','supply_truck','mlrs'].includes(c.id);
+ c.speed=wheel?112:c.id==='heavy_tank'?72:c.id==='sp_howitzer_122'?86:c.id==='sp_howitzer_155'?80:82;
+}
+export function opponentDeckSize(difficulty: 'standard'|'veteran'|'elite') {return difficulty==='standard'?25:difficulty==='elite'?35:30;}
+export function completeDeck(source: readonly CardId[], size=DECK_SIZE, owned?: Partial<Record<CardId,number>>): CardId[] {
+ const deck:CardId[]=[];
+ const limit=(id:CardId)=>Math.min(copyLimit(id),owned?.[id]??(owned?0:copyLimit(id)));
+ for(const id of source)if(CARDS[id]&&!CARDS[id].internal&&deck.filter(x=>x===id).length<limit(id)&&deck.length<size)deck.push(id);
+ const pool=[...new Set([...source,...DECK_PRESETS[0].cards,...Object.keys(CARDS) as CardId[]])];
+ for(let round=0;round<6&&deck.length<size;round++)for(const id of pool)if(CARDS[id]&&!CARDS[id].internal&&deck.filter(x=>x===id).length<limit(id)&&deck.length<size)deck.push(id);
+ return deck;
+}
+DECK_PRESETS[0].cards.push('fire_team','ifv','pickup','machinegun','mortar');
+for(const preset of DECK_PRESETS)preset.cards=completeDeck(preset.cards);
+for(let i=0;i<AI_DECKS.length;i++)AI_DECKS[i]=completeDeck(AI_DECKS[i]);
+DECK.splice(0,DECK.length,...DECK_PRESETS[0].cards);

@@ -752,7 +752,7 @@ class GuideWidget extends Widget {
     // difficulty note
     const diffLabel = DIFFICULTY_LABEL[this.screen.match?.difficulty ?? 'standard'] ?? '标准';
     const diffBonus = DIFFICULTY_BONUS[this.screen.match?.difficulty ?? 'standard'] ?? '';
-    const note = `AI 从独立组建的 20 张牌库抽牌。当前难度：${diffLabel}，${diffBonus}。双方开局均为0点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。`;
+    const note = `AI 从按难度独立组建的25／30／35张牌库抽牌。当前难度：${diffLabel}，${diffBonus}。双方开局均为0点，卡牌费用和抽牌规则相同。离开页面会自动暂停；返回后点击继续作战。`;
     const noteLines = wrapText(ctx, note, 316, 9);
     for (const nl of noteLines) {
       this.lines.push({ text: nl, color: COLORS.textDim, bold: false });

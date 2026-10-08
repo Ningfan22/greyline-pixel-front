@@ -24,6 +24,7 @@ export default function SquadMenu({
   progress,
   constructionLabel,
   onOrder,
+  radar,
   onClose,
 }: {
   x: number;
@@ -35,6 +36,7 @@ export default function SquadMenu({
   order?: SquadOrder;
   progress?: number;
   constructionLabel?: string;
+  radar?: {on:boolean;onToggle:()=>void};
   onOrder: (order: SquadOrder) => void;
   onClose: () => void;
 }) {
@@ -83,6 +85,7 @@ export default function SquadMenu({
           {name} · {count}
           {unitLabel}
         </span>
+        {radar&&<button type="button" aria-pressed={radar.on} aria-label={radar.on?'关闭雷达':'开启雷达'} onClick={radar.onToggle}>{radar.on?'关闭雷达':'开启雷达'}</button>}
         <button type="button" aria-label="关闭单位指令" onClick={onClose}>
           ×
         </button>

@@ -174,7 +174,7 @@ function Guide() {
       <div>
         <h2>组建编队</h2>
         <p>
-          在卡组中选择 20 张牌，每种卡各有数量上限。带上反坦克与防空兵种；AI
+          在卡组中选择 25 张牌，每种卡各有数量上限。带上反坦克与防空兵种；AI
           使用自己的卡组，双方各抽各的。
         </p>
       </div>
@@ -259,7 +259,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v232</small>
+          <small>GREYLINE · v233</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (
@@ -310,7 +310,7 @@ export default function HomeMenu({
           <span>当前编队</span>
           <strong>
             {deckCount}
-            <small> / 20</small>
+            <small> / 25</small>
           </strong>
         </div>
       </aside>

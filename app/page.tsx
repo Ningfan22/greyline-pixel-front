@@ -106,7 +106,7 @@ export default function Home() {
   const save = (next: CardId[]) => {
     if (!collection) return '收藏仍在加载，请稍候';
     if (!validDeckWithCollection(next, collection))
-      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
+      return '编队需满 25 张，且不能超过已拥有的卡牌数量';
     setDeckStore((prev) => (prev ? withActiveDeck(prev, next) : prev));
     return '编队已保存到当前卡组';
   };

@@ -443,7 +443,7 @@ export class LobbyScreen extends Screen {
     drawTextLeft(ctx, `金币 ${gold}`, 12, this.screenH - 44, 12, COLORS.gold);
     drawTextLeft(
       ctx,
-      `当前编队 ${lobbyState.deck.length}/20`,
+      `当前编队 ${lobbyState.deck.length}/25`,
       12,
       this.screenH - 24,
       12,
@@ -508,7 +508,7 @@ export class LobbyScreen extends Screen {
       ],
       [
         '组建编队',
-        '在卡组中选择 20 张牌，每种卡各有数量上限。带上反坦克与防空兵种；AI 使用自己的卡组，双方各抽各的。',
+        '在卡组中选择 25 张牌，每种卡各有数量上限。带上反坦克与防空兵种；AI 使用自己的卡组，双方各抽各的。',
       ],
     ];
     for (const [title, body] of sections) {
@@ -566,7 +566,7 @@ export class LobbyScreen extends Screen {
     y += 18;
     drawTextLeft(
       ctx,
-      '使用当前20张编队 · 战役进度保存在本机 · 进场先听无线电简报',
+      '使用当前25张编队 · 战役进度保存在本机 · 进场先听无线电简报',
       cx,
       y,
       10,

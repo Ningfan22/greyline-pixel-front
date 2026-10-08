@@ -84,7 +84,7 @@ function RadioBrief({
           <p>{mission.goal}</p>
           {objectiveStatus && <strong>当前：{objectiveStatus}</strong>}
           <small>
-            {missionDeckName(mission.id)} · 20 张任务借用卡
+            {missionDeckName(mission.id)} · 25 张任务借用卡
             {mission.night ? ' · 夜间行动' : ''}
           </small>
         </div>

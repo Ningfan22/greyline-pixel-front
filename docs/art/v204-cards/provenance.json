@@ -1,6 +1,6 @@
 {
   "version": 204,
-  "encoder": "sharp 0.35.4",
+  "encoder": "sharp 0.35.5",
   "mode": "nearest-neighbour resizing + WebP encoding of existing image-generated artwork",
   "entries": [
     {
@@ -662,6 +662,66 @@
       "height": 522,
       "bytes": 64186,
       "sha256": "39778f8bc834069ffa092356ed280edbe67e300b027e4bdbbf223544b8d360e0"
+    },
+    {
+      "source": "/art/v233/anti_radiation_shell.webp",
+      "sourceSha256": "183e811c0e22b7ede4da1ca0c5360a630c031d1d1102541c5e52542d37c9dc66",
+      "sourceBytes": 244994,
+      "path": "/art/v204-cards/anti_radiation_shell-192-908cb3b0ec7a.webp",
+      "width": 192,
+      "height": 288,
+      "bytes": 12086,
+      "sha256": "908cb3b0ec7a7dcd858130ce49a85b54a3ce930436c87cee8bb4f7d9b4833eb2"
+    },
+    {
+      "source": "/art/v233/anti_radiation_shell.webp",
+      "sourceSha256": "183e811c0e22b7ede4da1ca0c5360a630c031d1d1102541c5e52542d37c9dc66",
+      "sourceBytes": 244994,
+      "path": "/art/v204-cards/anti_radiation_shell-320-09ab0a59e97f.webp",
+      "width": 320,
+      "height": 480,
+      "bytes": 30924,
+      "sha256": "09ab0a59e97fd0bad61fe52874342c92337a8c956c3e03116114524de31525ec"
+    },
+    {
+      "source": "/art/v233/anti_radiation_shell.webp",
+      "sourceSha256": "183e811c0e22b7ede4da1ca0c5360a630c031d1d1102541c5e52542d37c9dc66",
+      "sourceBytes": 244994,
+      "path": "/art/v204-cards/anti_radiation_shell-640-22a9b915f4cc.webp",
+      "width": 640,
+      "height": 960,
+      "bytes": 91664,
+      "sha256": "22a9b915f4cc00c5d51cd68df67721d4dd13f70ad8449704cb2a0921a55986ff"
+    },
+    {
+      "source": "/art/v233/stealth_bomber.webp",
+      "sourceSha256": "edb6b4771728e9ea61c40da84316c5406160bb2255905284e13697738c298a1c",
+      "sourceBytes": 195190,
+      "path": "/art/v204-cards/stealth_bomber-192-c4650b3432ac.webp",
+      "width": 192,
+      "height": 256,
+      "bytes": 8628,
+      "sha256": "c4650b3432ac269e88ae8b47c1f6aaeb902040a92506ed74fb1015d9becec20f"
+    },
+    {
+      "source": "/art/v233/stealth_bomber.webp",
+      "sourceSha256": "edb6b4771728e9ea61c40da84316c5406160bb2255905284e13697738c298a1c",
+      "sourceBytes": 195190,
+      "path": "/art/v204-cards/stealth_bomber-320-e46820438d37.webp",
+      "width": 320,
+      "height": 427,
+      "bytes": 21832,
+      "sha256": "e46820438d373b38f9badec11fa43b500a3a14828d77acbcb4d73168539c3a3a"
+    },
+    {
+      "source": "/art/v233/stealth_bomber.webp",
+      "sourceSha256": "edb6b4771728e9ea61c40da84316c5406160bb2255905284e13697738c298a1c",
+      "sourceBytes": 195190,
+      "path": "/art/v204-cards/stealth_bomber-640-43a5520154fb.webp",
+      "width": 640,
+      "height": 853,
+      "bytes": 67098,
+      "sha256": "43a5520154fbb7f1b848442930711f431c1fa0aa42eaeb02c7a24339aee15719"
     },
     {
       "source": "/art/v212-counterarmor/antitank_cluster.webp",
@@ -1832,36 +1892,6 @@
       "height": 480,
       "bytes": 46408,
       "sha256": "3a5252251bdf73ea6aff3334e8988d3c2b3fe26a62a621bcddfb109642f4ac08"
-    },
-    {
-      "source": "/art/cards-v15/mine_clearer.webp",
-      "sourceSha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240",
-      "sourceBytes": 97328,
-      "path": "/art/v204-cards/mine_clearer-192-51c1daca9154.webp",
-      "width": 192,
-      "height": 192,
-      "bytes": 11282,
-      "sha256": "51c1daca9154304bd44c548aaceea525c1e1c9365997386797f52fc278ebf8f1"
-    },
-    {
-      "source": "/art/cards-v15/mine_clearer.webp",
-      "sourceSha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240",
-      "sourceBytes": 97328,
-      "path": "/art/v204-cards/mine_clearer-320-4e8ba1133d47.webp",
-      "width": 320,
-      "height": 320,
-      "bytes": 25392,
-      "sha256": "4e8ba1133d475b5c64cb3616c9616b101a36a5216bfc6e3ad04b20e58419a7b7"
-    },
-    {
-      "source": "/art/cards-v15/mine_clearer.webp",
-      "sourceSha256": "1d922d70f04d25e87ce07270ea687ac399b24caf47da5f666adef29097431240",
-      "sourceBytes": 97328,
-      "path": "/art/v204-cards/mine_clearer-640-b2bd3be05aaf.webp",
-      "width": 480,
-      "height": 480,
-      "bytes": 49530,
-      "sha256": "b2bd3be05aaff3b51d8338d2bf5ab313085f2e1937259a66f5ab756cbb7a02f9"
     },
     {
       "source": "/art/cards-v10/javelin.webp",

@@ -177,7 +177,7 @@ export default function CampaignMenu({
               </div>
               <div>
                 <dt>任务编队</dt>
-                <dd>{missionDeckName(mission.id)} · 20 张借用卡</dd>
+                <dd>{missionDeckName(mission.id)} · 25 张借用卡</dd>
               </div>
             </dl>
             <div className={styles.launchRow}>

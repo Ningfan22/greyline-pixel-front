@@ -44,6 +44,7 @@ export interface CollectionState {
   ammoReleaseGranted?: boolean;
   squadLogisticsReleaseGranted?: boolean;
   expansion227Granted?: boolean;
+  counterplay233Granted?: boolean;
 }
 export const SQUAD_LOGISTICS_CARDS: CardId[]=['apc_transport','supply_truck','rapid_assault','rapid_at','rapid_recon'];
 export const NEW_RELEASE_CARDS: CardId[] = [
@@ -55,6 +56,7 @@ export const NEW_RELEASE_CARDS: CardId[] = [
 export const STARTER_COLLECTION: Partial<Record<CardId, number>> = {
   ...Object.fromEntries(EXPANSION_IDS_V227.map(id=>[id,1])),
   apc_transport:1,supply_truck:1,rapid_assault:1,rapid_at:1,rapid_recon:1,
+  stealth_bomber:1,anti_radiation_shell:2,
   infantry: 4,
   fire_team: 2,
   antiarmor: 2,
@@ -165,7 +167,7 @@ export function collectionProgress(state: CollectionState): {
   return { species, total: Object.values(CARDS).filter(c => !c.internal).length, copies };
 }
 
-/** 编队校验：满 20 张、每张不超过收藏上限。 */
+/** 编队校验：满 25 张、每张不超过收藏上限。 */
 export function validDeckWithCollection(
   value: unknown,
   state: CollectionState,
@@ -233,6 +235,7 @@ export function loadCollection(): CollectionState {
           ammoReleaseGranted: parsed.ammoReleaseGranted ?? false,
           squadLogisticsReleaseGranted:parsed.squadLogisticsReleaseGranted??false,
           expansion227Granted:parsed.expansion227Granted??false,
+          counterplay233Granted:parsed.counterplay233Granted??false,
         };
       }
     }
@@ -277,6 +280,7 @@ export function loadCollection(): CollectionState {
     state.ammoReleaseGranted = true;
     saveCollection(state);
   }
+  if(!state.counterplay233Granted){state.owned.stealth_bomber=Math.max(1,state.owned.stealth_bomber??0);state.owned.anti_radiation_shell=Math.max(2,state.owned.anti_radiation_shell??0);state.counterplay233Granted=true;saveCollection(state);}
   if(!state.expansion227Granted){for(const id of EXPANSION_IDS_V227)state.owned[id]=Math.max(1,state.owned[id]??0);state.expansion227Granted=true;saveCollection(state);}
   // v192 removes the duplicate stationary jet. Preserve cards already earned
   // before the removal by converting ownership to the original strike jet.

@@ -1,6 +1,8 @@
 /** Declare optional slots once so live actors keep one object layout even as
  * orders, stance and firing tasks change. Values remain undefined until used. */
 export const UNIT_OPTIONAL_DEFAULTS={
+  radarOff:undefined,
+  apsReadyAt:undefined,
   buildUntil:undefined,
   garrisonUid:undefined,
   fortCrewUid:undefined,

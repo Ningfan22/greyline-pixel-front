@@ -127,7 +127,7 @@ export class LobbyState {
   /** Save the active deck. Returns error message or null on success. */
   saveDeck(cards: CardId[]): string | null {
     if (!validDeckWithCollection(cards, this.collection))
-      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
+      return '编队需满 25 张，且不能超过已拥有的卡牌数量';
     this.deckStore = withActiveDeck(this.deckStore, cards);
     saveDeckStore(this.deckStore);
     this.emit();
@@ -183,7 +183,7 @@ export class LobbyState {
   begin(chosen?: CardId[], missionId?: MissionId): string | null {
     const cards = chosen ?? this.deck;
     if (!validDeckWithCollection(cards, this.collection))
-      return '编队需满 20 张，且不能超过已拥有的卡牌数量';
+      return '编队需满 25 张，且不能超过已拥有的卡牌数量';
     const seed = Date.now();
     this.match = {
       seed,

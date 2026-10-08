@@ -3,9 +3,9 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.5",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 4528.459375,
-  "canvasesCreated": 714,
-  "frames": 504,
+  "compileMs": 4327.348583,
+  "canvasesCreated": 715,
+  "frames": 505,
   "compilerSources": [
     {
       "path": "scripts/bake-battle-art.mjs",
@@ -29,7 +29,7 @@
     },
     {
       "path": "game/art.ts",
-      "sha256": "da865e8b1692b23020d0b1e58f11b81a57526391a1d0bfa21e64c2fd30a97eb2"
+      "sha256": "89981f346fde531b0888b7a5b0402f4913be00de146b4a23df61415740833317"
     },
     {
       "path": "game/art-v16.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "072a41e0785c18d8ecc40422055f6bbf71f063f65a758e32710d867e058a4c44"
+      "sha256": "ee19e143ba0b87d8d90ebf80acacfb7849762040c18bec6c871ea35df7780e66"
     },
     {
       "path": "game/maps.ts",
@@ -137,7 +137,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "aa98c08ebf25bae12c99d7c01ae2e1b042d5c6940316bc189c92b6fcc3038fd6"
+      "sha256": "2b08be549882db11b8fc154f416a322ed6b6c95d5c9e71f74e16e8c43c5469ed"
     },
     {
       "path": "game/battlefield-effects-art.ts",
@@ -616,6 +616,11 @@
       "sha256": "e8a9ef21edb509f9901eb2f33004e94c670eb2c172c37276e950bfbba141129b"
     },
     {
+      "path": "/art/v233/stealth-bomber-sprite.png",
+      "bytes": 320172,
+      "sha256": "86f2bca224ff8a83668f8565558f1e9d6d44f87a9ef4bcc22cac97f6456fa78a"
+    },
+    {
       "path": "/art/v209-vehicles-missiles/scout-wreck.png",
       "bytes": 1241246,
       "sha256": "afd893734844c046b0627be3581bac3ace1d01f724530c5ad6e7d12b7dd9c740"
@@ -626,24 +631,19 @@
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
     },
     {
-      "path": "/art/v223-vehicles/apc_transport-wreck.png",
-      "bytes": 2025341,
-      "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
-    },
-    {
       "path": "/art/v230-guns/mortar_60-barrel.png",
       "bytes": 277221,
       "sha256": "5e192eb244e12891c0624a662a758236670ee2bd41bf001f4b5fc651f6585ab5"
     },
     {
+      "path": "/art/v223-vehicles/apc_transport-wreck.png",
+      "bytes": 2025341,
+      "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
+    },
+    {
       "path": "/art/v223-vehicles/supply_truck-wreck.png",
       "bytes": 1993174,
       "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
-    },
-    {
-      "path": "/art/v230-guns/mortar_120-barrel.png",
-      "bytes": 342584,
-      "sha256": "63d88a8ba8b2c25c1a305073e0b0643d89d016681312d5a197de83fef0b97c30"
     },
     {
       "path": "/art/v230-guns/mortar_81-barrel.png",
@@ -656,9 +656,9 @@
       "sha256": "96c71b10bbeb18bab7fec980274075461816b217eb8645c7dfa72e315699e91b"
     },
     {
-      "path": "/art/v230-guns/howitzer_122-barrel.png",
-      "bytes": 255005,
-      "sha256": "a80da16d9c46570fa143ead9b74d5b58f1f7c05dfc90fcb0a399fd3473bb13ec"
+      "path": "/art/v230-guns/mortar_120-barrel.png",
+      "bytes": 342584,
+      "sha256": "63d88a8ba8b2c25c1a305073e0b0643d89d016681312d5a197de83fef0b97c30"
     },
     {
       "path": "/art/v230-guns/howitzer_105-barrel.png",
@@ -671,14 +671,19 @@
       "sha256": "325273518f440caff6564ed496cb4b71dc376f81bb9d953ee084d5fe52fb3172"
     },
     {
-      "path": "/art/v230-guns/howitzer_152-barrel.png",
-      "bytes": 297144,
-      "sha256": "49c92ee072d62eb0dcd0b1a4523ca2fc5b5746341cd70f14097cac11af48e48b"
+      "path": "/art/v230-guns/howitzer_122-barrel.png",
+      "bytes": 255005,
+      "sha256": "a80da16d9c46570fa143ead9b74d5b58f1f7c05dfc90fcb0a399fd3473bb13ec"
     },
     {
       "path": "/art/v230-guns/howitzer_155-barrel.png",
       "bytes": 269543,
       "sha256": "c9d89cc206d21e14943ab0bb6d5d93dfed355b762dc9a70897a0486bd42675b4"
+    },
+    {
+      "path": "/art/v230-guns/howitzer_152-barrel.png",
+      "bytes": 297144,
+      "sha256": "49c92ee072d62eb0dcd0b1a4523ca2fc5b5746341cd70f14097cac11af48e48b"
     },
     {
       "path": "/art/v230-guns/howitzer_203-barrel.png",
@@ -853,7 +858,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "ae435b031336201935ac873029e64065416992a0302314f2aa88c6b34802f573"
+    "sha256": "80809f62495a7b9e014ed1be18bc57974f4cba2037f7c415605f4fce4fd37941"
   },
   "atlasFiles": [
     {
@@ -865,12 +870,12 @@
       "rgbaSha256": "1df023bcebf608b8e873c0a94df7b8012f0989f44fab2a8b0f3ec48fe1a63a20"
     },
     {
-      "path": "/art/v204-battle/frames-1-57dc4872ab38.png",
-      "bytes": 3635519,
+      "path": "/art/v204-battle/frames-1-6dcf28d1bd24.png",
+      "bytes": 3678580,
       "width": 2048,
       "height": 1753,
-      "sha256": "57dc4872ab3871c27c91c0afedd2c53fde25c62766493e3ce95236279ee15c54",
-      "rgbaSha256": "ce42da9ed3f30f11fabe253ea9b0eadaa67233c912c72895d5433304982fb83f"
+      "sha256": "6dcf28d1bd240374d0a412b07ef3dc4502e6d95572504e04ede84d738861ff03",
+      "rgbaSha256": "0338ec70d74ce284b74fd930fc6d179e2a4670d2e49dd0918be6395e325fbe85"
     }
   ],
   "external": [],
@@ -908,5 +913,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 6009190
+  "sharedBytes": 6052251
 }
