@@ -3,7 +3,7 @@
   "compiler": "Existing battle sprite extraction + @napi-rs/canvas 0.1.100",
   "encoder": "sharp 0.35.5",
   "format": "Lossless PNG sprite atlases and opaque WebP backdrops, exact final canvas RGBA, no resampling",
-  "compileMs": 4327.348583,
+  "compileMs": 4416.5202500000005,
   "canvasesCreated": 715,
   "frames": 505,
   "compilerSources": [
@@ -29,7 +29,7 @@
     },
     {
       "path": "game/art.ts",
-      "sha256": "89981f346fde531b0888b7a5b0402f4913be00de146b4a23df61415740833317"
+      "sha256": "c1b691bc94698dcf3548c56ba9b1a65935033e2599d6c48ff41b38e6882c8d29"
     },
     {
       "path": "game/art-v16.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "game/cards.ts",
-      "sha256": "ee19e143ba0b87d8d90ebf80acacfb7849762040c18bec6c871ea35df7780e66"
+      "sha256": "f605deaf89f49a946d1d07fa2abfc1c554c4b7bf4228cbccf923fb67261a628a"
     },
     {
       "path": "game/maps.ts",
@@ -137,7 +137,7 @@
     },
     {
       "path": "game/world.ts",
-      "sha256": "2b08be549882db11b8fc154f416a322ed6b6c95d5c9e71f74e16e8c43c5469ed"
+      "sha256": "b233e25f84a109fb89d7a4ae9227b266a74d1433f0a0da05cfc3b3f01b624531"
     },
     {
       "path": "game/battlefield-effects-art.ts",
@@ -616,9 +616,9 @@
       "sha256": "e8a9ef21edb509f9901eb2f33004e94c670eb2c172c37276e950bfbba141129b"
     },
     {
-      "path": "/art/v233/stealth-bomber-sprite.png",
-      "bytes": 320172,
-      "sha256": "86f2bca224ff8a83668f8565558f1e9d6d44f87a9ef4bcc22cac97f6456fa78a"
+      "path": "/art/v234/stealth-bomber-sprite.png",
+      "bytes": 17323,
+      "sha256": "e6aaf5b32392a437e6f79c34a641ef4905103eec60910a0d0049a7247cc7e89f"
     },
     {
       "path": "/art/v209-vehicles-missiles/scout-wreck.png",
@@ -631,14 +631,14 @@
       "sha256": "6d7e1361ab758d6267f06c84ec6121c938d6bd1bc48d9471bbcca1c735c96556"
     },
     {
-      "path": "/art/v230-guns/mortar_60-barrel.png",
-      "bytes": 277221,
-      "sha256": "5e192eb244e12891c0624a662a758236670ee2bd41bf001f4b5fc651f6585ab5"
-    },
-    {
       "path": "/art/v223-vehicles/apc_transport-wreck.png",
       "bytes": 2025341,
       "sha256": "4a54c9f16bded2df0bb93731fc116b30164f8a80d7194ea8750f8d6dcbca24e5"
+    },
+    {
+      "path": "/art/v230-guns/mortar_60-barrel.png",
+      "bytes": 277221,
+      "sha256": "5e192eb244e12891c0624a662a758236670ee2bd41bf001f4b5fc651f6585ab5"
     },
     {
       "path": "/art/v223-vehicles/supply_truck-wreck.png",
@@ -646,14 +646,14 @@
       "sha256": "f3d3be88084a6035391e63791c02944684250ef7a649bf92290e3242dd06801f"
     },
     {
-      "path": "/art/v230-guns/mortar_81-barrel.png",
-      "bytes": 330697,
-      "sha256": "67a289a2991d6aeedfc33fdf4c5814dda8270fa5f8d02d5e39f848fe5859fce6"
-    },
-    {
       "path": "/art/v223-vehicles/pickup-wreck.png",
       "bytes": 1737984,
       "sha256": "96c71b10bbeb18bab7fec980274075461816b217eb8645c7dfa72e315699e91b"
+    },
+    {
+      "path": "/art/v230-guns/mortar_81-barrel.png",
+      "bytes": 330697,
+      "sha256": "67a289a2991d6aeedfc33fdf4c5814dda8270fa5f8d02d5e39f848fe5859fce6"
     },
     {
       "path": "/art/v230-guns/mortar_120-barrel.png",
@@ -858,7 +858,7 @@
   ],
   "dataFile": {
     "path": "game/battle-art-baked-data.ts",
-    "sha256": "80809f62495a7b9e014ed1be18bc57974f4cba2037f7c415605f4fce4fd37941"
+    "sha256": "7fd3a6d1edc2f70273d8401d8522204d48ec7a353635fc54243a7d0632f7926e"
   },
   "atlasFiles": [
     {
@@ -870,12 +870,12 @@
       "rgbaSha256": "1df023bcebf608b8e873c0a94df7b8012f0989f44fab2a8b0f3ec48fe1a63a20"
     },
     {
-      "path": "/art/v204-battle/frames-1-6dcf28d1bd24.png",
-      "bytes": 3678580,
+      "path": "/art/v204-battle/frames-1-5a85d77ac7d5.png",
+      "bytes": 3637353,
       "width": 2048,
-      "height": 1753,
-      "sha256": "6dcf28d1bd240374d0a412b07ef3dc4502e6d95572504e04ede84d738861ff03",
-      "rgbaSha256": "0338ec70d74ce284b74fd930fc6d179e2a4670d2e49dd0918be6395e325fbe85"
+      "height": 1755,
+      "sha256": "5a85d77ac7d59bf86a41d752f645298ee38469325a573f378a305826e1a4453f",
+      "rgbaSha256": "8c7270beedeae6e4acb3bece7f31368c36e7f451902f80eccb5a64c889d00f88"
     }
   ],
   "external": [],
@@ -913,5 +913,5 @@
       "rgbaSha256": "743fd704e2af086b95db192e28dcebc75a59ffd1fd28536b7171654a3daa3c48"
     }
   },
-  "sharedBytes": 6052251
+  "sharedBytes": 6011024
 }

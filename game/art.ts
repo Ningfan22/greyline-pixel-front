@@ -655,7 +655,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
     loadImage(IFV_ART_V220.source).then(ifvPartsV220),
     Promise.all(Object.entries(VEHICLE_SOURCES_V223).map(async ([id,path])=>({id:id as keyof typeof VEHICLE_SOURCES_V223,image:await loadImage(path),wreck:await loadImage(path.replace('.png','-wreck.png'))}))),
     Promise.all(GUN_IDS_V227.map(async id=>({id,body:await loadImage(`/art/v230-guns/${id}-body.png`),barrel:await loadImage(`/art/v230-guns/${id}-barrel.png`)}))),
-    loadImage('/art/v233/stealth-bomber-sprite.png'),
+    loadImage('/art/v234/stealth-bomber-sprite.png'),
   ]).then(
     ([
       [
@@ -782,7 +782,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
         vehicles: vehicleArt,
         reinforcements: reinforcementArt,
         aircraft: {
-          stealth_bomber: [(()=>{const out=surface(280,114);out.getContext('2d')!.drawImage(stealthBomber,0,0,280,114);return out;})()],
+          stealth_bomber: [(()=>{const out=surface(208,84);const ctx=out.getContext('2d')!;ctx.imageSmoothingEnabled=false;ctx.drawImage(stealthBomber,0,0);return out;})()],
           fpv_drone: extra.fpvFrames,
           ...Object.fromEntries(
             ['scout_drone', 'helicopter', 'rocket_heli', 'medevac'].map(
@@ -1059,7 +1059,7 @@ export function unitSize(id: CardId): [number, number] {
   if(c.fortification)return fortificationSize(id);
   if(id==='parachute_transport')return [320,110];
   if(id==='glider_transport')return [256,100];
-  if (id === 'stealth_bomber') return [280,114];
+  if (id === 'stealth_bomber') return [208,84];
   if (id === 'bomber') return [260, 108];
   if (id === 'strike_jet') return [210, 90];
   if (id === 'fpv_drone') return [54, 28];

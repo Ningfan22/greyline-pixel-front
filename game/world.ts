@@ -752,9 +752,12 @@ function detectConcealedInfantry(s: GameState, side: Side, u: Unit) {
   }
   return detected;
 }
+export function missileCanLock(u: Pick<Unit,'id'>) {
+ return !CARDS[u.id].missileLockImmune;
+}
 function detectStealth(s:GameState,side:Side,u:Unit) {
  const range=CARDS[u.id].stealthDetectionRange;
- return !range || (u.exposedUntil??0)>s.time || s.units.some(v=>v.side===side&&v.hp>0&&!v.wounded&&!v.surrendered&&Math.hypot(v.x-u.x,(v.y-u.y)*.25)<=range);
+ return !range || (missileCanLock(u) && (u.exposedUntil??0)>s.time) || s.units.some(v=>v.side===side&&v.hp>0&&!v.wounded&&!v.surrendered&&Math.hypot(v.x-u.x,(v.y-u.y)*.25)<=range);
 }
 export function renderUnitVisible(s:GameState,side:Side,u:Unit) {
  return visibleToSide(s,side,u) && ((s.players[side].fogJammedUntil??0)<=s.time || pointVisible(s,side,u.x,u.y-20,CARDS[u.id].air?'air':'ground'));

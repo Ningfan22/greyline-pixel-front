@@ -140,6 +140,7 @@ import {
   type Mine,
 } from './world';
 export { refreshVision, visibleToSide, pointVisible } from './world';
+import {missileCanLock} from './world';
 import {
   createWeather,
   smokeDecayMultiplier,
@@ -4873,6 +4874,7 @@ function tacticalReach(s: GameState, source: Unit, target: Unit, margin = 24) {
   const distance = Math.abs(source.x - target.x);
   const primary = (
     (c.damage ?? 0) > 0 &&
+    (!c.guided || missileCanLock(target)) &&
     (!airborneTarget(target) || c.antiAir || rifleRotorTarget(source, target)) &&
     (!c.airOnly || airborneTarget(target)) &&
     (!c.armorOnly || t.armored || t.vehicle) &&
@@ -9806,6 +9808,7 @@ export function tick(s: GameState, dt: number) {
         !v.surrendered &&
         !v.wounded &&
         visibleToSide(s, u.side, v) &&
+        (!c.guided || missileCanLock(v)) &&
         (!airborneTarget(v) || c.antiAir || rifleRotorTarget(u, v)) &&
         (!c.airOnly || airborneTarget(v)) &&
         (!c.armorOnly || CARDS[v.id].armored || CARDS[v.id].vehicle) &&
@@ -11090,7 +11093,7 @@ export function tick(s: GameState, dt: number) {
               : dir
             : Math.sign(tx - u.x) || dir;
           u.shots++;
-          if(c.stealthDetectionRange)u.exposedUntil=s.time+4;
+          if(c.stealthDetectionRange && !c.missileLockImmune)u.exposedUntil=s.time+4;
           if(u.id==='tow_ifv'){u.towFired=(u.ammo??2)>=2?0:1;u.towShotAt=s.time;}
           // Small arms burn a round per shot; a dry magazine locks the
           // weapon into a visible reload (slower while pinned) that the
@@ -11666,6 +11669,11 @@ export function tick(s: GameState, dt: number) {
       const tracked = s.units.find(
         (u) => u.uid === p.targetUid && canTakeDamage(u),
       );
+      if (tracked && !missileCanLock(tracked)) {
+        // A stale seeker track cannot become a guaranteed hit at old coordinates.
+        p.life = 0;
+        continue;
+      }
       if (tracked && visibleToSide(s, p.side, tracked)) {
         // v108 radar jam: the seeker hunts a corrupted track, wandering
         // around the real target instead of locking it cleanly.

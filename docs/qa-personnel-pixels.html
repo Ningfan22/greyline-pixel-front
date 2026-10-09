@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>人物像素检查 · v234</title>
+<style>body{margin:0;background:#1e2a22;color:#ded8ba;font:16px system-ui}main{max-width:1280px;margin:24px auto;padding:16px}button,a{color:#ffedb2}button{background:#4d6242;border:1px solid #b4b37d;padding:10px;font:inherit}section{overflow:auto;border:1px solid #556b51;margin:16px 0}img{display:block;image-rendering:pixelated;max-width:none}p{line-height:1.6}</style>
+</head><body><main><h1>人物像素检查 · v234</h1>
+<p>45种步兵配置、70组乘员样本、1721个动作画面。步兵、炮兵操作员和车上乘员均使用128×128原生画布；一格精灵像素对应一格世界像素。不同姿势改变轮廓，不改变像素比例。此页的整数放大仅供检查。</p>
+<button id="native">原生尺寸</button> <button id="double">2倍整数放大</button> <a href="qa-combined-arms.html?v=234">隐身轰炸机与导弹反制检查</a>
+<h2>四种人物身份与姿势</h2><section><img data-width="1024" width="512" src="art/v234/personnel-identities.png" alt="普通步兵、海军陆战队、武装警察和民兵的站、蹲、卧、跑姿势"></section>
+<h2>全部步兵配置</h2><section><img data-width="2048" width="1024" src="art/v234/personnel-infantry.png" alt="45种步兵配置使用一致的像素比例"></section>
+<h2>车上乘员与炮兵操作员</h2><section><img data-width="2048" width="1024" src="art/v234/personnel-crew.png" alt="车辆和火炮操作员使用同一人物精灵比例"></section>
+<script>function zoom(scale){for(const image of document.images)image.width=Number(image.dataset.width)*scale/2;}document.getElementById('native').onclick=()=>zoom(1);document.getElementById('double').onclick=()=>zoom(2);</script>
+</main></body></html>

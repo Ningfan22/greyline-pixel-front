@@ -202,6 +202,8 @@ export interface Card {
   /** Radar detection applies only to airborne targets, never ground reconnaissance. */
   airRadarRange?: number;
   stealthDetectionRange?: number;
+  /** Optical detection may reveal the airframe, but missiles cannot obtain a lock. */
+  missileLockImmune?: boolean;
   /** Specialised ammunition penetration; ordinary autocannons remain tier 1. */
   penetrationTier?: 0 | 1 | 2 | 3;
   guided?: boolean;
@@ -3256,7 +3258,7 @@ for(const c of Object.values(CARDS))if(c.airdrop&&!c.insertion)c.detail+=' 由�
 
 // v233: combined-arms counterplay and a larger, finite battle group.
 CARDS.anti_radiation_shell = {...CARDS.precision,id:'anti_radiation_shell',type:'skill',model:undefined,hp:undefined,damage:undefined,rate:undefined,range:undefined,minRange:undefined,speed:undefined,static:false,indirect:false,emplacement:undefined,name:'反辐射炮弹',en:'ANTI-RADIATION SHELL',cost:3,targetGround:false,artilleryKind:undefined,description:'锁定一辆开机雷达防空车，无视迷雾直接摧毁。',detail:'3费。自动追踪一辆开机的敌方雷达防空车，无需地面视野，直接命中并摧毁。雷达关闭的防空车不会被锁定；没有开机目标时不会消耗卡牌。',tag:'反雷达 · 精确打击'};
-CARDS.stealth_bomber = {...CARDS.bomber,id:'stealth_bomber',name:'隐身轰炸机',en:'STEALTH BOMBER',cost:10,hp:280,damage:160,speed:460,sight:400,range:410,radius:58,sortieAmmo:3,rate:.8,returnCost:6,sortieCooldown:30,stealthDetectionRange:360,description:'隐身突防，投下三枚重磅炸弹。',detail:'10费280生命。独立隐身机体，三枚160伤害炸弹；不提供地面视野，需要友军观察引导。未投弹时仅360范围能发现，投弹后暴露4秒，可被防空攻击。返航回手后6费，整备30秒。',tag:'航空 · 隐身突防'};
+CARDS.stealth_bomber = {...CARDS.bomber,id:'stealth_bomber',name:'隐身轰炸机',en:'STEALTH BOMBER',cost:10,hp:280,damage:160,speed:460,sight:400,range:410,radius:58,sortieAmmo:3,rate:.8,returnCost:6,sortieCooldown:30,stealthDetectionRange:360,missileLockImmune:true,description:'隐身突防，投下三枚重磅炸弹。',detail:'10费280生命。独立隐身机体，三枚160伤害炸弹；不提供地面视野，需要友军观察引导。仅360范围内可以目视发现；投弹不暴露，防空导弹无法锁定，近距机炮仍可攻击。返航回手后6费，整备30秒。',tag:'航空 · 隐身突防'};
 for(const [id,cost] of Object.entries({heavy_tank:12,command_vehicle:3,ifv:4,tow_ifv:4,tank:8,foraged_supplies:2,rally:0})) {
  const card=CARDS[id as CardId];card.cost=cost;card.detail=card.detail.replace(/^\d+费/,`${cost}费`);
 }

@@ -12,7 +12,7 @@ export interface CardCopy {
 }
 
 export const CARD_COPY: Record<CardId, CardCopy> = {
- stealth_bomber:{en:'STEALTH BOMBER',typeLabel:'隐身航空',ability:'隐身突防',rule:'三弹突防，投弹暴露四秒。',flavor:'黑影掠过，重弹落下。'},
+ stealth_bomber:{en:'STEALTH BOMBER',typeLabel:'隐身航空',ability:'隐身突防',rule:'投弹不暴露，防空导弹无法锁定。',flavor:'黑影掠过，重弹落下。'},
  anti_radiation_shell:{en:'ANTI-RADIATION SHELL',typeLabel:'反雷达打击',ability:'追踪辐射',rule:'无视迷雾，摧毁开机防空车。',flavor:'雷达亮起，炮弹循迹。'},
   ...Object.fromEntries(Object.values(EXPANSION_CARDS_V227).map(c=>[c.id,{en:c.en,typeLabel:c.type==='fortification'?'阵地工事':'口径火炮',ability:c.name,rule:c.type==='fortification'?'建成自带人员，独立驻守。':`${c.rate}秒装填，${c.ammoCapacity}发携弹。`,flavor:c.type==='fortification'?'阵地有人，队列不散。':'口径不同，任务不同。'}])) as Record<keyof typeof EXPANSION_CARDS_V227,CardCopy>,
   fort_radar:{en:'EARLY WARNING RADAR',typeLabel:'空情预警',ability:'远程空情',rule:'建成九秒，雷达覆盖2600。',flavor:'先听见，再看见。'},
