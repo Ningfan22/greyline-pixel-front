@@ -1,0 +1,19 @@
+{
+  "version": 235,
+  "method": "built-in imagegen precise-object-edit of seven inspected existing game artworks",
+  "edits": [
+    "Remove MP lettering and organizational sleeve labels",
+    "Remove red-cross emblems",
+    "Clean visible bloody dressing on medic-team card"
+  ],
+  "preserved": "Composition, characters, uniforms, gear silhouettes and existing image style; original files remain archived",
+  "assets": [
+    "command_lockdown",
+    "armed_police",
+    "medic_team",
+    "field_hospital",
+    "fort_medical_post",
+    "fort_medical_post_sprite",
+    "medical_equipment_prop"
+  ]
+}

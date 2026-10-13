@@ -1,4 +1,5 @@
 'use client';
+import { FICTIONAL_SETTING_NOTICE } from '@/game/fictional-setting';
 import { useState } from 'react';
 import {
   MISSIONS,
@@ -40,6 +41,7 @@ export default function CampaignMenu({
       <header className={styles.heading}>
         <span>故事战役 · 四幕二十关</span>
         <h1 id="campaign-title">断线之地</h1>
+        <p>{FICTIONAL_SETTING_NOTICE}</p>
         <p>
           跟随许岚，从盐路的第一声呼号开始，打通救援通道，追查仍在传播的旧命令。接回失联的人与哨站，让停火抵达整条战线。
         </p>

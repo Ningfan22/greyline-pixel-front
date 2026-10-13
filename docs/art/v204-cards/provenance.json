@@ -214,34 +214,34 @@
       "sha256": "84db3dbb9288b97646e73bdd295c8d2fa987005f0cab52c7560a36b1eca67d00"
     },
     {
-      "source": "/art/v227-cards/fort_medical_post.webp",
-      "sourceSha256": "1fef38ae388982f4667ae461ef866f36ec5558307025f28ca6154674400de7e6",
-      "sourceBytes": 370552,
-      "path": "/art/v204-cards/fort_medical_post-192-db780e27edd6.webp",
+      "source": "/art/v235-content/fort_medical_post.webp",
+      "sourceSha256": "beca44e754f55ca69d22f4b6ba1e005a44caaded020ecdd9cbea6f7abfb2be92",
+      "sourceBytes": 283920,
+      "path": "/art/v204-cards/fort_medical_post-192-5a7ad606bed1.webp",
       "width": 192,
       "height": 174,
-      "bytes": 9992,
-      "sha256": "db780e27edd63938455b880bf0626d9f98b0f175765595e36c517c6a2936fc2d"
+      "bytes": 9620,
+      "sha256": "5a7ad606bed12e78b5e24d1b13fd7e127406832dd95319001f9eacc936e06c09"
     },
     {
-      "source": "/art/v227-cards/fort_medical_post.webp",
-      "sourceSha256": "1fef38ae388982f4667ae461ef866f36ec5558307025f28ca6154674400de7e6",
-      "sourceBytes": 370552,
-      "path": "/art/v204-cards/fort_medical_post-320-14db3be53939.webp",
+      "source": "/art/v235-content/fort_medical_post.webp",
+      "sourceSha256": "beca44e754f55ca69d22f4b6ba1e005a44caaded020ecdd9cbea6f7abfb2be92",
+      "sourceBytes": 283920,
+      "path": "/art/v204-cards/fort_medical_post-320-b219095af1e6.webp",
       "width": 320,
       "height": 291,
-      "bytes": 27098,
-      "sha256": "14db3be53939f958b9379342467cc5069d0faed380972beed1231edd98dc33f3"
+      "bytes": 24812,
+      "sha256": "b219095af1e6d377b5ca7017062e179bf629ecfb63303fd9a917865b6d02bcc2"
     },
     {
-      "source": "/art/v227-cards/fort_medical_post.webp",
-      "sourceSha256": "1fef38ae388982f4667ae461ef866f36ec5558307025f28ca6154674400de7e6",
-      "sourceBytes": 370552,
-      "path": "/art/v204-cards/fort_medical_post-640-3997f5d787bf.webp",
+      "source": "/art/v235-content/fort_medical_post.webp",
+      "sourceSha256": "beca44e754f55ca69d22f4b6ba1e005a44caaded020ecdd9cbea6f7abfb2be92",
+      "sourceBytes": 283920,
+      "path": "/art/v204-cards/fort_medical_post-640-e441be8ae472.webp",
       "width": 640,
       "height": 581,
-      "bytes": 86558,
-      "sha256": "3997f5d787bfdffeb2a156223c7f386fd5c94317d7af26f63c92470296ab9368"
+      "bytes": 76046,
+      "sha256": "e441be8ae472eb4378898a5497ac55e4d2c6050892215732d958a5f2165585f7"
     },
     {
       "source": "/art/v227-cards/fort_command_post.webp",
@@ -2194,34 +2194,34 @@
       "sha256": "ada8ec007fece7219e5fc6d99120be13bfc370dcb887332d276fc33338e121d1"
     },
     {
-      "source": "/art/cards-v10/armed_police.webp",
-      "sourceSha256": "f136e702f46d0f95aaf5ffb3bc5eb2349eaa863d2bb130538d62072929c4999c",
-      "sourceBytes": 51808,
-      "path": "/art/v204-cards/armed_police-192-245935c177ba.webp",
+      "source": "/art/v235-content/armed_police.webp",
+      "sourceSha256": "2dde5495df48323156d495a4786b1571fedbfc5dd049a5bc9f109129f147042d",
+      "sourceBytes": 50318,
+      "path": "/art/v204-cards/armed_police-192-5f3be315cece.webp",
       "width": 192,
       "height": 192,
-      "bytes": 8324,
-      "sha256": "245935c177ba44bbe698d394dd52200d9c281504e62c5e6d5b6928fac5020ac7"
+      "bytes": 8466,
+      "sha256": "5f3be315cece91193927bb602c689698dfade24234ab143df3f0ab8ba0dce1c6"
     },
     {
-      "source": "/art/cards-v10/armed_police.webp",
-      "sourceSha256": "f136e702f46d0f95aaf5ffb3bc5eb2349eaa863d2bb130538d62072929c4999c",
-      "sourceBytes": 51808,
-      "path": "/art/v204-cards/armed_police-320-e42d0193136b.webp",
+      "source": "/art/v235-content/armed_police.webp",
+      "sourceSha256": "2dde5495df48323156d495a4786b1571fedbfc5dd049a5bc9f109129f147042d",
+      "sourceBytes": 50318,
+      "path": "/art/v204-cards/armed_police-320-6e0ae3903e5e.webp",
       "width": 320,
       "height": 320,
-      "bytes": 18022,
-      "sha256": "e42d0193136b36d8c881cf68935ab36fe4d6478abca1ffcc58dac7c920f44cce"
+      "bytes": 18194,
+      "sha256": "6e0ae3903e5edbb6103d4f4d66a7f96b864f35c4d3736eaebb3a4797a7cc5737"
     },
     {
-      "source": "/art/cards-v10/armed_police.webp",
-      "sourceSha256": "f136e702f46d0f95aaf5ffb3bc5eb2349eaa863d2bb130538d62072929c4999c",
-      "sourceBytes": 51808,
-      "path": "/art/v204-cards/armed_police-640-6e39b52d14e7.webp",
+      "source": "/art/v235-content/armed_police.webp",
+      "sourceSha256": "2dde5495df48323156d495a4786b1571fedbfc5dd049a5bc9f109129f147042d",
+      "sourceBytes": 50318,
+      "path": "/art/v204-cards/armed_police-640-3bc266f45566.webp",
       "width": 412,
       "height": 412,
-      "bytes": 29678,
-      "sha256": "6e39b52d14e7490fc528178b63f4b523b59dc9e077d74159f1dbb8af97a40adf"
+      "bytes": 31010,
+      "sha256": "3bc266f45566211abeb203bc402bbfb66cfc70c9d2c33e0fb0b24009e0053388"
     },
     {
       "source": "/art/cards-v10/paratroopers.webp",
@@ -3394,34 +3394,34 @@
       "sha256": "01f8bb3273ec2fc2fa4b35f484771b890a5b71e5f064df1610b2d71f45c9f7d8"
     },
     {
-      "source": "/art/cards-v10/medic_team.webp",
-      "sourceSha256": "5445b3be6e18a3bd51e86d5dcf9dbbb7b6065f4cb993a857abfb948a787defc4",
-      "sourceBytes": 106194,
-      "path": "/art/v204-cards/medic_team-192-d7c86fe135c9.webp",
+      "source": "/art/v235-content/medic_team.webp",
+      "sourceSha256": "b7b100b5363965f9e701400ad43057c39804ddc7127d931032c614c75c85e0fd",
+      "sourceBytes": 128570,
+      "path": "/art/v204-cards/medic_team-192-23bad76cf0cd.webp",
       "width": 192,
       "height": 192,
       "bytes": 12324,
-      "sha256": "d7c86fe135c99f68c8e878767c906823d963f9c98cf8e9f394b1b2d2b133f0b0"
+      "sha256": "23bad76cf0cd1d78c42633ccf1de79b94e88bb44e042d6512cac1073459f08c3"
     },
     {
-      "source": "/art/cards-v10/medic_team.webp",
-      "sourceSha256": "5445b3be6e18a3bd51e86d5dcf9dbbb7b6065f4cb993a857abfb948a787defc4",
-      "sourceBytes": 106194,
-      "path": "/art/v204-cards/medic_team-320-0dbc46ef11c8.webp",
+      "source": "/art/v235-content/medic_team.webp",
+      "sourceSha256": "b7b100b5363965f9e701400ad43057c39804ddc7127d931032c614c75c85e0fd",
+      "sourceBytes": 128570,
+      "path": "/art/v204-cards/medic_team-320-f4aa5b0a05b6.webp",
       "width": 320,
       "height": 320,
-      "bytes": 27592,
-      "sha256": "0dbc46ef11c8906d8eaa150d598933f355639c1ca698ab7c3294859c36a85a8b"
+      "bytes": 27782,
+      "sha256": "f4aa5b0a05b696d401d7297717599530a98de98ee0e0692c1582ac08f4255ac0"
     },
     {
-      "source": "/art/cards-v10/medic_team.webp",
-      "sourceSha256": "5445b3be6e18a3bd51e86d5dcf9dbbb7b6065f4cb993a857abfb948a787defc4",
-      "sourceBytes": 106194,
-      "path": "/art/v204-cards/medic_team-640-987df75d35f4.webp",
+      "source": "/art/v235-content/medic_team.webp",
+      "sourceSha256": "b7b100b5363965f9e701400ad43057c39804ddc7127d931032c614c75c85e0fd",
+      "sourceBytes": 128570,
+      "path": "/art/v204-cards/medic_team-640-768a20faabf8.webp",
       "width": 640,
       "height": 640,
-      "bytes": 62300,
-      "sha256": "987df75d35f48ccc9d78e6ed8d68233a197f9dc425a23225f67a1fbd98bda7e0"
+      "bytes": 63940,
+      "sha256": "768a20faabf8575ed19862eb6f751953cdbb13264195437e2a03fdf4a90b6a87"
     },
     {
       "source": "/art/cards-v10/combat_engineers.webp",
@@ -3604,34 +3604,34 @@
       "sha256": "4b8a2888466c0018a0d7cc7a162c2127a6f37ba6bdcf1046cd3525d9945a0b55"
     },
     {
-      "source": "/art/cards-v10/command_lockdown.webp",
-      "sourceSha256": "2252cdcf8713c8b726f0183472bbc7e98394d17979d9e38f39c782f389bc9db2",
-      "sourceBytes": 81028,
-      "path": "/art/v204-cards/command_lockdown-192-0c1de3adeade.webp",
+      "source": "/art/v235-content/command_lockdown.webp",
+      "sourceSha256": "a0d4a248c8b30bf1a2b03482946d44063af9a8aeeaa56ce2f50cbaa620dbaf96",
+      "sourceBytes": 91068,
+      "path": "/art/v204-cards/command_lockdown-192-f64ece6bb14b.webp",
       "width": 192,
       "height": 192,
-      "bytes": 10018,
-      "sha256": "0c1de3adeade9f7607458c903fbeed970671fcb89372d98a551e626ff311f894"
+      "bytes": 9862,
+      "sha256": "f64ece6bb14b007f3366ae0ee5654e7813e5dca24916270d99c91e42ee8077da"
     },
     {
-      "source": "/art/cards-v10/command_lockdown.webp",
-      "sourceSha256": "2252cdcf8713c8b726f0183472bbc7e98394d17979d9e38f39c782f389bc9db2",
-      "sourceBytes": 81028,
-      "path": "/art/v204-cards/command_lockdown-320-349d6ee45ff1.webp",
+      "source": "/art/v235-content/command_lockdown.webp",
+      "sourceSha256": "a0d4a248c8b30bf1a2b03482946d44063af9a8aeeaa56ce2f50cbaa620dbaf96",
+      "sourceBytes": 91068,
+      "path": "/art/v204-cards/command_lockdown-320-1c1a87cd0b04.webp",
       "width": 320,
       "height": 320,
-      "bytes": 21012,
-      "sha256": "349d6ee45ff169193f30813a8aa5a2ce30ced523b5e35238b90d730209cf2cb2"
+      "bytes": 20594,
+      "sha256": "1c1a87cd0b044df74e6bb370da56a2d6118af76fae19c54775f5e8840daa2e04"
     },
     {
-      "source": "/art/cards-v10/command_lockdown.webp",
-      "sourceSha256": "2252cdcf8713c8b726f0183472bbc7e98394d17979d9e38f39c782f389bc9db2",
-      "sourceBytes": 81028,
-      "path": "/art/v204-cards/command_lockdown-640-176e948663de.webp",
+      "source": "/art/v235-content/command_lockdown.webp",
+      "sourceSha256": "a0d4a248c8b30bf1a2b03482946d44063af9a8aeeaa56ce2f50cbaa620dbaf96",
+      "sourceBytes": 91068,
+      "path": "/art/v204-cards/command_lockdown-640-1af79a2e605a.webp",
       "width": 640,
       "height": 640,
-      "bytes": 46488,
-      "sha256": "176e948663de87e992b028a0e152fa7a074e0879f4f29e1d88654f41c1d09319"
+      "bytes": 45698,
+      "sha256": "1af79a2e605aa95a073b34e6cca23a0ddb750c2bd57d1f61e9ae78dfbc4f3179"
     },
     {
       "source": "/art/cards-v10/emergency_levy.webp",
@@ -4114,34 +4114,34 @@
       "sha256": "99f5940f46b5bd8fb28cd28119150eb0787d56b9d809a07204a875a9048ea0cb"
     },
     {
-      "source": "/art/cards-v10/field_hospital.webp",
-      "sourceSha256": "2cad18fb3b0903418bea8c8fb190d8ba7c3dfdc032c077380573b86bad3a3c75",
-      "sourceBytes": 90226,
-      "path": "/art/v204-cards/field_hospital-192-980346e2b679.webp",
+      "source": "/art/v235-content/field_hospital.webp",
+      "sourceSha256": "6b0f54fffa5baaae533903f871864a6ec626b16db49e0b4df4f421fb138991db",
+      "sourceBytes": 102758,
+      "path": "/art/v204-cards/field_hospital-192-1ae1208e64a4.webp",
       "width": 192,
       "height": 192,
-      "bytes": 10114,
-      "sha256": "980346e2b6799de8d3b1cc118279883f2e750569098cfc1e3fc8b7e4a2f489e6"
+      "bytes": 9968,
+      "sha256": "1ae1208e64a480df2c46783184ec847a1f0340f2f151909d6d680db9faa0693f"
     },
     {
-      "source": "/art/cards-v10/field_hospital.webp",
-      "sourceSha256": "2cad18fb3b0903418bea8c8fb190d8ba7c3dfdc032c077380573b86bad3a3c75",
-      "sourceBytes": 90226,
-      "path": "/art/v204-cards/field_hospital-320-bc8c44340d22.webp",
+      "source": "/art/v235-content/field_hospital.webp",
+      "sourceSha256": "6b0f54fffa5baaae533903f871864a6ec626b16db49e0b4df4f421fb138991db",
+      "sourceBytes": 102758,
+      "path": "/art/v204-cards/field_hospital-320-5daf9f30220a.webp",
       "width": 320,
       "height": 320,
-      "bytes": 22014,
-      "sha256": "bc8c44340d226eb5851acb3b8ee96804acbc8132948227a9fca53638eb8b51f7"
+      "bytes": 21966,
+      "sha256": "5daf9f30220a70d9e68c8b8e70626930ac73afe97092b7db963830a4f2d1533a"
     },
     {
-      "source": "/art/cards-v10/field_hospital.webp",
-      "sourceSha256": "2cad18fb3b0903418bea8c8fb190d8ba7c3dfdc032c077380573b86bad3a3c75",
-      "sourceBytes": 90226,
-      "path": "/art/v204-cards/field_hospital-640-fea39d96ee3c.webp",
+      "source": "/art/v235-content/field_hospital.webp",
+      "sourceSha256": "6b0f54fffa5baaae533903f871864a6ec626b16db49e0b4df4f421fb138991db",
+      "sourceBytes": 102758,
+      "path": "/art/v204-cards/field_hospital-640-9f20487c581c.webp",
       "width": 640,
       "height": 640,
-      "bytes": 49962,
-      "sha256": "fea39d96ee3c8d23e4d764c3d2433377ef104540d07792fa54a173bb5855ff65"
+      "bytes": 49682,
+      "sha256": "9f20487c581c7cdd25fc1eccd330d02b6a8242297fc8c0809997fc58bd4dcd28"
     },
     {
       "source": "/art/cards-v10/fallback.webp",

@@ -68,10 +68,10 @@ for(let i=0;i<240;i++)frame();
 writeFileSync(join(out,'battle.png'),main.toBuffer('image/png'));
 assert(bodyBlits>100,'loaded battle never drew the unified soldier body');
 assert(requested.some(p=>p.endsWith('/soldier-parts-v178.webp')));
-assert(requested.some(p=>p.endsWith('/soldier-equipment-v178.webp')));
+assert(requested.some(p=>p.endsWith('/v235-content/soldier-equipment.webp')));
 handlers.hide();for(let i=0;i<4;i++)frame();
 assert(texts.some(t=>t.value.includes('暂停')),'app background did not pause within the 90ms UI snapshot interval');
 assert.equal(errors.length,0,errors.join('\n'));
 const report={out,images:requested.length,bodyBlits,deployed:card.value,localAssetSubstitution:true,
-  realDouyinDevice:false,realCdn:false,errors};
+  realDouyinDevice:false,realCdn:false,assetPaths:requested.map(p=>p.replace('https://cdn.example.com/pixel-frontline/','')),errors};
 writeFileSync(join(out,'report.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));

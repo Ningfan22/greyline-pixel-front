@@ -7,6 +7,7 @@ import { CARDS, copyLimit, type CardId } from '@/game/cards';
 import { CARD_COPY } from '@/game/card-copy';
 import { rarityOf } from '@/game/collection';
 import { assetUrl } from '@/game/asset-url';
+import { cardPicturePath } from '@/game/card-picture-path';
 
 // ── Image cache ──────────────────────────────────────────────────────────────
 
@@ -38,42 +39,8 @@ export function loadCardImage(url: string): Promise<HTMLImageElement> {
 
 // ── Card picture URL (mirrors card-art.tsx logic) ───────────────────────────
 
-const ADDITIONAL_CARD_ART = new Set([
-  'pickup',
-  'tow_ifv',
-  'mortar_carrier',
-  'recovery_vehicle',
-  'command_vehicle',
-  'mine_clearer',
-]);
-
 export function cardPictureUrl(id: CardId): string {
-  if (id === 'glider_transport') return cardPictureUrl('glider_assault');
-  if (
-    id === 'field_logistics' ||
-    id === 'command_expansion' ||
-    id === 'war_bonds'
-  )
-    return assetUrl(`/art/v21-economy/cards/${id}.webp`);
-  if (
-    id === 'toxic_cloud' ||
-    id === 'smoke_withdrawal' ||
-    id === 'reserve_mobilization'
-  )
-    return assetUrl(`/art/v18-comeback/cards/${id}.webp`);
-  if (id === 'fpv_drone' || id === 'air_assault')
-    return assetUrl(`/art/v16-air/cards/${id}.webp`);
-  if (
-    id === 'overdraft' ||
-    id === 'signal_jam' ||
-    id === 'airborne_insertion' ||
-    id === 'forced_march' ||
-    id === 'cyber_suppression'
-  )
-    return assetUrl(`/art/v23-doctrine/cards/${id}.webp`);
-  return assetUrl(
-    `/art/${ADDITIONAL_CARD_ART.has(id) ? 'cards-v15' : 'cards-v10'}/${id}.webp`,
-  );
+  return assetUrl(cardPicturePath(id));
 }
 
 export function cardFrameUrl(rarity: string): string {
@@ -147,6 +114,7 @@ export function preloadCardArt(id: CardId): void {
 /** Preload art for all cards. */
 export function preloadAllCardArt(): void {
   for (const id of Object.keys(CARDS) as CardId[]) {
+    if (CARDS[id].internal) continue;
     preloadCardArt(id);
   }
 }

@@ -50,7 +50,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '指挥的人多了，听指挥的人少了。',
   },
   war_bonds: {
-    en: 'WAR BONDS',
+    en: 'LOGISTICS ADVANCE',
     typeLabel: '延迟收益',
     ability: '六秒回款',
     rule: '付一返三，每局限两次。',
@@ -74,7 +74,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'CALL THE RESERVES',
     typeLabel: '延迟增援',
     ability: '重建防线',
-    rule: '分批增援两队民兵并抽牌。',
+    rule: '分批增援两队预备步兵并抽牌。',
     flavor: '新兵的爸爸也在名单里。',
   },
   fpv_drone: {
@@ -99,11 +99,11 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '车险那页早撕了。',
   },
   tow_ifv: {
-    en: 'TOW MISSILE CARRIER',
+    en: 'SEEKER MISSILE CARRIER',
     typeLabel: '反坦克战车',
     ability: '双武器协同',
     rule: '制导穿重甲，机枪独立掩护。',
-    flavor: '一枚导弹，全连三个月的饷。',
+    flavor: '一枚导弹，留给关键目标。',
   },
   mortar_carrier: {
     en: 'MORTAR CARRIER',
@@ -295,11 +295,11 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '第一发问路，第二发要人。',
   },
   javelin: {
-    en: 'JAVELIN TEAM',
+    en: 'TOP-ATTACK TEAM',
     typeLabel: '制导反甲',
     ability: '专注反甲',
     rule: '低姿准备，远距制导穿重甲。',
-    flavor: '锁定之后，坦克可以开始祷告了。',
+    flavor: '锁定之后，重甲也得找掩护。',
   },
   anti_tank_gun: {
     en: 'TOWED ANTI-TANK GUN',
@@ -323,7 +323,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '落下来的鸟粪不算战果。',
   },
   sam_vehicle: {
-    en: 'RADAR SAM VEHICLE',
+    en: 'RADAR AIR DEFENSE',
     typeLabel: '雷达防空',
     ability: '雷达追踪',
     rule: '远距雷达，一两发击落飞机。',
@@ -358,18 +358,18 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '炸弹不长眼，投弹手也不长。',
   },
   marines: {
-    en: 'MARINES',
-    typeLabel: '陆战步兵',
+    en: 'WATERWAY ASSAULT',
+    typeLabel: '涉水突击',
     ability: '战友整队',
     rule: '战友重伤，全班一次整队。',
     flavor: '登陆艇的舱门一开，没人回头。',
   },
   armed_police: {
-    en: 'ARMED POLICE',
+    en: 'SITE GUARD TEAM',
     typeLabel: '守备步兵',
     ability: '守备护卫',
     rule: '停步护卫邻近步兵。',
-    flavor: '他们防的不是敌人，是逃兵。',
+    flavor: '守住要地，护住身后的队友。',
   },
   paratroopers: {
     en: 'PARATROOPERS',
@@ -379,15 +379,15 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '落地先数人，再数敌人。',
   },
   rangers: {
-    en: 'RANGERS',
+    en: 'LONG-RANGE SCOUTS',
     typeLabel: '侦察步兵',
     ability: '伏击首枪',
     rule: '停步蓄势，首枪克制步兵。',
     flavor: '等来的先是蚊子。',
   },
   militia: {
-    en: 'MILITIA',
-    typeLabel: '民兵班组',
+    en: 'RESERVE INFANTRY',
+    typeLabel: '预备步兵',
     ability: '低费集结',
     rule: '低费集结，低士气易退易降。',
     flavor: '训练三天，子弹三发。',
@@ -438,7 +438,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     en: 'ANTI-TANK TEAM',
     typeLabel: '反装甲兵',
     ability: '混编反甲',
-    rule: '低姿准备，RPG猎甲、步枪护卫。',
+    rule: '低姿准备，轻型反甲火箭猎甲、步枪护卫。',
     flavor: '坦克最怕的不是坦克，是他们。',
   },
   manpads: {
@@ -491,7 +491,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '它的炮只管自卫。',
   },
   mlrs: {
-    en: 'MLRS',
+    en: 'ROCKET ARTILLERY',
     typeLabel: '远程覆盖',
     ability: '大面积齐射',
     rule: '16管逐发齐射，装填18秒。',
@@ -603,7 +603,7 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '缴获的罐头最香。',
   },
   blitz_doctrine: {
-    en: 'BLITZ DOCTRINE',
+    en: 'MOBILE OPERATIONS',
     typeLabel: '全军机动',
     ability: '闪电战',
     rule: '步兵移速提升四成五。',
@@ -742,11 +742,11 @@ export const CARD_COPY: Record<CardId, CardCopy> = {
     flavor: '两边电台，都没了声音。',
   },
   emergency_levy: {
-    en: 'EMERGENCY LEVY',
+    en: 'EMERGENCY REINFORCEMENT',
     typeLabel: '资源爆发',
-    ability: '紧急征发',
+    ability: '紧急补员',
     rule: '立即+4指挥点，回点放缓。',
-    flavor: '连炊事班都发枪了。',
+    flavor: '后备资源，补上前线缺口。',
   },
   battlefield_salvage: {
     en: 'BATTLEFIELD SALVAGE',
@@ -903,5 +903,5 @@ Object.assign(CARD_COPY.foraged_supplies,{ability:'弃牌回库',rule:'随机两
 Object.assign(CARD_COPY.jam,{ability:'全域迷雾',rule:'敌方全域迷雾持续八秒。'});
 Object.assign(CARD_COPY.overdraft,{rule:'获得七点，回点暂停四十秒。'});
 Object.assign(CARD_COPY.battlefield_salvage,{rule:'随机回收部队，费用不限。'});
-Object.assign(CARD_COPY.heavy_tank,{rule:'主动拦截，抵御RPG与陶式。'});
+Object.assign(CARD_COPY.heavy_tank,{rule:'主动拦截，抵御轻型反甲火箭与寻隙。'});
 Object.assign(CARD_COPY.air_assault,{rule:'敌占落点返航，回手一费。'});

@@ -950,7 +950,7 @@ export default function Battle({
           <small className="mobile-economy-readout">
             {(p.overdraftUntil??0)>view.time?'回点暂停':`+1 / ${p.energyInterval.toFixed(1)}秒`}
             {p.bondDueAt !== null
-              ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
+              ? ` · 预支 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒`
               : ''}
             {p.overdraftUntil !== null && p.overdraftUntil > view.time
               ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
@@ -1696,7 +1696,7 @@ export default function Battle({
       <div className="casualty-readout">
         伤员{' '}
         {view.units.filter((u) => u.side === 0 && u.wounded && u.hp > 0).length}{' '}
-        人 · 军医可靠近救起 / 急救卡可治疗
+        人 · 医护员可靠近救起 / 急救卡可治疗
       </div>
       <section className="command">
         <aside className="command-panel">
@@ -1731,7 +1731,7 @@ export default function Battle({
             <span className="economy-match-note">
               {DIFFICULTY_LABEL[difficulty]} · {DIFFICULTY_BONUS[difficulty]}
               {p.bondDueAt !== null
-                ? ` · 公债 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒后结算`
+                ? ` · 预支 ${Math.max(0, Math.ceil(p.bondDueAt - view.time))}秒后结算`
                 : ''}
               {p.overdraftUntil !== null && p.overdraftUntil > view.time
                 ? ` · 透支中 ${Math.max(0, Math.ceil(p.overdraftUntil - view.time))}秒`
@@ -2071,7 +2071,7 @@ export default function Battle({
         })()}
       <footer>
         <span>
-          GREYLINE <i /> 林间前线 · v234
+          GREYLINE <i /> 林间前线 · v235
         </span>
         <span>
           <kbd>A / D</kbd> 移动视野 <kbd>1–6</kbd> 选牌 <kbd>← →</kbd> 落点{' '}
@@ -2155,7 +2155,7 @@ export default function Battle({
                   <h3>合理分配指挥点</h3>
                   <p>
                     开局随机 6 张手牌、0 指挥点，基础每 5.5 秒恢复 1 点，上限
-                    10。战地后勤可加快恢复，指挥扩编可提升上限，战时公债可在6秒后回款。主动点击牌堆，消耗
+                    10。战地后勤可加快恢复，指挥扩编可提升上限，后勤预支可在6秒后回款。主动点击牌堆，消耗
                     2 点抽 1 张，冷却 1
                     秒；不再自动抽牌。士兵和载具均携带有限弹药，坦克主炮与同轴机枪分别计数。有效武器弹药剩余30%时，可移动部队慢速撤向最近可用补给点；附近没有补给就退回基地，满弹后继续前进。固定炮位原地等待补给送达。补给联络组可随队补弹，弹药空投在己方可见落点投放补给箱。弹药耗尽后无法继续射击。
                   </p>
@@ -2164,7 +2164,7 @@ export default function Battle({
                   <span>04 / 战术</span>
                   <h3>用好不同兵种</h3>
                   <p>
-                    坦克用穿甲弹攻击装甲、高爆弹和同轴机枪攻击步兵；标枪、反坦克炮和地雷克制重装。命中坦克履带可能使其无法移动，需维修单位修复；停驶期间仍可使用有弹药的武器还击。防空导弹追踪空军。固定炮兵周期发射，落点有散布，士兵只在炮弹临近时分散卧倒。
+                    坦克用穿甲弹攻击装甲、高爆弹和同轴机枪攻击步兵；跃顶、反坦克炮和地雷克制重装。命中坦克履带可能使其无法移动，需维修单位修复；停驶期间仍可使用有弹药的武器还击。防空导弹追踪空军。固定炮兵周期发射，落点有散布，士兵只在炮弹临近时分散卧倒。
                     树木和房屋有约一半概率拦下普通子弹，同一物体对每发子弹只判一次。弹坑、倒树、废墙和载具残骸仍可掩护步兵。房屋、树木缩短观察距离；视野内正常彩色，视野外黑白，未发现的敌人不显示。榴弹烟尘短小，火炮保留大范围爆炸。飞机快速通场，存活返航后回手并整备，再次派遣费用降低；满手回弃牌，被击落恢复原价。撤退队员经过友军射线会遭受误伤。
                   </p>
                 </div>

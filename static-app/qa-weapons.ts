@@ -501,7 +501,7 @@ function loop(now: number) {
     const families=['tow','antitank','antiair'] as const;
     for(const [i,family] of families.entries()) {
       const frame=art.weaponEffects!.missiles![family]!;ctx.drawImage(frame,120+i*340,510,frame.width*3,frame.height*3);
-      ctx.fillText(['陶式导弹','便携反坦克导弹','防空导弹'][i],120+i*340,557);
+      ctx.fillText(['寻隙导弹','便携反坦克导弹','防空导弹'][i],120+i*340,557);
     }
     status.textContent=`素材就绪 ${loadMs} 毫秒 · 9种载具独立战场素材 · 导弹弹身、尾翼、发动机尾焰`;
   } else if (mode === 'parts') {

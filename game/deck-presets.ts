@@ -9,7 +9,7 @@ export const DECK_PRESETS: {
   {
     id: 'combined',
     name: '机步协同',
-    plan: '基础班组掩护装甲推进，侦察提供视野、轻机枪伴随，标枪与防空留作反制。',
+    plan: '基础班组掩护装甲推进，侦察提供视野、轻机枪伴随，跃顶与防空留作反制。',
     cards: [
       'infantry',
       'infantry',
@@ -37,7 +37,7 @@ export const DECK_PRESETS: {
   {
     id: 'assault',
     name: '烟幕突击',
-    plan: '烟幕缩短暴露距离，掷弹兵与陆战队接敌，震慑行动钉死敌方步兵。',
+    plan: '烟幕缩短暴露距离，掷弹兵与涉水突击组接敌，震慑行动钉死敌方步兵。',
     cards: [
       'infantry',
       'infantry',

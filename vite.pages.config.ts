@@ -17,6 +17,7 @@ export default defineConfig({
     emptyOutDir: true,
     rolldownOptions: {
       input: {
+        contentReview:fileURLToPath(new URL('./static-app/qa-content-review.html',import.meta.url)),
         combinedArms:fileURLToPath(new URL('./static-app/qa-combined-arms.html',import.meta.url)),
         expansion:fileURLToPath(new URL('./static-app/qa-expansion.html',import.meta.url)),
         index: fileURLToPath(

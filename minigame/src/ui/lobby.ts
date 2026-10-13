@@ -1,3 +1,4 @@
+import { FICTIONAL_SETTING_NOTICE } from '@/game/fictional-setting';
 /**
  * Lobby screen: sidebar navigation + home / campaign / settings / guide
  * subpages. Replaces app/home-menu.tsx + campaign-menu.tsx + settings.
@@ -490,6 +491,7 @@ export class LobbyScreen extends Screen {
     drawTextLeft(ctx, '作战手册', cx, y, 20, COLORS.accent, 'bold');
     y += 36;
     const sections: [string, string][] = [
+      ['架空设定', FICTIONAL_SETTING_NOTICE],
       [
         '胜利条件',
         '摧毁敌方指挥部。十分钟后仍未分出胜负，则比较双方基地剩余生命。',

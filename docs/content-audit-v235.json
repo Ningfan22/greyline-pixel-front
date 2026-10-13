@@ -1,0 +1,32 @@
+{
+  "version": 235,
+  "playerVisibleFields": 2207,
+  "cards": 161,
+  "missions": 20,
+  "maps": 4,
+  "failures": [],
+  "mechanicsUnchanged": true,
+  "visualReview": {
+    "uniqueCardIllustrations": 158,
+    "editedAssets": [
+      "armed_police",
+      "command_lockdown",
+      "medic_team",
+      "field_hospital",
+      "fort_medical_post",
+      "fort_medical_post_sprite",
+      "medical_equipment_prop"
+    ],
+    "findings": [
+      "Removed MP and sleeve lettering",
+      "Removed red-cross marks from active medical art",
+      "No identifiable national or party flags observed in reviewed card art, cover and personnel samples"
+    ],
+    "limits": [
+      "Recognizable realistic weapon silhouettes remain and require platform content review",
+      "Blood, gas, mines and flamethrowers remain a separate gameplay/content review concern",
+      "Historical art archives and technical IDs are retained for reproducibility; active asset routing selects revised artwork",
+      "This audit does not constitute platform approval"
+    ]
+  }
+}

@@ -1,3 +1,4 @@
+import {DECK_SIZE,completeDeck,opponentDeckSize} from '../game/cards.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CARDS, W, MAX_HP, startGame, spawnUnit, tick, ground } from '../game/engine.ts';
@@ -77,7 +78,7 @@ test('the campaign has twenty distinct missions, four five-mission acts and a co
     assert.ok(AI_DECKS[m.aiDeck], `${m.id}: invalid enemy plan`);
     assert.ok(DECK_PRESETS[m.playerDeck], `${m.id}: invalid recommended plan`);
     const deck = missionDeck(m.id);
-    assert.equal(deck.length, 20);
+    assert.equal(deck.length, DECK_SIZE);
     assert.ok(deck.every((id) => CARDS[id] && !CARDS[id].internal));
     assert.deepEqual(deck, DECK_PRESETS[m.playerDeck].cards);
     assert.notEqual(deck, DECK_PRESETS[m.playerDeck].cards, 'recommended deck edits must not mutate the shared template');
@@ -133,7 +134,7 @@ for (const m of MISSIONS) {
     assert.equal(s.mapId, m.mapId);
     assert.equal(s.night, !!m.night);
     assert.deepEqual(s.players[0].loadout, missionDeck(m.id));
-    assert.deepEqual(s.players[1].loadout, AI_DECKS[m.aiDeck]);
+    assert.deepEqual(s.players[1].loadout, completeDeck(AI_DECKS[m.aiDeck], opponentDeckSize('veteran')));
     assert.equal(s.players[0].energy, m.startingEnergy ?? 2);
     assert.equal(s.players[1].energy, 0);
     assert.equal(s.players[0].hp, m.playerBaseHp ?? MAX_HP);

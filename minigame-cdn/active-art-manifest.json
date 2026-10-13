@@ -1,0 +1,1811 @@
+{
+  "version": 235,
+  "files": [
+    {
+      "source": "/art/v201-lossless/vehicles-v3.webp",
+      "path": "art/v201-lossless/vehicles-v3.webp",
+      "bytes": 1361468,
+      "sha256": "e2a22e0f8775f686409a0b6875b161a12af2c4aca73c42e5776c819ff0b63678"
+    },
+    {
+      "source": "/art/v201-lossless/terrain-texture.webp",
+      "path": "art/v201-lossless/terrain-texture.webp",
+      "bytes": 1531552,
+      "sha256": "8ae38c9b5c2fa316fbacd6032aba75db5b23533ee951a17fea7a10f8d1ab76ab"
+    },
+    {
+      "source": "/art/v201-lossless/reinforcements-v5.webp",
+      "path": "art/v201-lossless/reinforcements-v5.webp",
+      "bytes": 656524,
+      "sha256": "39ba7a548670dfa879255ae471001154434ae2183d0ffbc9a2113f2aed731bd8"
+    },
+    {
+      "source": "/art/v201-lossless/destructible-scenery-v9.webp",
+      "path": "art/v201-lossless/destructible-scenery-v9.webp",
+      "bytes": 1464370,
+      "sha256": "79ec8200dc72ec7c05b47deecc7dc680623de9efeb7f93b4e377f81abe5e91a7"
+    },
+    {
+      "source": "/art/v201-lossless/artillery-v9.webp",
+      "path": "art/v201-lossless/artillery-v9.webp",
+      "bytes": 858876,
+      "sha256": "355f0061aae4b780e7898fd1955d4914632f9204d9dfcce96362406e70e996d2"
+    },
+    {
+      "source": "/art/v201-lossless/explosions-v9.webp",
+      "path": "art/v201-lossless/explosions-v9.webp",
+      "bytes": 926008,
+      "sha256": "0e69b842906df71a16e6187a488cbc81f48946284314b7366ac3fb8243c146f7"
+    },
+    {
+      "source": "/art/v201-lossless/impacts-v12.webp",
+      "path": "art/v201-lossless/impacts-v12.webp",
+      "bytes": 1091798,
+      "sha256": "0470b96a0b1c3ac76de09faadae53f007b8e5794c848650f871c3b255b37a6ff"
+    },
+    {
+      "source": "/art/v201-lossless/fixed-wing-v12.webp",
+      "path": "art/v201-lossless/fixed-wing-v12.webp",
+      "bytes": 714862,
+      "sha256": "bb332ac860e148994a41e6023c8e87e481e445e0c8b3d2bfc6ff55d28dd11f6e"
+    },
+    {
+      "source": "/art/v201-lossless/rotorcraft-v12.webp",
+      "path": "art/v201-lossless/rotorcraft-v12.webp",
+      "bytes": 1766414,
+      "sha256": "0881e5cd83550f73f0d8744ac3b4c53da130564f96bf0d0a7183fb207d86556e"
+    },
+    {
+      "source": "/art/v201-lossless/blast-he-frames-v165.webp",
+      "path": "art/v201-lossless/blast-he-frames-v165.webp",
+      "bytes": 112710,
+      "sha256": "95e97944cc256b258f743dcc2594133fc3a87d27ac31e009029c5d15973663e7"
+    },
+    {
+      "source": "/art/v201-lossless/blast-grenade-frames-v165.webp",
+      "path": "art/v201-lossless/blast-grenade-frames-v165.webp",
+      "bytes": 81838,
+      "sha256": "89e341079ead13fcefe7a473c24d98de708a650822286e8b8421ff42f0fe22dd"
+    },
+    {
+      "source": "/art/v201-lossless/buildings-v13.webp",
+      "path": "art/v201-lossless/buildings-v13.webp",
+      "bytes": 1130816,
+      "sha256": "e0df232b1dd0ca43b4a4f16e96c0b1b464f94dd8a5ec3934cd293731d4ffc3ea"
+    },
+    {
+      "source": "/art/v201-lossless/building-collapse-v13.webp",
+      "path": "art/v201-lossless/building-collapse-v13.webp",
+      "bytes": 2005394,
+      "sha256": "9b72d6453f11007189bddf5d7d73bf34fb7e42251c15353108b1489e7ffaae01"
+    },
+    {
+      "source": "/art/v201-lossless/ground-wrecks-v14.webp",
+      "path": "art/v201-lossless/ground-wrecks-v14.webp",
+      "bytes": 1867188,
+      "sha256": "fa6d1693846924105edc7424cedb3615fc5cf30933cc66ef1bbfdc663b4f40a3"
+    },
+    {
+      "source": "/art/v201-lossless/air-wrecks-v14.webp",
+      "path": "art/v201-lossless/air-wrecks-v14.webp",
+      "bytes": 1938518,
+      "sha256": "b82e8a2c18fc4e7be39f57509ae1d38b114bd609f5795ee7d31b1d0be9d05d4b"
+    },
+    {
+      "source": "/art/v201-lossless/mobile-vehicles-v14.webp",
+      "path": "art/v201-lossless/mobile-vehicles-v14.webp",
+      "bytes": 1616000,
+      "sha256": "d6428e1a8ef91ce096146440774567f63a710246f723414deaa8f5d9e87bb091"
+    },
+    {
+      "source": "/art/v201-lossless/support-vehicles-v14.webp",
+      "path": "art/v201-lossless/support-vehicles-v14.webp",
+      "bytes": 2025968,
+      "sha256": "ecfe2710fc75cd81a4ed9b018d3992e24f5c04ca216b4aca50533e96a30a542f"
+    },
+    {
+      "source": "/art/v201-lossless/parachute-v1.webp",
+      "path": "art/v201-lossless/parachute-v1.webp",
+      "bytes": 681238,
+      "sha256": "0fb6c60a8b7e5a905efdd73c8aff10965dd0229572338fc8487a88edd52985cd"
+    },
+    {
+      "source": "/art/v201-lossless/glider-v141.webp",
+      "path": "art/v201-lossless/glider-v141.webp",
+      "bytes": 930192,
+      "sha256": "d98a49f70b49acf26df95771c803e4a305f3042d3c569f7b1ac3d04dbe3c3c13"
+    },
+    {
+      "source": "/art/v224-airborne/parachute-transport.png",
+      "path": "art/v224-airborne/parachute-transport.webp",
+      "bytes": 577950,
+      "sha256": "d35798e24d23dbf89affc547d2c4acddb6199acb0a544b273cbd5ec4033925b3"
+    },
+    {
+      "source": "/art/v224-airborne/parachute-transport-wreck.png",
+      "path": "art/v224-airborne/parachute-transport-wreck.webp",
+      "bytes": 797850,
+      "sha256": "cd7a05e03465fe89e3cd0584ef175c89bc235b0b86223c2c2d7700f86eba7333"
+    },
+    {
+      "source": "/art/v201-lossless/blast-fuel-frames-v165.webp",
+      "path": "art/v201-lossless/blast-fuel-frames-v165.webp",
+      "bytes": 192654,
+      "sha256": "88b52d48ba883b28f4f8daba4ebdd0c090ff8433bb5f5fbd8944a813a4abce35"
+    },
+    {
+      "source": "/art/v201-lossless/blast-earth-frames-v165.webp",
+      "path": "art/v201-lossless/blast-earth-frames-v165.webp",
+      "bytes": 149718,
+      "sha256": "d3725aaadfafcb41e35c3008a8e7f428cfcf2cc0a6dcbd3afb64e7e93ccd1b12"
+    },
+    {
+      "source": "/art/v201-lossless/building-footings-v145.webp",
+      "path": "art/v201-lossless/building-footings-v145.webp",
+      "bytes": 1021436,
+      "sha256": "a85808fe39b35e4005b4b7b2d1f138dda9307c92ae2374ab8a1499ceae9fdf7c"
+    },
+    {
+      "source": "/art/v201-lossless/powder-smoke-frames-v161.webp",
+      "path": "art/v201-lossless/powder-smoke-frames-v161.webp",
+      "bytes": 98360,
+      "sha256": "89787364dcefd143815fd6be5ba8c4d84e68acc5667ec28720b430ca1eb0d71a"
+    },
+    {
+      "source": "/art/v201-lossless/tank-wreck-frames-v162.webp",
+      "path": "art/v201-lossless/tank-wreck-frames-v162.webp",
+      "bytes": 357398,
+      "sha256": "b11a13a28e30dffaca110119a5e67dd13cb51023139f18cea5188c281828e78d"
+    },
+    {
+      "source": "/art/v201-lossless/blast-air-frames-v165.webp",
+      "path": "art/v201-lossless/blast-air-frames-v165.webp",
+      "bytes": 116822,
+      "sha256": "b2584df8b9178b15e557782d23e3d7b7aa6907be81fbfbe51ead7383bfb1109f"
+    },
+    {
+      "source": "/art/v201-lossless/soldier-parts-v178.webp",
+      "path": "art/v201-lossless/soldier-parts-v178.webp",
+      "bytes": 699290,
+      "sha256": "9a299ccec2237c0ddcec71857d1624428f3f7c617158cbd0e826710eeaba2bee"
+    },
+    {
+      "source": "/art/v235-content/soldier-equipment.png",
+      "path": "art/v235-content/soldier-equipment.webp",
+      "bytes": 587624,
+      "sha256": "b7b0d164e8f5139954a708df7a1741aab9d43453f0691d66332fc830fac8ceea"
+    },
+    {
+      "source": "/art/v201-lossless/v16-air__fpv-frames.webp",
+      "path": "art/v201-lossless/v16-air__fpv-frames.webp",
+      "bytes": 1655728,
+      "sha256": "c4b22b15a58dd8d416166fc94575e941b8e70189b69e60844d0300385baa522b"
+    },
+    {
+      "source": "/art/v201-lossless/v19-trees__pine.webp",
+      "path": "art/v201-lossless/v19-trees__pine.webp",
+      "bytes": 45560,
+      "sha256": "9472442b198e65195041ab7f760622c9cd69eb3c19d5e81cec3e2374c2813773"
+    },
+    {
+      "source": "/art/v201-lossless/v19-trees__broadleaf.webp",
+      "path": "art/v201-lossless/v19-trees__broadleaf.webp",
+      "bytes": 58272,
+      "sha256": "1fd1f8c772cdfb054f024d1ac884dd5753a5a1eb6ea1cb01a6d649113326b9c8"
+    },
+    {
+      "source": "/art/v18-mines/mines.png",
+      "path": "art/v18-mines/mines.webp",
+      "bytes": 4474,
+      "sha256": "a2b210225aabb488a1235130701931760523401b6a1bf647d2b2cf8a7db970bc"
+    },
+    {
+      "source": "/art/v201-lossless/v18-comeback__toxic-cloud.webp",
+      "path": "art/v201-lossless/v18-comeback__toxic-cloud.webp",
+      "bytes": 132492,
+      "sha256": "ef13833874df1dd71e61c61224a933aa4b9faf22ecce7a7d361f6fc340d5a960"
+    },
+    {
+      "source": "/art/v190/sprites/fort_bunker.webp",
+      "path": "art/v190/sprites/fort_bunker.webp",
+      "bytes": 442642,
+      "sha256": "ebf5dee27e76aa4f8f5b23afe82db00542cb7bcfd61519bb76a40f2e62a5173f"
+    },
+    {
+      "source": "/art/v190/sprites/fort_machinegun.webp",
+      "path": "art/v190/sprites/fort_machinegun.webp",
+      "bytes": 549162,
+      "sha256": "d7427f2ec3eb2752faf82cc57296a51d88cb9540d7ffa47b62a5e9c4d8fa0d21"
+    },
+    {
+      "source": "/art/v190/sprites/fort_aa.webp",
+      "path": "art/v190/sprites/fort_aa.webp",
+      "bytes": 385952,
+      "sha256": "cd58010c3e1f73921a316995faa3faefb59d14ad7380aaa0cdb843a44ce6ff64"
+    },
+    {
+      "source": "/art/v190/sprites/fort_spawn.webp",
+      "path": "art/v190/sprites/fort_spawn.webp",
+      "bytes": 338570,
+      "sha256": "93b46000c5d452647a5d5bac31cd7736147af023c34c9429ae716de118bd1d4b"
+    },
+    {
+      "source": "/art/v190/sprites/fort_wire.webp",
+      "path": "art/v190/sprites/fort_wire.webp",
+      "bytes": 486916,
+      "sha256": "93c31287f5afa284f35a2dfccb93bf33fe1869b1f84f94c1e0e38d946f9e2a96"
+    },
+    {
+      "source": "/art/v227-installations/fort_radar.png",
+      "path": "art/v227-installations/fort_radar.webp",
+      "bytes": 378828,
+      "sha256": "04179aadc8ffa1939be3dd3da2efbe15b217a08571fc6f379b8d8db244e88347"
+    },
+    {
+      "source": "/art/v227-installations/fort_watchtower.png",
+      "path": "art/v227-installations/fort_watchtower.webp",
+      "bytes": 180348,
+      "sha256": "c568b595d5e03c41daa18f4701fe181467a025453acb93afde65114c5c61aaa2"
+    },
+    {
+      "source": "/art/v227-installations/fort_at_bunker.png",
+      "path": "art/v227-installations/fort_at_bunker.webp",
+      "bytes": 396566,
+      "sha256": "6d065a5689537d99dce63f108cd36200368ebc334e73e36591ffa3015a251129"
+    },
+    {
+      "source": "/art/v227-installations/fort_mortar_pit.png",
+      "path": "art/v227-installations/fort_mortar_pit.webp",
+      "bytes": 399028,
+      "sha256": "d70df94ab15f89663e0d514781e5bbf047d47f5e6de26624335710a66cbe312e"
+    },
+    {
+      "source": "/art/v227-installations/fort_supply_depot.png",
+      "path": "art/v227-installations/fort_supply_depot.webp",
+      "bytes": 303830,
+      "sha256": "8f8c5bbdd5938092e9d4ccf7a960672e429cd8efc7812e3be476079cfa7cd049"
+    },
+    {
+      "source": "/art/v235-content/fort_medical_post-sprite.png",
+      "path": "art/v235-content/fort_medical_post-sprite.webp",
+      "bytes": 439882,
+      "sha256": "4e6ea08966bb844d0c38c4f21dd074e9054f57cf4c5207819799f718af6555e7"
+    },
+    {
+      "source": "/art/v227-installations/fort_command_post.png",
+      "path": "art/v227-installations/fort_command_post.webp",
+      "bytes": 424264,
+      "sha256": "b902513c07a974b9410037dfdb68f2cd4976a96fd2dc768b57465388ca5ec7b9"
+    },
+    {
+      "source": "/art/v227-installations/fort_flak_tower.png",
+      "path": "art/v227-installations/fort_flak_tower.webp",
+      "bytes": 334216,
+      "sha256": "25c69303b5498954956b39d5e9c8dbef638b0dbd5e7b75cab241761121f05cab"
+    },
+    {
+      "source": "/art/v227-installations/fort_trench.png",
+      "path": "art/v227-installations/fort_trench.webp",
+      "bytes": 298254,
+      "sha256": "961e3bdb79ffcf6129f49569459f776d3f11ae7f4297bda0c58f1b3299211818"
+    },
+    {
+      "source": "/art/v227-installations/fort_repair_post.png",
+      "path": "art/v227-installations/fort_repair_post.webp",
+      "bytes": 388638,
+      "sha256": "a9719840d3ec62d178a73663c77f4f84a9809d0fa9c3d53a3a00fcadf7883571"
+    },
+    {
+      "source": "/art/v201-lossless/v195-logistics__ammo-crate.webp",
+      "path": "art/v201-lossless/v195-logistics__ammo-crate.webp",
+      "bytes": 958288,
+      "sha256": "fa517565fa10776ad79a815aedbf280ad7aaf550fa06c6691e8d7d143fb455fa"
+    },
+    {
+      "source": "/art/v197-armor/tow-sprite.webp",
+      "path": "art/v197-armor/tow-sprite.webp",
+      "bytes": 765944,
+      "sha256": "201b9f6491325f98126c85fa91c06c55d88a42d778d21b6c0fbcedcb46d6ec14"
+    },
+    {
+      "source": "/art/v197-armor/tow-wreck.webp",
+      "path": "art/v197-armor/tow-wreck.webp",
+      "bytes": 791492,
+      "sha256": "771a318bedea4a1eea41475a19d67c32b1f4c58dbb854e49d7cd2559e9680739"
+    },
+    {
+      "source": "/art/v197-armor/light-tank-wreck.webp",
+      "path": "art/v197-armor/light-tank-wreck.webp",
+      "bytes": 848204,
+      "sha256": "d9e23df31c0d8c3f18387e9e6d92d1c8a75ac41e1f5cdd45e39881dbc40ae0f7"
+    },
+    {
+      "source": "/art/v204-weapons/mlrs-wreck.webp",
+      "path": "art/v204-weapons/mlrs-wreck.webp",
+      "bytes": 1275368,
+      "sha256": "99f6a1b86c6a7042097031b76797a94803b1b7f84f9fb1456df6e565eb703a22"
+    },
+    {
+      "source": "/art/v203-tanks/light_tank.webp",
+      "path": "art/v203-tanks/light_tank.webp",
+      "bytes": 1082118,
+      "sha256": "2b2f934c4b5d42367714a825a12f92ad8da70b8ce49651857c3a4a56c018bd38"
+    },
+    {
+      "source": "/art/v203-tanks/tank.webp",
+      "path": "art/v203-tanks/tank.webp",
+      "bytes": 890842,
+      "sha256": "a228b69c64eb76ace4d1cded08ee7b93c5627b7e241522d3ce3d448e7e8f148c"
+    },
+    {
+      "source": "/art/v203-tanks/heavy_tank.webp",
+      "path": "art/v203-tanks/heavy_tank.webp",
+      "bytes": 957468,
+      "sha256": "fa483cb617e15955cbfbd763ae2fe86f9488d1ae124cc116b959246fe594bfc1"
+    },
+    {
+      "source": "/art/v204-weapons/mlrs.webp",
+      "path": "art/v204-weapons/mlrs.webp",
+      "bytes": 1170028,
+      "sha256": "b98cb6e7d2c24286511a3d86af26245952b9cd665d23b2f8872e168324d42c9f"
+    },
+    {
+      "source": "/art/v204-weapons/field-gun.webp",
+      "path": "art/v204-weapons/field-gun.webp",
+      "bytes": 535586,
+      "sha256": "aa5233b480e437c25efabf9d2cd5f2de5ac03b73dbda8073d7e000551a91b8f2"
+    },
+    {
+      "source": "/art/v204-weapons/siege-gun.webp",
+      "path": "art/v204-weapons/siege-gun.webp",
+      "bytes": 1178802,
+      "sha256": "dd991b7147570a1d8484ec27840db029cd6d69ae952e1b851cb18494b2854e15"
+    },
+    {
+      "source": "/art/v204-weapons/helicopter.webp",
+      "path": "art/v204-weapons/helicopter.webp",
+      "bytes": 586420,
+      "sha256": "5e75e0072cb6c2c9d1573f5175207abb5c44cbf2d60567f0c58687ee1b68c775"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/sam.png",
+      "path": "art/v209-vehicles-missiles/sam.webp",
+      "bytes": 819400,
+      "sha256": "b27a4851c89466544e1ae0c4e8845a3e7a94bdd3dea8328932c832085e043e4e"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/scout.png",
+      "path": "art/v209-vehicles-missiles/scout.webp",
+      "bytes": 763608,
+      "sha256": "ffba4cbc989e03bcbf07fcaf0698b1cb7c86e30dbef07402ab408c8f4da00306"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/tow-missile.png",
+      "path": "art/v209-vehicles-missiles/tow-missile.webp",
+      "bytes": 185070,
+      "sha256": "4d9fe127d47c135e28be57b91d54312ede3097880a34164922ba4eb15c08c7ba"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/infantry-missile.png",
+      "path": "art/v209-vehicles-missiles/infantry-missile.webp",
+      "bytes": 288638,
+      "sha256": "139dbb586a5ede8cc66f0a6587f6109ea89e597dd5456277f37b646c8a6d3731"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/sam-missile.png",
+      "path": "art/v209-vehicles-missiles/sam-missile.webp",
+      "bytes": 176526,
+      "sha256": "f0e22f8044dbaae1408db7b8c271a620e011b273e76535e31581578b66624221"
+    },
+    {
+      "source": "/art/v220-ifv/ifv.png",
+      "path": "art/v220-ifv/ifv.webp",
+      "bytes": 912076,
+      "sha256": "32b5aab8509bfb4e230282bb27ab07d028859883535bed5f7be209c4e8cd8e6a"
+    },
+    {
+      "source": "/art/v223-vehicles/apc_transport.png",
+      "path": "art/v223-vehicles/apc_transport.webp",
+      "bytes": 852216,
+      "sha256": "c130163b0b378a09e6aa68c8235f8d8d1d369944b3fd83eacd8a5c935163206c"
+    },
+    {
+      "source": "/art/v223-vehicles/supply_truck.png",
+      "path": "art/v223-vehicles/supply_truck.webp",
+      "bytes": 851826,
+      "sha256": "c8df4c06491003856645ad8e05c7cd7c5df4cc9fc1d51d0b08bd8dc5e083d0b7"
+    },
+    {
+      "source": "/art/v223-vehicles/pickup.png",
+      "path": "art/v223-vehicles/pickup.webp",
+      "bytes": 756104,
+      "sha256": "f8fceafb3ee1aeb38e3875065c7252756f7a3e37aabac04f2b181d7adf13021b"
+    },
+    {
+      "source": "/art/v230-guns/mortar_60-body.png",
+      "path": "art/v230-guns/mortar_60-body.webp",
+      "bytes": 267322,
+      "sha256": "c9ef2b04cc3859fe422bac3febdccd193bf5328ace7141d854a011d987058eb4"
+    },
+    {
+      "source": "/art/v230-guns/mortar_81-body.png",
+      "path": "art/v230-guns/mortar_81-body.webp",
+      "bytes": 272468,
+      "sha256": "f10aa34feef72cc02127b6d29fe445515ae889565a92d7d1bf37d067c1eb078d"
+    },
+    {
+      "source": "/art/v230-guns/mortar_120-body.png",
+      "path": "art/v230-guns/mortar_120-body.webp",
+      "bytes": 264092,
+      "sha256": "819a305093957d26bf6725a329310c14d9bbd950996fcec6b5928caa89e3b1c3"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_105-body.png",
+      "path": "art/v230-guns/howitzer_105-body.webp",
+      "bytes": 273858,
+      "sha256": "0aa1f0e041caf1bac1b19d34016c318d6b7b58277fa48fb2ea85c50135297053"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_120-body.png",
+      "path": "art/v230-guns/howitzer_120-body.webp",
+      "bytes": 277590,
+      "sha256": "1a9e9833ee72525f4357028206487a11009b664c4d0851f832d49b1a31979377"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_122-body.png",
+      "path": "art/v230-guns/howitzer_122-body.webp",
+      "bytes": 196328,
+      "sha256": "e2fa1172ac096a18d399d5f13725c86b6bdee428ee97d74cccf886340b9c0e4a"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_152-body.png",
+      "path": "art/v230-guns/howitzer_152-body.webp",
+      "bytes": 301368,
+      "sha256": "cef1deb09d057e5a6644f82217c4a4bcdcf38e995535fede3b26739feca722f5"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_155-body.png",
+      "path": "art/v230-guns/howitzer_155-body.webp",
+      "bytes": 265404,
+      "sha256": "8ceb98776c1a41318395c50dcfc821c7ea9f6c355dde6ebe66be437ffb692e42"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_203-body.png",
+      "path": "art/v230-guns/howitzer_203-body.webp",
+      "bytes": 274668,
+      "sha256": "c89ac551c4f37bcbae8e062843e54748e77bce266d8572f14a7f008183cafe24"
+    },
+    {
+      "source": "/art/v230-guns/field_gun_85-body.png",
+      "path": "art/v230-guns/field_gun_85-body.webp",
+      "bytes": 266178,
+      "sha256": "5d8846c7ce1d8ba7a505f10d3058f098a05ed5bfb8c43d1021246cb78869cbd4"
+    },
+    {
+      "source": "/art/v230-guns/sp_howitzer_122-body.png",
+      "path": "art/v230-guns/sp_howitzer_122-body.webp",
+      "bytes": 513582,
+      "sha256": "d74bb079cf9d858d2db9d0b1de8e9013d9baa8deb0f44b08755ce94bf6b54ef2"
+    },
+    {
+      "source": "/art/v230-guns/sp_howitzer_155-body.png",
+      "path": "art/v230-guns/sp_howitzer_155-body.webp",
+      "bytes": 612072,
+      "sha256": "fac644591fa077b991fbf371ba5dddc22ae7b1875123ac0f34ec699733831d03"
+    },
+    {
+      "source": "/art/v234/stealth-bomber-sprite.png",
+      "path": "art/v234/stealth-bomber-sprite.webp",
+      "bytes": 11708,
+      "sha256": "5770cc2a2597920056359d1e4613898f9b3a588e876754f3eb17717b7e4ed9fa"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/scout-wreck.png",
+      "path": "art/v209-vehicles-missiles/scout-wreck.webp",
+      "bytes": 895128,
+      "sha256": "be968493c776ada9bb0618c043f66973f6ca9397c1bdc55762ddf5191b800341"
+    },
+    {
+      "source": "/art/v209-vehicles-missiles/sam-wreck.png",
+      "path": "art/v209-vehicles-missiles/sam-wreck.webp",
+      "bytes": 797356,
+      "sha256": "6a8cb426f6ab87cfc5815053e70b15174b5f7ee46c91520850fc97c9eccbaae5"
+    },
+    {
+      "source": "/art/v230-guns/mortar_60-barrel.png",
+      "path": "art/v230-guns/mortar_60-barrel.webp",
+      "bytes": 159438,
+      "sha256": "e15b658f5e7c7e60d798d21922d80bce5a6be6f997f8005a5ea3b75205db42c0"
+    },
+    {
+      "source": "/art/v223-vehicles/apc_transport-wreck.png",
+      "path": "art/v223-vehicles/apc_transport-wreck.webp",
+      "bytes": 1070946,
+      "sha256": "9418c6f6db2e318a164fede19855e5f28f14c536c39d9c4dba571b9c35f77400"
+    },
+    {
+      "source": "/art/v223-vehicles/supply_truck-wreck.png",
+      "path": "art/v223-vehicles/supply_truck-wreck.webp",
+      "bytes": 1067406,
+      "sha256": "e70a64e43cb028f2be6138df82f9de9cb5e4da50333b976a4dcf68fd9d86c255"
+    },
+    {
+      "source": "/art/v230-guns/mortar_81-barrel.png",
+      "path": "art/v230-guns/mortar_81-barrel.webp",
+      "bytes": 190988,
+      "sha256": "436a8a1a9c0d2efc3544f95cf418bd7388f211c2f540ea11e11349fc5a7c3949"
+    },
+    {
+      "source": "/art/v223-vehicles/pickup-wreck.png",
+      "path": "art/v223-vehicles/pickup-wreck.webp",
+      "bytes": 835642,
+      "sha256": "715d806502f511282aec3fe82b253d4dba2c3d5b2fc9b34d36b788923e3291f7"
+    },
+    {
+      "source": "/art/v230-guns/mortar_120-barrel.png",
+      "path": "art/v230-guns/mortar_120-barrel.webp",
+      "bytes": 191330,
+      "sha256": "c476a5494cfaa14c879fc8b59cfe4bebc4a7caddca59c3bd83bc6602b414e36a"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_105-barrel.png",
+      "path": "art/v230-guns/howitzer_105-barrel.webp",
+      "bytes": 155902,
+      "sha256": "5460c8f8a000e7ff0541863f92c1fdf9a381a05bbaa122c6020b87a99be48152"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_120-barrel.png",
+      "path": "art/v230-guns/howitzer_120-barrel.webp",
+      "bytes": 140236,
+      "sha256": "98e4de6a3f35bab1253327258e982283abd36cdec3a59dcd4c0e8544f436b2c3"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_122-barrel.png",
+      "path": "art/v230-guns/howitzer_122-barrel.webp",
+      "bytes": 129312,
+      "sha256": "beeea8143549cc9aab5f70b5401d6b7f16c924e68169af85b298c4dd7169e5f3"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_152-barrel.png",
+      "path": "art/v230-guns/howitzer_152-barrel.webp",
+      "bytes": 151106,
+      "sha256": "e8649926ef7b811cda06e902bb33311323fbfe07b442337a1205291967325560"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_155-barrel.png",
+      "path": "art/v230-guns/howitzer_155-barrel.webp",
+      "bytes": 139590,
+      "sha256": "d3f24aa78c5b82c6e223ab67180679e60fdbf5b81b5279b1638718fe4667e3af"
+    },
+    {
+      "source": "/art/v230-guns/howitzer_203-barrel.png",
+      "path": "art/v230-guns/howitzer_203-barrel.webp",
+      "bytes": 174394,
+      "sha256": "c5bd40dedf98d4ae2fe9049bcef633ae8202d556a99ee8a9331cabd9306a5a49"
+    },
+    {
+      "source": "/art/v230-guns/field_gun_85-barrel.png",
+      "path": "art/v230-guns/field_gun_85-barrel.webp",
+      "bytes": 139678,
+      "sha256": "49f24ca82bbd588e1950fcdb410f23001c78633b8e47ac0ee2df90e60b5be0c7"
+    },
+    {
+      "source": "/art/v230-guns/sp_howitzer_122-barrel.png",
+      "path": "art/v230-guns/sp_howitzer_122-barrel.webp",
+      "bytes": 132618,
+      "sha256": "d7f727de9317db55f6377f859e70f9daa8ff6fb79b4fb22042385d0975ef438f"
+    },
+    {
+      "source": "/art/v230-guns/sp_howitzer_155-barrel.png",
+      "path": "art/v230-guns/sp_howitzer_155-barrel.webp",
+      "bytes": 167686,
+      "sha256": "7503417d41da7ea9664b98433599410701d8a7b32c53c802c6b0dde6c445c2e3"
+    },
+    {
+      "source": "/art/battlefield-v3.png",
+      "path": "art/battlefield-v3.webp",
+      "bytes": 1507936,
+      "sha256": "caddcffd46aa087ef0345e0215aaa783d163b933fbf1101a3cf1cf26275bd31e"
+    },
+    {
+      "source": "/art/v16-maps/jungle.png",
+      "path": "art/v16-maps/jungle.webp",
+      "bytes": 522038,
+      "sha256": "f199618c758cbd376c63e2c1a7be4024eb428e35ddaf30cc56ead36138b34c46"
+    },
+    {
+      "source": "/art/v16-maps/mountains.png",
+      "path": "art/v16-maps/mountains.webp",
+      "bytes": 513794,
+      "sha256": "8224ff1655dcf162f3b9095de3df6ba9c48827f4708553d140a2bda8d22ca01e"
+    },
+    {
+      "source": "/art/v16-maps/desert.png",
+      "path": "art/v16-maps/desert.webp",
+      "bytes": 490838,
+      "sha256": "9f80c3d96c115d4c4df74591557a82a48cea9cbef48b9f53052f52fd2113dc7a"
+    },
+    {
+      "source": "/art/air-wrecks-v14.png",
+      "path": "art/air-wrecks-v14.webp",
+      "bytes": 1938518,
+      "sha256": "b82e8a2c18fc4e7be39f57509ae1d38b114bd609f5795ee7d31b1d0be9d05d4b"
+    },
+    {
+      "source": "/art/artillery-v9.png",
+      "path": "art/artillery-v9.webp",
+      "bytes": 378280,
+      "sha256": "937c9ec85ac87ce487bb07d4d767f689626d9986a75c2e1e7d3fccd4b58d21b6"
+    },
+    {
+      "source": "/art/blast-air-frames-v165.png",
+      "path": "art/blast-air-frames-v165.webp",
+      "bytes": 116802,
+      "sha256": "4cdc5413d32849f8d16aa85bd8dae7c06c3be8f33ee017d0c0b0388ca067ed87"
+    },
+    {
+      "source": "/art/blast-earth-frames-v165.png",
+      "path": "art/blast-earth-frames-v165.webp",
+      "bytes": 149570,
+      "sha256": "108c2711a5673d54c23cd7936adac887bbdfff72ed49523223a95c9e7f39be8e"
+    },
+    {
+      "source": "/art/blast-fuel-frames-v165.png",
+      "path": "art/blast-fuel-frames-v165.webp",
+      "bytes": 192664,
+      "sha256": "d4870f71ec6f4491df311815caf315e3c8cf95382f56fe56b182f210fb4e5845"
+    },
+    {
+      "source": "/art/blast-grenade-frames-v165.png",
+      "path": "art/blast-grenade-frames-v165.webp",
+      "bytes": 81870,
+      "sha256": "b9b4da07d14470d6963af8c2ea14d30d22bd344152f4700311c7f9425891db73"
+    },
+    {
+      "source": "/art/blast-he-frames-v165.png",
+      "path": "art/blast-he-frames-v165.webp",
+      "bytes": 112632,
+      "sha256": "8c8ce1eddbd585aefe54ac02328afc81a947efa7d2b8a0ed7d41d140960bae97"
+    },
+    {
+      "source": "/art/building-collapse-v13.png",
+      "path": "art/building-collapse-v13.webp",
+      "bytes": 2005394,
+      "sha256": "9b72d6453f11007189bddf5d7d73bf34fb7e42251c15353108b1489e7ffaae01"
+    },
+    {
+      "source": "/art/building-footings-v145.png",
+      "path": "art/building-footings-v145.webp",
+      "bytes": 1021392,
+      "sha256": "a9fa3d383d4f1643a482cea5fc3498c81fd0f0f93c3503f5dcc65cf687c8413d"
+    },
+    {
+      "source": "/art/buildings-v13.png",
+      "path": "art/buildings-v13.webp",
+      "bytes": 1131042,
+      "sha256": "c6b46ba88c0df4d63ffd0a7ef2097752709b380546c444ae3197ee619088801b"
+    },
+    {
+      "source": "/art/destructible-scenery-v9.png",
+      "path": "art/destructible-scenery-v9.webp",
+      "bytes": 1464370,
+      "sha256": "79ec8200dc72ec7c05b47deecc7dc680623de9efeb7f93b4e377f81abe5e91a7"
+    },
+    {
+      "source": "/art/explosions-v9.png",
+      "path": "art/explosions-v9.webp",
+      "bytes": 924110,
+      "sha256": "dd0111f021e0148cd707ee2c143b225b8274626e53dbb498d26903dd3eee0284"
+    },
+    {
+      "source": "/art/fixed-wing-v12.png",
+      "path": "art/fixed-wing-v12.webp",
+      "bytes": 714386,
+      "sha256": "7bd206060cbe3047e784267c14105d80cf39a1ad12b9e80e56a3283e42391128"
+    },
+    {
+      "source": "/art/glider-v141.png",
+      "path": "art/glider-v141.webp",
+      "bytes": 927464,
+      "sha256": "c42dbbaf72595ae27f3fd523d46e539f91eb11be15101f7040c60f3e5671cf65"
+    },
+    {
+      "source": "/art/ground-wrecks-v14.png",
+      "path": "art/ground-wrecks-v14.webp",
+      "bytes": 1867188,
+      "sha256": "fa6d1693846924105edc7424cedb3615fc5cf30933cc66ef1bbfdc663b4f40a3"
+    },
+    {
+      "source": "/art/impacts-v12.png",
+      "path": "art/impacts-v12.webp",
+      "bytes": 528338,
+      "sha256": "34ccaf73937f61524f9066901fc8a6a38473362e029211c6e0c398dad808bd3f"
+    },
+    {
+      "source": "/art/mobile-vehicles-v14.png",
+      "path": "art/mobile-vehicles-v14.webp",
+      "bytes": 1616000,
+      "sha256": "d6428e1a8ef91ce096146440774567f63a710246f723414deaa8f5d9e87bb091"
+    },
+    {
+      "source": "/art/parachute-v1.png",
+      "path": "art/parachute-v1.webp",
+      "bytes": 656548,
+      "sha256": "ee38975c7bdcb310aefb2f5b2ef599ab927381b3908c8ad91e72a442bb41d4ae"
+    },
+    {
+      "source": "/art/powder-smoke-frames-v161.png",
+      "path": "art/powder-smoke-frames-v161.webp",
+      "bytes": 98412,
+      "sha256": "2b46e534cebf3e0bd74777591bcf8b66e7f6bef9f9b81d43fd5cc6c755475a6a"
+    },
+    {
+      "source": "/art/reinforcements-v5.png",
+      "path": "art/reinforcements-v5.webp",
+      "bytes": 656278,
+      "sha256": "619392bf553f64a3cabbddb32d13d18b2f3e3e11dc4f24798831cf465cb7f7fb"
+    },
+    {
+      "source": "/art/rotorcraft-v12.png",
+      "path": "art/rotorcraft-v12.webp",
+      "bytes": 1766414,
+      "sha256": "0881e5cd83550f73f0d8744ac3b4c53da130564f96bf0d0a7183fb207d86556e"
+    },
+    {
+      "source": "/art/soldier-parts-v178.png",
+      "path": "art/soldier-parts-v178.webp",
+      "bytes": 697028,
+      "sha256": "2c11111e4fd7366f116dd8e6cba17d1c86201a32396076409e3e8d532d59b316"
+    },
+    {
+      "source": "/art/support-vehicles-v14.png",
+      "path": "art/support-vehicles-v14.webp",
+      "bytes": 2025968,
+      "sha256": "ecfe2710fc75cd81a4ed9b018d3992e24f5c04ca216b4aca50533e96a30a542f"
+    },
+    {
+      "source": "/art/tank-wreck-frames-v162.png",
+      "path": "art/tank-wreck-frames-v162.webp",
+      "bytes": 357518,
+      "sha256": "7c48f6f27d11fde9fe4b2489d69028430aadcf381133eea5ea89a7f0d7259449"
+    },
+    {
+      "source": "/art/terrain-texture.png",
+      "path": "art/terrain-texture.webp",
+      "bytes": 1531552,
+      "sha256": "8ae38c9b5c2fa316fbacd6032aba75db5b23533ee951a17fea7a10f8d1ab76ab"
+    },
+    {
+      "source": "/art/v16-air/fpv-frames.png",
+      "path": "art/v16-air/fpv-frames.webp",
+      "bytes": 330836,
+      "sha256": "22a820ae6179778afbeacaa639ace1fccf060aa7cd27480089b159778521d993"
+    },
+    {
+      "source": "/art/v18-comeback/toxic-cloud.png",
+      "path": "art/v18-comeback/toxic-cloud.webp",
+      "bytes": 132528,
+      "sha256": "b21ad32fb8030dc3f44bc25587710fabc1ee3c912f675af08b63cfc415d0b2d6"
+    },
+    {
+      "source": "/art/v19-trees/broadleaf.png",
+      "path": "art/v19-trees/broadleaf.webp",
+      "bytes": 56144,
+      "sha256": "6eedc45969ecd6b51809e9819264eadd0010702b470a6f36a5b27a2023653084"
+    },
+    {
+      "source": "/art/v19-trees/pine.png",
+      "path": "art/v19-trees/pine.webp",
+      "bytes": 45560,
+      "sha256": "9472442b198e65195041ab7f760622c9cd69eb3c19d5e81cec3e2374c2813773"
+    },
+    {
+      "source": "/art/v195-logistics/ammo-crate.png",
+      "path": "art/v195-logistics/ammo-crate.webp",
+      "bytes": 632232,
+      "sha256": "8d3221fdace588c6359ee3bfe21675033271a118899851969575bc91bdbd7f16"
+    },
+    {
+      "source": "/art/vehicles-v3.png",
+      "path": "art/vehicles-v3.webp",
+      "bytes": 907590,
+      "sha256": "6d7ecdede4ad599dee9e6c3047da6fa047603ed862ba2b6e6993669573ff0cf7"
+    },
+    {
+      "source": "/art/v227-cards/sp_howitzer_122.webp",
+      "path": "art/v227-cards/sp_howitzer_122.webp",
+      "bytes": 290466,
+      "sha256": "0f0e929b859fe7ccb0ea56c3772bf23ee95a8149b8652267bafb020d6b4117dd"
+    },
+    {
+      "source": "/art/v227-cards/sp_howitzer_155.webp",
+      "path": "art/v227-cards/sp_howitzer_155.webp",
+      "bytes": 282026,
+      "sha256": "5473983bbeba7c33658aa280dad747f672ff65c0cecc1496eeb4387a120187b9"
+    },
+    {
+      "source": "/art/v227-cards/fort_radar.webp",
+      "path": "art/v227-cards/fort_radar.webp",
+      "bytes": 324476,
+      "sha256": "840105d54fa68084ad73ee9889d8f3b01520a5895392fe2dbe016b53121d6f95"
+    },
+    {
+      "source": "/art/v227-cards/fort_watchtower.webp",
+      "path": "art/v227-cards/fort_watchtower.webp",
+      "bytes": 306462,
+      "sha256": "655c8ff7c8c4322940d701335f5686c518d953ee60e14545a5714fa6c8d303f6"
+    },
+    {
+      "source": "/art/v227-cards/fort_at_bunker.webp",
+      "path": "art/v227-cards/fort_at_bunker.webp",
+      "bytes": 297952,
+      "sha256": "6ed9a188d1f3b8809604ba449261d9ef32ae2e7888fb8ec639c4e3d9ab1095ba"
+    },
+    {
+      "source": "/art/v227-cards/fort_mortar_pit.webp",
+      "path": "art/v227-cards/fort_mortar_pit.webp",
+      "bytes": 381192,
+      "sha256": "fe83e66dfb48704742791384eea19345a5984b9edd26ece4f7c19980a4a6d023"
+    },
+    {
+      "source": "/art/v227-cards/fort_supply_depot.webp",
+      "path": "art/v227-cards/fort_supply_depot.webp",
+      "bytes": 393960,
+      "sha256": "206b85f7925498ba8b90b878105d28f578984aed55f42a2e2968f8e3007267d6"
+    },
+    {
+      "source": "/art/v235-content/fort_medical_post.webp",
+      "path": "art/v235-content/fort_medical_post.webp",
+      "bytes": 283920,
+      "sha256": "beca44e754f55ca69d22f4b6ba1e005a44caaded020ecdd9cbea6f7abfb2be92"
+    },
+    {
+      "source": "/art/v227-cards/fort_command_post.webp",
+      "path": "art/v227-cards/fort_command_post.webp",
+      "bytes": 293920,
+      "sha256": "b2b96088b7f69c9f9f97695f709288e59d10ce42419b1034aa6e48660ca69b15"
+    },
+    {
+      "source": "/art/v227-cards/fort_flak_tower.webp",
+      "path": "art/v227-cards/fort_flak_tower.webp",
+      "bytes": 307856,
+      "sha256": "76669e68fbe7d2caf0f4cdc1fa0ae89f2f0bef9d61f4b06603a2f1d5491b5f12"
+    },
+    {
+      "source": "/art/v227-cards/fort_trench.webp",
+      "path": "art/v227-cards/fort_trench.webp",
+      "bytes": 330358,
+      "sha256": "68562e4564a1a83ccd06944c82dc249eaf891d5be612236e635b6fc782919e5f"
+    },
+    {
+      "source": "/art/v227-cards/fort_repair_post.webp",
+      "path": "art/v227-cards/fort_repair_post.webp",
+      "bytes": 390684,
+      "sha256": "81c2f275da82c29bf3c7c821ee87669c1a932cb753a25248955c26c6c105f207"
+    },
+    {
+      "source": "/art/v227-cards/mortar_60.webp",
+      "path": "art/v227-cards/mortar_60.webp",
+      "bytes": 285432,
+      "sha256": "32ec714fc0a1bc6ecbb336962c9935b5a587cd2498ddc7d96d82e8057916a769"
+    },
+    {
+      "source": "/art/v227-cards/mortar_81.webp",
+      "path": "art/v227-cards/mortar_81.webp",
+      "bytes": 258562,
+      "sha256": "80fa4397e2b5bc4ae413a7c67df0b6d41371c33b1ed81accf179a101c446c7ae"
+    },
+    {
+      "source": "/art/v227-cards/mortar_120.webp",
+      "path": "art/v227-cards/mortar_120.webp",
+      "bytes": 329826,
+      "sha256": "ffbecba0dfa2a16789139dd66dd785a46200f36f4a685af5e3837df05a2ff78d"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_105.webp",
+      "path": "art/v227-cards/howitzer_105.webp",
+      "bytes": 299508,
+      "sha256": "721f67bdb280cf2bc63bfdf59bf89cebec7de2a04431868f32218aafd99476f7"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_120.webp",
+      "path": "art/v227-cards/howitzer_120.webp",
+      "bytes": 310086,
+      "sha256": "eb71bb5f70e71f6a8c4d21a11d90564ecbab35ddaa1337d32fbe2335319c4646"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_122.webp",
+      "path": "art/v227-cards/howitzer_122.webp",
+      "bytes": 342458,
+      "sha256": "7068e6d829d17f59b94a1c7cd2ab99f920654621750bc0db3f645a71e9b3c53b"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_152.webp",
+      "path": "art/v227-cards/howitzer_152.webp",
+      "bytes": 266836,
+      "sha256": "c3fbb1663dac87ccb0ef8c7943d23707341eeeeda7639c9570ac6611429a9cf3"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_155.webp",
+      "path": "art/v227-cards/howitzer_155.webp",
+      "bytes": 278548,
+      "sha256": "a41e63a86077747b5ae8c4c1643bd2be0d5d3cb42d39180ad756cdd8062154e5"
+    },
+    {
+      "source": "/art/v227-cards/howitzer_203.webp",
+      "path": "art/v227-cards/howitzer_203.webp",
+      "bytes": 308956,
+      "sha256": "2834675a3e36cccd5c41c61e65b8097c746625949dba46901cb51cf63d9127de"
+    },
+    {
+      "source": "/art/v227-cards/field_gun_85.webp",
+      "path": "art/v227-cards/field_gun_85.webp",
+      "bytes": 285730,
+      "sha256": "b364564024c77dd56a848a2c212009fbf8760716ad12acff4fb94da1fc5d14ba"
+    },
+    {
+      "source": "/art/v233/anti_radiation_shell.webp",
+      "path": "art/v233/anti_radiation_shell.webp",
+      "bytes": 244994,
+      "sha256": "183e811c0e22b7ede4da1ca0c5360a630c031d1d1102541c5e52542d37c9dc66"
+    },
+    {
+      "source": "/art/v233/stealth_bomber.webp",
+      "path": "art/v233/stealth_bomber.webp",
+      "bytes": 195190,
+      "sha256": "edb6b4771728e9ea61c40da84316c5406160bb2255905284e13697738c298a1c"
+    },
+    {
+      "source": "/art/v212-counterarmor/antitank_cluster.webp",
+      "path": "art/v212-counterarmor/antitank_cluster.webp",
+      "bytes": 118724,
+      "sha256": "8deb64c23316b9c6cc892d93b19d498c5187ff04faac3349522618243e862b12"
+    },
+    {
+      "source": "/art/v212-counterarmor/hunter_swarm.webp",
+      "path": "art/v212-counterarmor/hunter_swarm.webp",
+      "bytes": 168702,
+      "sha256": "71bce6923303af9a1e399dd528e931881857836914ccc7ef491a985bfd60a9e4"
+    },
+    {
+      "source": "/art/v212-counterarmor/antitank_barrier.webp",
+      "path": "art/v212-counterarmor/antitank_barrier.webp",
+      "bytes": 131278,
+      "sha256": "04bdb67d50bf537c16634a17b4427b6ebca2fd70124f91e4f67e2ae05435733a"
+    },
+    {
+      "source": "/art/v21-economy/cards/field_logistics.webp",
+      "path": "art/v21-economy/cards/field_logistics.webp",
+      "bytes": 118650,
+      "sha256": "6b05f2836e3e5f7558856eb08e7883e0a8d3abb382536f743959e80eec991b98"
+    },
+    {
+      "source": "/art/v21-economy/cards/command_expansion.webp",
+      "path": "art/v21-economy/cards/command_expansion.webp",
+      "bytes": 120874,
+      "sha256": "b17da53621e1c8f7aaf342f9c6be19cff6bc508014dca3ce7d8568b4e42652ae"
+    },
+    {
+      "source": "/art/v21-economy/cards/war_bonds.webp",
+      "path": "art/v21-economy/cards/war_bonds.webp",
+      "bytes": 142270,
+      "sha256": "bbb5ae2482b278bba6e91185f028bde51ae2f458491e45ac834a1bd04f93401a"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/overdraft.webp",
+      "path": "art/v23-doctrine/cards/overdraft.webp",
+      "bytes": 92762,
+      "sha256": "d728f89af6f46f328f7b1f4f2a305cde5b08de4d317fb9b67336b45bf5559ecb"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/signal_jam.webp",
+      "path": "art/v23-doctrine/cards/signal_jam.webp",
+      "bytes": 89350,
+      "sha256": "f40cf4bd56e849a352f671f37d1011c1a20ca96d1811328a030bfbb3ad8540d3"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/airborne_insertion.webp",
+      "path": "art/v23-doctrine/cards/airborne_insertion.webp",
+      "bytes": 106294,
+      "sha256": "4a048c67b632cfd25a1c6ce2acb701b2bcc0268adb6b4364656359f239eb404c"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/forced_march.webp",
+      "path": "art/v23-doctrine/cards/forced_march.webp",
+      "bytes": 127430,
+      "sha256": "189585d099093b0c176a97209fb36b49e892867037aadad02bbfc59793645851"
+    },
+    {
+      "source": "/art/v23-doctrine/cards/cyber_suppression.webp",
+      "path": "art/v23-doctrine/cards/cyber_suppression.webp",
+      "bytes": 90548,
+      "sha256": "bfc8ec25a5f4e63af03ac9f9b5372ebc61ca46682168b335b6f0a8762385e12d"
+    },
+    {
+      "source": "/art/cards-v10/infantry.webp",
+      "path": "art/cards-v10/infantry.webp",
+      "bytes": 70192,
+      "sha256": "e6c7818ea2e67a71a7ed684949374d0f1810fc26629bccb76dfbe91cf6705d0a"
+    },
+    {
+      "source": "/art/cards-v10/machinegun.webp",
+      "path": "art/cards-v10/machinegun.webp",
+      "bytes": 66642,
+      "sha256": "3fb1975d525dcb9d0b4698dca797c2ac9901e004161905b73aff83b1e7daf705"
+    },
+    {
+      "source": "/art/cards-v10/rocket.webp",
+      "path": "art/cards-v10/rocket.webp",
+      "bytes": 67184,
+      "sha256": "be027718ce607f38dd35e1d29d0681013f82f0ab3d6cc2e61967584df6de04d5"
+    },
+    {
+      "source": "/art/cards-v10/tank.webp",
+      "path": "art/cards-v10/tank.webp",
+      "bytes": 60730,
+      "sha256": "b12bc123b17dacb09a9307a8b013b078958d1451678a758f7406481161076a0b"
+    },
+    {
+      "source": "/art/cards-v10/helicopter.webp",
+      "path": "art/cards-v10/helicopter.webp",
+      "bytes": 51636,
+      "sha256": "8e2dd55749012eef7d16d7a5acbf76dedd05dee83af58d01c32b9e66256a2668"
+    },
+    {
+      "source": "/art/cards-v10/sniper.webp",
+      "path": "art/cards-v10/sniper.webp",
+      "bytes": 72952,
+      "sha256": "51384aca7a2b1af959e038d3c29ce830249c1de1a4f9a3419df00bd792d03ff4"
+    },
+    {
+      "source": "/art/cards-v10/medic.webp",
+      "path": "art/cards-v10/medic.webp",
+      "bytes": 61392,
+      "sha256": "5fc328cb4087d0d9183fa0bab6ca17160ff38835fd47ca194f18e8bd923d22c9"
+    },
+    {
+      "source": "/art/cards-v10/mortar.webp",
+      "path": "art/cards-v10/mortar.webp",
+      "bytes": 63040,
+      "sha256": "0b78286fb7d505ba48d2c718c8cea20f5954968d4b45760ab766179e190a1cbb"
+    },
+    {
+      "source": "/art/cards-v10/ifv.webp",
+      "path": "art/cards-v10/ifv.webp",
+      "bytes": 58528,
+      "sha256": "b51ab30cdcc12cd973fd3436497b74584fe2d56540f558a374cd265d8d67e876"
+    },
+    {
+      "source": "/art/cards-v10/morale.webp",
+      "path": "art/cards-v10/morale.webp",
+      "bytes": 60578,
+      "sha256": "47cfcea8fa3126991e4475c8ba922ffcc39f0e91578700bb3c2aaf6f59933850"
+    },
+    {
+      "source": "/art/cards-v10/artillery.webp",
+      "path": "art/cards-v10/artillery.webp",
+      "bytes": 71776,
+      "sha256": "fedbcc29453a1d2ba62add3756959014a1d6c387bdb5416449299366b31703ba"
+    },
+    {
+      "source": "/art/cards-v10/supply.webp",
+      "path": "art/cards-v10/supply.webp",
+      "bytes": 60180,
+      "sha256": "9d2449328148551c826c6850be8f10e18b1b11bb91ecdcb8a682dfd2a47a550c"
+    },
+    {
+      "source": "/art/cards-v10/jam.webp",
+      "path": "art/cards-v10/jam.webp",
+      "bytes": 51320,
+      "sha256": "0e58b19ea9c9aeae4af0a7a7d8180c2eeba3f204edfde9d95649fcfecd5c5445"
+    },
+    {
+      "source": "/art/cards-v10/smoke.webp",
+      "path": "art/cards-v10/smoke.webp",
+      "bytes": 36710,
+      "sha256": "a071408fab8b359f5eb3a57a25024283c2b1b451573a399c5d53e240fc358219"
+    },
+    {
+      "source": "/art/cards-v10/recon.webp",
+      "path": "art/cards-v10/recon.webp",
+      "bytes": 65204,
+      "sha256": "0438bda8d00b231a5e5986c72bf63616bf1abbbcce1f4be95f7f645ba9cdff0d"
+    },
+    {
+      "source": "/art/cards-v10/flare.webp",
+      "path": "art/cards-v10/flare.webp",
+      "bytes": 84806,
+      "sha256": "f3a072b5d6a479bf590b1fb220a704e5846d2ac12fca195def9245df87b8df27"
+    },
+    {
+      "source": "/art/cards-v10/repair.webp",
+      "path": "art/cards-v10/repair.webp",
+      "bytes": 67060,
+      "sha256": "f8223ee13013b32feca39f290398ab0a56e7c25c768efea8596f348fecc3fba3"
+    },
+    {
+      "source": "/art/cards-v10/precision.webp",
+      "path": "art/cards-v10/precision.webp",
+      "bytes": 66406,
+      "sha256": "0e9a994e55658762770548e790ae7d23abe210739ab309774182ae6b5ea8a60c"
+    },
+    {
+      "source": "/art/v18-comeback/cards/toxic_cloud.webp",
+      "path": "art/v18-comeback/cards/toxic_cloud.webp",
+      "bytes": 101216,
+      "sha256": "3939777fd3eb833c6e8d1f8f814c703a89a80ae0bd9b8a6e24ecbe3a80c6f0be"
+    },
+    {
+      "source": "/art/v18-comeback/cards/smoke_withdrawal.webp",
+      "path": "art/v18-comeback/cards/smoke_withdrawal.webp",
+      "bytes": 91064,
+      "sha256": "395715489b5e30a70ca19f8eba87a54abef7ab16409462d4e030db7e4719deba"
+    },
+    {
+      "source": "/art/v18-comeback/cards/reserve_mobilization.webp",
+      "path": "art/v18-comeback/cards/reserve_mobilization.webp",
+      "bytes": 87620,
+      "sha256": "7413fab981c3f56a0e16fcaa0acda15aa756689dd01e63a9ed5bb58f42c2e7f1"
+    },
+    {
+      "source": "/art/v16-air/cards/fpv_drone.webp",
+      "path": "art/v16-air/cards/fpv_drone.webp",
+      "bytes": 63238,
+      "sha256": "1f283b15fbc2df1f905593159ffd55d99943837954211ff76a0e5d6d7aff674d"
+    },
+    {
+      "source": "/art/v16-air/cards/air_assault.webp",
+      "path": "art/v16-air/cards/air_assault.webp",
+      "bytes": 81988,
+      "sha256": "8a79a89ec26465be3b92e8d9c22b16283cd02990f09f858a9b540f50381a8c25"
+    },
+    {
+      "source": "/art/v227-cards/pickup.webp",
+      "path": "art/v227-cards/pickup.webp",
+      "bytes": 461610,
+      "sha256": "4cb3e74560c41086751a185013eb84a699229c20eb32a9ad9e21e2f4afc7c503"
+    },
+    {
+      "source": "/art/v197-armor/tow-card.webp",
+      "path": "art/v197-armor/tow-card.webp",
+      "bytes": 1873978,
+      "sha256": "7dac7666b5802b4fa660bb63a0cae2d21fdb8f34bd0f6aa9c635eb9952f205a0"
+    },
+    {
+      "source": "/art/cards-v15/mortar_carrier.webp",
+      "path": "art/cards-v15/mortar_carrier.webp",
+      "bytes": 93158,
+      "sha256": "4fe504b386976f92130dd712ad29186959c03d96ea4e90d5790d3f7e0b9e5ace"
+    },
+    {
+      "source": "/art/cards-v15/recovery_vehicle.webp",
+      "path": "art/cards-v15/recovery_vehicle.webp",
+      "bytes": 86544,
+      "sha256": "59d57720e2e5ae606aedae1d2c14b491b378e79bfcf271a38ad51dd256288ef4"
+    },
+    {
+      "source": "/art/cards-v15/command_vehicle.webp",
+      "path": "art/cards-v15/command_vehicle.webp",
+      "bytes": 97102,
+      "sha256": "852fd2d01e6adcf9d205d0e96d02ac9dc0b4b19a29ad31cddb303d7055f0971c"
+    },
+    {
+      "source": "/art/cards-v10/javelin.webp",
+      "path": "art/cards-v10/javelin.webp",
+      "bytes": 52438,
+      "sha256": "2ede0a12af2573930ddc752e80aeecbdfe28d087d4a5739a60b0491fd196acc5"
+    },
+    {
+      "source": "/art/cards-v10/anti_tank_gun.webp",
+      "path": "art/cards-v10/anti_tank_gun.webp",
+      "bytes": 69550,
+      "sha256": "fe36b6d713b63ee60a768faf9fe23e9a53d32b50a05bfa74b0eb689f1a65760b"
+    },
+    {
+      "source": "/art/cards-v10/antitank_mine.webp",
+      "path": "art/cards-v10/antitank_mine.webp",
+      "bytes": 65828,
+      "sha256": "d1edf1442f1a7f27ca9e39a8d46341c976c6815d319de55b88b03d85df9cecaf"
+    },
+    {
+      "source": "/art/cards-v10/aa_gun.webp",
+      "path": "art/cards-v10/aa_gun.webp",
+      "bytes": 65752,
+      "sha256": "268be280aa2f3fe0014d659cd082ec0f5aed6eea7469cf156fc7843b9bead6e7"
+    },
+    {
+      "source": "/art/cards-v10/sam_vehicle.webp",
+      "path": "art/cards-v10/sam_vehicle.webp",
+      "bytes": 64992,
+      "sha256": "6e2f16c6ddada5e172318002d6c820d5c64f6076986d56ed3c452bc7b7bf241a"
+    },
+    {
+      "source": "/art/cards-v10/steadfast.webp",
+      "path": "art/cards-v10/steadfast.webp",
+      "bytes": 61132,
+      "sha256": "2f7294b70d1c82ee5966a31dc742ad38997391c77b0675007ec1a5e6f2f87c1a"
+    },
+    {
+      "source": "/art/cards-v10/supply_team.webp",
+      "path": "art/cards-v10/supply_team.webp",
+      "bytes": 66130,
+      "sha256": "248eca56f3922c0cf8bc2bf9f3caa346ecb62db1b13c927929f1d41dd3ded33f"
+    },
+    {
+      "source": "/art/cards-v10/strike_jet.webp",
+      "path": "art/cards-v10/strike_jet.webp",
+      "bytes": 61520,
+      "sha256": "04f335f42cbdf49f3b71f523c5d427d533d145b2ccbabf78b8171f247eb511d6"
+    },
+    {
+      "source": "/art/cards-v10/bomber.webp",
+      "path": "art/cards-v10/bomber.webp",
+      "bytes": 46506,
+      "sha256": "152f07b0059945882a3216a611e0a277246e0931a3871640a9c34dafcee69f3b"
+    },
+    {
+      "source": "/art/cards-v10/marines.webp",
+      "path": "art/cards-v10/marines.webp",
+      "bytes": 71818,
+      "sha256": "155b454eaf5c865447e42c6e5a52339ee160201ba7da3b5ef0cf2b48976f6ef0"
+    },
+    {
+      "source": "/art/v235-content/armed_police.webp",
+      "path": "art/v235-content/armed_police.webp",
+      "bytes": 50318,
+      "sha256": "2dde5495df48323156d495a4786b1571fedbfc5dd049a5bc9f109129f147042d"
+    },
+    {
+      "source": "/art/cards-v10/paratroopers.webp",
+      "path": "art/cards-v10/paratroopers.webp",
+      "bytes": 60008,
+      "sha256": "de3c6382f549a78432e9b3f35a2aae9fd213631de417972ff6192a0af6bdec9c"
+    },
+    {
+      "source": "/art/cards-v10/rangers.webp",
+      "path": "art/cards-v10/rangers.webp",
+      "bytes": 71130,
+      "sha256": "c92bd966d94de2717b200940eacbba3676d563167ae9a54e752605b60d3e192b"
+    },
+    {
+      "source": "/art/cards-v10/militia.webp",
+      "path": "art/cards-v10/militia.webp",
+      "bytes": 67444,
+      "sha256": "af6cc720b5b0635ac429efbb3dcd5fb98106cf6dbcd1e9f851fa472e7cdfa1c3"
+    },
+    {
+      "source": "/art/cards-v10/assault.webp",
+      "path": "art/cards-v10/assault.webp",
+      "bytes": 64024,
+      "sha256": "327e4a39f02024386eafd1a0a893dc8738d3fe7fe143e7ca7f56e3b8a851b640"
+    },
+    {
+      "source": "/art/cards-v10/engineers.webp",
+      "path": "art/cards-v10/engineers.webp",
+      "bytes": 63210,
+      "sha256": "59487baafd82aab505b5220a8315ac121cd68090fbfe8b6d53f5b1ce0e87f21c"
+    },
+    {
+      "source": "/art/cards-v10/mountain.webp",
+      "path": "art/cards-v10/mountain.webp",
+      "bytes": 75132,
+      "sha256": "62bb9f872551c6d5d182494c045efd023d536737b9ee98d0a88f072a82c33906"
+    },
+    {
+      "source": "/art/cards-v10/scouts.webp",
+      "path": "art/cards-v10/scouts.webp",
+      "bytes": 66310,
+      "sha256": "f519a6650b73fdd5203494a9d9f08d369db3613fc46e397182806ffab556f78a"
+    },
+    {
+      "source": "/art/cards-v10/commandos.webp",
+      "path": "art/cards-v10/commandos.webp",
+      "bytes": 41074,
+      "sha256": "a147a59e4a2178138aaddea1e5c2b80e0156765a6da30cf9261a1f2fc2cb06a7"
+    },
+    {
+      "source": "/art/cards-v10/grenadiers.webp",
+      "path": "art/cards-v10/grenadiers.webp",
+      "bytes": 61022,
+      "sha256": "12ac0d1a31cc2230b4f25ca665fb22533eb43772361ab3002568dd37cb141de8"
+    },
+    {
+      "source": "/art/cards-v10/antiarmor.webp",
+      "path": "art/cards-v10/antiarmor.webp",
+      "bytes": 74354,
+      "sha256": "9692864aaa9d916421cb710bed40f0e0998796109c96ff4e38eb071850bc34be"
+    },
+    {
+      "source": "/art/cards-v10/manpads.webp",
+      "path": "art/cards-v10/manpads.webp",
+      "bytes": 59304,
+      "sha256": "c1c1720b05357b6482627d6b1ae8409d093e1a5153aa495812a94a3b82eb9293"
+    },
+    {
+      "source": "/art/cards-v10/heavy_mg.webp",
+      "path": "art/cards-v10/heavy_mg.webp",
+      "bytes": 65878,
+      "sha256": "2cb289df5ae0d071a643a472b3fe33f01d3549918f29ab4dbfb14e190aa9aeee"
+    },
+    {
+      "source": "/art/v197-armor/light-tank-card.webp",
+      "path": "art/v197-armor/light-tank-card.webp",
+      "bytes": 1817816,
+      "sha256": "d64185a19688d32ead3e4d0e70fc2298c8266e21a7166682aaedaec23ec7b9e4"
+    },
+    {
+      "source": "/art/cards-v10/heavy_tank.webp",
+      "path": "art/cards-v10/heavy_tank.webp",
+      "bytes": 57148,
+      "sha256": "605d399bf004b085be57480a16c3ae8a418b94143483ee6010d91b903c3c0dae"
+    },
+    {
+      "source": "/art/cards-v10/rocket_heli.webp",
+      "path": "art/cards-v10/rocket_heli.webp",
+      "bytes": 43182,
+      "sha256": "1a6add7771cd685af2d3659625c1ce251a2fe76216a1ffa5d43ffdeec00cfd0b"
+    },
+    {
+      "source": "/art/cards-v10/scout_drone.webp",
+      "path": "art/cards-v10/scout_drone.webp",
+      "bytes": 53748,
+      "sha256": "7cc3aec1835189995fcd61fbf77f2e71a6e67a16a693a7b5d54cd68c2b1819d7"
+    },
+    {
+      "source": "/art/cards-v10/attack_drone.webp",
+      "path": "art/cards-v10/attack_drone.webp",
+      "bytes": 40112,
+      "sha256": "4ece20248cc245cd6685288a3c26976e82c61f1a60507cc9fda41b357bd8718a"
+    },
+    {
+      "source": "/art/cards-v10/loiter_drone.webp",
+      "path": "art/cards-v10/loiter_drone.webp",
+      "bytes": 32266,
+      "sha256": "4c60eba70b312b332afea4bf2b9d2f438e8c9402d1785c56168366859557b50b"
+    },
+    {
+      "source": "/art/cards-v10/interceptor.webp",
+      "path": "art/cards-v10/interceptor.webp",
+      "bytes": 42814,
+      "sha256": "25d2f1c0d61af7806a2351d5e8d7f964c7092ece3e516fbc55966d9c14501ea3"
+    },
+    {
+      "source": "/art/cards-v10/rally.webp",
+      "path": "art/cards-v10/rally.webp",
+      "bytes": 61818,
+      "sha256": "fadc43b715e7cd1fa22c829a77650c60ef468f06140fc04d0abce87742ee00f0"
+    },
+    {
+      "source": "/art/cards-v10/ammo.webp",
+      "path": "art/cards-v10/ammo.webp",
+      "bytes": 53340,
+      "sha256": "37b3d3fda0cf00f4d124e762162a149351ef60e00aef59d1555abd148b1551ff"
+    },
+    {
+      "source": "/art/cards-v10/emp.webp",
+      "path": "art/cards-v10/emp.webp",
+      "bytes": 39666,
+      "sha256": "921677b194555f51f290bb2a0047e9aa5f86175fe5f87a2311ff8700162af6d3"
+    },
+    {
+      "source": "/art/cards-v10/barrage.webp",
+      "path": "art/cards-v10/barrage.webp",
+      "bytes": 60976,
+      "sha256": "b378b86be8ce57d75ffcf47fa3dce1f82788f979e14819412242794496dbd475"
+    },
+    {
+      "source": "/art/cards-v10/medevac.webp",
+      "path": "art/cards-v10/medevac.webp",
+      "bytes": 59570,
+      "sha256": "477fc489aa7ed1f37cc597e7faa4031556b1c7edb4374e0dec6ac0ce2dd2b2bf"
+    },
+    {
+      "source": "/art/cards-v10/fortify.webp",
+      "path": "art/cards-v10/fortify.webp",
+      "bytes": 68750,
+      "sha256": "4fd40e1fe21972d2f916edc69602b83185da4d56c1d01cff027d98907a72d92b"
+    },
+    {
+      "source": "/art/cards-v10/sabotage.webp",
+      "path": "art/cards-v10/sabotage.webp",
+      "bytes": 44952,
+      "sha256": "052ed35bb0e90601775d9cbc9d398352f7ef47ce63145e873063338718d20762"
+    },
+    {
+      "source": "/art/cards-v10/war_production.webp",
+      "path": "art/cards-v10/war_production.webp",
+      "bytes": 76502,
+      "sha256": "d8ac53a63a1fe2a942858714006a02c60100629daf39ce9c61edce012de99c1a"
+    },
+    {
+      "source": "/art/cards-v10/foraged_supplies.webp",
+      "path": "art/cards-v10/foraged_supplies.webp",
+      "bytes": 94786,
+      "sha256": "24646b4c318bf5162f4b684eb9e6d7f41eea109360c62c429a1c500854aadc84"
+    },
+    {
+      "source": "/art/cards-v10/blitz_doctrine.webp",
+      "path": "art/cards-v10/blitz_doctrine.webp",
+      "bytes": 85972,
+      "sha256": "1025872207ac113715ff966caea43b309c74f9238a8e96456ff10588f65cb632"
+    },
+    {
+      "source": "/art/cards-v10/forward_hq.webp",
+      "path": "art/cards-v10/forward_hq.webp",
+      "bytes": 71940,
+      "sha256": "493cae6ba2c33c489c4e32717fc64a4ee102b082cc9136dd60912e7075ce235e"
+    },
+    {
+      "source": "/art/cards-v10/comm_blackout.webp",
+      "path": "art/cards-v10/comm_blackout.webp",
+      "bytes": 52212,
+      "sha256": "538d8028f569628540033f566cf5fd42e278dd10d316e3857026c80f93cf6a2f"
+    },
+    {
+      "source": "/art/cards-v10/supply_interdiction.webp",
+      "path": "art/cards-v10/supply_interdiction.webp",
+      "bytes": 104958,
+      "sha256": "61eed90901ba172ab421f6cee5f13ca7f971f60c23965425b193795a75993e77"
+    },
+    {
+      "source": "/art/cards-v10/spoof_attack.webp",
+      "path": "art/cards-v10/spoof_attack.webp",
+      "bytes": 68544,
+      "sha256": "0da28133c0b1e30462dad77cd9081e4cefb1a90ec79b36e12025a446b571c166"
+    },
+    {
+      "source": "/art/cards-v10/radar_jam.webp",
+      "path": "art/cards-v10/radar_jam.webp",
+      "bytes": 90142,
+      "sha256": "011bfa974ad11c4a68e48023b6168e6b7cd6ddab075ae19a6a1ae73cbc63fc45"
+    },
+    {
+      "source": "/art/cards-v10/glider_assault.webp",
+      "path": "art/cards-v10/glider_assault.webp",
+      "bytes": 93878,
+      "sha256": "f53182c5c8d26426e5492ed926de7a194dea98a8a516b8b01508411b2448f8ec"
+    },
+    {
+      "source": "/art/cards-v10/pathfinders.webp",
+      "path": "art/cards-v10/pathfinders.webp",
+      "bytes": 72100,
+      "sha256": "3c3d7c02633e3b3320cf3c9353071d0fbd167c608408b8582c58cc7876616cf3"
+    },
+    {
+      "source": "/art/cards-v10/ambush_squad.webp",
+      "path": "art/cards-v10/ambush_squad.webp",
+      "bytes": 100394,
+      "sha256": "e3f5858e275fa9eb61b3c627a956c318f737bb8685c96f80df2f686e44605e75"
+    },
+    {
+      "source": "/art/cards-v10/sniper_team.webp",
+      "path": "art/cards-v10/sniper_team.webp",
+      "bytes": 93802,
+      "sha256": "d244cfba5f1af7b36d88986ee42cfc75d5488265bdd09511de5ef788765492bf"
+    },
+    {
+      "source": "/art/cards-v10/veteran_squad.webp",
+      "path": "art/cards-v10/veteran_squad.webp",
+      "bytes": 112740,
+      "sha256": "b711cd191cd14b8f6b26ed7805c86d7a1796f3f9bf8a3628c6fba199f3521798"
+    },
+    {
+      "source": "/art/v235-content/medic_team.webp",
+      "path": "art/v235-content/medic_team.webp",
+      "bytes": 128570,
+      "sha256": "b7b100b5363965f9e701400ad43057c39804ddc7127d931032c614c75c85e0fd"
+    },
+    {
+      "source": "/art/cards-v10/combat_engineers.webp",
+      "path": "art/cards-v10/combat_engineers.webp",
+      "bytes": 100828,
+      "sha256": "02a62d754c7d1ebd1509766681c4b8ebf10ee7a61a36f4de61eb27a11feaef2d"
+    },
+    {
+      "source": "/art/cards-v10/naval_gunfire.webp",
+      "path": "art/cards-v10/naval_gunfire.webp",
+      "bytes": 81136,
+      "sha256": "f71c1cda1090b5e34dbecbb6ff3cf23ad41abb391e8977eb0e7be35c7f16b116"
+    },
+    {
+      "source": "/art/cards-v10/cluster_munitions.webp",
+      "path": "art/cards-v10/cluster_munitions.webp",
+      "bytes": 47996,
+      "sha256": "6fe50efdb79b5aa45e2943cae32e63f80ada77e38737a23d1af36fe38d970bb5"
+    },
+    {
+      "source": "/art/cards-v10/thermobaric.webp",
+      "path": "art/cards-v10/thermobaric.webp",
+      "bytes": 88334,
+      "sha256": "d02dc54df3baf56166f76b431a62fe65ae6f567bb6935e3b9583508d5c97d28c"
+    },
+    {
+      "source": "/art/cards-v10/precision_rocket.webp",
+      "path": "art/cards-v10/precision_rocket.webp",
+      "bytes": 39466,
+      "sha256": "c2948be2fa2cb7444fe26187521b74340d5b31f27182d23448d6af7079c6da70"
+    },
+    {
+      "source": "/art/cards-v10/entrench.webp",
+      "path": "art/cards-v10/entrench.webp",
+      "bytes": 82326,
+      "sha256": "876f872980ca48785d43ae18fc58992bfb12b5acacd9b47247924466c89aaeeb"
+    },
+    {
+      "source": "/art/v235-content/command_lockdown.webp",
+      "path": "art/v235-content/command_lockdown.webp",
+      "bytes": 91068,
+      "sha256": "a0d4a248c8b30bf1a2b03482946d44063af9a8aeeaa56ce2f50cbaa620dbaf96"
+    },
+    {
+      "source": "/art/cards-v10/emergency_levy.webp",
+      "path": "art/cards-v10/emergency_levy.webp",
+      "bytes": 89286,
+      "sha256": "03953eea09217405c29b8bdc096595df034c7a64ae20bcbefb7ee28a9bdca4ae"
+    },
+    {
+      "source": "/art/cards-v10/battlefield_salvage.webp",
+      "path": "art/cards-v10/battlefield_salvage.webp",
+      "bytes": 113038,
+      "sha256": "1c4f53372e08220006e730726b3a22315245bf52240a92ea6727a2c3f735093e"
+    },
+    {
+      "source": "/art/cards-v10/shock_action.webp",
+      "path": "art/cards-v10/shock_action.webp",
+      "bytes": 91608,
+      "sha256": "8354999c5ef78f89cfbc9f5aaed7da0e02c689dd57eec2ea7eed1f13bcc6682f"
+    },
+    {
+      "source": "/art/cards-v10/sensor_blind.webp",
+      "path": "art/cards-v10/sensor_blind.webp",
+      "bytes": 28322,
+      "sha256": "4f5c6bd23c5fe8633a9a1d5d7af2eea13b942aa2729d29869312434c99c01179"
+    },
+    {
+      "source": "/art/cards-v10/logistics_strike.webp",
+      "path": "art/cards-v10/logistics_strike.webp",
+      "bytes": 98078,
+      "sha256": "a128bd75c3915e2008bc14d28b0700cb277eaaa64043615c629fedcf5cb7d707"
+    },
+    {
+      "source": "/art/cards-v10/freq_hop.webp",
+      "path": "art/cards-v10/freq_hop.webp",
+      "bytes": 83480,
+      "sha256": "25d10d76cb0d9645c49ae7867b493507b2333714cc85f4a4b685a9964bfbbdb6"
+    },
+    {
+      "source": "/art/cards-v10/ewarfare.webp",
+      "path": "art/cards-v10/ewarfare.webp",
+      "bytes": 88230,
+      "sha256": "a7112653cddf8e11c2de75dc29c6af9a4483328ce90bcceedbf8375f02d6c7be"
+    },
+    {
+      "source": "/art/cards-v10/airborne_at.webp",
+      "path": "art/cards-v10/airborne_at.webp",
+      "bytes": 93574,
+      "sha256": "2d4ec30acbd3d69666554063e4de6679b3a2d045d59e5212cb8ef919cd0ac347"
+    },
+    {
+      "source": "/art/cards-v10/rapid_insertion.webp",
+      "path": "art/cards-v10/rapid_insertion.webp",
+      "bytes": 81510,
+      "sha256": "8ff2eef58c1590ae4abe522adbd22a8e15ad0def68f628ff83a1468b65e049c4"
+    },
+    {
+      "source": "/art/cards-v10/sapper_assault.webp",
+      "path": "art/cards-v10/sapper_assault.webp",
+      "bytes": 95784,
+      "sha256": "3c3946f3393dc1d4db849e4e947385fd89dcec73c49d37e01fc5e38444391d0a"
+    },
+    {
+      "source": "/art/cards-v10/recon_jump.webp",
+      "path": "art/cards-v10/recon_jump.webp",
+      "bytes": 45688,
+      "sha256": "4722c007076e323c1705a39e62ce97e76e07e10e8a7fef3dedb1336452f2a4ca"
+    },
+    {
+      "source": "/art/cards-v10/creeping_barrage.webp",
+      "path": "art/cards-v10/creeping_barrage.webp",
+      "bytes": 94538,
+      "sha256": "8b5c20d673899fa3d61057bda08d3f18aa4793c47f585eae92433daf99b4c3d1"
+    },
+    {
+      "source": "/art/cards-v10/smoke_cover.webp",
+      "path": "art/cards-v10/smoke_cover.webp",
+      "bytes": 65730,
+      "sha256": "effd617d4d5f3f4d4051963fe59a0437f89ae25cffe3d55b9a1e93470575b8d3"
+    },
+    {
+      "source": "/art/cards-v10/heavy_barrage.webp",
+      "path": "art/cards-v10/heavy_barrage.webp",
+      "bytes": 89264,
+      "sha256": "3c57d84a5d5d5d1b9e931d9bc8af5282def5333f23dbeeb2a0ce8aa143c89b1a"
+    },
+    {
+      "source": "/art/cards-v10/illumination_round.webp",
+      "path": "art/cards-v10/illumination_round.webp",
+      "bytes": 63748,
+      "sha256": "968290272e8270687fa23a076bbc24f3e218c1708670f4ae526e4f1c0b5b891f"
+    },
+    {
+      "source": "/art/cards-v10/minefield.webp",
+      "path": "art/cards-v10/minefield.webp",
+      "bytes": 102706,
+      "sha256": "1ad290c053121a5708ccd4ed7ac9cfc3fc3f4b785227d70a18b1d853b76939af"
+    },
+    {
+      "source": "/art/v235-content/field_hospital.webp",
+      "path": "art/v235-content/field_hospital.webp",
+      "bytes": 102758,
+      "sha256": "6b0f54fffa5baaae533903f871864a6ec626b16db49e0b4df4f421fb138991db"
+    },
+    {
+      "source": "/art/cards-v10/fallback.webp",
+      "path": "art/cards-v10/fallback.webp",
+      "bytes": 107272,
+      "sha256": "1c2117f2db0e671247782ad61f8b58c98c45bfa6d19d9467ed4b189bc2f4e086"
+    },
+    {
+      "source": "/art/cards-v10/fire_team.webp",
+      "path": "art/cards-v10/fire_team.webp",
+      "bytes": 94006,
+      "sha256": "a61920f92afd875a61896242a2b59f31f72dc5ec4aa42864df5810d70ca1c10c"
+    },
+    {
+      "source": "/art/cards-v10/assault_grenadiers.webp",
+      "path": "art/cards-v10/assault_grenadiers.webp",
+      "bytes": 82516,
+      "sha256": "226c3f6a448315280208d26c9ed431ec9d168b4558624c5402ef43672a553e2a"
+    },
+    {
+      "source": "/art/cards-v10/lmg_team.webp",
+      "path": "art/cards-v10/lmg_team.webp",
+      "bytes": 89202,
+      "sha256": "9ec482704c8c8646d66fd64d8003db2d380b4ed1b4a7a61d10bd025c00556b3f"
+    },
+    {
+      "source": "/art/cards-v10/flame_team.webp",
+      "path": "art/cards-v10/flame_team.webp",
+      "bytes": 126370,
+      "sha256": "fd48be30f05ebf000e8e8762b4e39d56e4c1cdf2981b551cba525482813deffd"
+    },
+    {
+      "source": "/art/v227-cards/mlrs.webp",
+      "path": "art/v227-cards/mlrs.webp",
+      "bytes": 480156,
+      "sha256": "d706e32110b66276a8d5419a1aec4e945d8dfa17ca6145617c24765ac71b5813"
+    },
+    {
+      "source": "/art/cards-v10/scout_car.webp",
+      "path": "art/cards-v10/scout_car.webp",
+      "bytes": 141286,
+      "sha256": "9550ee8247269502143b05e2dd604ff2c7e2c72a6767f8a2f245a43645f44996"
+    },
+    {
+      "source": "/art/cards-v10/flame_tank.webp",
+      "path": "art/cards-v10/flame_tank.webp",
+      "bytes": 166280,
+      "sha256": "517766cab829b948913f8c4c13ecbc18f05fd2e4e02d3af37bc8b7d8131b7616"
+    },
+    {
+      "source": "/art/cards-v10/light_mortar.webp",
+      "path": "art/cards-v10/light_mortar.webp",
+      "bytes": 137090,
+      "sha256": "deb2323531130db46c08ce9075d3bf35d9c2ffb2e6759b3430523801ae49b988"
+    },
+    {
+      "source": "/art/v190/cards/rapid_reinforcements.webp",
+      "path": "art/v190/cards/rapid_reinforcements.webp",
+      "bytes": 517002,
+      "sha256": "23186d86b3513f812b16ffd99999acc416d2efc5925cc39ceab66d18eacf3d54"
+    },
+    {
+      "source": "/art/v227-cards/apc_transport.webp",
+      "path": "art/v227-cards/apc_transport.webp",
+      "bytes": 536156,
+      "sha256": "ec794f43a5a684aa5ff281647cdd55a7e2a0276c78056ce9fdd68e4abdeb6928"
+    },
+    {
+      "source": "/art/v227-cards/supply_truck.webp",
+      "path": "art/v227-cards/supply_truck.webp",
+      "bytes": 486240,
+      "sha256": "19245c054ae756dc22457ba9da179399f06ca6c3b0d03b11323be2851642cbf1"
+    },
+    {
+      "source": "/art/v190/cards/escort_gunship.webp",
+      "path": "art/v190/cards/escort_gunship.webp",
+      "bytes": 316204,
+      "sha256": "1d4b0604d413b1a9ab32d58c3898915d059347d29c50a9add807f6dd1a1cc920"
+    },
+    {
+      "source": "/art/v190/cards/field_gun.webp",
+      "path": "art/v190/cards/field_gun.webp",
+      "bytes": 454000,
+      "sha256": "e71421f3c614a21b803ca1a01ab9df273b336cae5ba79046ad897d2729577baf"
+    },
+    {
+      "source": "/art/v190/cards/siege_gun.webp",
+      "path": "art/v190/cards/siege_gun.webp",
+      "bytes": 499242,
+      "sha256": "e0c9a658e08a17b8f091cfee10f540ab95ff23228a3bad3c884f4fb28a69942f"
+    },
+    {
+      "source": "/art/v190/cards/fort_bunker.webp",
+      "path": "art/v190/cards/fort_bunker.webp",
+      "bytes": 491406,
+      "sha256": "df41dba853cfbf3e06097734bfd6556649ff5b2dc2df704120f523b4f760b4aa"
+    },
+    {
+      "source": "/art/v190/cards/fort_machinegun.webp",
+      "path": "art/v190/cards/fort_machinegun.webp",
+      "bytes": 453322,
+      "sha256": "08feda2f7559567256090c08d661caa318df64b7c9d2250d58b0fc5e1688daf2"
+    },
+    {
+      "source": "/art/v190/cards/fort_aa.webp",
+      "path": "art/v190/cards/fort_aa.webp",
+      "bytes": 314144,
+      "sha256": "0fcfb5507bdef83eec2704d16fa9d59506e59736c8afb607e75332121df72b6e"
+    },
+    {
+      "source": "/art/v190/cards/fort_spawn.webp",
+      "path": "art/v190/cards/fort_spawn.webp",
+      "bytes": 368346,
+      "sha256": "7a4eca320f8d608a4af5c544e204be8929a62792c60ed3d2c2a30c57f47f18ce"
+    },
+    {
+      "source": "/art/v190/cards/fort_wire.webp",
+      "path": "art/v190/cards/fort_wire.webp",
+      "bytes": 527218,
+      "sha256": "12d3d1e5a67925f4528ef39a4b8b6b336383e082bf2197ef4c04db0936035190"
+    },
+    {
+      "source": "/art/cards-v10/frame.webp",
+      "path": "art/cards-v10/frame.webp",
+      "bytes": 232436,
+      "sha256": "1f09e044d5c7eae0be719e37207b202f42470f11511ab4e4ca8488e4334f579a"
+    },
+    {
+      "source": "/art/cards-v10/frame-rare.webp",
+      "path": "art/cards-v10/frame-rare.webp",
+      "bytes": 773274,
+      "sha256": "b4a05a3c0810efe847c4bbbd29179f8eb1da1631c489cb7f1c087f48c51c7315"
+    },
+    {
+      "source": "/art/cards-v10/frame-epic.webp",
+      "path": "art/cards-v10/frame-epic.webp",
+      "bytes": 654180,
+      "sha256": "bf5b34e0ed1e099944c09e70b687b7281561bda935ba9a38854806c3541aaba2"
+    },
+    {
+      "source": "/art/cards-v10/frame-legendary.webp",
+      "path": "art/cards-v10/frame-legendary.webp",
+      "bytes": 666184,
+      "sha256": "272ee3f88064312c8815ee3309b0dc7c96abb293648e13212287f144c84a6305"
+    },
+    {
+      "source": "/art/card-pack-v1.webp",
+      "path": "art/card-pack-v1.webp",
+      "bytes": 69630,
+      "sha256": "0f2341365a5a14aba883641dd31cf3afe5c2c42aaac6796df8af9a5a460d26f8"
+    },
+    {
+      "source": "/art/card-back-v1.webp",
+      "path": "art/card-back-v1.webp",
+      "bytes": 24440,
+      "sha256": "b9db9998e557c027e573c4d4218a3a396f6f0d41ea3d007bff3e91cd98b6cec8"
+    },
+    {
+      "source": "/art/pack-tear-v139.png",
+      "path": "art/pack-tear-v139.webp",
+      "bytes": 909846,
+      "sha256": "18875f7169ba64aaccba140fcbbe6b53fe1395c184287fed01c419fd53ca4f75"
+    },
+    {
+      "source": "/art/home-camp-v14.png",
+      "path": "art/home-camp-v14.webp",
+      "bytes": 1514274,
+      "sha256": "9afc6ab90809bdf95b974a3618b826d31a55e355d31b4563f122d561135dd24d"
+    }
+  ]
+}

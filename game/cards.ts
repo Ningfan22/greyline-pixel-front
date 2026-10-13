@@ -452,7 +452,7 @@ const BASE_CARDS: Record<BaseCardId, Card> = {
     tag: '救治 · 步兵',
     description: '就地救治附近受伤步兵',
     detail:
-      '3 名军医 · 135 生命。每人每 0.8 秒治疗附近步兵 4 生命，优先靠近救助倒地伤员；死亡和投降者不能救起，不修理载具。',
+      '3 名医护员 · 135 生命。每人每 0.8 秒治疗附近步兵 4 生命，优先靠近救助倒地伤员；死亡和投降者不能救起，不修理载具。',
     atlas: 11,
     members: 3,
     hp: 135,
@@ -696,12 +696,12 @@ export const CARDS: Record<CardId, Card> = {
         '支付2点，指挥点上限永久增加2，最多从10扩至14。不立即补充指挥点；达到14后不可继续使用。',
     },
   ),
-  war_bonds: variant('supply', 'war_bonds', '战时公债', 1, '六秒后到账三点', {
-    en: 'WAR BONDS',
+  war_bonds: variant('supply', 'war_bonds', '后勤预支', 1, '六秒后到账三点', {
+    en: 'LOGISTICS ADVANCE',
     economy: 'bonds',
     tag: '发展 · 延迟回报',
     detail:
-      '支付1点，6秒后获得3点。每方同时最多一笔待结算公债，每局最多使用两次；到账超过指挥上限的部分不会储存。',
+      '支付1点，6秒后获得3点。每方同时最多一笔待结算预支，每局最多使用两次；到账超过指挥上限的部分不会储存。',
   }),
   overdraft: variant('supply', 'overdraft', '透支指挥', 1, '立即获得7点指挥点，25秒内回点放缓', {
     en: 'OVERDRAFT',
@@ -797,9 +797,9 @@ export const CARDS: Record<CardId, Card> = {
     tag: '延迟 · 重建防线',
     atlas: 0,
     comeback: 'reserve',
-    description: '六秒后两队民兵到场并抽牌',
+    description: '六秒后两队预备步兵到场并抽牌',
     detail:
-      '6秒后从己方基地分批派出两队民兵，间隔2秒，并抽1张牌。需要守住增援到来前的空窗；援兵为现有民兵，没有额外生命加成。每副卡组限2张。',
+      '6秒后从己方基地分批派出两队预备步兵，间隔2秒，并抽1张牌。需要守住增援到来前的空窗；援兵为现有预备步兵，没有额外生命加成。每副卡组限2张。',
   },
   fpv_drone: variant(
     'helicopter',
@@ -873,11 +873,11 @@ export const CARDS: Record<CardId, Card> = {
   tow_ifv: variant(
     'ifv',
     'tow_ifv',
-    '陶式反坦克战车',
+    '寻隙反甲车',
     5,
-    '双联陶式猎甲，机枪近距掩护',
+    '双联寻隙猎甲，机枪近距掩护',
     {
-      en: 'TOW MISSILE CARRIER',
+      en: 'SEEKER MISSILE CARRIER',
       vehicle: true,
       antiAir: false,
       hp: 330,
@@ -895,7 +895,7 @@ export const CARDS: Record<CardId, Card> = {
       sight: 550,
       tag: '制导 · 装甲猎手',
       detail:
-        '5费330生命。双联发射架每7.5秒发射一枚陶式制导导弹，携行8枚；96伤害、射程160–900，对装甲×2.6，可击穿重型坦克装甲，主弹绝不向步兵或基地发射。已锁定目标的导弹可越过房屋，仍受烟幕与观察限制。独立机枪射程420、单发3伤害，每0.18秒点射，四发后停1.2秒；携带500发，导弹装填时仍可掩护近身。导弹、机枪与行驶油料分别消耗，共用血条下方的细补给线；低补给时撤向基地或补给点，补满后恢复行动。薄甲履带车应在步兵后方猎甲。',
+        '5费330生命。双联发射架每7.5秒发射一枚寻隙制导导弹，携行8枚；96伤害、射程160–900，对装甲×2.6，可击穿重型坦克装甲，主弹绝不向步兵或基地发射。已锁定目标的导弹可越过房屋，仍受烟幕与观察限制。独立机枪射程420、单发3伤害，每0.18秒点射，四发后停1.2秒；携带500发，导弹装填时仍可掩护近身。导弹、机枪与行驶油料分别消耗，共用血条下方的细补给线；低补给时撤向基地或补给点，补满后恢复行动。薄甲履带车应在步兵后方猎甲。',
     },
   ),
   mortar_carrier: variant(
@@ -997,7 +997,7 @@ export const CARDS: Record<CardId, Card> = {
   javelin: variant(
     'rocket',
     'javelin',
-    '标枪反坦克组',
+    '跃顶反甲组',
     4,
     '双人制导反甲组，远距猎杀重装。',
     {
@@ -1204,7 +1204,7 @@ export const CARDS: Record<CardId, Card> = {
   marines: variant(
     'infantry',
     'marines',
-    '海军陆战队',
+    '涉水突击组',
     3,
     '6 人突击班，交替推进，近距火力增强。',
     {
@@ -1216,13 +1216,13 @@ export const CARDS: Record<CardId, Card> = {
       discipline: 92,
       trait: 'close_assault',
       uniform: 'marine',
-      tag: '陆战 · 交替突击',
+      tag: '突击 · 交替突击',
     },
   ),
   armed_police: variant(
     'infantry',
     'armed_police',
-    '武装警察',
+    '要地守卫组',
     3,
     '5 人守备组，重视蹲伏掩护，防护背心减伤 12%。',
     {
@@ -1258,7 +1258,7 @@ export const CARDS: Record<CardId, Card> = {
   rangers: variant(
     'infantry',
     'rangers',
-    '游骑兵',
+    '远行侦察组',
     4,
     '4 人侦察班，优先低姿态，能寻找更远的掩体。',
     {
@@ -1277,7 +1277,7 @@ export const CARDS: Record<CardId, Card> = {
   militia: variant(
     'infantry',
     'militia',
-    '民兵班',
+    '预备步兵班',
     1,
     '7 人低费班，兵力多但士气较低，受压后容易后撤或投降。',
     {
@@ -1717,7 +1717,7 @@ export const CARDS: Record<CardId, Card> = {
     3,
     '己方全体步兵移速提升 45%，10 秒',
     {
-      en: 'BLITZ DOCTRINE',
+      en: 'MOBILE OPERATIONS',
       effect: 'blitz',
       tag: '机动 · 全军突进',
       detail:
@@ -1920,7 +1920,7 @@ export const CARDS: Record<CardId, Card> = {
     'medic_team',
     '医疗小组',
     3,
-    '3 名随队军医，主动接近伤员，治疗与近距抢救',
+    '3 名随队医护员，主动接近伤员，治疗与近距抢救',
     {
       members: 3,
       hp: 150,
@@ -1933,7 +1933,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'medic',
       tag: '机动 · 前线抢救',
       detail:
-        '3名随队军医，各自在140范围内寻找伤员；会接近倒地战友，进入64距离后施救。每0.8秒治疗一人7点生命，比基础医疗兵的4点更强。可以随部队推进，负责把前线伤员从失血边缘救回来。',
+        '3名随队医护员，各自在140范围内寻找伤员；会接近倒地战友，进入64距离后施救。每0.8秒治疗一人7点生命，比基础医疗兵的4点更强。可以随部队推进，负责把前线伤员从失血边缘救回来。',
     },
   ),
   combat_engineers: variant(
@@ -2042,11 +2042,11 @@ export const CARDS: Record<CardId, Card> = {
   emergency_levy: variant(
     'supply',
     'emergency_levy',
-    '紧急征发',
+    '紧急补员',
     1,
     '立即获得 4 点指挥点，12 秒内回点放缓',
     {
-      en: 'EMERGENCY LEVY',
+      en: 'EMERGENCY REINFORCEMENT',
       economy: 'levy',
       tag: '快攻 · 即时爆发',
       detail:
@@ -2332,7 +2332,7 @@ export const CARDS: Record<CardId, Card> = {
       uniform: 'medic',
       tag: '固定 · 后方救护',
       detail:
-        '3名军医原地展开救护站，3秒后开始工作，不移动、不射击。每人每0.8秒为220范围内一名伤员恢复9生命；倒地者需被送到64距离内，抢救速度比医疗小组快50%。部署在掩护后方，配合随队军医和战友拖救接收伤员。',
+        '3名医护员原地展开救护站，3秒后开始工作，不移动、不射击。每人每0.8秒为220范围内一名伤员恢复9生命；倒地者需被送到64距离内，抢救速度比医疗小组快50%。部署在掩护后方，配合随队医护员和战友拖救接收伤员。',
     },
   ),
   fallback: variant(
@@ -2445,7 +2445,7 @@ export const CARDS: Record<CardId, Card> = {
     7,
     '随前线保持后方阵位，远程覆盖轰击，车体脆弱',
     {
-      en: 'MLRS',
+      en: 'ROCKET ARTILLERY',
       vehicle: true,
       armored: false,
       antiAir: false,
@@ -2674,7 +2674,7 @@ Object.assign(CARDS.armed_police, {
 });
 Object.assign(CARDS.marines, {
   infantryAbility: 'buddy_rally',
-  tag: '陆战 · 战友整队',
+  tag: '突击 · 战友整队',
   description: '同班战友重伤时，一次性鼓舞附近幸存队员。',
   detail:
     '3费6人270生命。96内同班战友重伤时，每班仅一次：附近幸存者恢复10士气并降低15压制，不超过自身纪律上限；不治疗伤员。保留近距增伤。',
@@ -2734,7 +2734,7 @@ Object.assign(CARDS.commandos, {
   tag: '精锐 · 快速伏击',
   description: '少人精锐，快速准备伏击，个人抗压且不投降。',
   detail:
-    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于游骑兵。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
+    '5费3人300生命。停步未开火1秒后，下一发对步兵伤害乘1.5；个人受击压制和士气损失降低35%。不投降，低士气仍会撤退。射程短于远行侦察组。每人另携2枚手榴弹，220内遇敌群聚集时投掷。',
 });
 Object.assign(CARDS.scouts, {
   cost: 1,
@@ -2782,10 +2782,10 @@ Object.assign(CARDS.antiarmor, {
   radius: 14,
   armorMultiplier: 1.8,
   doctrine: 'support',
-  tag: '反甲 · RPG混编',
-  description: 'RPG低姿伏击轻甲，三名步枪护卫掩护。',
+  tag: '反甲 · 轻型反甲火箭混编',
+  description: '轻型反甲火箭低姿伏击轻甲，三名步枪护卫掩护。',
   detail:
-    '2费4人200生命。1名RPG手每5.5秒60伤害、射程680、观察680、对甲乘1.8；3名护卫各每1.1秒3伤害、射程340。火箭直飞不制导，无法替代标枪。',
+    '2费4人200生命。1名火箭手每5.5秒60伤害、射程680、观察680、对甲乘1.8；3名护卫各每1.1秒3伤害、射程340。火箭直飞不制导，无法替代跃顶。',
 });
 
 export const DECK_SIZE = 25;
@@ -3065,12 +3065,12 @@ Object.assign(CARDS.rocket, {
   sight: 700,
   armorMultiplier: 1.4,
   rate: 4.8,
-  detail: '4费5人225生命。全组每4.8秒发射100范围伤害，射程720、观察700、对甲乘1.4，也可对空。泛用群伤火箭不制导，齐射后慢装填。低姿静止准备可隐蔽，开火即暴露；仍需护卫、防空与掩体，不替代标枪的远距制导猎甲。',
+  detail: '4费5人225生命。全组每4.8秒发射100范围伤害，射程720、观察700、对甲乘1.4，也可对空。泛用群伤火箭不制导，齐射后慢装填。低姿静止准备可隐蔽，开火即暴露；仍需护卫、防空与掩体，不替代跃顶的远距制导猎甲。',
 });
 Object.assign(CARDS.antiarmor, {
   rate: 5.5,
   detail:
-    '2费4人200生命。RPG手每5.5秒60伤，射程680、观察680、对甲乘1.8；三名护卫各每1.1秒3伤，射程340。低姿静止准备可隐蔽，开火即暴露，近距敌军和侦察能识破。火箭直飞不制导，每人50生命，裸露仍可被主坦高爆弹一发击倒。',
+    '2费4人200生命。火箭手每5.5秒60伤，射程680、观察680、对甲乘1.8；三名护卫各每1.1秒3伤，射程340。低姿静止准备可隐蔽，开火即暴露，近距敌军和侦察能识破。火箭直飞不制导，每人50生命，裸露仍可被主坦高爆弹一发击倒。',
 });
 Object.assign(CARDS.mortar, {
   rate: 10,
@@ -3268,7 +3268,7 @@ for(const c of Object.values(CARDS)) if(c.type==='skill' && (c.artilleryKind || 
 }
 Object.assign(CARDS.rally,{description:'零费稳住溃退班组'});
 Object.assign(CARDS.naval_gunfire,{description:'单轮重型舰炮，300伤害、80爆炸范围。',detail:`${CARDS.naval_gunfire.cost}费。3.4秒后单轮舰炮打击，300伤害、80爆炸范围，对装甲乘2，对基地乘0.6。需要观察目标区域。`});
-Object.assign(CARDS.heavy_tank,{description:'突击重坦，主动拦截RPG与陶式导弹。',detail:CARDS.heavy_tank.detail+' 主动防护：来袭RPG拦截率90%，陶式导弹50%；每次拦截尝试后冷却2秒，不拦截炮弹或顶攻炸弹。'});
+Object.assign(CARDS.heavy_tank,{description:'突击重坦，主动拦截轻型反甲火箭与寻隙导弹。',detail:CARDS.heavy_tank.detail+' 主动防护：来袭轻型反甲火箭拦截率90%，寻隙导弹50%；每次拦截尝试后冷却2秒，不拦截炮弹或顶攻炸弹。'});
 Object.assign(CARDS.foraged_supplies,{description:'弃牌堆随机两张回到牌堆。',detail:'2费。将弃牌堆中随机两张卡洗回剩余牌堆，不直接加入手牌；不回收本次使用的这张就地补给。少于两张时回收现有卡牌。'});
 Object.assign(CARDS.jam,{tag:'干扰 · 战争迷雾',description:'敌方除基地外全屏迷雾8秒，仍能出牌。',detail:'1费。敌方全屏战争迷雾持续8秒，基地附近保留视野，己方部队所在地也不揭开迷雾；仍可正常出牌。'});
 Object.assign(CARDS.overdraft,{description:'立即获得7点，随后40秒停止回点。',detail:'1费。立即获得7点指挥点，可超出当前上限；随后40秒自然回点停止，到期正常恢复。'});

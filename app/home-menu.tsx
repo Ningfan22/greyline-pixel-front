@@ -1,4 +1,5 @@
 'use client';
+import { FICTIONAL_SETTING_NOTICE } from '@/game/fictional-setting';
 /* oxlint-disable next/no-img-element -- Preserve native pixel art on the static GitHub Pages build, without an image server. */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -137,6 +138,7 @@ function Guide() {
       aria-labelledby="home-guide-title"
     >
       <h1 id="home-guide-title">作战手册</h1>
+      <div><h2>架空设定</h2><p>{FICTIONAL_SETTING_NOTICE}</p></div>
       <div>
         <h2>胜利条件</h2>
         <p>摧毁敌方指挥部。十分钟后仍未分出胜负，则比较双方基地剩余生命。</p>
@@ -259,7 +261,7 @@ export default function HomeMenu({
       <aside className={styles.sidebar}>
         <div className={styles.brand} aria-label="灰线 GREYLINE">
           <span>灰线</span>
-          <small>GREYLINE · v234</small>
+          <small>GREYLINE · v235</small>
         </div>
         <nav aria-label="主导航">
           {navigation.map((item) => (

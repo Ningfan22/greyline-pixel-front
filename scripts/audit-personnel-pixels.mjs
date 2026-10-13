@@ -7,7 +7,7 @@ const {soldierArt,soldierFrame,actorSoldierPoseFrame,SOLDIER_FRAME}=await import
 const {CARDS}=await import('../game/cards.ts');
 const {vehicleCrewPose}=await import('../game/vehicle-crew-pose.ts');
 const {artilleryCrewPose}=await import('../game/artillery-crew-pose.ts');
-const art=soldierArt(await loadImage('public/art/soldier-parts-v178.png'),await loadImage('public/art/soldier-equipment-v178.png'));
+const art=soldierArt(await loadImage('public/art/soldier-parts-v178.png'),await loadImage('public/art/v235-content/soldier-equipment.png'));
 const directory=process.argv[2]??'output/v234/personnel';mkdirSync(directory,{recursive:true});
 const base={id:'infantry',uid:1,x:950,y:374,lane:0,member:0,hp:100,side:0,pose:'idle',motion:'ground',moving:false,walk:0,facing:1,rifleReady:.7};
 const cases=[{}, {pose:'walk',moving:true,walk:2,gaitWeight:1}, {pose:'run',moving:true,gaitWeight:1,gaitRun:1,gaitPhase:2},
@@ -52,7 +52,7 @@ function plate(name,items,columns=8){
  ctx.fillStyle='#abb5a6';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.imageSmoothingEnabled=false;
  ctx.fillStyle='#1e2a22';ctx.font='16px sans-serif';ctx.fillText('Native personnel / 2x nearest preview / 1 raster pixel = 1 world pixel',12,25);
  items.forEach(([label,frame],i)=>{const x=i%columns*256,y=40+Math.floor(i/columns)*280;
-  ctx.drawImage(frame.image,x,y,256,256);ctx.fillText(label,x+12,y+270);});
+  ctx.drawImage(frame.image,x,y,256,256);ctx.fillText(label.replace(/armed_police/g,'site_guard').replace(/marines/g,'waterway_assault').replace(/militia/g,'reserve_infantry').replace(/javelin/g,'top_attack').replace(/tow_ifv/g,'seeker_vehicle'),x+12,y+270);});
  writeFileSync(directory+'/'+name+'.png',canvas.toBuffer('image/png'));
 }
 plate('all-infantry',entries);plate('all-crew',crewEntries);

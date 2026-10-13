@@ -603,7 +603,7 @@ export function render(
     ctx.font = '11px monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ebeed8';
-    ctx.fillText(side === 0 ? 'BLUE / HQ' : 'RED / HQ', x, y + 24);
+    ctx.fillText(side === 0 ? '己方基地' : '对方基地', x, y + 24);
   }
   if (s.campaign?.objective === 'capture') {
     const x = s.campaign.objectiveX,

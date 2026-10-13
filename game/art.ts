@@ -630,7 +630,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       loadImage('/art/tank-wreck-frames-v162.png'),
       loadImage('/art/blast-air-frames-v165.png'),
       loadImage('/art/soldier-parts-v178.png'),
-      loadImage('/art/soldier-equipment-v178.png'),
+      loadImage('/art/v235-content/soldier-equipment.png'),
     ]),
     loadFPVArt(compact),
     compact ? Promise.all((['pine', 'broadleaf'] as const).map(async kind =>
@@ -638,7 +638,7 @@ export function compileSharedBattleArt(compact = false): Promise<SharedBattleArt
       .then(entries => Object.fromEntries(entries) as TreeArtV17) : loadTreeArtV17(),
     compact ? loadImage('/art/v18-mines/mines.png').then(mineFramesV18) : loadMineArtV18(),
     compact ? loadImage('/art/v18-comeback/toxic-cloud.png').then(comebackFramesV18) : loadComebackArtV18(),
-    Promise.all(generatedSpriteIds.map((id) => loadImage((FORT_IDS_V227 as readonly string[]).includes(id)?`/art/v227-installations/${id}.png`:`/art/v190/sprites/${id}.webp`))),
+    Promise.all(generatedSpriteIds.map((id) => loadImage(id==='fort_medical_post'?'/art/v235-content/fort_medical_post-sprite.png':(FORT_IDS_V227 as readonly string[]).includes(id)?`/art/v227-installations/${id}.png`:`/art/v190/sprites/${id}.webp`))),
     loadImage('/art/v195-logistics/ammo-crate.png'),
     Promise.all(V197_VEHICLE_IDS.map(async id => {
       const [sprite, wreck] = await Promise.all([
