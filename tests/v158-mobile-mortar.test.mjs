@@ -88,6 +88,10 @@ test('foot mortar retains sustained first-shot fire and a hidden target does not
   const {s,u}=arena(0,'mortar');launch(s,u);assert(u.displaceGoal==null);
   const full=arena(0,'mortar');const n=full.s.units.length;spawnUnit(full.s,0,'mortar',1700);
   const crew=full.s.units.slice(n);full.s.units=full.s.units.filter(v=>v===full.enemy||crew.includes(v));
+  // Keep the target genuinely observed as the delayed opening rounds crater
+  // its position; target loss must not masquerade as failed displacement.
+  const observer=full.one(0,'scout_drone',full.enemy.x-70);
+  Object.assign(observer,{squadOrder:'watch',squadOrderX:observer.x,squadOrderUntil:Infinity});
   for(const v of crew)Object.assign(v,{x:1700,y:374,lane:0,pose:'crouch',poseAnimSeen:'crouch',cooldown:0,decisionIn:1000,tactic:'advance',readyAt:-100,pace:1,shots:0});
   refreshVision(full.s);run(full.s,2);
   assert(crew.every(v=>v.shots===1&&v.displaceGoal==null),JSON.stringify(crew.map(v=>({shots:v.shots,site:v.mortarSiteShots,goal:v.displaceGoal,x:v.x,pose:v.pose}))));
@@ -111,7 +115,9 @@ test('the carrier finishes a stable stop before firing even if its reload is acc
   }
   assert(u.displaceGoal==null,'the carrier must complete its backward bound within a physical travel window');
   const stopped=s.time;run(s,.3);assert.equal(u.shots,shots);
-  run(s,.5);assert(u.shots>shots,JSON.stringify({x:u.x,shots:u.shots,goal:u.displaceGoal,settle:u.carrierSettleUntil,time:s.time,moving:u.moving}));assert(s.time-stopped>=.55);
+  // New-position ranging follows the physical settling dwell even if the
+  // reload clock was artificially completed during travel.
+  run(s,1.9);assert(u.shots>shots,JSON.stringify({x:u.x,shots:u.shots,goal:u.displaceGoal,settle:u.carrierSettleUntil,time:s.time,moving:u.moving}));assert(s.time-stopped>=1.95);
 });
 
 test('losing sight at the new position does not immediately undo the bound or permit blind fire',()=>{
