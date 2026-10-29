@@ -31,6 +31,7 @@ import { isPrecisionObserver, precisionObserverReady, precisionPartner, pairedPr
 import { carrierScootGoal, CARRIER_SETTLE } from './mobile-mortar';
 import { isBattleTank, infantryConcentrations, tankTargetPriority, tankPurchaseBonus } from './tank-doctrine';
 import { rocketBatteryMarchGoal } from './mobile-artillery';
+import { artilleryAimReady, type ArtilleryAim } from './artillery-fire-control';
 import { GRENADE_THROW_S, grenadeElapsed, grenadeReleased, stanceTransitionActive, stanceTransitionProgress, magazineReloadActive, pauseMagazineDrill } from './infantry-action-timing';
 import { advanceLauncherDrill, launcherDrillBusy } from './launcher-drill';
 import { crouchStartDelay, crouchTravelAmount, crouchMotionActive, requestCrouchStep, stepCrouchLocomotion, startMagazineDrill } from './crouch-locomotion';
@@ -407,6 +408,7 @@ export interface Unit {
   trafficYieldUntil?: number;
   artilleryChecks?: number[];
   artilleryReactAt?: number;
+  artilleryAim?: ArtilleryAim;
   lastCombatShotAt?: number;
   /** Single-shot launcher drill advances with the real weapon cooldown. */
   launcherCycleRemaining?: number;
@@ -10935,7 +10937,10 @@ export function tick(s: GameState, dt: number) {
       // body here would move the muzzle away from the ray that selected it.
       let spotted = false;
       let burnedReport: BatteryReport | null = null;
-      if (c.indirect && u.cooldown <= 0) {
+      const aimReady = !c.indirect || c.air || artilleryAimReady(u, s.time,
+        target ? `unit:${target.uid}` : coverShot ? `cover:${coverShot.propId}:${coverShot.partId}`
+          : counterBattery ? `battery:${counterBattery.x}` : `base:${enemySide}`, tx, ty);
+      if (c.indirect && u.cooldown <= 0 && aimReady) {
         spotted = scoutSpotter(s, u.side, tx, ground(s, tx) - 8);
         burnedReport =
           s.batteryReports.find(
@@ -10979,6 +10984,7 @@ export function tick(s: GameState, dt: number) {
         coverShot ? `cover:${coverShot.propId}:${coverShot.partId}` : `base:${enemySide}`,tx,ty);
       if (
         u.cooldown <= 0 &&
+        aimReady &&
         !(c.airRadarRange && u.radarOff) &&
         tankReady && (!(isBattleTank(u.id)||expansionGunMount(u.id))||!aimedGun||Math.abs((u.gunElevation??0)-aimedGun.elevation)<.015) &&
         (!aimedGun || aimedGun.canFire) &&
@@ -11489,7 +11495,7 @@ export function tick(s: GameState, dt: number) {
                 ? Math.min(speed, Math.abs(u.displaceGoal! - u.x) / dt)
               : speed,
           dt,
-          !target || withdrawing || breachRun,
+          !target || withdrawing || breachRun || seeking || bounding || mobileBurstStep || displacing,
         );
         if (laneChange) u.moving = true;
         if (
